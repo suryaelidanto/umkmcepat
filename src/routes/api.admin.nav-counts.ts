@@ -25,6 +25,7 @@ export const Route = createFileRoute("/api/admin/nav-counts")({
             paymentsPending,
             projectsActive,
             ticketCounts,
+            usersTotal,
           ] = await Promise.all([
             prisma.waitlistEntry.count({
               where: { status: { in: [...WAITLIST_PENDING_STATUSES] } },
@@ -35,6 +36,7 @@ export const Route = createFileRoute("/api/admin/nav-counts")({
               userId: admin.admin.userId,
               isAdmin: true,
             }),
+            prisma.user.count(),
           ]);
 
           return Response.json({
@@ -42,6 +44,7 @@ export const Route = createFileRoute("/api/admin/nav-counts")({
             ticketsUnread: ticketCounts.adminUnreadCount,
             paymentsPending,
             projectsActive,
+            usersTotal,
           });
         } catch {
           return Response.json(

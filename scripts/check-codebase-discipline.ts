@@ -73,6 +73,26 @@ function checkCommentsAndTypes(filePath: string, content: string) {
     const trimmed = line.trim();
 
     if (
+      relPath.startsWith("src/routes/") &&
+      (trimmed.includes('Hello "/_main') ||
+        trimmed.includes('Hello "/admin') ||
+        trimmed.includes('Hello "/support'))
+    ) {
+      if (
+        !relPath.includes("settings.page.test") &&
+        !relPath.includes("check-codebase-discipline")
+      ) {
+        violations.push({
+          file: relPath,
+          line: lineNum,
+          rule: "no-dummy-stub-route",
+          detail:
+            "TanStack Router default placeholder detected. Write the actual page component instead of placeholder.",
+        });
+      }
+    }
+
+    if (
       trimmed.includes("@ts" + "-ignore") &&
       !relPath.includes("check-codebase-discipline")
     ) {

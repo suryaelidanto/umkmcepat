@@ -109,7 +109,7 @@ const entry = (
 
 describe("percentage display values", () => {
   const percentageEntry = baseEntry({
-    category: "generated_quality",
+    category: "ai",
     display: "percentage",
     effectiveValue: 0.1,
     fallback: 0.1,

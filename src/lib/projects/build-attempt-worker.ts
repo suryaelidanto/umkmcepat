@@ -871,11 +871,8 @@ export async function runBuildAttempt({
       );
     }
 
-    const isAgenticFlag = getSettingSync(
-      "feature.generation_engine_agentic",
-      false,
-    ) as boolean;
-    const isAgentic = isAgenticFlag && !referenceCalibratedCandidate?.ok;
+    const engine = getSettingSync("generation.engine", "single_shot") as string;
+    const isAgentic = engine === "agentic" && !referenceCalibratedCandidate?.ok;
 
     const agentStartedAt = Date.now();
     let generationOutput: {

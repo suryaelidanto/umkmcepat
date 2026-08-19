@@ -11,6 +11,24 @@ colors:
   action-primary: "#1c1c1c"
   border-warm: "#d8d5cc"
   destructive: "#9f1d1d"
+  accent-orange:
+    light: "#c2410c"
+    dark: "#ff7a59"
+  accent-gold:
+    light: "#b45309"
+    dark: "#f7a441"
+  accent-rose:
+    light: "#be123c"
+    dark: "#fb7185"
+  accent-blue:
+    light: "#1d4ed8"
+    dark: "#60a5fa"
+  status-success:
+    light: "#047857"
+    dark: "#34d399"
+  status-warning:
+    light: "#a16207"
+    dark: "#facc15"
   aurora-orange: "#ff7a59"
   aurora-rose: "#ee4f9b"
   aurora-violet: "#7867ff"

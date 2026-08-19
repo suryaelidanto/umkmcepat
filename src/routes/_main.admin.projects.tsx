@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+import { FolderKanban } from "lucide-react";
 import { useState } from "react";
 
+import { AdminSearchInput } from "@/components/admin/AdminSearchInput";
 import { projectStatusTone } from "@/components/admin/status/admin-status";
 import { AdminStatusBadge } from "@/components/admin/status/AdminStatusBadge";
 import { AdminStatusFilter } from "@/components/admin/status/AdminStatusFilter";
@@ -71,10 +73,13 @@ function ProjectListSkeleton() {
 function ProjectsPage() {
   const streamerMode = useStreamerMode();
   const [status, setStatus] = useState("active");
+  const [q, setQ] = useState("");
   const { data, isError, isPending, refetch } = useQuery({
     queryFn: () =>
-      fetchJson<ProjectsResponse>(`/api/admin/projects?status=${status}`),
-    queryKey: ["admin", "projects", status],
+      fetchJson<ProjectsResponse>(
+        `/api/admin/projects?status=${status}&q=${encodeURIComponent(q)}`,
+      ),
+    queryKey: ["admin", "projects", status, q],
   });
   const projects = data?.projects ?? [];
   const listState = resolveAsyncListState({
@@ -84,11 +89,16 @@ function ProjectsPage() {
   });
 
   return (
-    <div className="flex flex-col gap-spacing-3">
+    <div className="flex flex-col gap-spacing-4">
       <AdminStatusFilter
         onChange={setStatus}
         options={PROJECT_STATUS_OPTIONS}
         value={status}
+      />
+      <AdminSearchInput
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Cari judul proyek, email, atau nama pemilik…"
+        value={q}
       />
 
       {listState === "loading" ? (
@@ -107,95 +117,110 @@ function ProjectsPage() {
           </button>
         </div>
       ) : listState === "empty" ? (
-        <p className="text-[#5f5f5d] dark:text-surface-warm-white/70">
-          {status === "needs_attention"
-            ? "Tidak ada proyek gagal."
-            : status === "active"
-              ? "Tidak ada proyek berjalan."
-              : "Belum ada proyek."}
-        </p>
+        <div className="flex flex-col items-center justify-center rounded-radius-lg border border-dashed border-black/10 py-spacing-12 text-center text-[#5f5f5d] dark:border-surface-warm-white/10 dark:text-surface-warm-white/40">
+          <FolderKanban className="size-8 opacity-40" />
+          <p className="mt-spacing-3 text-sm">
+            {status === "needs_attention"
+              ? "Tidak ada proyek gagal."
+              : status === "active"
+                ? "Tidak ada proyek berjalan."
+                : q
+                  ? "Tidak ada proyek yang cocok dengan pencarian."
+                  : "Belum ada proyek."}
+          </p>
+        </div>
       ) : (
-        <div className="flex flex-col gap-spacing-2">
-          {projects.map((project) => (
-            <article
-              className="rounded-radius-md border border-black/10 bg-[#fcfbf8] p-spacing-3 text-sm text-[#1c1c1c] dark:border-surface-warm-white/12 dark:bg-surface-warm-white/5 dark:text-surface-warm-white"
-              key={project.id}
-            >
-              <div className="flex flex-col gap-spacing-3 sm:flex-row sm:items-start">
-                <div className="h-24 w-full shrink-0 overflow-hidden rounded-radius-md border border-black/10 bg-black/5 sm:w-36 dark:border-surface-warm-white/12 dark:bg-surface-warm-white/8">
-                  {project.thumbnailUrl ? (
-                    <img
-                      alt={`Thumbnail ${project.title}`}
-                      className="h-full w-full object-cover"
-                      src={project.thumbnailUrl}
-                    />
-                  ) : (
-                    <div className="grid h-full place-items-center text-xs text-[#5f5f5d] dark:text-surface-warm-white/48">
-                      Belum ada thumbnail
+        <div className="flex flex-col gap-spacing-3">
+          <div className="flex items-center justify-between px-1 text-xs text-[#5f5f5d] dark:text-surface-warm-white/60">
+            <span>Menampilkan {projects.length} proyek</span>
+          </div>
+          <div className="flex flex-col gap-spacing-2">
+            {projects.map((project) => (
+              <article
+                className="rounded-radius-md border border-black/10 bg-[#fcfbf8] p-spacing-3 text-sm text-[#1c1c1c] dark:border-surface-warm-white/12 dark:bg-surface-warm-white/5 dark:text-surface-warm-white"
+                key={project.id}
+              >
+                <div className="flex flex-col gap-spacing-3 sm:flex-row sm:items-start">
+                  <div className="h-24 w-full shrink-0 overflow-hidden rounded-radius-md border border-black/10 bg-black/5 sm:w-36 dark:border-surface-warm-white/12 dark:bg-surface-warm-white/8">
+                    {project.thumbnailUrl ? (
+                      <img
+                        alt={`Thumbnail ${project.title}`}
+                        className="h-full w-full object-cover"
+                        src={project.thumbnailUrl}
+                      />
+                    ) : (
+                      <div className="grid h-full place-items-center text-xs text-[#5f5f5d] dark:text-surface-warm-white/48">
+                        Belum ada thumbnail
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex min-w-0 flex-1 flex-col gap-spacing-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <h2 className="truncate font-medium text-[#1c1c1c] dark:text-surface-warm-white">
+                        <a
+                          className="underline-offset-2 hover:underline"
+                          href={`/projects/${project.id}`}
+                        >
+                          {streamerMode ? (
+                            <SensitiveText kind="name" value={project.title} />
+                          ) : (
+                            project.title
+                          )}
+                        </a>
+                      </h2>
+                      <p className="mt-spacing-1 text-[#5f5f5d] dark:text-surface-warm-white/70">
+                        {streamerMode && project.owner.name ? (
+                          <SensitiveText
+                            kind="name"
+                            value={project.owner.name}
+                          />
+                        ) : (
+                          (project.owner.name ?? "Tanpa nama")
+                        )}
+                        {" · "}
+                        {streamerMode && project.owner.email ? (
+                          <SensitiveText
+                            kind="email"
+                            value={project.owner.email}
+                          />
+                        ) : (
+                          (project.owner.email ?? "Tanpa email")
+                        )}
+                      </p>
                     </div>
-                  )}
-                </div>
-                <div className="flex min-w-0 flex-1 flex-col gap-spacing-2 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <h2 className="truncate font-medium text-[#1c1c1c] dark:text-surface-warm-white">
+                    <div className="flex flex-wrap gap-spacing-2 text-xs sm:justify-end">
+                      <AdminStatusBadge
+                        tone={projectStatusTone(project.status)}
+                      >
+                        {project.status}
+                      </AdminStatusBadge>
+                      <AdminStatusBadge
+                        tone={projectStatusTone(project.buildStatus)}
+                      >
+                        Build: {project.buildStatus}
+                      </AdminStatusBadge>
                       <a
-                        className="underline-offset-2 hover:underline"
+                        className="rounded-radius-sm border border-black/15 px-spacing-2 py-spacing-1 text-[#1c1c1c] underline-offset-2 hover:bg-black/5 hover:underline dark:border-surface-warm-white/20 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/8"
                         href={`/projects/${project.id}`}
                       >
-                        {streamerMode ? (
-                          <SensitiveText kind="name" value={project.title} />
-                        ) : (
-                          project.title
-                        )}
+                        Lihat detail
                       </a>
-                    </h2>
-                    <p className="mt-spacing-1 text-[#5f5f5d] dark:text-surface-warm-white/70">
-                      {streamerMode && project.owner.name ? (
-                        <SensitiveText kind="name" value={project.owner.name} />
-                      ) : (
-                        (project.owner.name ?? "Tanpa nama")
-                      )}
-                      {" · "}
-                      {streamerMode && project.owner.email ? (
-                        <SensitiveText
-                          kind="email"
-                          value={project.owner.email}
-                        />
-                      ) : (
-                        (project.owner.email ?? "Tanpa email")
-                      )}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-spacing-2 text-xs sm:justify-end">
-                    <AdminStatusBadge tone={projectStatusTone(project.status)}>
-                      {project.status}
-                    </AdminStatusBadge>
-                    <AdminStatusBadge
-                      tone={projectStatusTone(project.buildStatus)}
-                    >
-                      Build: {project.buildStatus}
-                    </AdminStatusBadge>
-                    <a
-                      className="rounded-radius-sm border border-black/15 px-spacing-2 py-spacing-1 text-[#1c1c1c] underline-offset-2 hover:bg-black/5 hover:underline dark:border-surface-warm-white/20 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/8"
-                      href={`/projects/${project.id}`}
-                    >
-                      Lihat detail
-                    </a>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <dl className="mt-spacing-3 grid gap-spacing-2 text-xs text-[#5f5f5d] sm:grid-cols-2 dark:text-surface-warm-white/70">
-                <div>
-                  <dt className="sr-only">Dibuat</dt>
-                  <dd>Dibuat {formatDate(project.createdAt)}</dd>
-                </div>
-                <div>
-                  <dt className="sr-only">Diperbarui</dt>
-                  <dd>Diperbarui {formatDate(project.updatedAt)}</dd>
-                </div>
-              </dl>
-            </article>
-          ))}
+                <dl className="mt-spacing-3 grid gap-spacing-2 text-xs text-[#5f5f5d] sm:grid-cols-2 dark:text-surface-warm-white/70">
+                  <div>
+                    <dt className="sr-only">Dibuat</dt>
+                    <dd>Dibuat {formatDate(project.createdAt)}</dd>
+                  </div>
+                  <div>
+                    <dt className="sr-only">Diperbarui</dt>
+                    <dd>Diperbarui {formatDate(project.updatedAt)}</dd>
+                  </div>
+                </dl>
+              </article>
+            ))}
+          </div>
         </div>
       )}
     </div>

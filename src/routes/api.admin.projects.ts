@@ -18,10 +18,10 @@ export const Route = createFileRoute("/api/admin/projects")({
           );
         }
 
-        const filter = parseAdminProjectFilter(
-          new URL(request.url).searchParams.get("status"),
-        );
-        return Response.json(await listAdminProjects(undefined, filter));
+        const url = new URL(request.url);
+        const filter = parseAdminProjectFilter(url.searchParams.get("status"));
+        const q = url.searchParams.get("q") ?? undefined;
+        return Response.json(await listAdminProjects(undefined, filter, q));
       },
     },
   },

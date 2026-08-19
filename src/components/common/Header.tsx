@@ -24,12 +24,12 @@ export function Header({
   return (
     <header className="sticky top-0 z-50 w-full border-b border-black/10 bg-[#eceae4]/90 text-[#1c1c1c] backdrop-blur-md transition-colors duration-200 dark:border-white/[0.07] dark:bg-[#151515] dark:text-surface-warm-white">
       {showDevBanner ? (
-        <div className="border-b border-aurora-orange/30 bg-aurora-orange/10 px-spacing-4 py-1 text-aurora-orange">
+        <div className="border-b border-accent-orange-border bg-accent-orange-subtle px-spacing-4 py-1 text-accent-orange">
           <div className="mx-auto flex max-w-7xl items-center justify-center gap-spacing-3 text-[10px]">
             <span>DEV: Mode Pengembang</span>
             {showResetButton ? (
               <button
-                className="rounded-radius-sm border border-aurora-orange/40 px-1.5 py-px text-[9px] font-semibold transition hover:bg-aurora-orange/20 disabled:opacity-50"
+                className="rounded-radius-sm border border-accent-orange-border px-1.5 py-px text-[9px] font-semibold transition hover:bg-accent-orange-subtle disabled:opacity-50"
                 disabled={devResetPending}
                 onClick={onDevReset}
                 type="button"

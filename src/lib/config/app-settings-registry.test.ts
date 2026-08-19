@@ -53,29 +53,13 @@ describe("APP_SETTINGS registry", () => {
     }
   });
 
-  it("keeps feature flags boolean and demotes dev knobs to advanced", () => {
+  it("keeps feature flags in basic tier", () => {
     const featureFlags = APP_SETTINGS.filter(
       (entry) => entry.category === "feature_flag",
     );
 
     expect(featureFlags.length).toBeGreaterThan(0);
-    expect(featureFlags.every((entry) => entry.type === "boolean")).toBe(true);
-    const demoted = ["feature.thumbnail_capture_enabled"];
-    expect(
-      featureFlags
-        .filter((entry) => !demoted.includes(entry.key))
-        .every((entry) => entry.tier === "basic"),
-    ).toBe(true);
-    expect(
-      featureFlags
-        .filter((entry) => demoted.includes(entry.key))
-        .every((entry) => entry.tier === "advanced"),
-    ).toBe(true);
-    expect(
-      featureFlags.find(
-        (entry) => entry.key === "feature.thumbnail_capture_enabled",
-      ),
-    ).toBeDefined();
+    expect(featureFlags.every((entry) => entry.tier === "basic")).toBe(true);
     expect(
       featureFlags.find(
         (entry) => entry.key === "feature.composer_uploads_enabled",
@@ -87,13 +71,13 @@ describe("APP_SETTINGS registry", () => {
     ).toBe(false);
   });
 
-  it("keeps critic sampling in generated-site quality as a percentage", () => {
+  it("keeps critic sampling in AI settings as a percentage", () => {
     expect(
       APP_SETTINGS.find(
         (entry) => entry.key === "quality.generated_site_critic_sample_rate",
       ),
     ).toMatchObject({
-      category: "generated_quality",
+      category: "ai",
       display: "percentage",
       type: "number",
       fallback: 0.1,

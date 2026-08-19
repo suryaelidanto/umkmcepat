@@ -69,9 +69,13 @@ export const Route = createFileRoute("/api/support/tickets/$ticketId")({
           assetIds?: string[];
         };
 
-        if (!body.body) {
+        const messageText =
+          typeof body.body === "string" ? body.body.trim() : "";
+        const assetIds = Array.isArray(body.assetIds) ? body.assetIds : [];
+
+        if (!messageText && assetIds.length === 0) {
           return Response.json(
-            { message: "Pesan wajib diisi." },
+            { message: "Tulis pesan atau lampirkan gambar." },
             { status: 400 },
           );
         }
@@ -81,8 +85,8 @@ export const Route = createFileRoute("/api/support/tickets/$ticketId")({
             ticketId: params.ticketId,
             authorId: session.user.id,
             authorRole: "user",
-            body: body.body,
-            assetIds: body.assetIds,
+            body: messageText,
+            assetIds,
           });
 
           return Response.json(result, { status: 201 });

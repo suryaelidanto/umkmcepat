@@ -66,6 +66,16 @@ function modelSelectValue(value: unknown, defaultModelId: string): string {
   return defaultModelId.trim() || "default-combo";
 }
 
+const CATEGORY_TITLES: Record<string, string> = {
+  feature_flag: "Fitur & Mode",
+  economics: "Ekonomi & Kuota",
+  booster: "Paket Booster Energi",
+  ai: "Model AI & Timeout",
+  rate_limit: "Batas Laju (Rate Limit)",
+  runtime: "Runtime & Build",
+  limits: "Batas Ukuran File",
+};
+
 function CategorySection({
   group,
   draft,
@@ -87,39 +97,49 @@ function CategorySection({
 }) {
   const dirty = getDirtyKeys(group.entries, draft);
   const hasDirty = dirty.size > 0;
+  const title =
+    CATEGORY_TITLES[group.category] || group.category.replace("_", " ");
 
   return (
-    <section>
-      <h2 className="mb-spacing-3 text-lg font-semibold capitalize text-[#1c1c1c] dark:text-surface-warm-white">
-        {group.category.replace("_", " ")}
-      </h2>
-      <div className="flex flex-col gap-spacing-3">
+    <section className="rounded-2xl border border-black/10 bg-[#fcfbf8] p-spacing-6 shadow-xs transition-colors dark:border-white/10 dark:bg-[#191917] sm:p-spacing-7">
+      <div className="mb-spacing-4 flex items-center justify-between border-b border-black/10 pb-spacing-3 dark:border-white/10">
+        <div>
+          <h2 className="text-base font-bold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white">
+            {title}
+          </h2>
+          <p className="text-xs text-[#5f5f5d] dark:text-surface-warm-white/60">
+            {group.entries.length} pengaturan
+          </p>
+        </div>
+      </div>
+      <div className="divide-y divide-black/10 dark:divide-white/10">
         {group.entries.map((entry) => {
           const value = draft[entry.key] ?? entry.effectiveValue;
           return (
             <div
-              className="flex items-center justify-between gap-spacing-3 rounded-radius-md border border-black/10 bg-[#fcfbf8] p-spacing-3 text-sm text-[#1c1c1c] dark:border-surface-warm-white/12 dark:bg-surface-warm-white/5 dark:text-surface-warm-white"
+              className="flex flex-col sm:flex-row sm:items-center justify-between gap-spacing-3 py-4 first:pt-0 last:pb-0 text-sm text-[#1c1c1c] dark:text-surface-warm-white"
               key={entry.key}
             >
-              <div>
+              <div className="min-w-0 flex-1 pr-4">
                 <p className="font-medium text-[#1c1c1c] dark:text-surface-warm-white">
                   {entry.label}
                   {entry.requiresRestart ? (
-                    <span className="ml-spacing-2 rounded-radius-sm bg-black/10 px-spacing-2 py-spacing-1 text-xs text-[#5f5f5d] dark:bg-surface-warm-white/15 dark:text-surface-warm-white/80">
+                    <span className="ml-spacing-2 rounded-md bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-300">
                       perlu restart
                     </span>
                   ) : null}
                 </p>
-                <p className="text-xs text-[#5f5f5d] dark:text-surface-warm-white/70">
-                  Sumber: {entry.source} · fallback: {String(entry.fallback)}
+                <p className="text-[11px] text-[#5f5f5d] dark:text-surface-warm-white/50">
+                  Key: <code className="font-mono">{entry.key}</code> ·
+                  fallback: {String(entry.fallback)}
                 </p>
               </div>
               {entry.type === "boolean" ? (
                 <button
                   className={
                     value === true
-                      ? "rounded-radius-md bg-emerald-600 px-spacing-3 py-spacing-2 text-white"
-                      : "rounded-radius-md border border-black/15 bg-black/[0.02] px-spacing-3 py-spacing-2 text-sm text-[#1c1c1c] dark:border-surface-warm-white/15 dark:bg-surface-warm-white/5 dark:text-surface-warm-white"
+                      ? "rounded-lg bg-emerald-600 px-4 py-1.5 font-semibold text-xs text-white hover:bg-emerald-500 transition"
+                      : "rounded-lg border border-black/15 bg-white px-4 py-1.5 text-xs font-semibold text-[#1c1c1c] hover:bg-black/[0.04] transition dark:border-white/15 dark:bg-white/[0.05] dark:text-surface-warm-white dark:hover:bg-white/[0.08]"
                   }
                   onClick={() => setDraft({ ...draft, [entry.key]: !value })}
                   type="button"
@@ -129,7 +149,7 @@ function CategorySection({
               ) : entry.type === "number" ? (
                 <div className="flex items-center gap-spacing-2">
                   <input
-                    className="w-36 rounded-radius-md border border-black/15 bg-black/[0.02] px-spacing-2 py-spacing-1 text-sm tabular-nums text-[#1c1c1c] dark:border-surface-warm-white/15 dark:bg-surface-warm-white/5 dark:text-surface-warm-white"
+                    className="w-36 rounded-lg border border-black/15 bg-white px-3 py-1.5 text-sm tabular-nums text-[#1c1c1c] outline-none focus:border-accent-orange focus:ring-1 focus:ring-accent-orange dark:border-white/15 dark:bg-white/[0.05] dark:text-surface-warm-white"
                     inputMode="numeric"
                     onChange={(e) =>
                       setDraft({
@@ -152,7 +172,7 @@ function CategorySection({
               ) : entry.optionsSource === "nine_router_models" ? (
                 <div className="flex flex-col items-end gap-spacing-1">
                   <select
-                    className="max-w-xs rounded-radius-md border border-black/15 bg-[#eceae4] px-spacing-2 py-spacing-1 text-sm text-[#1c1c1c] dark:border-surface-warm-white/15 dark:bg-[#18181b] dark:text-[#fafafa]"
+                    className="max-w-xs rounded-lg border border-black/15 bg-white px-3 py-1.5 text-sm text-[#1c1c1c] outline-none focus:border-accent-orange focus:ring-1 focus:ring-accent-orange dark:border-white/15 dark:bg-white/[0.05] dark:text-[#fafafa]"
                     disabled={isPending}
                     onChange={(e) =>
                       setDraft({ ...draft, [entry.key]: e.target.value })
@@ -188,7 +208,7 @@ function CategorySection({
                 </div>
               ) : entry.enumOptions && entry.enumOptions.length ? (
                 <select
-                  className="rounded-radius-md border border-black/15 bg-black/[0.02] px-spacing-2 py-spacing-1 text-sm text-[#1c1c1c] dark:border-surface-warm-white/15 dark:bg-surface-warm-white/5 dark:text-surface-warm-white"
+                  className="rounded-lg border border-black/15 bg-white px-3 py-1.5 text-sm text-[#1c1c1c] outline-none focus:border-accent-orange focus:ring-1 focus:ring-accent-orange dark:border-white/15 dark:bg-white/[0.05] dark:text-surface-warm-white"
                   disabled={isPending}
                   onChange={(e) =>
                     setDraft({ ...draft, [entry.key]: e.target.value })
@@ -201,9 +221,21 @@ function CategorySection({
                     </option>
                   ))}
                 </select>
+              ) : entry.key.endsWith(".desc") ? (
+                <textarea
+                  rows={2}
+                  className="w-64 sm:w-80 md:w-96 rounded-lg border border-black/15 bg-white px-3 py-1.5 text-sm text-[#1c1c1c] resize-y outline-none focus:border-accent-orange focus:ring-1 focus:ring-accent-orange dark:border-white/15 dark:bg-white/[0.05] dark:text-surface-warm-white"
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      [entry.key]: e.target.value,
+                    })
+                  }
+                  value={String(value)}
+                />
               ) : (
                 <input
-                  className="w-32 rounded-radius-md border border-black/15 bg-black/[0.02] px-spacing-2 py-spacing-1 text-sm text-[#1c1c1c] dark:border-surface-warm-white/15 dark:bg-surface-warm-white/5 dark:text-surface-warm-white"
+                  className="w-48 sm:w-64 md:w-80 rounded-lg border border-black/15 bg-white px-3 py-1.5 text-sm text-[#1c1c1c] outline-none focus:border-accent-orange focus:ring-1 focus:ring-accent-orange dark:border-white/15 dark:bg-white/[0.05] dark:text-surface-warm-white"
                   onChange={(e) =>
                     setDraft({
                       ...draft,
@@ -218,37 +250,42 @@ function CategorySection({
           );
         })}
       </div>
-      <div className="mt-spacing-3 flex items-center gap-spacing-2">
-        <button
-          className="rounded-radius-md border border-black/15 px-spacing-3 py-spacing-2 text-sm text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] disabled:cursor-not-allowed disabled:opacity-50 dark:border-surface-warm-white/15 dark:text-surface-warm-white/80 dark:hover:bg-surface-warm-white/10 dark:hover:text-surface-warm-white"
-          disabled={!hasDirty}
-          onClick={() => {
-            const next = { ...draft };
-            for (const key of dirty) {
-              delete next[key];
-            }
-            setDraft(next);
-          }}
-          type="button"
-        >
-          Reset
-        </button>
-        <button
-          className="rounded-radius-md bg-black/10 px-spacing-3 py-spacing-2 text-sm font-medium text-[#1c1c1c] hover:bg-black/15 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-surface-warm-white/15 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/20"
-          disabled={!hasDirty || isPending}
-          onClick={() => {
-            const values: Record<string, unknown> = {};
-            for (const key of dirty) {
-              values[key] = draft[key];
-            }
-            onSave(group.category, values);
-          }}
-          type="button"
-        >
+      <div className="mt-spacing-6 flex items-center justify-between border-t border-black/10 pt-spacing-4 dark:border-white/10">
+        <span className="text-xs text-[#5f5f5d] dark:text-surface-warm-white/50">
           {hasDirty
-            ? `Simpan ${group.category.replace("_", " ")} (${dirty.size})`
-            : `Simpan ${group.category.replace("_", " ")}`}
-        </button>
+            ? `${dirty.size} perubahan belum disimpan`
+            : "Semua tersimpan"}
+        </span>
+        <div className="flex items-center gap-spacing-3">
+          <button
+            className="rounded-lg border border-black/15 px-4 py-2 text-xs font-semibold text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] disabled:cursor-not-allowed disabled:opacity-40 transition dark:border-white/15 dark:text-surface-warm-white/70 dark:hover:bg-white/10 dark:hover:text-surface-warm-white"
+            disabled={!hasDirty}
+            onClick={() => {
+              const next = { ...draft };
+              for (const key of dirty) {
+                delete next[key];
+              }
+              setDraft(next);
+            }}
+            type="button"
+          >
+            Batal
+          </button>
+          <button
+            className="rounded-lg bg-[#1c1c1c] px-5 py-2 text-xs font-bold text-white transition hover:bg-black active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white"
+            disabled={!hasDirty || isPending}
+            onClick={() => {
+              const values: Record<string, unknown> = {};
+              for (const key of dirty) {
+                values[key] = draft[key];
+              }
+              onSave(group.category, values);
+            }}
+            type="button"
+          >
+            {hasDirty ? `Simpan (${dirty.size})` : "Simpan"}
+          </button>
+        </div>
       </div>
     </section>
   );

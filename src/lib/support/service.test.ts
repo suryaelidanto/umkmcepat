@@ -253,7 +253,10 @@ describe("support service", () => {
       });
       expect(prisma.supportTicket.update).toHaveBeenCalledWith({
         where: { id: "ticket-1" },
-        data: { updatedAt: expect.any(Date) },
+        data: {
+          status: SupportTicketStatus.OPEN,
+          updatedAt: expect.any(Date),
+        },
       });
     });
   });

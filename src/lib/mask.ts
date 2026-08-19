@@ -28,12 +28,21 @@ export function mask(
         return { masked: DASH, revealable: true };
       }
       const local = text.slice(0, at);
-      const domain = text.slice(at); // includes "@"
-      if (local.length <= 1) {
-        return { masked: `${local}${maskChars(3)}${domain}`, revealable: true };
-      }
+      const domain = text.slice(at + 1);
+      const dotIndex = domain.lastIndexOf(".");
+      const tld = dotIndex > 0 ? domain.slice(dotIndex) : "";
+
+      const maskedLocal =
+        local.length <= 1
+          ? `${local[0] ?? ""}${maskChars(3)}`
+          : `${local[0]}${maskChars(3)}`;
+      const maskedDomain =
+        domain.length <= 3
+          ? `${maskChars(3)}${tld}`
+          : `${domain[0]}${maskChars(3)}${tld}`;
+
       return {
-        masked: `${local[0]}${maskChars(3)}${domain}`,
+        masked: `${maskedLocal}@${maskedDomain}`,
         revealable: true,
       };
     }

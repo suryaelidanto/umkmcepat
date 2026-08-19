@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+import { Users } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { AdminSearchInput } from "@/components/admin/AdminSearchInput";
 import { AdminStatusBadge } from "@/components/admin/status/AdminStatusBadge";
 import { AdminStatusFilter } from "@/components/admin/status/AdminStatusFilter";
 import { SensitiveText } from "@/components/admin/streamer-mode/SensitiveText";
@@ -42,6 +44,7 @@ type AdminUser = {
   bannedAt: string | null;
   createdAt: string;
   email: string | null;
+  energyRemaining: number;
   id: string;
   name: string | null;
   projectsCount: number;
@@ -145,7 +148,7 @@ function UsersPage() {
     items: data?.users,
   });
   return (
-    <div className="flex flex-col gap-spacing-3">
+    <div className="flex flex-col gap-spacing-4">
       <AdminStatusFilter
         onChange={(v) => {
           setStatus(v);
@@ -154,8 +157,7 @@ function UsersPage() {
         options={USER_STATUS_OPTIONS}
         value={status}
       />
-      <input
-        className="rounded-radius-md border border-black/15 bg-black/[0.02] px-spacing-3 py-spacing-2 text-sm text-[#1c1c1c] placeholder:text-[#5f5f5d] focus:outline-none focus:ring-1 focus:ring-[#1c1c1c] dark:border-surface-warm-white/15 dark:bg-surface-warm-white/5 dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/50 dark:focus:ring-surface-warm-white"
+      <AdminSearchInput
         onChange={(e) => {
           setQ(e.target.value);
           setPage(1);
@@ -179,60 +181,105 @@ function UsersPage() {
           </button>
         </div>
       ) : listState === "empty" ? (
-        <p className="text-[#5f5f5d] dark:text-surface-warm-white/70">
-          Tidak ada pengguna.
-        </p>
+        <div className="flex flex-col items-center justify-center rounded-radius-lg border border-dashed border-black/10 py-spacing-12 text-center text-[#5f5f5d] dark:border-surface-warm-white/10 dark:text-surface-warm-white/40">
+          <Users className="size-8 opacity-40" />
+          <p className="mt-spacing-3 text-sm">
+            {status === "banned"
+              ? "Tidak ada pengguna diblokir."
+              : q
+                ? "Tidak ada pengguna yang cocok dengan pencarian."
+                : "Belum ada pengguna terdaftar."}
+          </p>
+        </div>
       ) : (
-        users.map((u) => (
-          <div
-            className="flex items-center justify-between rounded-radius-md border border-black/10 bg-[#fcfbf8] p-spacing-3 text-sm text-[#1c1c1c] dark:border-surface-warm-white/12 dark:bg-surface-warm-white/5 dark:text-surface-warm-white"
-            key={u.id}
-          >
-            <div>
-              <p className="font-medium text-[#1c1c1c] dark:text-surface-warm-white">
-                {streamerMode && u.name ? (
-                  <SensitiveText kind="name" value={u.name} />
-                ) : (
-                  (u.name ?? "Tanpa nama")
-                )}
-              </p>
-              <p className="text-[#5f5f5d] dark:text-surface-warm-white/70">
-                {streamerMode && u.email ? (
-                  <SensitiveText kind="email" value={u.email} />
-                ) : (
-                  u.email
-                )}
-              </p>
-              <div className="mt-spacing-1 flex flex-wrap items-center gap-spacing-2 text-xs text-[#5f5f5d] dark:text-surface-warm-white/70">
-                <span>{u.projectsCount} proyek</span>
-                {u.bannedAt ? (
-                  <AdminStatusBadge tone="danger">Diblokir</AdminStatusBadge>
-                ) : null}
-              </div>
-            </div>
-            <div className="flex gap-spacing-2">
-              <button
-                className="rounded-radius-md border border-black/15 bg-black/[0.02] px-spacing-3 py-spacing-2 text-sm text-[#1c1c1c] hover:bg-black/5 dark:border-surface-warm-white/15 dark:bg-surface-warm-white/5 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/10"
-                onClick={() => openGrant(u)}
-                type="button"
-              >
-                Tambah energi
-              </button>
-              <button
-                className="rounded-radius-md border border-black/15 bg-black/[0.02] px-spacing-3 py-spacing-2 text-sm text-[#1c1c1c] hover:bg-black/5 dark:border-surface-warm-white/15 dark:bg-surface-warm-white/5 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/10"
-                onClick={() =>
-                  ban.mutate({
-                    action: u.bannedAt ? "unban" : "ban",
-                    id: u.id,
-                  })
-                }
-                type="button"
-              >
-                {u.bannedAt ? "Buka blokir" : "Blokir"}
-              </button>
-            </div>
+        <div className="flex flex-col gap-spacing-3">
+          <div className="flex items-center justify-between px-1 text-xs text-[#5f5f5d] dark:text-surface-warm-white/60">
+            <span>
+              Menampilkan {users.length} dari {data?.total ?? users.length}{" "}
+              pengguna
+            </span>
           </div>
-        ))
+          <div className="flex flex-col gap-spacing-2">
+            {users.map((u) => (
+              <div
+                className="flex items-center justify-between rounded-radius-md border border-black/10 bg-[#fcfbf8] p-spacing-3 text-sm text-[#1c1c1c] dark:border-surface-warm-white/12 dark:bg-surface-warm-white/5 dark:text-surface-warm-white"
+                key={u.id}
+              >
+                <div>
+                  <p className="font-medium text-[#1c1c1c] dark:text-surface-warm-white">
+                    {streamerMode && u.name ? (
+                      <SensitiveText kind="name" value={u.name} />
+                    ) : (
+                      (u.name ?? "Tanpa nama")
+                    )}
+                  </p>
+                  <p className="text-[#5f5f5d] dark:text-surface-warm-white/70">
+                    {streamerMode && u.email ? (
+                      <SensitiveText kind="email" value={u.email} />
+                    ) : (
+                      u.email
+                    )}
+                  </p>
+                  <div className="mt-spacing-1 flex flex-wrap items-center gap-spacing-2 text-xs text-[#5f5f5d] dark:text-surface-warm-white/70">
+                    <span className="font-semibold text-[#1c1c1c] dark:text-surface-warm-white">
+                      {streamerMode ? (
+                        <SensitiveText
+                          kind="amount"
+                          value={`${formatGroupedNumber(u.energyRemaining)} Energi`}
+                        />
+                      ) : (
+                        `${formatGroupedNumber(u.energyRemaining)} Energi`
+                      )}
+                    </span>
+                    <span>•</span>
+                    <span>{u.projectsCount} proyek</span>
+                    <span>•</span>
+                    <span>
+                      Terdaftar{" "}
+                      {new Date(u.createdAt).toLocaleDateString("id-ID")}
+                    </span>
+                    {u.bannedAt ? (
+                      <AdminStatusBadge tone="danger">
+                        Diblokir
+                      </AdminStatusBadge>
+                    ) : (
+                      <AdminStatusBadge tone="neutral">Aktif</AdminStatusBadge>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-spacing-2">
+                  <button
+                    className="rounded-lg border border-black/15 bg-white px-3 py-1.5 text-xs font-semibold text-[#1c1c1c] shadow-2xs hover:bg-black/5 dark:border-surface-warm-white/15 dark:bg-white/[0.04] dark:text-surface-warm-white dark:hover:bg-white/10 transition"
+                    onClick={() => openGrant(u)}
+                    type="button"
+                  >
+                    + Tambah Energi
+                  </button>
+                  <button
+                    className={`rounded-lg px-3 py-1.5 text-xs font-bold transition shadow-2xs ${
+                      u.bannedAt
+                        ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:border-emerald-400/30 dark:bg-emerald-400/15 dark:text-emerald-300"
+                        : "border border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20"
+                    }`}
+                    onClick={() =>
+                      ban.mutate({
+                        action: u.bannedAt ? "unban" : "ban",
+                        id: u.id,
+                      })
+                    }
+                    type="button"
+                  >
+                    {ban.isPending && ban.variables?.id === u.id
+                      ? "Memproses..."
+                      : u.bannedAt
+                        ? "Buka Blokir"
+                        : "Blokir User"}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
       {data && data.totalPages > 1 ? (
         <div className="flex gap-spacing-2">

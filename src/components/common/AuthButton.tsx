@@ -182,9 +182,9 @@ export function AuthButton() {
                     setOpen(false);
                     setBoosterOpen(true);
                   }}
-                  className="flex w-full items-center gap-spacing-3 rounded-md px-3 py-2.5 text-left text-sm outline-none transition hover:bg-black/5 focus-visible:bg-black/5 dark:hover:bg-white/[0.06] dark:focus-visible:bg-white/[0.06] text-aurora-orange"
+                  className="flex w-full items-center gap-spacing-3 rounded-md px-3 py-2.5 text-left text-sm outline-none transition hover:bg-black/5 focus-visible:bg-black/5 dark:hover:bg-white/[0.06] dark:focus-visible:bg-white/[0.06] text-accent-orange"
                 >
-                  <Zap className="size-4 fill-aurora-orange/10 text-aurora-orange" />
+                  <Zap className="size-4 fill-accent-orange/10 text-accent-orange" />
                   <span>Tambah Energi</span>
                 </button>
               )}
@@ -199,7 +199,7 @@ export function AuthButton() {
                     <span>Dukungan</span>
                   </div>
                   {unreadCount > 0 ? (
-                    <span className="flex size-5 items-center justify-center rounded-full bg-aurora-orange text-[10px] font-bold text-white">
+                    <span className="flex size-5 items-center justify-center rounded-full bg-accent-orange text-[10px] font-bold text-white">
                       {unreadCount > 9 ? "9+" : unreadCount}
                     </span>
                   ) : null}
@@ -211,7 +211,7 @@ export function AuthButton() {
                   setOpen(false);
                   void signOut({ callbackUrl: "/" });
                 }}
-                className="flex w-full items-center gap-spacing-3 rounded-md px-3 py-2.5 text-left text-sm text-[#5f5f5d] outline-none transition hover:bg-black/5 hover:text-aurora-rose focus-visible:bg-black/5 dark:text-surface-warm-white/62 dark:hover:bg-white/[0.06] dark:hover:text-aurora-rose dark:focus-visible:bg-white/[0.06]"
+                className="flex w-full items-center gap-spacing-3 rounded-md px-3 py-2.5 text-left text-sm text-[#5f5f5d] outline-none transition hover:bg-black/5 hover:text-destructive focus-visible:bg-black/5 dark:text-surface-warm-white/62 dark:hover:bg-white/[0.06] dark:hover:text-destructive dark:focus-visible:bg-white/[0.06]"
               >
                 <LogOut className="size-4 text-[#5f5f5d] dark:text-surface-warm-white/62" />
                 Keluar
@@ -256,7 +256,7 @@ export function AuthButton() {
                         <span>Dukungan</span>
                       </div>
                       {unreadCount > 0 ? (
-                        <span className="flex size-5 items-center justify-center rounded-full bg-aurora-orange text-[10px] font-bold text-white">
+                        <span className="flex size-5 items-center justify-center rounded-full bg-accent-orange text-[10px] font-bold text-white">
                           {unreadCount > 9 ? "9+" : unreadCount}
                         </span>
                       ) : null}
@@ -268,9 +268,9 @@ export function AuthButton() {
                       setOpen(false);
                       void signOut({ callbackUrl: "/" });
                     }}
-                    className="flex w-full items-center gap-3 px-3 py-3 text-left text-sm font-medium text-aurora-rose"
+                    className="flex w-full items-center gap-3 px-3 py-3 text-left text-sm font-medium text-destructive"
                   >
-                    <LogOut className="size-4 text-aurora-rose" />
+                    <LogOut className="size-4 text-destructive" />
                     Keluar
                   </button>
                 </div>

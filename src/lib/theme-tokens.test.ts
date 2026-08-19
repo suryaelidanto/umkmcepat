@@ -36,6 +36,13 @@ describe("theme role tokens", () => {
     "--on-surface-muted",
     "--border-chrome",
     "--border-surface",
+    "--accent-orange",
+    "--accent-gold",
+    "--accent-rose",
+    "--accent-blue",
+    "--status-success",
+    "--status-warning",
+    "--destructive",
   ];
 
   it("defines every role in :root", () => {

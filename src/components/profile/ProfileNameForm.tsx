@@ -94,12 +94,12 @@ export function ProfileNameForm({ initialName }: { initialName: string }) {
           onChange={(event) => setName(event.target.value)}
           maxLength={100}
           autoComplete="name"
-          className="mt-spacing-3 w-full rounded-lg border border-black/15 bg-transparent px-spacing-5 py-spacing-4 text-base text-[#1c1c1c] outline-none transition placeholder:text-black/30 focus:border-aurora-orange/60 focus:ring-1 focus:ring-aurora-orange/30 dark:border-white/10 dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/34 dark:focus:border-white/30 dark:focus:ring-white/20"
+          className="mt-spacing-3 w-full rounded-lg border border-black/15 bg-transparent px-spacing-5 py-spacing-4 text-base text-[#1c1c1c] outline-none transition placeholder:text-black/30 focus:border-accent-orange focus:ring-1 focus:ring-accent-orange dark:border-white/10 dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/34 dark:focus:border-white/30 dark:focus:ring-white/20"
           placeholder="Nama kamu"
         />
       </div>
 
-      {error ? <p className="text-sm text-aurora-rose">{error}</p> : null}
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
       <div className="flex justify-end border-t border-black/10 pt-spacing-7 dark:border-white/[0.07]">
         <Button

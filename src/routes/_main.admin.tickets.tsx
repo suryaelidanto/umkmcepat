@@ -8,6 +8,7 @@ import {
 import { Loader2, MessageSquare } from "lucide-react";
 import { useState } from "react";
 
+import { AdminSearchInput } from "@/components/admin/AdminSearchInput";
 import { ticketStatusDisplay } from "@/components/admin/status/admin-status";
 import { AdminStatusBadge } from "@/components/admin/status/AdminStatusBadge";
 import { AdminStatusFilter } from "@/components/admin/status/AdminStatusFilter";
@@ -46,9 +47,10 @@ const CATEGORY_LABELS: Record<SupportCategory, string> = {
 };
 
 const CATEGORY_COLORS: Record<SupportCategory, string> = {
-  TEKNIS: "bg-aurora-rose/10 text-aurora-rose border-aurora-rose/20",
-  PEMBAYARAN: "bg-aurora-orange/10 text-aurora-orange border-aurora-orange/20",
-  UMUM: "bg-aurora-gold/10 text-aurora-gold border-aurora-gold/20",
+  TEKNIS: "bg-accent-rose-subtle text-accent-rose border-accent-rose-border",
+  PEMBAYARAN:
+    "bg-accent-orange-subtle text-accent-orange border-accent-orange-border",
+  UMUM: "bg-accent-gold-subtle text-accent-gold border-accent-gold-border",
 };
 
 const TICKET_STATUS_OPTIONS = [
@@ -62,27 +64,37 @@ function AdminTicketsPage() {
   const [statusFilter, setStatusFilter] = useState<SupportTicketStatus | "ALL">(
     "OPEN",
   );
-  const [categoryFilter, setCategoryFilter] = useState<SupportCategory | "ALL">(
-    "ALL",
-  );
+  const [selectedCategories, setSelectedCategories] = useState<
+    SupportCategory[]
+  >([]);
+  const [q, setQ] = useState("");
   const { pathname } = useRouterState({ select: (s) => s.location });
   const isTicketThread =
     pathname !== "/admin/tickets" && pathname.startsWith("/admin/tickets/");
+
+  const toggleCategory = (cat: SupportCategory) => {
+    setSelectedCategories((prev) =>
+      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat],
+    );
+  };
 
   const buildUrl = () => {
     const params = new URLSearchParams();
     if (statusFilter !== "ALL") {
       params.append("status", statusFilter);
     }
-    if (categoryFilter !== "ALL") {
-      params.append("category", categoryFilter);
+    if (selectedCategories.length > 0) {
+      params.append("category", selectedCategories.join(","));
+    }
+    if (q.trim()) {
+      params.append("q", q.trim());
     }
     const queryStr = params.toString();
     return `/api/admin/tickets${queryStr ? `?${queryStr}` : ""}`;
   };
 
   const ticketsQuery = useQuery({
-    queryKey: ["admin", "tickets", statusFilter, categoryFilter],
+    queryKey: ["admin", "tickets", statusFilter, selectedCategories, q],
     queryFn: () => fetchJson<{ tickets: AdminTicket[] }>(buildUrl()),
     refetchInterval: 15000,
   });
@@ -119,30 +131,45 @@ function AdminTicketsPage() {
           options={TICKET_STATUS_OPTIONS}
           value={statusFilter}
         />
-        <select
-          className="h-10 rounded-radius-md border border-black/15 bg-black/[0.02] px-spacing-3 text-sm text-[#1c1c1c] outline-none focus-visible:ring-2 focus-visible:ring-[#1c1c1c] dark:border-surface-warm-white/15 dark:bg-surface-warm-white/5 dark:text-surface-warm-white dark:focus-visible:ring-surface-warm-white/40"
-          onChange={(e) =>
-            setCategoryFilter(e.target.value as SupportCategory | "ALL")
-          }
-          value={categoryFilter}
-        >
-          <option
-            value="ALL"
-            className="bg-[#eceae4] text-[#1c1c1c] dark:bg-[#18181b] dark:text-[#fafafa]"
-          >
-            Semua Kategori
-          </option>
-          {Object.keys(CATEGORY_LABELS).map((cat) => (
-            <option
-              key={cat}
-              value={cat}
-              className="bg-[#eceae4] text-[#1c1c1c] dark:bg-[#18181b] dark:text-[#fafafa]"
+
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-[#5f5f5d] dark:text-surface-warm-white/50 mr-1 hidden sm:inline">
+            Kategori:
+          </span>
+          {(Object.keys(CATEGORY_LABELS) as SupportCategory[]).map((cat) => {
+            const isSelected = selectedCategories.includes(cat);
+            return (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => toggleCategory(cat)}
+                className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                  isSelected
+                    ? "border-accent-orange bg-accent-orange text-white shadow-2xs"
+                    : "border-black/10 bg-white text-[#5f5f5d] hover:bg-black/5 dark:border-white/10 dark:bg-white/[0.04] dark:text-surface-warm-white/70 dark:hover:bg-white/10"
+                }`}
+              >
+                {CATEGORY_LABELS[cat]}
+              </button>
+            );
+          })}
+          {selectedCategories.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setSelectedCategories([])}
+              className="text-[11px] text-[#5f5f5d] hover:text-[#1c1c1c] dark:text-surface-warm-white/50 dark:hover:text-surface-warm-white underline ml-1"
             >
-              {CATEGORY_LABELS[cat as SupportCategory]}
-            </option>
-          ))}
-        </select>
+              Reset
+            </button>
+          )}
+        </div>
       </div>
+
+      <AdminSearchInput
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Cari subjek tiket, email, atau nama pengguna…"
+        value={q}
+      />
 
       {ticketsQuery.isLoading ? (
         <div className="flex justify-center py-spacing-12">
@@ -157,6 +184,11 @@ function AdminTicketsPage() {
         </div>
       ) : (
         <div className="flex flex-col gap-spacing-3">
+          <div className="flex items-center justify-between px-1 text-xs text-[#5f5f5d] dark:text-surface-warm-white/60">
+            <span>
+              Menampilkan {ticketsQuery.data?.tickets.length ?? 0} tiket
+            </span>
+          </div>
           {ticketsQuery.data?.tickets.map((ticket) => {
             const lastMsg = ticket.messages[0];
             const shortId = ticket.id.slice(-8).toUpperCase();
@@ -169,11 +201,11 @@ function AdminTicketsPage() {
               <Link
                 key={ticket.id}
                 href={`/admin/tickets/${ticket.id}`}
-                className={`relative flex flex-col gap-spacing-2 rounded-radius-md border p-spacing-4 transition ${needsReply ? "border-aurora-orange/30 bg-aurora-orange/5 hover:bg-aurora-orange/8 text-[#1c1c1c] dark:text-surface-warm-white" : "border-black/10 bg-[#fcfbf8] text-[#1c1c1c] hover:border-black/20 hover:bg-black/[0.02] dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/8"}`}
+                className={`relative flex flex-col gap-spacing-2 rounded-radius-md border p-spacing-4 transition ${needsReply ? "border-accent-orange-border bg-accent-orange-subtle text-[#1c1c1c] dark:text-surface-warm-white" : "border-black/10 bg-[#fcfbf8] text-[#1c1c1c] hover:border-black/20 hover:bg-black/[0.02] dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/8"}`}
               >
                 {needsReply && (
                   <span
-                    className="absolute left-2 top-2 flex h-2 w-2 rounded-full bg-aurora-orange"
+                    className="absolute left-2 top-2 flex h-2 w-2 rounded-full bg-accent-orange"
                     title="Menunggu balasan"
                   />
                 )}

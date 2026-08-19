@@ -3,12 +3,13 @@ import type { ReactNode } from "react";
 
 const TONE_CLASS: Record<AdminStatusTone, string> = {
   success:
-    "border-surface-warm-white/50 bg-surface-warm-white/15 text-surface-warm-white",
+    "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-400/15 dark:text-emerald-300",
   pending:
-    "border-surface-warm-white/30 bg-surface-warm-white/8 text-surface-warm-white/90",
-  danger: "border-destructive/50 bg-destructive/15 text-destructive",
+    "border-amber-500/30 bg-amber-500/10 text-amber-800 dark:border-amber-400/30 dark:bg-amber-400/15 dark:text-amber-300",
+  danger:
+    "border-destructive/30 bg-destructive/10 text-destructive dark:border-destructive/40 dark:bg-destructive/15 dark:text-destructive",
   neutral:
-    "border-surface-warm-white/12 bg-transparent text-surface-warm-white/70",
+    "border-black/10 bg-black/[0.04] text-[#5f5f5d] dark:border-white/10 dark:bg-white/[0.06] dark:text-surface-warm-white/70",
 };
 
 export function AdminStatusBadge({

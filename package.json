@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "check": "bun run check:locks && bun scripts/check-parallel.ts",
+    "check": "bun run check:locks && bun scripts/generate-route-tree.ts && bun scripts/check-parallel.ts",
     "check:discipline": "bun scripts/check-codebase-discipline.ts",
     "check:docs": "bun scripts/check-doc-links.ts",
     "check:locks": "bun -e \"import { existsSync } from 'node:fs'; const bad = ['package-lock.json', 'pnpm-lock.yaml', 'yarn.lock', 'bun.lockb'].filter(existsSync); if (!existsSync('bun.lock') || bad.length) { console.error('Use Bun only. Lockfile: bun.lock. Remove: ' + (bad.join(', ') || 'missing bun.lock')); process.exit(1); }\"",

@@ -72,19 +72,31 @@ export const Route = createFileRoute("/api/admin/users")({
               id: true,
               name: true,
               _count: { select: { projects: true } },
+              credits: {
+                select: {
+                  amount: true,
+                },
+              },
             },
           }),
           prisma.user.count({ where }),
         ]);
         return Response.json({
-          users: users.map((u) => ({
-            bannedAt: u.bannedAt?.toISOString() ?? null,
-            createdAt: u.createdAt.toISOString(),
-            email: u.email,
-            id: u.id,
-            name: u.name,
-            projectsCount: u._count.projects,
-          })),
+          users: users.map((u) => {
+            const energyRemaining = Math.max(
+              0,
+              u.credits.reduce((acc, c) => acc + c.amount, 0),
+            );
+            return {
+              bannedAt: u.bannedAt?.toISOString() ?? null,
+              createdAt: u.createdAt.toISOString(),
+              email: u.email,
+              energyRemaining,
+              id: u.id,
+              name: u.name,
+              projectsCount: u._count.projects,
+            };
+          }),
           page,
           status,
           total,

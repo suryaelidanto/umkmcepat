@@ -188,16 +188,38 @@ export type AdminWaitlistEntry = {
 export type AdminWaitlistStatusFilter =
   "pending" | "approved" | "rejected" | "all";
 
-/** All waitlist rows for admin review (newest first). Includes imageCount. */
+/** All waitlist rows for admin review (newest first). Includes imageCount and search. */
 export async function listPendingWaitlist(
   status: AdminWaitlistStatusFilter = "all",
+  searchQuery?: string,
 ): Promise<AdminWaitlistEntry[]> {
-  const where =
+  const statusCondition =
     status === "all"
       ? undefined
       : status === "pending"
         ? { status: { in: [...WAITLIST_PENDING_STATUSES] } }
         : { status };
+
+  const trimmedSearch = searchQuery?.trim();
+  const searchCondition = trimmedSearch
+    ? {
+        OR: [
+          {
+            businessName: {
+              contains: trimmedSearch,
+              mode: "insensitive" as const,
+            },
+          },
+          { email: { contains: trimmedSearch, mode: "insensitive" as const } },
+          { story: { contains: trimmedSearch, mode: "insensitive" as const } },
+        ],
+      }
+    : undefined;
+
+  const where =
+    statusCondition || searchCondition
+      ? { ...statusCondition, ...searchCondition }
+      : undefined;
 
   const rows = await prisma.waitlistEntry.findMany({
     orderBy: { submittedAt: "desc" },
