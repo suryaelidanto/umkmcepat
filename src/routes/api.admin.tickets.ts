@@ -20,17 +20,23 @@ export const Route = createFileRoute("/api/admin/tickets")({
         const status = url.searchParams.get(
           "status",
         ) as SupportTicketStatus | null;
-        const category = url.searchParams.get(
-          "category",
-        ) as SupportCategory | null;
+        const categoryParam = url.searchParams.get("category");
         const q = url.searchParams.get("q")?.trim() ?? "";
 
         const where: Prisma.SupportTicketWhereInput = {};
         if (status && Object.values(SupportTicketStatus).includes(status)) {
           where.status = status;
         }
-        if (category && Object.values(SupportCategory).includes(category)) {
-          where.category = category;
+        if (categoryParam) {
+          const categories = categoryParam
+            .split(",")
+            .map((c) => c.trim() as SupportCategory)
+            .filter((c) => Object.values(SupportCategory).includes(c));
+          if (categories.length === 1) {
+            where.category = categories[0];
+          } else if (categories.length > 1) {
+            where.category = { in: categories };
+          }
         }
         if (q) {
           where.OR = [

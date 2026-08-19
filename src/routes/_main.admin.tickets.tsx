@@ -64,21 +64,27 @@ function AdminTicketsPage() {
   const [statusFilter, setStatusFilter] = useState<SupportTicketStatus | "ALL">(
     "OPEN",
   );
-  const [categoryFilter, setCategoryFilter] = useState<SupportCategory | "ALL">(
-    "ALL",
-  );
+  const [selectedCategories, setSelectedCategories] = useState<
+    SupportCategory[]
+  >([]);
   const [q, setQ] = useState("");
   const { pathname } = useRouterState({ select: (s) => s.location });
   const isTicketThread =
     pathname !== "/admin/tickets" && pathname.startsWith("/admin/tickets/");
+
+  const toggleCategory = (cat: SupportCategory) => {
+    setSelectedCategories((prev) =>
+      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat],
+    );
+  };
 
   const buildUrl = () => {
     const params = new URLSearchParams();
     if (statusFilter !== "ALL") {
       params.append("status", statusFilter);
     }
-    if (categoryFilter !== "ALL") {
-      params.append("category", categoryFilter);
+    if (selectedCategories.length > 0) {
+      params.append("category", selectedCategories.join(","));
     }
     if (q.trim()) {
       params.append("q", q.trim());
@@ -88,7 +94,7 @@ function AdminTicketsPage() {
   };
 
   const ticketsQuery = useQuery({
-    queryKey: ["admin", "tickets", statusFilter, categoryFilter, q],
+    queryKey: ["admin", "tickets", statusFilter, selectedCategories, q],
     queryFn: () => fetchJson<{ tickets: AdminTicket[] }>(buildUrl()),
     refetchInterval: 15000,
   });
@@ -125,29 +131,38 @@ function AdminTicketsPage() {
           options={TICKET_STATUS_OPTIONS}
           value={statusFilter}
         />
-        <select
-          className="h-10 rounded-xl border border-black/15 bg-white px-spacing-3 text-sm text-[#1c1c1c] outline-none focus:border-accent-orange focus:ring-1 focus:ring-accent-orange dark:border-white/15 dark:bg-white/[0.04] dark:text-surface-warm-white"
-          onChange={(e) =>
-            setCategoryFilter(e.target.value as SupportCategory | "ALL")
-          }
-          value={categoryFilter}
-        >
-          <option
-            value="ALL"
-            className="bg-white text-[#1c1c1c] dark:bg-[#18181b] dark:text-[#fafafa]"
-          >
-            Semua Kategori
-          </option>
-          {Object.keys(CATEGORY_LABELS).map((cat) => (
-            <option
-              key={cat}
-              value={cat}
-              className="bg-white text-[#1c1c1c] dark:bg-[#18181b] dark:text-[#fafafa]"
+
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-[#5f5f5d] dark:text-surface-warm-white/50 mr-1 hidden sm:inline">
+            Kategori:
+          </span>
+          {(Object.keys(CATEGORY_LABELS) as SupportCategory[]).map((cat) => {
+            const isSelected = selectedCategories.includes(cat);
+            return (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => toggleCategory(cat)}
+                className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                  isSelected
+                    ? "border-accent-orange bg-accent-orange text-white shadow-2xs"
+                    : "border-black/10 bg-white text-[#5f5f5d] hover:bg-black/5 dark:border-white/10 dark:bg-white/[0.04] dark:text-surface-warm-white/70 dark:hover:bg-white/10"
+                }`}
+              >
+                {CATEGORY_LABELS[cat]}
+              </button>
+            );
+          })}
+          {selectedCategories.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setSelectedCategories([])}
+              className="text-[11px] text-[#5f5f5d] hover:text-[#1c1c1c] dark:text-surface-warm-white/50 dark:hover:text-surface-warm-white underline ml-1"
             >
-              {CATEGORY_LABELS[cat as SupportCategory]}
-            </option>
-          ))}
-        </select>
+              Reset
+            </button>
+          )}
+        </div>
       </div>
 
       <AdminSearchInput
