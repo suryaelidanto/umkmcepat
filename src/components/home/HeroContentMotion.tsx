@@ -2,7 +2,7 @@ import type React from "react";
 
 export function HeroContentMotion({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mx-auto flex min-h-[calc(100dvh-15rem)] sm:min-h-[calc(100dvh-13rem)] w-full max-w-5xl flex-col items-center justify-center text-center -translate-y-4 sm:-translate-y-6">
+    <div className="mx-auto flex min-h-[calc(100dvh-5.5rem)] sm:min-h-[calc(100dvh-6rem)] w-full max-w-5xl flex-col items-center justify-center text-center pb-4">
       {children}
     </div>
   );
