@@ -448,25 +448,6 @@ export function TicketThreadView({
                     minute: "2-digit",
                   })}
                 </span>
-                {isAdmin && isOwn && (
-                  <>
-                    <span>•</span>
-                    <span
-                      className={
-                        msg.readAt
-                          ? "font-medium text-emerald-600 dark:text-emerald-400"
-                          : "opacity-75"
-                      }
-                      title={
-                        msg.readAt
-                          ? `Dibaca user pada ${new Date(msg.readAt).toLocaleString("id-ID")}`
-                          : "Terkirim ke user"
-                      }
-                    >
-                      {msg.readAt ? "✓✓ Dibaca" : "✓ Terkirim"}
-                    </span>
-                  </>
-                )}
               </div>
             </div>
           );
