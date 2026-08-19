@@ -30,6 +30,7 @@
     "src/lib/projects/generated-site-contract.ts": ["exports"],
     "src/lib/projects/brief-admission.ts": ["exports"],
     "src/components/projects/workspace/WorkspaceShell.tsx": ["exports"],
-    "src/lib/projects/canonical-brief.ts": ["exports"]
+    "src/lib/projects/canonical-brief.ts": ["exports"],
+    "src/lib/projects/runtime-idle-runner.ts": ["files"]
   }
 }
