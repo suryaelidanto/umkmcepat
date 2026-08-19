@@ -2,8 +2,8 @@ import { Outlet, createFileRoute, redirect } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { Toaster } from "sonner";
 
-import { AdminShell } from "@/components/admin/AdminShell";
-import { StreamerModeProvider } from "@/components/admin/streamer-mode-context";
+import { AdminShell } from "@/components/admin/navigation/AdminShell";
+import { StreamerModeProvider } from "@/components/admin/streamer-mode/streamer-mode-context";
 import { loadStreamerMode } from "@/lib/admin-streamer-mode";
 import { requireAdmin } from "@/lib/auth-admin";
 

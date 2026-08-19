@@ -530,7 +530,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { Toaster } from "sonner";
 
 import { AdminTabs } from "@/components/admin/AdminTabs";
-import { StreamerModeProvider } from "@/components/admin/streamer-mode-context";
+import { StreamerModeProvider } from "@/components/admin/streamer-mode/streamer-mode-context";
 import { requireAdmin } from "@/lib/auth-admin";
 import { isStreamerModeEnabled } from "@/lib/config";
 
@@ -606,8 +606,8 @@ value without each making their own DB hit."
 Top of file, after the existing imports, add:
 
 ```tsx
-import { SensitiveText } from "@/components/admin/SensitiveText";
-import { useStreamerMode } from "@/components/admin/streamer-mode-context";
+import { SensitiveText } from "@/components/admin/streamer-mode/SensitiveText";
+import { useStreamerMode } from "@/components/admin/streamer-mode/streamer-mode-context";
 ```
 
 - [ ] **Step 2: Use the hook in the component**
@@ -717,8 +717,8 @@ and metadata kept."
 At top of file, with existing imports:
 
 ```tsx
-import { SensitiveText } from "@/components/admin/SensitiveText";
-import { useStreamerMode } from "@/components/admin/streamer-mode-context";
+import { SensitiveText } from "@/components/admin/streamer-mode/SensitiveText";
+import { useStreamerMode } from "@/components/admin/streamer-mode/streamer-mode-context";
 ```
 
 In the `UsersPage` (or equivalent component function), add:
@@ -786,8 +786,8 @@ git commit -m "fix(admin): mask user name + email when streamer mode ON"
 At top of file, with existing imports:
 
 ```tsx
-import { SensitiveText } from "@/components/admin/SensitiveText";
-import { useStreamerMode } from "@/components/admin/streamer-mode-context";
+import { SensitiveText } from "@/components/admin/streamer-mode/SensitiveText";
+import { useStreamerMode } from "@/components/admin/streamer-mode/streamer-mode-context";
 ```
 
 In the page component, at the top:
@@ -880,8 +880,8 @@ git commit -m "fix(admin): mask waitlist business name/email/phone/story when st
 Top of file, with existing imports:
 
 ```tsx
-import { SensitiveText } from "@/components/admin/SensitiveText";
-import { useStreamerMode } from "@/components/admin/streamer-mode-context";
+import { SensitiveText } from "@/components/admin/streamer-mode/SensitiveText";
+import { useStreamerMode } from "@/components/admin/streamer-mode/streamer-mode-context";
 ```
 
 In the page component, at the top:
@@ -963,8 +963,8 @@ git commit -m "fix(admin): mask transaction orderId, paymentNumber, amount, emai
 Top of file, with existing imports:
 
 ```tsx
-import { SensitiveText } from "@/components/admin/SensitiveText";
-import { useStreamerMode } from "@/components/admin/streamer-mode-context";
+import { SensitiveText } from "@/components/admin/streamer-mode/SensitiveText";
+import { useStreamerMode } from "@/components/admin/streamer-mode/streamer-mode-context";
 import { mask } from "@/lib/mask";
 ```
 
@@ -1032,7 +1032,7 @@ import { expect, fn } from "storybook/test";
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 
-import { SensitiveText } from "@/components/admin/SensitiveText";
+import { SensitiveText } from "@/components/admin/streamer-mode/SensitiveText";
 
 const meta = {
   args: {

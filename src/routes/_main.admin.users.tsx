@@ -3,10 +3,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { AdminStatusBadge } from "@/components/admin/AdminStatusBadge";
-import { AdminStatusFilter } from "@/components/admin/AdminStatusFilter";
-import { SensitiveText } from "@/components/admin/SensitiveText";
-import { useStreamerMode } from "@/components/admin/streamer-mode-context";
+import { AdminStatusBadge } from "@/components/admin/status/AdminStatusBadge";
+import { AdminStatusFilter } from "@/components/admin/status/AdminStatusFilter";
+import { SensitiveText } from "@/components/admin/streamer-mode/SensitiveText";
+import { useStreamerMode } from "@/components/admin/streamer-mode/streamer-mode-context";
 import {
   Dialog,
   DialogContent,

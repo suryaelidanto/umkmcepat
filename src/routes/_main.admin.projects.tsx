@@ -2,11 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 
-import { projectStatusTone } from "@/components/admin/admin-status";
-import { AdminStatusBadge } from "@/components/admin/AdminStatusBadge";
-import { AdminStatusFilter } from "@/components/admin/AdminStatusFilter";
-import { SensitiveText } from "@/components/admin/SensitiveText";
-import { useStreamerMode } from "@/components/admin/streamer-mode-context";
+import { projectStatusTone } from "@/components/admin/status/admin-status";
+import { AdminStatusBadge } from "@/components/admin/status/AdminStatusBadge";
+import { AdminStatusFilter } from "@/components/admin/status/AdminStatusFilter";
+import { SensitiveText } from "@/components/admin/streamer-mode/SensitiveText";
+import { useStreamerMode } from "@/components/admin/streamer-mode/streamer-mode-context";
 import { resolveAsyncListState } from "@/lib/async-list-state";
 import { fetchJson } from "@/lib/query-client";
 

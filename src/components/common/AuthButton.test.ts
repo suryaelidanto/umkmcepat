@@ -15,7 +15,7 @@ vi.mock("@/lib/navigation", () => ({ usePathname: () => "/" }));
 vi.mock("@tanstack/react-query", () => ({
   useQuery: () => ({ data: undefined }),
 }));
-vi.mock("@/components/admin/streamer-mode-context", () => ({
+vi.mock("@/components/admin/streamer-mode/streamer-mode-context", () => ({
   useStreamerMode: () => false,
 }));
 vi.mock("@/components/common/LoginConsentDialog", () => ({

@@ -329,8 +329,8 @@ Create `src/routes/_main.admin.projects.tsx`:
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 
-import { SensitiveText } from "@/components/admin/SensitiveText";
-import { useStreamerMode } from "@/components/admin/streamer-mode-context";
+import { SensitiveText } from "@/components/admin/streamer-mode/SensitiveText";
+import { useStreamerMode } from "@/components/admin/streamer-mode/streamer-mode-context";
 import { fetchJson } from "@/lib/query-client";
 
 type AdminProject = {

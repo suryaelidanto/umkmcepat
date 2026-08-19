@@ -8,10 +8,10 @@ import {
 import { Loader2, MessageSquare } from "lucide-react";
 import { useState } from "react";
 
-import { ticketStatusDisplay } from "@/components/admin/admin-status";
-import { AdminStatusBadge } from "@/components/admin/AdminStatusBadge";
-import { AdminStatusFilter } from "@/components/admin/AdminStatusFilter";
-import { SensitiveText } from "@/components/admin/SensitiveText";
+import { ticketStatusDisplay } from "@/components/admin/status/admin-status";
+import { AdminStatusBadge } from "@/components/admin/status/AdminStatusBadge";
+import { AdminStatusFilter } from "@/components/admin/status/AdminStatusFilter";
+import { SensitiveText } from "@/components/admin/streamer-mode/SensitiveText";
 import { Link } from "@/components/ui/link";
 import { fetchJson } from "@/lib/query-client";
 
