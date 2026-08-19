@@ -190,6 +190,19 @@ function AdminNav() {
 
 /** Dense wide admin chrome. */
 export function AdminShell({ children }: { children: ReactNode }) {
+  const { location } = useRouterState();
+  const isTicketDetail =
+    location.pathname.startsWith("/admin/tickets/") &&
+    location.pathname !== "/admin/tickets";
+
+  if (isTicketDetail) {
+    return (
+      <main className="mx-auto flex min-h-dvh w-full max-w-7xl flex-col px-3 pb-20 pt-6 text-[#1c1c1c] transition-colors duration-200 dark:text-surface-warm-white sm:px-6 lg:px-8">
+        {children}
+      </main>
+    );
+  }
+
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-7xl flex-col px-3 pb-24 pt-6 text-[#1c1c1c] transition-colors duration-200 dark:text-surface-warm-white sm:px-6 lg:px-8">
       <header className="mb-spacing-4 flex flex-wrap items-center justify-between gap-3">
