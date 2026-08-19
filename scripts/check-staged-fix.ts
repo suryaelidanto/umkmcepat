@@ -64,8 +64,10 @@ async function main() {
     .filter(Boolean);
 
   const lintFiles = files.filter((file) => /\.[cm]?[jt]sx?$/.test(file));
-  const formatFiles = files.filter((file) =>
-    /\.(?:[cm]?[jt]sx?|json|css|md|ya?ml)$/.test(file),
+  const formatFiles = files.filter(
+    (file) =>
+      file !== "CLAUDE.md" &&
+      /\.(?:[cm]?[jt]sx?|json|css|md|ya?ml)$/.test(file),
   );
 
   // Files that have both staged and unstaged changes need working-tree
