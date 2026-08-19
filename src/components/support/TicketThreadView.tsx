@@ -22,6 +22,8 @@ export type TicketMessage = {
   body: string;
   createdAt: string;
   assetIds: string[];
+  isRead?: boolean;
+  readAt?: string | null;
 };
 
 export type TicketDetail = {
@@ -443,6 +445,25 @@ export function TicketThreadView({
                     minute: "2-digit",
                   })}
                 </span>
+                {isAdmin && isOwn && (
+                  <>
+                    <span>•</span>
+                    <span
+                      className={
+                        msg.isRead
+                          ? "font-medium text-emerald-600 dark:text-emerald-400"
+                          : "opacity-75"
+                      }
+                      title={
+                        msg.isRead && msg.readAt
+                          ? `Dibaca user pada ${new Date(msg.readAt).toLocaleString("id-ID")}`
+                          : "Terkirim ke user"
+                      }
+                    >
+                      {msg.isRead ? "✓✓ Dibaca" : "✓ Terkirim"}
+                    </span>
+                  </>
+                )}
               </div>
             </div>
           );
