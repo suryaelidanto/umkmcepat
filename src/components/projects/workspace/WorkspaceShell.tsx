@@ -2898,7 +2898,7 @@ export function WorkspaceShell({
               setWorkspaceCardError(false);
             });
             es.addEventListener("heartbeat", () => {
-              setIsRetrying(true);
+              // Heartbeat keeps the SSE connection alive while server prepares cards/handoffs.
             });
             es.addEventListener("finish", () => {
               void finish();
