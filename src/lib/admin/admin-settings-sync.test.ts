@@ -10,6 +10,7 @@ describe("settingsSaveInvalidateKeys", () => {
     expect(keys).toEqual(
       expect.arrayContaining([
         ["admin", "settings"],
+        ["public-flags"],
         [...queryKeys.adminStreamerMode],
         [...queryKeys.boosterPacks],
         [...queryKeys.projects],
@@ -17,6 +18,6 @@ describe("settingsSaveInvalidateKeys", () => {
         [...queryKeys.waitlistStatus],
       ]),
     );
-    expect(keys).toHaveLength(6);
+    expect(keys).toHaveLength(7);
   });
 });

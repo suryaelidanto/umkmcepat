@@ -16,6 +16,7 @@ function ThemedApp({ children }: { children: React.ReactNode }) {
       attribute="class"
       defaultTheme={defaultTheme}
       enableSystem={defaultTheme === "system"}
+      forcedTheme={undefined}
     >
       <SessionProvider>{children}</SessionProvider>
     </ThemeProvider>
