@@ -59,6 +59,9 @@ export function AuthButton() {
     }
 
     function handlePointerDown(event: PointerEvent) {
+      if (!isDesktop) {
+        return;
+      }
       const target = event.target as Node;
       // Do not close if clicking inside container or dropdown
       if (containerRef.current?.contains(target)) {
