@@ -111,7 +111,7 @@ signal-dense so the causal chain isn't buried in routine noise.
 "Local runtime"):
 
 > When something breaks:
-> 1. Grep `dev.log` for the project id or error string; read events in order to
+> 1. Grep `dev.log` for the project id or error string; read events to
 >    reconstruct the causal chain.
 > 2. Cross-reference `docker compose logs` (`bun run infra:logs`) for infra
 >    failures (9Router, Headroom, Postgres).

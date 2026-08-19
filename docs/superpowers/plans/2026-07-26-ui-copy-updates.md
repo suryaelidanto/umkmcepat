@@ -5,7 +5,7 @@
 **Goal:** Standardize the segmented tab switches (Tampilan/Kode, Komputer/HP, Pilihan/Tulis Bebas) with a sliding active background and unified size; simplify the build preview loader to a clean spinner; collapse directory folders by default in the code view; add a "Lompat ke Bawah" auto-scroll button; and add the missing paperclip attachment button to the default chat composer.
 
 **Architecture:** 
-- Leverage `framer-motion`'s `layoutId` on absolute-positioned inner sliding backgrounds inside standardized flex containers to achieve a smooth segmented control sliding transition.
+- Use `framer-motion`'s `layoutId` on absolute-positioned inner sliding backgrounds inside standardized flex containers to achieve a smooth segmented control sliding transition.
 - Use React state hooks (`onScroll`) and ref references (`shouldStickToBottomRef`) to detect scroll offset and toggle the visibility of the "Lompat ke Bawah" button.
 - Clean up the preview-pane loading state by rendering a simple Spinner indicator, leaving granular progress reporting exclusively in the chat view.
 

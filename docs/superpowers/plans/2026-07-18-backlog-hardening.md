@@ -4,7 +4,7 @@
 
 **Goal:** Implement critical reliability upgrades, fix the profile picture update system, enable actual R2 uploads, unify data-fetching invalidation via mutations, create a lightweight git-less progress diff viewer, prevent build lockouts with cancel/auto-unlock features, build a robust hybrid auto-scroll component, and enforce error billing safety.
 
-**Architecture:** Use pure-JS diff algorithms and node runtime bindings (no third-party npm deps), utilize transaction safety with `try...finally` blocks for tokens accounting, implement explicit Route action controllers for cancellation, and utilize React lifecycle state/DOM threshold variables for smooth scrolling.
+**Architecture:** Use pure-JS diff algorithms and node runtime bindings (no third-party npm deps), use transaction safety with `try...finally` blocks for tokens accounting, implement explicit Route action controllers for cancellation, and use React lifecycle state/DOM threshold variables for smooth scrolling.
 
 **Tech Stack:** React 19, Next.js / TanStack Start, Prisma Client, Tailwind CSS, AWS SDK (S3 client API for R2), Vitest.
 
