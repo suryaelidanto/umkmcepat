@@ -348,7 +348,7 @@ function assertJpeg(bytes: Buffer) {
 }
 
 function isCaptureEnabled() {
-  return getSettingSync("feature.thumbnail_capture_enabled", true);
+  return true;
 }
 
 type DistFile = { content: string; contentType: string; path: string };
