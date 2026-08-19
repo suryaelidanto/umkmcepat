@@ -48,7 +48,6 @@ import {
   READINESS_QUESTION_INTRO,
   requestsImmediateBuild,
 } from "@/lib/projects/discuss-readiness-ui";
-import { publishPacedTextDeltas } from "@/lib/projects/discuss-text-pacing";
 import {
   buildCardSystemPrompt,
   buildOneCallSystemPrompt,
@@ -271,16 +270,10 @@ export async function runDiscussTurn({
             continue;
           }
           fullText += delta;
-          await publishPacedTextDeltas({
-            text: delta,
-            abortSignal,
-            publish: (piece) => {
-              publishProgress(turnId, {
-                type: "text-delta",
-                id: textPartId,
-                delta: piece,
-              });
-            },
+          publishProgress(turnId, {
+            type: "text-delta",
+            id: textPartId,
+            delta,
           });
           continue;
         }
@@ -314,16 +307,10 @@ export async function runDiscussTurn({
           if (next.delta) {
             streamedToolAssistantText = next.seenText;
             fullText = next.seenText;
-            await publishPacedTextDeltas({
-              text: next.delta,
-              abortSignal,
-              publish: (piece) => {
-                publishProgress(turnId, {
-                  type: "text-delta",
-                  id: textPartId,
-                  delta: piece,
-                });
-              },
+            publishProgress(turnId, {
+              type: "text-delta",
+              id: textPartId,
+              delta: next.delta,
             });
           }
           const partialCard =
@@ -379,16 +366,10 @@ export async function runDiscussTurn({
       const fromTool = extractAssistantTextFromToolInput(toolInput);
       if (fromTool) {
         fullText = fromTool;
-        await publishPacedTextDeltas({
-          text: fromTool,
-          abortSignal,
-          publish: (piece) => {
-            publishProgress(turnId, {
-              type: "text-delta",
-              id: textPartId,
-              delta: piece,
-            });
-          },
+        publishProgress(turnId, {
+          type: "text-delta",
+          id: textPartId,
+          delta: fromTool,
         });
       }
     } else if (streamedToolAssistantText) {
@@ -399,16 +380,10 @@ export async function runDiscussTurn({
       ) {
         const tail = finalToolText.slice(streamedToolAssistantText.length);
         fullText = finalToolText;
-        await publishPacedTextDeltas({
-          text: tail,
-          abortSignal,
-          publish: (piece) => {
-            publishProgress(turnId, {
-              type: "text-delta",
-              id: textPartId,
-              delta: piece,
-            });
-          },
+        publishProgress(turnId, {
+          type: "text-delta",
+          id: textPartId,
+          delta: tail,
         });
       }
     }
@@ -643,16 +618,10 @@ export async function runDiscussTurn({
             type: "text-start",
             id: repairTextPartId,
           });
-          await publishPacedTextDeltas({
-            text: repairedText,
-            abortSignal,
-            publish: (piece) => {
-              publishProgress(turnId, {
-                type: "text-delta",
-                id: repairTextPartId,
-                delta: piece,
-              });
-            },
+          publishProgress(turnId, {
+            type: "text-delta",
+            id: repairTextPartId,
+            delta: repairedText,
           });
           publishProgress(turnId, {
             type: "text-end",
