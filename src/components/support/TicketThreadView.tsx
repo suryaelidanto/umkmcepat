@@ -74,7 +74,11 @@ export function TicketThreadView({
 
   const { data, isLoading, error } = useQuery({
     queryKey,
-    queryFn: () => fetchJson<{ ticket: TicketDetail }>(queryEndpoint),
+    queryFn: async () => {
+      const res = await fetchJson<{ ticket: TicketDetail }>(queryEndpoint);
+      return res;
+    },
+    retry: false,
     refetchInterval: 10_000,
   });
 
