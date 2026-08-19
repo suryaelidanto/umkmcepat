@@ -154,8 +154,8 @@ export async function addMessage(
     normalizeAssetIds(input.assetIds),
   );
 
-  if (!body) {
-    throw new Error("Pesan tidak boleh kosong.");
+  if (!body && assetIds.length === 0) {
+    throw new Error("Pesan atau lampiran tidak boleh kosong.");
   }
   if (assetIds.length > 3) {
     throw new Error("Maksimal 3 lampiran diperbolehkan.");

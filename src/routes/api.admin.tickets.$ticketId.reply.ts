@@ -41,9 +41,13 @@ export const Route = createFileRoute("/api/admin/tickets/$ticketId/reply")({
           assetIds?: string[];
         };
 
-        if (!body.body) {
+        const messageText =
+          typeof body.body === "string" ? body.body.trim() : "";
+        const assetIds = Array.isArray(body.assetIds) ? body.assetIds : [];
+
+        if (!messageText && assetIds.length === 0) {
           return Response.json(
-            { message: "Pesan wajib diisi." },
+            { message: "Tulis pesan atau lampirkan gambar." },
             { status: 400 },
           );
         }
@@ -60,8 +64,8 @@ export const Route = createFileRoute("/api/admin/tickets/$ticketId/reply")({
             ticketId: params.ticketId,
             authorId: admin.admin.userId,
             authorRole: "admin",
-            body: body.body,
-            assetIds: body.assetIds,
+            body: messageText,
+            assetIds,
           });
 
           // Trigger email if the previous message was from user OR there was no previous message
@@ -71,7 +75,7 @@ export const Route = createFileRoute("/api/admin/tickets/$ticketId/reply")({
               toEmail: ticket.user.email,
               ticketId: ticket.id,
               subject: ticket.subject,
-              replyBody: body.body,
+              replyBody: messageText || "[Lampiran Gambar]",
             }).catch((err) => {
               console.error(
                 "[support-email] Failed to send email notification (non-fatal):",

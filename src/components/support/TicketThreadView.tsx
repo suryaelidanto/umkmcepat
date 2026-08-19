@@ -218,15 +218,17 @@ export function TicketThreadView({
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!replyBody.trim()) {
-      return;
-    }
-
+    const cleanBody = replyBody.trim();
     const assetIds = attachments
       .filter((item) => !item.uploading)
       .map((item) => item.id);
+
+    if (!cleanBody && assetIds.length === 0) {
+      return;
+    }
+
     replyMutation.mutate({
-      body: replyBody,
+      body: cleanBody,
       assetIds,
     });
   };
@@ -450,7 +452,7 @@ export function TicketThreadView({
               size="sm"
               className="flex h-10 shrink-0 items-center gap-2"
               disabled={
-                !replyBody.trim() ||
+                (!replyBody.trim() && attachments.length === 0) ||
                 attachments.some((item) => item.uploading) ||
                 replyMutation.isPending
               }
