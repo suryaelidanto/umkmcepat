@@ -140,10 +140,18 @@ export function AuthButton() {
         aria-controls={menuId}
         aria-label={open ? "Tutup menu akun" : "Buka menu akun"}
       >
-        <AvatarFrame
-          seed={displayName}
-          className="size-6 bg-black/10 text-[10px] font-semibold text-[#1c1c1c] dark:bg-surface-warm-white dark:text-foreground-primary"
-        />
+        <div className="relative inline-flex size-6 shrink-0 items-center justify-center">
+          <AvatarFrame
+            seed={displayName}
+            className="size-6 bg-black/10 text-[10px] font-semibold text-[#1c1c1c] dark:bg-surface-warm-white dark:text-foreground-primary"
+          />
+          {unreadCount > 0 && !open ? (
+            <span
+              aria-hidden="true"
+              className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-accent-orange ring-2 ring-[#eceae4] dark:ring-[#151515]"
+            />
+          ) : null}
+        </div>
         <span className="hidden min-w-0 truncate sm:block">{displayName}</span>
         <ChevronDown
           className={`size-4 shrink-0 text-[#5f5f5d] transition dark:text-surface-warm-white/58 ${open ? "rotate-180" : ""}`}

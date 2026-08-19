@@ -116,13 +116,10 @@ export function TicketThreadView({
       setReplyBody("");
       setAttachments([]);
       queryClient.invalidateQueries({ queryKey });
-      if (isAdmin) {
-        queryClient.invalidateQueries({ queryKey: ["admin", "nav-counts"] });
-      } else {
-        queryClient.invalidateQueries({
-          queryKey: ["support", "unread-count"],
-        });
-      }
+      queryClient.invalidateQueries({ queryKey: ["admin", "tickets"] });
+      queryClient.invalidateQueries({ queryKey: ["support", "tickets"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "nav-counts"] });
+      queryClient.invalidateQueries({ queryKey: ["support", "unread-count"] });
       toast.success("Balasan terkirim.");
     },
     onError: (err) => {
@@ -151,13 +148,10 @@ export function TicketThreadView({
     onSuccess: () => {
       toast.success("Tiket telah diselesaikan.");
       queryClient.invalidateQueries({ queryKey });
-      if (isAdmin) {
-        queryClient.invalidateQueries({ queryKey: ["admin", "nav-counts"] });
-      } else {
-        queryClient.invalidateQueries({
-          queryKey: ["support", "unread-count"],
-        });
-      }
+      queryClient.invalidateQueries({ queryKey: ["admin", "tickets"] });
+      queryClient.invalidateQueries({ queryKey: ["support", "tickets"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "nav-counts"] });
+      queryClient.invalidateQueries({ queryKey: ["support", "unread-count"] });
     },
     onError: (err) => {
       toast.error(
@@ -181,9 +175,10 @@ export function TicketThreadView({
     onSuccess: () => {
       toast.success("Tiket telah dibuka kembali.");
       queryClient.invalidateQueries({ queryKey });
-      if (isAdmin) {
-        queryClient.invalidateQueries({ queryKey: ["admin", "nav-counts"] });
-      }
+      queryClient.invalidateQueries({ queryKey: ["admin", "tickets"] });
+      queryClient.invalidateQueries({ queryKey: ["support", "tickets"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "nav-counts"] });
+      queryClient.invalidateQueries({ queryKey: ["support", "unread-count"] });
     },
     onError: (err) => {
       toast.error(
@@ -287,9 +282,7 @@ export function TicketThreadView({
   const { ticket } = data;
   const shortId = ticket.id.slice(-8).toUpperCase();
   const isOpen = ticket.status === "OPEN";
-  const lastMsg = ticket.messages[ticket.messages.length - 1];
-  const canResolve =
-    isOpen && (isAdmin || (lastMsg && lastMsg.authorRole === "user"));
+  const canResolve = isOpen;
   const statusDisplay = ticketStatusDisplay(ticket.status);
 
   return (

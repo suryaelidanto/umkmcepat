@@ -174,7 +174,7 @@ export async function addMessage(
     }
   }
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const message = await tx.supportMessage.create({
       data: {
         ticketId: input.ticketId,
@@ -204,6 +204,10 @@ export async function addMessage(
       messageId: message.id,
     };
   });
+
+  invalidateUnreadCache();
+
+  return result;
 }
 
 export async function reopenTicket(
@@ -231,6 +235,8 @@ export async function reopenTicket(
     },
   });
 
+  invalidateUnreadCache();
+
   return { success: true };
 }
 
@@ -254,16 +260,6 @@ export async function resolveTicket(
     if (ticket.userId !== userId) {
       throw new Error("Akses ditolak.");
     }
-    // Check if last message is from user
-    const lastMessage = await prisma.supportMessage.findFirst({
-      where: { ticketId },
-      orderBy: { createdAt: "desc" },
-    });
-    if (!lastMessage || lastMessage.authorRole !== "user") {
-      throw new Error(
-        "Hanya bisa menutup tiket setelah Anda mengirim pesan terakhir.",
-      );
-    }
   }
 
   await prisma.supportTicket.update({
@@ -274,6 +270,8 @@ export async function resolveTicket(
       resolvedBy: isAdmin ? userId : null,
     },
   });
+
+  invalidateUnreadCache();
 
   return { success: true };
 }
@@ -289,6 +287,15 @@ const cache = new Map<
   { counts: TicketBadgeCounts; expiresAt: number }
 >();
 const CACHE_TTL_MS = 30 * 1000;
+
+export function invalidateUnreadCache(userId?: string): void {
+  if (userId) {
+    cache.delete(`${userId}-false`);
+    cache.delete(`${userId}-true`);
+  } else {
+    cache.clear();
+  }
+}
 
 export async function getUnreadCounts(actor: {
   userId: string;

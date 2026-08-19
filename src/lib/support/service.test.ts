@@ -283,18 +283,13 @@ describe("support service", () => {
       });
     });
 
-    it("allows user to resolve only if status=OPEN and last message is from user", async () => {
+    it("allows user to resolve open ticket belonging to them", async () => {
       (
         prisma.supportTicket.findUnique as ReturnType<typeof vi.fn>
       ).mockResolvedValue({
         id: "ticket-1",
         userId: "user-1",
         status: SupportTicketStatus.OPEN,
-      });
-      (
-        prisma.supportMessage.findFirst as ReturnType<typeof vi.fn>
-      ).mockResolvedValue({
-        authorRole: "user",
       });
 
       const result = await resolveTicket("ticket-1", "user-1", false);
@@ -310,22 +305,17 @@ describe("support service", () => {
       });
     });
 
-    it("rejects user resolve if last message was from admin", async () => {
+    it("rejects user resolve if ticket belongs to someone else", async () => {
       (
         prisma.supportTicket.findUnique as ReturnType<typeof vi.fn>
       ).mockResolvedValue({
         id: "ticket-1",
-        userId: "user-1",
+        userId: "other-user",
         status: SupportTicketStatus.OPEN,
-      });
-      (
-        prisma.supportMessage.findFirst as ReturnType<typeof vi.fn>
-      ).mockResolvedValue({
-        authorRole: "admin",
       });
 
       await expect(resolveTicket("ticket-1", "user-1", false)).rejects.toThrow(
-        "Hanya bisa menutup tiket setelah Anda mengirim pesan terakhir.",
+        "Akses ditolak.",
       );
     });
   });

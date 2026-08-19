@@ -13,13 +13,16 @@ export function AvatarFrame({
 
   return (
     <span
-      className={cn("shrink-0 overflow-hidden rounded-full", className)}
+      className={cn(
+        "inline-block shrink-0 overflow-hidden rounded-full",
+        className,
+      )}
       aria-hidden="true"
     >
       <img
         src={url}
         alt={seed}
-        className={cn("size-full object-cover", imageClassName)}
+        className={cn("block size-full object-cover", imageClassName)}
       />
     </span>
   );
