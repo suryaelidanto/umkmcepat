@@ -10,7 +10,7 @@ function AdminTicketThreadRoute() {
   const { ticketId } = Route.useParams();
 
   return (
-    <div className="flex h-[calc(100dvh-5.5rem)] sm:h-[calc(100dvh-6rem)] w-full flex-col overflow-hidden pb-3 text-[#1c1c1c] transition-colors duration-200 dark:text-surface-warm-white">
+    <div className="flex h-full w-full flex-col overflow-hidden pb-3 text-[#1c1c1c] transition-colors duration-200 dark:text-surface-warm-white">
       <TicketThreadView
         ticketId={ticketId}
         isAdmin={true}

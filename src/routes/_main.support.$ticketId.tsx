@@ -23,7 +23,7 @@ function UserTicketThreadRoute() {
   const { ticketId } = Route.useParams();
 
   return (
-    <div className="mx-auto flex h-[calc(100dvh-3.5rem)] sm:h-[calc(100dvh-3.75rem)] w-full max-w-7xl flex-col overflow-hidden px-3 sm:px-6 lg:px-8 pb-3 text-[#1c1c1c] transition-colors duration-200 dark:text-surface-warm-white">
+    <div className="mx-auto flex h-full w-full max-w-7xl flex-col overflow-hidden px-3 sm:px-6 lg:px-8 pb-3 text-[#1c1c1c] transition-colors duration-200 dark:text-surface-warm-white">
       <TicketThreadView
         ticketId={ticketId}
         isAdmin={false}
