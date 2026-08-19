@@ -163,7 +163,7 @@ function TicketThreadPage() {
         </p>
         <Link
           href="/support"
-          className="mt-4 inline-block text-sm text-aurora-orange underline"
+          className="mt-4 inline-block text-sm text-accent-orange underline"
         >
           Kembali ke Bantuan
         </Link>
@@ -267,10 +267,10 @@ function TicketThreadPage() {
         <div className="flex items-center justify-between mt-spacing-2">
           <div className="flex items-center gap-spacing-2">
             <span
-              className={`rounded-radius-sm px-2 py-0.5 text-[10px] font-bold ${
+              className={`rounded-radius-sm border px-2 py-0.5 text-[10px] font-bold ${
                 ticket.status === "OPEN"
-                  ? "bg-aurora-orange/15 text-aurora-orange"
-                  : "bg-surface-warm-white/10 text-surface-warm-white/50"
+                  ? "bg-accent-orange-subtle border-accent-orange-border text-accent-orange"
+                  : "bg-surface-warm-white/10 text-surface-warm-white/50 border-transparent"
               }`}
             >
               {ticket.status === "OPEN" ? "BUKA" : "SELESAI"}
@@ -388,7 +388,7 @@ function TicketThreadPage() {
               value={replyBody}
               onChange={(e) => setReplyBody(e.target.value)}
               placeholder="Tulis balasan..."
-              className="h-10 flex-1 rounded-radius-md border border-surface-warm-white/10 bg-transparent px-spacing-3 text-sm outline-none focus:ring-1 focus:ring-aurora-orange"
+              className="h-10 flex-1 rounded-radius-md border border-surface-warm-white/10 bg-transparent px-spacing-3 text-sm outline-none focus:border-accent-orange focus:ring-1 focus:ring-accent-orange"
             />
 
             <Button

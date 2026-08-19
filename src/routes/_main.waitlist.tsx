@@ -443,7 +443,7 @@ function WaitlistPage() {
   if (devSkipDone) {
     return (
       <div className="mx-auto flex min-h-dvh max-w-xl flex-col items-center justify-center gap-spacing-5 px-spacing-6 py-spacing-14 text-center text-surface-warm-white">
-        <div className="flex size-14 items-center justify-center rounded-full border border-aurora-orange/30 bg-aurora-orange/10 text-aurora-orange">
+        <div className="flex size-14 items-center justify-center rounded-full border border-accent-orange-border bg-accent-orange-subtle text-accent-orange">
           <Check className="size-7" strokeWidth={2.5} />
         </div>
         <h1 className="text-heading-xl font-semibold tracking-tight">
@@ -502,13 +502,13 @@ function WaitlistPage() {
       <ProgressBar currentStep={step} />
 
       {isDev && ownIsDevSkip && isApproved ? (
-        <div className="mt-spacing-4 flex flex-col items-center gap-spacing-3 rounded-radius-lg border border-aurora-orange/30 bg-aurora-orange/10 px-spacing-5 py-spacing-4 text-center text-sm text-surface-warm-white/85">
+        <div className="mt-spacing-4 flex flex-col items-center gap-spacing-3 rounded-radius-lg border border-accent-orange-border bg-accent-orange-subtle px-spacing-5 py-spacing-4 text-center text-sm text-[#1c1c1c] dark:text-surface-warm-white/85">
           <p>
             Akun kamu sudah auto-approved lewat dev skip. Kamu bisa pakai
             aplikasi penuh.
           </p>
           <button
-            className="text-xs text-aurora-rose underline-offset-4 hover:underline disabled:opacity-50"
+            className="text-xs text-destructive underline-offset-4 hover:underline disabled:opacity-50"
             disabled={devResetMutation.isPending}
             onClick={() => devResetMutation.mutate()}
             type="button"
@@ -748,7 +748,7 @@ function WaitlistPage() {
             </button>
             {statusQuery.data?.own ? (
               <button
-                className="text-[10px] uppercase tracking-wider text-aurora-rose/70 underline-offset-4 hover:text-aurora-rose hover:underline disabled:opacity-50"
+                className="text-[10px] uppercase tracking-wider text-destructive/70 underline-offset-4 hover:text-destructive hover:underline disabled:opacity-50"
                 disabled={devResetMutation.isPending}
                 onClick={() => devResetMutation.mutate()}
                 type="button"
@@ -779,9 +779,9 @@ function ProgressBar({ currentStep }: { currentStep: number }) {
               <div
                 className={`flex size-8 items-center justify-center rounded-full text-xs font-semibold transition ${
                   isActive
-                    ? "bg-aurora-orange text-[#151515]"
+                    ? "bg-accent-orange text-white"
                     : isDone
-                      ? "bg-aurora-orange/20 text-aurora-orange"
+                      ? "bg-accent-orange-subtle text-accent-orange border border-accent-orange-border"
                       : "bg-black/10 text-[#5f5f5d] dark:bg-surface-warm-white/10 dark:text-surface-warm-white/60"
                 }`}
               >
@@ -795,7 +795,7 @@ function ProgressBar({ currentStep }: { currentStep: number }) {
               <div
                 className={`mb-4 h-px w-10 transition ${
                   isDone
-                    ? "bg-aurora-orange/40"
+                    ? "bg-accent-orange/40"
                     : "bg-black/10 dark:bg-surface-warm-white/10"
                 }`}
               />
@@ -921,10 +921,10 @@ function Step2({
         <div className="flex items-end justify-between">
           <span className="text-xs font-semibold text-[#1c1c1c] dark:text-surface-warm-white/80">
             Sudah jualan sejak kapan?
-            <span className="text-aurora-rose"> *</span>
+            <span className="text-destructive"> *</span>
           </span>
           {sinceInvalid ? (
-            <span className="text-xs text-aurora-rose">
+            <span className="text-xs text-destructive">
               {errorMessage("storySince")}
             </span>
           ) : null}
@@ -1016,7 +1016,7 @@ function Step3({
           />
         ))}
         {canAdd ? (
-          <label className="flex size-20 cursor-pointer flex-col items-center justify-center rounded-radius-md border border-dashed border-surface-warm-white/20 bg-surface-warm-white/5 text-surface-warm-white/60 transition hover:border-aurora-orange/40 hover:bg-surface-warm-white/10 hover:text-surface-warm-white/80">
+          <label className="flex size-20 cursor-pointer flex-col items-center justify-center rounded-radius-md border border-dashed border-black/20 bg-black/[0.03] text-[#5f5f5d] transition hover:border-accent-orange hover:bg-black/[0.06] hover:text-[#1c1c1c] dark:border-surface-warm-white/20 dark:bg-surface-warm-white/5 dark:text-surface-warm-white/60 dark:hover:border-accent-orange/40 dark:hover:bg-surface-warm-white/10 dark:hover:text-surface-warm-white/80">
             <ImagePlus className="size-5" />
             <span className="mt-1 text-[9px] font-semibold uppercase tracking-wide">
               Upload
@@ -1042,7 +1042,7 @@ function Step3({
       </div>
 
       {photoError ? (
-        <p className="mt-spacing-2 text-xs text-aurora-rose">{photoError}</p>
+        <p className="mt-spacing-2 text-xs text-destructive">{photoError}</p>
       ) : (
         <p className="mt-spacing-2 text-xs text-surface-warm-white/50">
           {photoCount}/3 foto · PNG / JPG / WEBP, maksimal 5 MB per file
@@ -1067,7 +1067,7 @@ function Step({
     <div className="flex flex-col">
       <h2 className="text-center text-heading-lg font-semibold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white">
         {question}
-        {required ? <span className="text-aurora-rose"> *</span> : null}
+        {required ? <span className="text-destructive"> *</span> : null}
       </h2>
       <p className="mt-spacing-2 text-center text-sm text-[#5f5f5d] dark:text-surface-warm-white/60">
         {helper}
@@ -1110,7 +1110,7 @@ function SuccessScreen({
 }) {
   return (
     <div className="mx-auto flex min-h-dvh max-w-xl flex-col items-center justify-center gap-spacing-5 px-spacing-6 py-spacing-14 text-center text-surface-warm-white">
-      <div className="flex size-14 items-center justify-center rounded-full border border-aurora-orange/30 bg-aurora-orange/10 text-aurora-orange">
+      <div className="flex size-14 items-center justify-center rounded-full border border-accent-orange-border bg-accent-orange-subtle text-accent-orange">
         <Check className="size-7" strokeWidth={2.5} />
       </div>
       <h1 className="text-heading-xl font-semibold tracking-tight">

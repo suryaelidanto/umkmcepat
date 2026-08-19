@@ -161,7 +161,7 @@ function AdminTicketThreadPage() {
         <h2 className="text-lg font-semibold">Tiket Tidak Ditemukan</h2>
         <Link
           href="/admin/tickets"
-          className="mt-4 inline-block text-sm text-aurora-orange underline"
+          className="mt-4 inline-block text-sm text-accent-orange underline"
         >
           Kembali ke Daftar Tiket
         </Link>
@@ -379,7 +379,7 @@ function AdminTicketThreadPage() {
               value={replyBody}
               onChange={(e) => setReplyBody(e.target.value)}
               placeholder="Tulis balasan sebagai admin..."
-              className="h-10 flex-1 rounded-radius-md border border-black/10 bg-transparent px-spacing-3 text-sm text-[#1c1c1c] outline-none focus:ring-1 focus:ring-aurora-orange dark:border-surface-warm-white/10 dark:text-surface-warm-white"
+              className="h-10 flex-1 rounded-radius-md border border-black/10 bg-transparent px-spacing-3 text-sm text-[#1c1c1c] outline-none focus:border-accent-orange focus:ring-1 focus:ring-accent-orange dark:border-surface-warm-white/10 dark:text-surface-warm-white"
             />
 
             <Button

@@ -336,7 +336,7 @@ export function HomePromptForm({
 
   if (overLimit) {
     return (
-      <div className="mx-auto mt-spacing-12 w-full max-w-3xl rounded-[28px] border border-amber-500/30 bg-amber-50/80 px-spacing-7 py-spacing-6 text-center text-foreground dark:border-yellow-500/24 dark:bg-yellow-500/[0.06] dark:text-surface-warm-white/78">
+      <div className="mx-auto mt-spacing-12 w-full max-w-3xl rounded-[28px] border border-status-warning-border bg-status-warning-subtle px-spacing-7 py-spacing-6 text-center text-status-warning">
         <p className="text-sm font-medium leading-6">
           Kamu sudah mencapai batas website. Hapus yang tidak terpakai untuk
           membuat yang baru.
@@ -355,7 +355,7 @@ export function HomePromptForm({
             onFocusChange?.(false);
           }
         }}
-        className="mx-auto mt-6 sm:mt-10 w-full max-w-3xl overflow-visible rounded-2xl border border-black/10 bg-white text-left shadow-[0_20px_48px_rgba(0,0,0,0.08)] ring-1 ring-black/[0.04] transition-all duration-300 ease-out focus-within:scale-[1.02] focus-within:border-aurora-orange/60 focus-within:ring-aurora-orange/30 dark:border-white/10 dark:bg-[#1c1c1a] dark:shadow-[0_24px_48px_rgba(0,0,0,0.45)] dark:ring-white/[0.05] dark:focus-within:border-[#2f8cff]/55 dark:focus-within:ring-[#2f8cff]/35"
+        className="mx-auto mt-6 sm:mt-10 w-full max-w-3xl overflow-visible rounded-2xl border border-black/10 bg-white text-left shadow-[0_20px_48px_rgba(0,0,0,0.08)] ring-1 ring-black/[0.04] transition-all duration-300 ease-out focus-within:scale-[1.02] focus-within:border-accent-orange focus-within:ring-accent-orange/30 dark:border-white/10 dark:bg-[#1c1c1a] dark:shadow-[0_24px_48px_rgba(0,0,0,0.45)] dark:ring-white/[0.05] dark:focus-within:border-[#2f8cff]/55 dark:focus-within:ring-[#2f8cff]/35"
       >
         <label htmlFor="hero-prompt" className="sr-only">
           Tulis kebutuhan usaha yang ingin dibuatkan website

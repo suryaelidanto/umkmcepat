@@ -41,9 +41,10 @@ const CATEGORY_LABELS: Record<SupportCategory, string> = {
 };
 
 const CATEGORY_COLORS: Record<SupportCategory, string> = {
-  TEKNIS: "bg-aurora-rose/10 text-aurora-rose border-aurora-rose/20",
-  PEMBAYARAN: "bg-aurora-orange/10 text-aurora-orange border-aurora-orange/20",
-  UMUM: "bg-aurora-gold/10 text-aurora-gold border-aurora-gold/20",
+  TEKNIS: "bg-accent-rose-subtle text-accent-rose border-accent-rose-border",
+  PEMBAYARAN:
+    "bg-accent-orange-subtle text-accent-orange border-accent-orange-border",
+  UMUM: "bg-accent-gold-subtle text-accent-gold border-accent-gold-border",
 };
 
 function SupportPage() {
@@ -274,7 +275,7 @@ function SupportPage() {
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
                 placeholder="Contoh: Eror saat generate halaman kontak / Pembayaran energi belum masuk"
-                className="h-10 w-full rounded-radius-md border border-black/15 bg-transparent px-spacing-3 text-sm text-[#1c1c1c] outline-none placeholder:text-black/30 focus:ring-1 focus:ring-aurora-orange dark:border-surface-warm-white/10 dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/30"
+                className="h-10 w-full rounded-radius-md border border-black/15 bg-transparent px-spacing-3 text-sm text-[#1c1c1c] outline-none placeholder:text-black/30 focus:border-accent-orange focus:ring-1 focus:ring-accent-orange dark:border-surface-warm-white/10 dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/30"
               />
             </div>
 
@@ -289,7 +290,7 @@ function SupportPage() {
                 id="category"
                 value={category}
                 onChange={(e) => setCategory(e.target.value as SupportCategory)}
-                className="h-10 w-full rounded-radius-md border border-black/15 bg-[#fcfbf8] px-spacing-3 text-sm text-[#1c1c1c] outline-none focus:ring-1 focus:ring-aurora-orange dark:border-surface-warm-white/10 dark:bg-[#171715] dark:text-surface-warm-white"
+                className="h-10 w-full rounded-radius-md border border-black/15 bg-[#fcfbf8] px-spacing-3 text-sm text-[#1c1c1c] outline-none focus:border-accent-orange focus:ring-1 focus:ring-accent-orange dark:border-surface-warm-white/10 dark:bg-[#171715] dark:text-surface-warm-white"
               >
                 {Object.keys(CATEGORY_LABELS).map((cat) => (
                   <option key={cat} value={cat}>
@@ -313,7 +314,7 @@ function SupportPage() {
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 placeholder="Jelaskan secara rinci kendala Anda..."
-                className="w-full resize-y rounded-radius-md border border-black/15 bg-transparent p-spacing-3 text-sm text-[#1c1c1c] outline-none placeholder:text-black/30 focus:ring-1 focus:ring-aurora-orange dark:border-surface-warm-white/10 dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/30"
+                className="w-full resize-y rounded-radius-md border border-black/15 bg-transparent p-spacing-3 text-sm text-[#1c1c1c] outline-none placeholder:text-black/30 focus:border-accent-orange focus:ring-1 focus:ring-accent-orange dark:border-surface-warm-white/10 dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/30"
               />
             </div>
 
@@ -412,10 +413,10 @@ function SupportPage() {
                       </span>
                     </div>
                     <span
-                      className={`rounded-radius-sm px-2 py-0.5 text-[10px] font-bold ${
+                      className={`rounded-radius-sm border px-2 py-0.5 text-[10px] font-bold ${
                         ticket.status === "OPEN"
-                          ? "bg-aurora-orange/15 text-aurora-orange"
-                          : "bg-black/10 text-black/60 dark:bg-surface-warm-white/10 dark:text-surface-warm-white/50"
+                          ? "bg-accent-orange-subtle border-accent-orange-border text-accent-orange"
+                          : "bg-black/10 text-black/60 border-transparent dark:bg-surface-warm-white/10 dark:text-surface-warm-white/50"
                       }`}
                     >
                       {ticket.status === "OPEN" ? "BUKA" : "SELESAI"}

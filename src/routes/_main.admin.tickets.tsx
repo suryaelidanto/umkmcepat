@@ -46,9 +46,10 @@ const CATEGORY_LABELS: Record<SupportCategory, string> = {
 };
 
 const CATEGORY_COLORS: Record<SupportCategory, string> = {
-  TEKNIS: "bg-aurora-rose/10 text-aurora-rose border-aurora-rose/20",
-  PEMBAYARAN: "bg-aurora-orange/10 text-aurora-orange border-aurora-orange/20",
-  UMUM: "bg-aurora-gold/10 text-aurora-gold border-aurora-gold/20",
+  TEKNIS: "bg-accent-rose-subtle text-accent-rose border-accent-rose-border",
+  PEMBAYARAN:
+    "bg-accent-orange-subtle text-accent-orange border-accent-orange-border",
+  UMUM: "bg-accent-gold-subtle text-accent-gold border-accent-gold-border",
 };
 
 const TICKET_STATUS_OPTIONS = [
@@ -169,11 +170,11 @@ function AdminTicketsPage() {
               <Link
                 key={ticket.id}
                 href={`/admin/tickets/${ticket.id}`}
-                className={`relative flex flex-col gap-spacing-2 rounded-radius-md border p-spacing-4 transition ${needsReply ? "border-aurora-orange/30 bg-aurora-orange/5 hover:bg-aurora-orange/8 text-[#1c1c1c] dark:text-surface-warm-white" : "border-black/10 bg-[#fcfbf8] text-[#1c1c1c] hover:border-black/20 hover:bg-black/[0.02] dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/8"}`}
+                className={`relative flex flex-col gap-spacing-2 rounded-radius-md border p-spacing-4 transition ${needsReply ? "border-accent-orange-border bg-accent-orange-subtle text-[#1c1c1c] dark:text-surface-warm-white" : "border-black/10 bg-[#fcfbf8] text-[#1c1c1c] hover:border-black/20 hover:bg-black/[0.02] dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/8"}`}
               >
                 {needsReply && (
                   <span
-                    className="absolute left-2 top-2 flex h-2 w-2 rounded-full bg-aurora-orange"
+                    className="absolute left-2 top-2 flex h-2 w-2 rounded-full bg-accent-orange"
                     title="Menunggu balasan"
                   />
                 )}

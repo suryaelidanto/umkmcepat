@@ -238,7 +238,7 @@ export function LoginConsentDialog({
           </div>
         ) : null}
 
-        {error ? <p className="text-sm text-aurora-rose">{error}</p> : null}
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
         <Button
           type="button"

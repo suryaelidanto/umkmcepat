@@ -61,8 +61,8 @@ export function CompletedBuildNotice({
     <div
       className={`rounded-[22px] border px-spacing-5 py-spacing-4 shadow-sm dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.025)] ${
         isRecovery
-          ? "border-amber-500/30 bg-amber-50/80 text-foreground dark:border-[#f6d365]/18 dark:bg-[#242015]"
-          : "border-emerald-500/30 bg-emerald-50/80 text-foreground dark:border-[#8ce99a]/18 dark:bg-[#1d211c]"
+          ? "border-status-warning-border bg-status-warning-subtle text-foreground dark:border-[#f6d365]/18 dark:bg-[#242015]"
+          : "border-status-success-border bg-status-success-subtle text-foreground dark:border-[#8ce99a]/18 dark:bg-[#1d211c]"
       }`}
     >
       <div className="flex flex-wrap items-center justify-between gap-spacing-4">

@@ -146,7 +146,7 @@ function HeroHeadline() {
         100% Gratis.
         <span
           aria-hidden="true"
-          className="absolute inset-x-0 -bottom-1 h-[5px] rounded-full bg-emerald-500 dark:bg-emerald-400"
+          className="absolute inset-x-0 -bottom-1 h-[5px] rounded-full bg-status-success"
         />
       </span>
     </span>
@@ -177,7 +177,7 @@ function CaraKerjaSection() {
         <div className="mt-14 grid grid-cols-1 gap-8 md:grid-cols-3">
           {/* Step 1 */}
           <div className="flex flex-col rounded-2xl border border-black/10 bg-[#fcfbf8] p-8 shadow-sm transition-colors dark:border-white/10 dark:bg-[#1c1c1a] dark:shadow-none">
-            <span className="font-mono text-2xl font-bold text-aurora-orange">
+            <span className="font-mono text-2xl font-bold text-accent-orange">
               01
             </span>
             <h3 className="mt-4 text-lg font-bold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white">
@@ -191,7 +191,7 @@ function CaraKerjaSection() {
 
           {/* Step 2 */}
           <div className="flex flex-col rounded-2xl border border-black/10 bg-[#fcfbf8] p-8 shadow-sm transition-colors dark:border-white/10 dark:bg-[#1c1c1a] dark:shadow-none">
-            <span className="font-mono text-2xl font-bold text-aurora-orange">
+            <span className="font-mono text-2xl font-bold text-accent-orange">
               02
             </span>
             <h3 className="mt-4 text-lg font-bold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white">
@@ -205,7 +205,7 @@ function CaraKerjaSection() {
 
           {/* Step 3 */}
           <div className="flex flex-col rounded-2xl border border-black/10 bg-[#fcfbf8] p-8 shadow-sm transition-colors dark:border-white/10 dark:bg-[#1c1c1a] dark:shadow-none">
-            <span className="font-mono text-2xl font-bold text-aurora-orange">
+            <span className="font-mono text-2xl font-bold text-accent-orange">
               03
             </span>
             <h3 className="mt-4 text-lg font-bold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white">

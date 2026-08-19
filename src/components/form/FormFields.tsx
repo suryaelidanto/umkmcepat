@@ -4,14 +4,14 @@ import { cn } from "@/lib/utils";
 
 const FIELD_LABEL_CLASSES =
   "text-xs font-semibold text-[#1c1c1c] dark:text-surface-warm-white/80";
-const FIELD_REQUIRED_ICON = <span className="text-aurora-rose"> *</span>;
+const FIELD_REQUIRED_ICON = <span className="text-destructive"> *</span>;
 const FIELD_INPUT_BASE =
   "w-full rounded-radius-md border bg-transparent px-spacing-4 text-sm text-[#1c1c1c] outline-none transition placeholder:text-black/30 disabled:opacity-50 dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/30";
 const FIELD_INPUT_VALID =
-  "border-black/15 focus:border-aurora-orange/50 focus:ring-1 focus:ring-aurora-orange dark:border-surface-warm-white/10";
+  "border-black/15 focus:border-accent-orange focus:ring-1 focus:ring-accent-orange dark:border-surface-warm-white/10";
 const FIELD_INPUT_INVALID =
-  "border-aurora-rose/60 focus:border-aurora-rose focus:ring-1 focus:ring-aurora-rose";
-const FIELD_ERROR_CLASSES = "mt-spacing-1 text-xs text-aurora-rose";
+  "border-destructive focus:border-destructive focus:ring-1 focus:ring-destructive";
+const FIELD_ERROR_CLASSES = "mt-spacing-1 text-xs text-destructive";
 
 export type FormFieldProps = {
   label: string;
@@ -87,8 +87,8 @@ export const chipClass = ({
   cn(
     "rounded-radius-md border px-spacing-3 py-spacing-2 text-xs font-semibold transition",
     active
-      ? "border-aurora-orange/40 bg-aurora-orange/15 text-aurora-orange"
+      ? "border-accent-orange-border bg-accent-orange-subtle text-accent-orange"
       : invalid
-        ? "border-aurora-rose/60 text-aurora-rose hover:border-aurora-rose"
+        ? "border-destructive-border text-destructive hover:border-destructive"
         : "border-black/15 bg-black/[0.04] text-[#1c1c1c] hover:bg-black/[0.08] dark:border-surface-warm-white/10 dark:bg-transparent dark:text-surface-warm-white dark:hover:bg-surface-warm-white/5",
   );
