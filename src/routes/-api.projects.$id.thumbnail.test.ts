@@ -16,7 +16,7 @@ vi.mock("@/lib/projects/project-thumbnail", () => ({
   readProjectThumbnail: readProjectThumbnailMock,
 }));
 
-import { getHandler } from "./_handler";
+import { getHandler } from "../../tests/support/route-handler";
 
 import { Route } from "@/routes/api.projects.$id.thumbnail";
 

@@ -28,7 +28,7 @@ vi.mock("@/lib/projects/runtime-supervisor", () => ({
   }),
 }));
 
-import { getHandler } from "./_handler";
+import { getHandler } from "../../tests/support/route-handler";
 
 import { Route } from "@/routes/api.projects.$id.restart";
 

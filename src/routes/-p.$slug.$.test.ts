@@ -18,7 +18,7 @@ vi.mock("@/lib/projects/runtime-proxy", () => ({
   proxyDeploymentRequest: proxyDeploymentRequestMock,
 }));
 
-import { getHandler } from "./_handler";
+import { getHandler } from "../../tests/support/route-handler";
 
 import { Route } from "@/routes/p.$slug.$";
 

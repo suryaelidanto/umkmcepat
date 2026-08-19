@@ -121,7 +121,7 @@ vi.mock("@/lib/projects/brief-flow", () => ({
   })),
 }));
 
-import { getHandler } from "./_handler";
+import { getHandler } from "../../tests/support/route-handler";
 
 import { Route } from "@/routes/api.projects";
 

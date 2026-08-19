@@ -40,7 +40,7 @@ vi.mock("@/lib/email/templates", () => ({
   sendPaymentReceipt: sendPaymentReceiptMock,
 }));
 
-import { getHandler } from "./_handler";
+import { getHandler } from "../../tests/support/route-handler";
 
 import { Route } from "@/routes/api.admin.transactions.$orderId.verify";
 

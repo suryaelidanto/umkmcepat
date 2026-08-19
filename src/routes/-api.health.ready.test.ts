@@ -6,7 +6,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: { $queryRaw: queryRawMock },
 }));
 
-import { getHandler } from "./_handler";
+import { getHandler } from "../../tests/support/route-handler";
 
 import { resetReadinessStateForTests } from "@/lib/readiness";
 import { Route } from "@/routes/api.health.ready";

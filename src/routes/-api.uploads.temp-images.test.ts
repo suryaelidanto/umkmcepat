@@ -10,7 +10,7 @@ vi.mock("@/lib/uploads/temp-image-storage", () => ({
   uploadTempImage: uploadTempImageMock,
 }));
 
-import { getHandler } from "./_handler";
+import { getHandler } from "../../tests/support/route-handler";
 
 import { Route } from "@/routes/api.uploads.temp-images";
 

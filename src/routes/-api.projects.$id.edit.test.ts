@@ -137,7 +137,7 @@ vi.mock("@/lib/projects/runtime-artifacts", async (importOriginal) => {
   };
 });
 
-import { getHandler } from "./_handler";
+import { getHandler } from "../../tests/support/route-handler";
 
 import { Route } from "@/routes/api.projects.$id.edit";
 

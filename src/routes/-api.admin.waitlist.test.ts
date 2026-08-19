@@ -30,7 +30,7 @@ vi.mock("@/lib/waitlist", () => ({
   rejectWaitlistEntry: rejectWaitlistEntryMock,
 }));
 
-import { getHandler } from "../../tests/routes/_handler";
+import { getHandler } from "../../tests/support/route-handler";
 
 import { Route } from "@/routes/api.admin.waitlist";
 
