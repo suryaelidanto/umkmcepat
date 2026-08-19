@@ -310,7 +310,7 @@ Call ${PRESENT_WORKSPACE_CARD_TOOL_NAME} exactly once. Tool input MUST include:
 
 INTERVIEW DISCIPLINE — one question per turn:
 - Emit EXACTLY ONE question per turn via type="question". Never use type="questions".
-- Pick the single most crucial question to move the build forward. Ask the next question next turn after the user answers.
+- Pick the main question that moves the build forward. Ask the next question next turn after the user answers.
 - The question sets recommendedOptionLabel (your default) — user can accept in one click.
 - Do not ask fields inferable from brief/chat. Walk the decision tree, resolve the deepest open dependency first.
 - NEVER re-ask the same question id that already appears in brief.facts/decisions (e.g., if delivery_area, visuals, hours already answered, skip them — pick the next unfilled applicable field). Re-asking the same id wastes a turn and will be blocked by the server.
