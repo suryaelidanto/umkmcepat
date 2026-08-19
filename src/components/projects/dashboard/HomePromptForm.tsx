@@ -134,19 +134,17 @@ export function HomePromptForm({
   }, [placeholder, isDeleting, phraseIndex, prompt]);
 
   // Waitlist gate: never show the create form to signed-in users who have not
-  // been approved. While the status query is still loading, keep the form
-  // hidden too — otherwise it flashes for a few seconds before the homepage
-  // swaps in the waitlist banner. Shares the cache with MainChrome and the
-  // homepage, so it does not trigger an extra fetch.
+  // been approved. Shares the cache with MainChrome and the homepage.
   const waitlistQuery = useQuery({
     queryKey: queryKeys.waitlistStatus,
     queryFn: fetchWaitlistStatus,
     enabled: status === "authenticated",
     ...GATE_QUERY_OPTIONS,
   });
-  const waitlistedOrPending =
+  const waitlisted =
     status === "authenticated" &&
-    (!waitlistQuery.isSuccess || waitlistQuery.data.status !== "approved");
+    waitlistQuery.isSuccess &&
+    waitlistQuery.data.status !== "approved";
 
   useEffect(() => {
     return () => {
@@ -330,7 +328,7 @@ export function HomePromptForm({
     event.currentTarget.form?.requestSubmit();
   }
 
-  if (waitlistedOrPending) {
+  if (waitlisted) {
     return null;
   }
 

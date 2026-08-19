@@ -35,6 +35,10 @@ import {
   queryKeys,
   waitlistPendingPollInterval,
 } from "@/lib/query-client";
+import { isAdminEmail, isWaitlistApproved } from "@/lib/waitlist/waitlist";
+import { isWaitlistEnabled } from "@/lib/waitlist/waitlist-enabled";
+import { getOwnWaitlistEntry } from "@/lib/waitlist/waitlist-own-entry";
+import { resolveUserWaitlistStatus } from "@/routes/api.user.waitlist";
 
 const loadHome = createServerFn({ method: "GET" }).handler(async () => {
   const session = await auth().catch(() => null);
@@ -74,11 +78,33 @@ const loadHome = createServerFn({ method: "GET" }).handler(async () => {
     const projectLimit = getProjectLimit();
     const overProjectLimit = isAtOrOverProjectLimit(projectCount, projectLimit);
 
+    const email = session?.user?.email ?? null;
+    const isAdmin = email ? isAdminEmail(email) : false;
+    const waitlistEnabled = await isWaitlistEnabled();
+    const isApproved = email ? await isWaitlistApproved(email) : null;
+    const isDev = process.env.NODE_ENV === "development";
+    const initialWaitlistStatus = session?.user?.id
+      ? {
+          ...resolveUserWaitlistStatus({
+            email,
+            isAdmin,
+            isApproved,
+            isDevelopment: isDev,
+            waitlistEnabled,
+          }),
+          own:
+            email && (!isAdmin || isDev)
+              ? await getOwnWaitlistEntry(email)
+              : undefined,
+        }
+      : null;
+
     return {
       greetingName,
       hasUser: Boolean(session?.user),
       initialNextCursor,
       initialProjects,
+      initialWaitlistStatus,
       overProjectLimit,
       projectCount,
       projectLimit,
@@ -93,6 +119,7 @@ const loadHome = createServerFn({ method: "GET" }).handler(async () => {
       hasUser: Boolean(session?.user),
       initialNextCursor: null,
       initialProjects: [],
+      initialWaitlistStatus: null,
       overProjectLimit: false,
       projectCount: 0,
       projectLimit: getProjectLimit(),
@@ -233,6 +260,7 @@ function HomePage() {
     hasUser,
     initialNextCursor,
     initialProjects,
+    initialWaitlistStatus,
     overProjectLimit: _overProjectLimit,
     projectCount: _projectCount,
     projectLimit: _projectLimit,
@@ -245,6 +273,7 @@ function HomePage() {
     queryKey: queryKeys.waitlistStatus,
     queryFn: fetchWaitlistStatus,
     enabled: hasUser && status === "authenticated",
+    initialData: initialWaitlistStatus ?? undefined,
     ...GATE_QUERY_OPTIONS,
     refetchInterval: (query) => waitlistPendingPollInterval(query.state.data),
   });
