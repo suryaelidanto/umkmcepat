@@ -162,7 +162,11 @@ export function TicketThreadView({
 
   const reopenMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch(`/api/admin/tickets/${ticketId}/reopen`, {
+      const endpoint = isAdmin
+        ? `/api/admin/tickets/${ticketId}/reopen`
+        : `/api/support/tickets/${ticketId}/reopen`;
+
+      const response = await fetch(endpoint, {
         method: "POST",
       });
 
@@ -187,9 +191,22 @@ export function TicketThreadView({
     },
   });
 
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+
   // Auto-scroll to bottom of messages
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop =
+        messagesContainerRef.current.scrollHeight;
+    }
+    const timer = setTimeout(() => {
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.scrollTop =
+          messagesContainerRef.current.scrollHeight;
+      }
+      messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+    }, 50);
+    return () => clearTimeout(timer);
   }, [data?.ticket?.messages]);
 
   const handleFileChange = async (
@@ -282,7 +299,6 @@ export function TicketThreadView({
   const { ticket } = data;
   const shortId = ticket.id.slice(-8).toUpperCase();
   const isOpen = ticket.status === "OPEN";
-  const canResolve = isOpen;
   const statusDisplay = ticketStatusDisplay(ticket.status);
 
   return (
@@ -327,52 +343,35 @@ export function TicketThreadView({
               {statusDisplay.label}
             </AdminStatusBadge>
 
-            {isAdmin ? (
-              isOpen ? (
-                <Button
-                  onClick={() => resolveMutation.mutate()}
-                  size="sm"
-                  variant="outline"
-                  className="text-xs rounded-xl shadow-2xs cursor-pointer"
-                  disabled={resolveMutation.isPending}
-                >
-                  {resolveMutation.isPending
-                    ? "Memproses..."
-                    : "Tandai Selesai"}
-                </Button>
-              ) : (
-                <Button
-                  onClick={() => reopenMutation.mutate()}
-                  size="sm"
-                  className="bg-accent-orange text-white hover:bg-accent-orange/90 text-xs font-bold rounded-xl shadow-2xs cursor-pointer"
-                  disabled={reopenMutation.isPending}
-                >
-                  {reopenMutation.isPending
-                    ? "Membuka..."
-                    : "Buka Kembali Tiket"}
-                </Button>
-              )
+            {isOpen ? (
+              <Button
+                onClick={() => resolveMutation.mutate()}
+                size="sm"
+                variant="outline"
+                className="text-xs rounded-xl shadow-2xs cursor-pointer"
+                disabled={resolveMutation.isPending}
+              >
+                {resolveMutation.isPending ? "Memproses..." : "Tandai Selesai"}
+              </Button>
             ) : (
-              canResolve && (
-                <Button
-                  onClick={() => resolveMutation.mutate()}
-                  size="sm"
-                  variant="outline"
-                  className="text-xs rounded-xl shadow-2xs cursor-pointer"
-                  disabled={resolveMutation.isPending}
-                >
-                  {resolveMutation.isPending
-                    ? "Memproses..."
-                    : "Tandai Selesai"}
-                </Button>
-              )
+              <Button
+                onClick={() => reopenMutation.mutate()}
+                size="sm"
+                className="bg-accent-orange text-white hover:bg-accent-orange/90 text-xs font-bold rounded-xl shadow-2xs cursor-pointer"
+                disabled={reopenMutation.isPending}
+              >
+                {reopenMutation.isPending ? "Membuka..." : "Buka Kembali Tiket"}
+              </Button>
             )}
           </div>
         </div>
       </div>
 
       {/* Messages Scroll Area */}
-      <div className="flex-1 overflow-y-auto py-4 space-y-3 px-1 sm:px-2 min-h-0 [overscroll-behavior:contain]">
+      <div
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto py-4 space-y-3 px-1 sm:px-2 min-h-0 [overscroll-behavior:contain]"
+      >
         {ticket.messages.map((msg) => {
           // Align right if message is by current role viewing
           const isOwn = isAdmin

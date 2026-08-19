@@ -16,6 +16,7 @@ import {
   createTicket,
   addMessage,
   resolveTicket,
+  reopenTicket,
   getUnreadCounts,
 } from "@/lib/support/service";
 
@@ -315,6 +316,68 @@ describe("support service", () => {
       });
 
       await expect(resolveTicket("ticket-1", "user-1", false)).rejects.toThrow(
+        "Akses ditolak.",
+      );
+    });
+  });
+
+  describe("reopenTicket", () => {
+    it("allows admin to reopen any ticket", async () => {
+      (
+        prisma.supportTicket.findUnique as ReturnType<typeof vi.fn>
+      ).mockResolvedValue({
+        id: "ticket-1",
+        userId: "user-1",
+        status: SupportTicketStatus.RESOLVED,
+      });
+
+      const result = await reopenTicket("ticket-1", "admin-1", true);
+
+      expect(result.success).toBe(true);
+      expect(prisma.supportTicket.update).toHaveBeenCalledWith({
+        where: { id: "ticket-1" },
+        data: {
+          status: SupportTicketStatus.OPEN,
+          resolvedAt: null,
+          resolvedBy: null,
+          updatedAt: expect.any(Date),
+        },
+      });
+    });
+
+    it("allows user to reopen their own ticket", async () => {
+      (
+        prisma.supportTicket.findUnique as ReturnType<typeof vi.fn>
+      ).mockResolvedValue({
+        id: "ticket-1",
+        userId: "user-1",
+        status: SupportTicketStatus.RESOLVED,
+      });
+
+      const result = await reopenTicket("ticket-1", "user-1", false);
+
+      expect(result.success).toBe(true);
+      expect(prisma.supportTicket.update).toHaveBeenCalledWith({
+        where: { id: "ticket-1" },
+        data: {
+          status: SupportTicketStatus.OPEN,
+          resolvedAt: null,
+          resolvedBy: null,
+          updatedAt: expect.any(Date),
+        },
+      });
+    });
+
+    it("rejects user reopen if ticket belongs to someone else", async () => {
+      (
+        prisma.supportTicket.findUnique as ReturnType<typeof vi.fn>
+      ).mockResolvedValue({
+        id: "ticket-1",
+        userId: "other-user",
+        status: SupportTicketStatus.RESOLVED,
+      });
+
+      await expect(reopenTicket("ticket-1", "user-1", false)).rejects.toThrow(
         "Akses ditolak.",
       );
     });

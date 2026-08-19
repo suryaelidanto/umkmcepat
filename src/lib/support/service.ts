@@ -212,7 +212,8 @@ export async function addMessage(
 
 export async function reopenTicket(
   ticketId: string,
-  _userId: string,
+  userId: string,
+  isAdmin = false,
 ): Promise<{ success: boolean }> {
   const ticket = await prisma.supportTicket.findUnique({
     where: { id: ticketId },
@@ -220,6 +221,9 @@ export async function reopenTicket(
 
   if (!ticket) {
     throw new Error("Tiket tidak ditemukan.");
+  }
+  if (!isAdmin && ticket.userId !== userId) {
+    throw new Error("Akses ditolak.");
   }
   if (ticket.status === SupportTicketStatus.OPEN) {
     return { success: true };
