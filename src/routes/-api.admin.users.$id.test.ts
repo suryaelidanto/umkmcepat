@@ -14,7 +14,7 @@ const {
   stopDeploymentMock: vi.fn(async () => "stopped" as const),
 }));
 
-vi.mock("@/lib/auth-admin", () => ({ requireAdmin: requireAdminMock }));
+vi.mock("@/lib/auth/auth-admin", () => ({ requireAdmin: requireAdminMock }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     projectDeployment: { findMany: prismaProjectDeploymentFindManyMock },

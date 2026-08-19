@@ -82,7 +82,7 @@ In `src/lib/app-settings-registry.ts`, append a new entry to the `feature_flag` 
 Append at the end of the file (does NOT touch the existing imports or `getCapabilityFlag` pattern):
 
 ```ts
-import { getSetting, getSettingSync } from "@/lib/app-settings";
+import { getSetting, getSettingSync } from "@/lib/config/app-settings";
 
 export function isStreamerModeEnabled(): Promise<boolean> {
   return getSetting("feature.streamer_mode", true);
@@ -93,7 +93,7 @@ export function isStreamerModeEnabledSync(): boolean {
 }
 ```
 
-`src/lib/config.ts` already imports from `@/lib/app-settings` only indirectly (via `provider-registry`). Adding the direct import for `getSetting`/`getSettingSync` is required. Verify by reading `src/lib/config.ts` after the edit — keep the existing imports list intact, just add the line.
+`src/lib/config.ts` already imports from `@/lib/config/app-settings` only indirectly (via `provider-registry`). Adding the direct import for `getSetting`/`getSettingSync` is required. Verify by reading `src/lib/config.ts` after the edit — keep the existing imports list intact, just add the line.
 
 - [ ] **Step 3: Verify**
 
@@ -531,8 +531,8 @@ import { Toaster } from "sonner";
 
 import { AdminTabs } from "@/components/admin/AdminTabs";
 import { StreamerModeProvider } from "@/components/admin/streamer-mode/streamer-mode-context";
-import { requireAdmin } from "@/lib/auth-admin";
-import { isStreamerModeEnabled } from "@/lib/config";
+import { requireAdmin } from "@/lib/auth/auth-admin";
+import { isStreamerModeEnabled } from "@/lib/config/config";
 
 const loadAdmin = createServerFn({ method: "GET" }).handler(async () => {
   const admin = await requireAdmin();

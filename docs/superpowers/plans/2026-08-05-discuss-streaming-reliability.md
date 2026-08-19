@@ -116,10 +116,10 @@ vi.mock("@/lib/projects/chat-compaction", () => ({
 vi.mock("@/lib/projects/discuss-turn-shared", () => ({
   persistProjectChatCompaction: (...a: unknown[]) => mocks.persistCompaction(...a),
 }));
-vi.mock("@/lib/user-credits", () => ({
+vi.mock("@/lib/payment/user-credits", () => ({
   chargeEnergyForAiUsage: (...a: unknown[]) => mocks.charge(...a),
 }));
-vi.mock("@/lib/ai-models", () => ({
+vi.mock("@/lib/ai/ai-models", () => ({
   getModerationModel: () => mocks.moderationModel(),
 }));
 vi.mock("@/lib/prisma", () => ({
@@ -226,7 +226,7 @@ import { validateUIMessages, type UIMessage } from "ai";
 
 import { prisma } from "@/lib/prisma";
 import { devLog } from "@/lib/dev-log";
-import { getModerationModel } from "@/lib/ai-models";
+import { getModerationModel } from "@/lib/ai/ai-models";
 import {
   parseProjectChatMessages,
   parseProjectChatSummary,
@@ -235,7 +235,7 @@ import {
 } from "@/lib/projects/chat-memory";
 import { maybeCompactProjectChat } from "@/lib/projects/chat-compaction";
 import { persistProjectChatCompaction } from "@/lib/projects/discuss-turn-shared";
-import { chargeEnergyForAiUsage } from "@/lib/user-credits";
+import { chargeEnergyForAiUsage } from "@/lib/payment/user-credits";
 import type { CompactionAttemptJob } from "@/lib/projects/attempt-queue";
 
 /**

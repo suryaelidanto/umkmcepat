@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { auth, requireNotBanned } from "@/lib/auth";
-import { getMayarTransaction } from "@/lib/mayar";
+import { auth, requireNotBanned } from "@/lib/auth/auth";
+import { getMayarTransaction } from "@/lib/payment/mayar";
+import { logCreditTransaction } from "@/lib/payment/user-credits";
 import { prisma } from "@/lib/prisma";
-import { logCreditTransaction } from "@/lib/user-credits";
 
 // If a payment has been PENDING longer than this, the client is still
 // polling but a webhook may never arrive (undocumented retry policy on

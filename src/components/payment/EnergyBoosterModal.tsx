@@ -15,7 +15,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { type BoosterPackId, type BoosterPackResolved } from "@/lib/mayar";
+import {
+  type BoosterPackId,
+  type BoosterPackResolved,
+} from "@/lib/payment/mayar";
 import { fetchJson, notifyEnergyChanged, queryKeys } from "@/lib/query-client";
 import { isDev } from "@/lib/utils";
 

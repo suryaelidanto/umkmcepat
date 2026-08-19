@@ -7,11 +7,16 @@ import {
   validateUIMessages,
 } from "ai";
 
-import { getAiModel } from "@/lib/ai";
-import { getDiscussModel, getModerationModel } from "@/lib/ai-models";
-import { moderateProjectRequest } from "@/lib/ai-moderation";
-import { auth } from "@/lib/auth";
+import { getAiModel } from "@/lib/ai/ai";
+import { getDiscussModel, getModerationModel } from "@/lib/ai/ai-models";
+import { moderateProjectRequest } from "@/lib/ai/ai-moderation";
+import { auth } from "@/lib/auth/auth";
 import { isBoundedJsonError, readBoundedJson } from "@/lib/bounded-json";
+import {
+  chargeEnergyForAiUsage,
+  checkEnergy,
+  getEnergyConfig,
+} from "@/lib/payment/user-credits";
 import { prisma } from "@/lib/prisma";
 import { enqueueAttemptJob } from "@/lib/projects/attempt-queue";
 import {
@@ -44,11 +49,6 @@ import { DISCUSS_SYSTEM_PROMPT } from "@/lib/projects/prompts/discuss-system";
 import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
 import { buildBriefPatchFromWorkspaceAnswers } from "@/lib/projects/workspace-answers";
 import { checkRateLimit } from "@/lib/rate-limit";
-import {
-  chargeEnergyForAiUsage,
-  checkEnergy,
-  getEnergyConfig,
-} from "@/lib/user-credits";
 import { mapToUserFacingError } from "@/lib/user-facing-error";
 
 // Re-export so external importers (e.g. the preview test) keep resolving after

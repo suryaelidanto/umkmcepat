@@ -196,7 +196,7 @@ async function handleUnauthorizedError(
 
   unauthorizedSignOut = (async () => {
     try {
-      const { signOut } = await import("./auth-client");
+      const { signOut } = await import("@/lib/auth/auth-client");
       // Clean sign out and redirect to home landing page.
       await signOut({ callbackUrl: "/" });
     } catch (error) {

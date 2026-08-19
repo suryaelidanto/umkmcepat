@@ -16,7 +16,7 @@ const {
   sendRejectedMock: vi.fn(),
 }));
 
-vi.mock("@/lib/auth-admin", () => ({ requireAdmin: requireAdminMock }));
+vi.mock("@/lib/auth/auth-admin", () => ({ requireAdmin: requireAdminMock }));
 vi.mock("@/lib/email/templates", () => ({
   sendWaitlistAccepted: sendAcceptedMock,
   sendWaitlistRejected: sendRejectedMock,
@@ -24,7 +24,7 @@ vi.mock("@/lib/email/templates", () => ({
 vi.mock("@/lib/prisma", () => ({
   prisma: { waitlistEntry: { findUnique: findUniqueMock } },
 }));
-vi.mock("@/lib/waitlist", () => ({
+vi.mock("@/lib/waitlist/waitlist", () => ({
   approveWaitlistEntry: approveWaitlistEntryMock,
   listPendingWaitlist: vi.fn(),
   rejectWaitlistEntry: rejectWaitlistEntryMock,

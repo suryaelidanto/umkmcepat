@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/config", () => ({ getEnv: () => "" }));
+vi.mock("@/lib/config/config", () => ({ getEnv: () => "" }));
 
 import { resolveUserWaitlistStatus } from "@/routes/api.user.waitlist";
 

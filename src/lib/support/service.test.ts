@@ -1,13 +1,13 @@
 import { SupportCategory, SupportTicketStatus } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/uploads/temp-image-storage", () => ({
+vi.mock("@/lib/storage/uploads/temp-image-storage", () => ({
   claimTempImage: vi
     .fn()
     .mockRejectedValue(new Error("images not needed for this test")),
 }));
 
-vi.mock("@/lib/object-storage", () => ({
+vi.mock("@/lib/storage/object-storage", () => ({
   putStoredObject: vi.fn(),
 }));
 

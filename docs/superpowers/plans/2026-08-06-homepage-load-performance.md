@@ -236,7 +236,7 @@ globalThis.__authStore = new AsyncLocalStorage<Map<string, unknown>>();
 Import the store:
 
 ```ts
-import { getAuthStore } from "@/lib/auth";
+import { getAuthStore } from "@/lib/auth/auth";
 ```
 
 Replace the `getNonceStore().run(...)` block with:
@@ -251,7 +251,7 @@ Replace the `getNonceStore().run(...)` block with:
 
 - [ ] **Step 5: Add memoization tests to `src/lib/auth.test.ts`**
 
-At the top of the file add `import { AsyncLocalStorage } from "node:async_hooks";` and add `getAuthStore` to the existing `@/lib/auth` import. In `beforeEach`, after `vi.clearAllMocks()`, add:
+At the top of the file add `import { AsyncLocalStorage } from "node:async_hooks";` and add `getAuthStore` to the existing `@/lib/auth/auth` import. In `beforeEach`, after `vi.clearAllMocks()`, add:
 
 ```ts
 globalThis.__authStore = new AsyncLocalStorage<Map<string, unknown>>();
@@ -833,7 +833,7 @@ git commit -m "perf: render hero and sections visible at first paint (CSS entran
 - Modify: `src/routes/_main.tsx`
 
 **Interfaces:**
-- Consumes: `auth()` from `@/lib/auth` (now memoized per request by Task 1); `SessionProvider` from `@/lib/auth-client` (already supports a `session` prop and skips the client refresh when it is defined).
+- Consumes: `auth()` from `@/lib/auth/auth` (now memoized per request by Task 1); `SessionProvider` from `@/lib/auth/auth-client` (already supports a `session` prop and skips the client refresh when it is defined).
 - Produces: `_main` layout loader data `{ session: Session | null | undefined }`; `MainLayout` wraps children in `<SessionProvider session={session}>`.
 
 - [ ] **Step 1: Update `src/routes/_main.tsx`**
@@ -845,8 +845,8 @@ import { Outlet, createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 
 import { MainChrome } from "@/components/common/MainChrome";
-import { auth } from "@/lib/auth";
-import { SessionProvider } from "@/lib/auth-client";
+import { auth } from "@/lib/auth/auth";
+import { SessionProvider } from "@/lib/auth/auth-client";
 import { checkRouteGates } from "@/server/loaders/check-route-gates";
 
 const runRouteGates = createServerFn({ method: "GET" })

@@ -1,13 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import {
   CHAT_PAGE_SIZE,
   getProjectChatPage,
   parseProjectChatMessages,
 } from "@/lib/projects/chat-memory";
-import { isAdminEmail } from "@/lib/waitlist";
+import { isAdminEmail } from "@/lib/waitlist/waitlist";
 
 export const Route = createFileRoute("/api/projects/$id/chat")({
   server: {

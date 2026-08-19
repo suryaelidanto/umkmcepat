@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { getRuntimeSupervisor } from "@/lib/projects/runtime-supervisor";
 import { verifyProjectOwnership } from "@/middleware/ownership";

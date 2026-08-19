@@ -5,10 +5,10 @@ import "@tanstack/react-start/server-only";
 
 import { redirect } from "@tanstack/react-router";
 
-import { getAuthState } from "@/lib/auth";
-import { isAdminEmail, isWaitlistApproved } from "@/lib/waitlist";
-import { isWaitlistEnabled } from "@/lib/waitlist-enabled";
-import { isWaitlistGateBypassPath } from "@/lib/waitlist-route-access";
+import { getAuthState } from "@/lib/auth/auth";
+import { isAdminEmail, isWaitlistApproved } from "@/lib/waitlist/waitlist";
+import { isWaitlistEnabled } from "@/lib/waitlist/waitlist-enabled";
+import { isWaitlistGateBypassPath } from "@/lib/waitlist/waitlist-route-access";
 import { resolveUserWaitlistStatus } from "@/routes/api.user.waitlist";
 
 export async function checkRouteGates(pathname: string) {

@@ -1,5 +1,5 @@
-import { recordAiCall } from "@/lib/ai-call-record";
-import { chargeEnergyForStep } from "@/lib/user-credits";
+import { recordAiCall } from "@/lib/ai/ai-call-record";
+import { chargeEnergyForStep } from "@/lib/payment/user-credits";
 
 export type StepChargeEvent = {
   energyUsed: number;

@@ -14,17 +14,18 @@ import {
   getAiModel,
   getAiTelemetry,
   getNoReasoningCallOptions,
-} from "@/lib/ai";
+} from "@/lib/ai/ai";
 import {
   classifyAiError,
   recordAiCall,
   startAiCallTimer,
-} from "@/lib/ai-call-record";
-import { getDiscussModel } from "@/lib/ai-models";
-import { writeAiRequestLog } from "@/lib/ai-request-log";
-import { getAiTimeoutMs } from "@/lib/ai-timeouts";
-import { primeSettingCache } from "@/lib/app-settings";
+} from "@/lib/ai/ai-call-record";
+import { getDiscussModel } from "@/lib/ai/ai-models";
+import { writeAiRequestLog } from "@/lib/ai/ai-request-log";
+import { getAiTimeoutMs } from "@/lib/ai/ai-timeouts";
+import { primeSettingCache } from "@/lib/config/app-settings";
 import { devLog } from "@/lib/dev-log";
+import { chargeEnergyForAiUsage } from "@/lib/payment/user-credits";
 import { getSafeAiErrorLog } from "@/lib/projects/ai-error-log";
 import { enqueueAttemptJob } from "@/lib/projects/attempt-queue";
 import { parseProjectBrief, type WorkspaceCard } from "@/lib/projects/brief";
@@ -68,7 +69,6 @@ import {
 } from "@/lib/projects/discuss-turn-shared";
 import { inlineChatAssetFileParts } from "@/lib/projects/inline-chat-asset-file-parts";
 import { stripTransportDiagnosticMessages } from "@/lib/projects/strip-transport-diagnostic-messages";
-import { chargeEnergyForAiUsage } from "@/lib/user-credits";
 
 export async function runDiscussTurn({
   turnId,

@@ -2,10 +2,13 @@ import { randomUUID } from "node:crypto";
 
 import { createFileRoute } from "@tanstack/react-router";
 
-import { auth } from "@/lib/auth";
-import { contentTypeFromExt, detectImageFormat } from "@/lib/images/format";
-import { putStoredObject } from "@/lib/object-storage";
+import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
+import {
+  contentTypeFromExt,
+  detectImageFormat,
+} from "@/lib/storage/images/format";
+import { putStoredObject } from "@/lib/storage/object-storage";
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 

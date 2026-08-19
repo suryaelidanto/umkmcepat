@@ -1,15 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { getModerationModel } from "@/lib/ai-models";
-import { moderateProjectRequest } from "@/lib/ai-moderation";
-import { auth } from "@/lib/auth";
-import { validateProjectRequest } from "@/lib/projects/input";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { getModerationModel } from "@/lib/ai/ai-models";
+import { moderateProjectRequest } from "@/lib/ai/ai-moderation";
+import { auth } from "@/lib/auth/auth";
 import {
   chargeEnergyForAiUsage,
   checkEnergy,
   getEnergyConfig,
-} from "@/lib/user-credits";
+} from "@/lib/payment/user-credits";
+import { validateProjectRequest } from "@/lib/projects/input";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 type ModerationBody = { prompt?: string };
 

@@ -6,16 +6,16 @@ const isWaitlistApprovedMock = vi.fn();
 const isWaitlistEnabledMock = vi.fn();
 const resolveUserWaitlistStatusMock = vi.fn();
 
-vi.mock("@/lib/auth", () => ({
+vi.mock("@/lib/auth/auth", () => ({
   getAuthState: (...args: unknown[]) => getAuthStateMock(...args),
 }));
 
-vi.mock("@/lib/waitlist", () => ({
+vi.mock("@/lib/waitlist/waitlist", () => ({
   isAdminEmail: (...args: unknown[]) => isAdminEmailMock(...args),
   isWaitlistApproved: (...args: unknown[]) => isWaitlistApprovedMock(...args),
 }));
 
-vi.mock("@/lib/waitlist-enabled", () => ({
+vi.mock("@/lib/waitlist/waitlist-enabled", () => ({
   isWaitlistEnabled: (...args: unknown[]) => isWaitlistEnabledMock(...args),
 }));
 

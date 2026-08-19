@@ -12,7 +12,7 @@ import {
   getS3Object,
   putS3Object,
   S3_PREFIXES,
-} from "@/lib/s3-client";
+} from "@/lib/storage/s3-client";
 
 const S3_PROJECT_ARTIFACT_REF_PREFIX = "project-artifact:s3:";
 

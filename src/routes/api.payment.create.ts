@@ -1,12 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { auth, requireNotBanned } from "@/lib/auth";
+import { auth, requireNotBanned } from "@/lib/auth/auth";
 import {
   createMayarPayment,
   getBoosterPack,
   type BoosterPackId,
   BOOSTER_PACKS,
-} from "@/lib/mayar";
+} from "@/lib/payment/mayar";
 import { prisma } from "@/lib/prisma";
 import { mapToUserFacingError } from "@/lib/user-facing-error";
 

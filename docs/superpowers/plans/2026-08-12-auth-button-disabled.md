@@ -33,7 +33,7 @@
 - Test: `src/components/common/AuthButton.test.tsx`
 
 **Interfaces:**
-- Consumes: `useSession() -> {status: "loading"|"authenticated"|"unauthenticated"}` from `@/lib/auth-client`
+- Consumes: `useSession() -> {status: "loading"|"authenticated"|"unauthenticated"}` from `@/lib/auth/auth-client`
 - Produces: Disabled `<Button>Masuk</Button>` when loading, enabled when unauthenticated
 
 - [ ] **Step 1: Write the failing test**
@@ -44,7 +44,7 @@ import { render, screen } from "@testing-library/react";
 import { vi } from "vitest";
 import { AuthButton } from "./AuthButton";
 
-vi.mock("@/lib/auth-client", () => ({
+vi.mock("@/lib/auth/auth-client", () => ({
   useSession: vi.fn(() => ({ data: null, status: "loading" })),
   signOut: vi.fn(),
 }));

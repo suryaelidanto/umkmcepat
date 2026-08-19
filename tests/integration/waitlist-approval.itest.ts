@@ -2,8 +2,11 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
 import { prisma } from "./setup";
 
-import { invalidateSettingCache, primeSettingCache } from "@/lib/app-settings";
-import { approveWaitlistEntry } from "@/lib/waitlist";
+import {
+  invalidateSettingCache,
+  primeSettingCache,
+} from "@/lib/config/app-settings";
+import { approveWaitlistEntry } from "@/lib/waitlist/waitlist";
 
 const STORY =
   "Jualan makanan rumahan sejak 2024 dan membutuhkan website agar pelanggan mudah melihat menu serta menghubungi usaha.";

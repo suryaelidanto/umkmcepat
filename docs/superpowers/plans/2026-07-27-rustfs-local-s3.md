@@ -85,7 +85,7 @@ Expected: `package.json` + `bun.lock` updated, `@aws-sdk/client-s3` in dependenc
 ```ts
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { getS3Config, publicUrlFor } from "@/lib/s3-client";
+import { getS3Config, publicUrlFor } from "@/lib/storage/s3-client";
 
 const BASE_ENV = {
   STORAGE_PROVIDER: "r2",
@@ -152,7 +152,7 @@ describe("s3-client config", () => {
 const LIVE = process.env.S3_LIVE_TEST === "1";
 describe.skipIf(!LIVE)("s3-client live round-trip", () => {
   it("PUTs, GETs, DELETEs a test object against the configured provider", async () => {
-    const { putS3Object, getS3Object, deleteS3Object } = await import("@/lib/s3-client");
+    const { putS3Object, getS3Object, deleteS3Object } = await import("@/lib/storage/s3-client");
     const key = "__selftest/round-trip-live.txt";
     const body = Buffer.from("s3-client live self-check");
     try {
@@ -169,7 +169,7 @@ describe.skipIf(!LIVE)("s3-client live round-trip", () => {
 - [ ] **Step 3: Run test to verify it fails**
 
 Run: `bunx vitest run --project unit src/lib/s3-client.test.ts`
-Expected: FAIL — module `@/lib/s3-client` not found.
+Expected: FAIL — module `@/lib/storage/s3-client` not found.
 
 - [ ] **Step 4: Write minimal implementation**
 
@@ -183,8 +183,8 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 
-import { getEnv } from "@/lib/config";
-import { getStorageProvider } from "@/lib/storage-provider";
+import { getEnv } from "@/lib/config/config";
+import { getStorageProvider } from "@/lib/storage/storage-provider";
 
 export type S3ClientConfig = {
   bucket: string;
@@ -349,8 +349,8 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 
-import { getEnv } from "@/lib/config";
-import { getStorageProvider } from "@/lib/storage-provider";
+import { getEnv } from "@/lib/config/config";
+import { getStorageProvider } from "@/lib/storage/storage-provider";
 
 // Anonymous-read policy for the PUBLIC bucket only (display media is public by
 // design). Private bucket gets no policy → only signed requests read it.
@@ -462,7 +462,7 @@ git commit -m "feat(infra): add RustFS service + idempotent S3 bucket init"
 
 - [ ] **Step 1: Write the failing test (rewrite the test file)**
 
-`src/lib/object-storage.test.ts` — mock `@/lib/s3-client` instead of `@/lib/r2-client`:
+`src/lib/object-storage.test.ts` — mock `@/lib/storage/s3-client` instead of `@/lib/r2-client`:
 
 ```ts
 import { describe, expect, it, vi } from "vitest";
@@ -473,7 +473,7 @@ const { putMock, getMock, deleteMock } = vi.hoisted(() => ({
   deleteMock: vi.fn(async () => {}),
 }));
 
-vi.mock("@/lib/s3-client", () => ({
+vi.mock("@/lib/storage/s3-client", () => ({
   getS3Config: () => ({ client: {}, bucket: "priv" }),
   putS3Object: putMock,
   getS3Object: getMock,
@@ -481,7 +481,7 @@ vi.mock("@/lib/s3-client", () => ({
   S3_PREFIXES: { object: "objects", artifact: "project-artifacts", asset: "project-assets", thumbnail: "project-thumbnails" },
 }));
 
-import { getStoredObject, putStoredObject } from "@/lib/object-storage";
+import { getStoredObject, putStoredObject } from "@/lib/storage/object-storage";
 
 describe("object-storage (s3)", () => {
   afterEach(() => { delete process.env.STORAGE_PROVIDER; });
@@ -518,13 +518,13 @@ Expected: FAIL — `object-storage.ts` still imports `r2-client` / writes `objec
 - [ ] **Step 3: Rewrite object-storage.ts**
 
 ```ts
-import { getEnv } from "@/lib/config";
+import { getEnv } from "@/lib/config/config";
 import {
   deleteS3Object,
   getS3Object,
   putS3Object,
   S3_PREFIXES,
-} from "@/lib/s3-client";
+} from "@/lib/storage/s3-client";
 
 export type StoredObject = {
   body: Buffer;
@@ -617,7 +617,7 @@ git commit -m "feat(storage): route waitlist images through s3-client (object:s3
 
 - [ ] **Step 1: Rewrite the test**
 
-`src/lib/projects/runtime-artifacts.test.ts` — replace the `vi.mock("@/lib/r2-client")` block with an `@/lib/s3-client` mock:
+`src/lib/projects/runtime-artifacts.test.ts` — replace the `vi.mock("@/lib/r2-client")` block with an `@/lib/storage/s3-client` mock:
 
 ```ts
 const { putMock, getMock, deleteMock } = vi.hoisted(() => {
@@ -634,7 +634,7 @@ const { putMock, getMock, deleteMock } = vi.hoisted(() => {
   };
 });
 
-vi.mock("@/lib/s3-client", () => ({
+vi.mock("@/lib/storage/s3-client", () => ({
   getS3Config: () => ({ client: {}, bucket: "pub" }),
   putS3Object: putMock,
   getS3Object: getMock,
@@ -660,7 +660,7 @@ import {
   getS3Object,
   putS3Object,
   S3_PREFIXES,
-} from "@/lib/s3-client";
+} from "@/lib/storage/s3-client";
 ```
 
 Drop `artifactR2Config`, `putR2Object`/`getR2Object`/`deleteR2Object`, the `R2Config` type import, and the `{...config, prefix: ""}` wrappers. The artifact key becomes `${S3_PREFIXES.artifact}/${kind}/${artifactId}/${suffix}`. Ref prefixes: `LOCAL_PROJECT_ARTIFACT_REF_PREFIX` + `R2_PROJECT_ARTIFACT_REF_PREFIX` collapse to one `S3_PROJECT_ARTIFACT_REF_PREFIX = "project-artifact:s3:"`.
@@ -706,7 +706,7 @@ git commit -m "feat(storage): route project artifacts through s3-client (project
 
 - [ ] **Step 1: Rewrite the test**
 
-`src/lib/projects/project-assets.test.ts` — swap the `@/lib/r2-client` mock for `@/lib/s3-client`:
+`src/lib/projects/project-assets.test.ts` — swap the `@/lib/r2-client` mock for `@/lib/storage/s3-client`:
 
 ```ts
 const { putMock, getMock, deleteMock } = vi.hoisted(() => ({
@@ -715,7 +715,7 @@ const { putMock, getMock, deleteMock } = vi.hoisted(() => ({
   deleteMock: vi.fn(async () => {}),
 }));
 
-vi.mock("@/lib/s3-client", () => ({
+vi.mock("@/lib/storage/s3-client", () => ({
   getS3Config: () => ({ client: {}, bucket: "pub" }),
   publicUrlFor: (_b: "public", key: string) => `https://media.test/project-assets/${key}`,
   putS3Object: putMock,
@@ -741,8 +741,8 @@ import {
   publicUrlFor,
   putS3Object,
   S3_PREFIXES,
-} from "@/lib/s3-client";
-import { getStorageProvider } from "@/lib/storage-provider";
+} from "@/lib/storage/s3-client";
+import { getStorageProvider } from "@/lib/storage/storage-provider";
 ```
 
 Prefixes:
@@ -801,7 +801,7 @@ git commit -m "feat(storage): route project assets through s3-client (s3:/s3-pri
 
 - [ ] **Step 1: Rewrite the test**
 
-`src/lib/projects/project-thumbnail.test.ts` — swap `@/lib/r2-client` mock for `@/lib/s3-client`, update refs to `project-thumbnail:s3-private:`, assert `putS3Object("private", "project-thumbnails/<id>.jpg", ...)`. Keep the local JPEG fixture.
+`src/lib/projects/project-thumbnail.test.ts` — swap `@/lib/r2-client` mock for `@/lib/storage/s3-client`, update refs to `project-thumbnail:s3-private:`, assert `putS3Object("private", "project-thumbnails/<id>.jpg", ...)`. Keep the local JPEG fixture.
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -816,8 +816,8 @@ import {
   getS3Object,
   putS3Object,
   S3_PREFIXES,
-} from "@/lib/s3-client";
-import { getStorageProvider } from "@/lib/storage-provider";
+} from "@/lib/storage/s3-client";
+import { getStorageProvider } from "@/lib/storage/storage-provider";
 
 const S3_REF_PREFIX = "project-thumbnail:s3-private:";
 ```
@@ -889,8 +889,8 @@ Update `src/lib/production-config.test.ts`: remove the test case asserting that 
 - [ ] **Step 4: Update artifact-storage-readiness.ts — validate S3_*, SDK reachability**
 
 ```ts
-import { getStorageProvider } from "@/lib/storage-provider";
-import { getS3Config } from "@/lib/s3-client";
+import { getStorageProvider } from "@/lib/storage/storage-provider";
+import { getS3Config } from "@/lib/storage/s3-client";
 import { GetBucketLocationCommand } from "@aws-sdk/client-s3";
 
 export async function assertProjectArtifactStorageReady() {

@@ -2,8 +2,9 @@ import { validateUIMessages, type UIMessage } from "ai";
 
 import type { CompactionAttemptJob } from "@/lib/projects/attempt-queue";
 
-import { getModerationModel } from "@/lib/ai-models";
+import { getModerationModel } from "@/lib/ai/ai-models";
 import { devLog } from "@/lib/dev-log";
+import { chargeEnergyForAiUsage } from "@/lib/payment/user-credits";
 import { prisma } from "@/lib/prisma";
 import { maybeCompactProjectChat } from "@/lib/projects/chat-compaction";
 import {
@@ -13,7 +14,6 @@ import {
   parseProjectMemoryFacts,
 } from "@/lib/projects/chat-memory";
 import { persistProjectChatCompaction } from "@/lib/projects/discuss-turn-shared";
-import { chargeEnergyForAiUsage } from "@/lib/user-credits";
 
 export async function runQueuedProjectCompaction(
   job: CompactionAttemptJob,

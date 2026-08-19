@@ -53,11 +53,11 @@ const {
   ),
 }));
 
-vi.mock("@/lib/auth", () => ({
+vi.mock("@/lib/auth/auth", () => ({
   auth: authMock,
   requireNotBanned: requireNotBannedMock,
 }));
-vi.mock("@/lib/mayar", () => ({
+vi.mock("@/lib/payment/mayar", () => ({
   createMayarPayment: createMayarPaymentMock,
   getBoosterPack: getBoosterPackMock,
   getMayarTransaction: getMayarTransactionMock,

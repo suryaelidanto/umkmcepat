@@ -5,7 +5,7 @@ import { EnergyDisplay } from "@/components/common/EnergyDisplay";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { Image } from "@/components/ui/image";
 import { Link } from "@/components/ui/link";
-import { useSession } from "@/lib/auth-client";
+import { useSession } from "@/lib/auth/auth-client";
 
 export function Header({
   devResetPending = false,

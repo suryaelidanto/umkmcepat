@@ -11,12 +11,13 @@ import {
   type UIMessage,
 } from "ai";
 
-import { getAiTelemetry, getNoReasoningCallOptions } from "@/lib/ai";
+import { getAiTelemetry, getNoReasoningCallOptions } from "@/lib/ai/ai";
 import {
   DISCUSS_CARD_SEMANTIC_ATTEMPTS,
   DISCUSS_CARD_SERVER_DEADLINE_MS,
   getAiTimeoutMs,
-} from "@/lib/ai-timeouts";
+} from "@/lib/ai/ai-timeouts";
+import { chargeEnergyForAiUsage } from "@/lib/payment/user-credits";
 import { prisma } from "@/lib/prisma";
 import { getSafeAiErrorLog } from "@/lib/projects/ai-error-log";
 import { parseProjectBrief, type WorkspaceCard } from "@/lib/projects/brief";
@@ -30,7 +31,6 @@ import {
   PRESENT_WORKSPACE_CARD_TOOL_NAME,
   presentWorkspaceCardTool,
 } from "@/lib/projects/discuss-tool";
-import { chargeEnergyForAiUsage } from "@/lib/user-credits";
 
 export type RepairedToolCall = {
   type: "tool-call";

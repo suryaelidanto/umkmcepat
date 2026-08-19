@@ -1,4 +1,4 @@
-import { getEnv } from "@/lib/config";
+import { getEnv } from "@/lib/config/config";
 
 export function assertRuntimeTargetAllowed(target: string) {
   let url: URL;

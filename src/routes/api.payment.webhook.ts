@@ -2,9 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { devLog } from "@/lib/dev-log";
 import { sendPaymentReceipt } from "@/lib/email/templates";
-import { getMayarTransaction, verifyMayarWebhookRequest } from "@/lib/mayar";
+import {
+  getMayarTransaction,
+  verifyMayarWebhookRequest,
+} from "@/lib/payment/mayar";
+import { logCreditTransaction } from "@/lib/payment/user-credits";
 import { prisma } from "@/lib/prisma";
-import { logCreditTransaction } from "@/lib/user-credits";
 
 interface MayarWebhookPayload {
   event: string;

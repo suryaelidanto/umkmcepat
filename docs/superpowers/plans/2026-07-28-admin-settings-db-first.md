@@ -59,7 +59,7 @@ import {
   APP_SETTINGS,
   CATEGORY_ORDER,
   CATEGORY_TIER,
-} from "@/lib/app-settings-registry";
+} from "@/lib/config/app-settings-registry";
 
 describe("registry schema", () => {
   it("every entry declares a valid tier", () => {
@@ -338,7 +338,7 @@ import {
   getSettingSync,
   invalidateSettingCache,
   primeSettingCache,
-} from "@/lib/app-settings";
+} from "@/lib/config/app-settings";
 
 describe("primeSettingCache", () => {
   beforeEach(() => {
@@ -564,7 +564,7 @@ In `src/start.ts`, import and await priming as the first statement of the
 middleware body:
 
 ```ts
-import { primeSettingCache } from "@/lib/app-settings";
+import { primeSettingCache } from "@/lib/config/app-settings";
 ```
 
 ```ts
@@ -755,7 +755,7 @@ Update the `entries` map to call `envValue(e)` and expose the new fields:
         });
 ```
 
-Add `type ConfigEntry` to the existing import from `@/lib/app-settings-registry`.
+Add `type ConfigEntry` to the existing import from `@/lib/config/app-settings-registry`.
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -791,8 +791,8 @@ git commit -m "fix(settings): read env names from registry and enforce bounds on
 Append to `src/lib/ai-timeouts.test.ts`:
 
 ```ts
-import { invalidateSettingCache } from "@/lib/app-settings";
-import { getAiTimeoutMs } from "@/lib/ai-timeouts";
+import { invalidateSettingCache } from "@/lib/config/app-settings";
+import { getAiTimeoutMs } from "@/lib/ai/ai-timeouts";
 
 describe("getAiTimeoutMs DB-first", () => {
   afterEach(() => {
@@ -809,7 +809,7 @@ describe("getAiTimeoutMs DB-first", () => {
     });
     process.env.AI_TIMEOUT_DISCUSS_MS = "120000";
     invalidateSettingCache();
-    const { primeSettingCache } = await import("@/lib/app-settings");
+    const { primeSettingCache } = await import("@/lib/config/app-settings");
     await primeSettingCache();
 
     expect(getAiTimeoutMs("discuss")).toBe(45_000);
@@ -823,7 +823,7 @@ describe("getAiTimeoutMs DB-first", () => {
       update: { value: 999_999 },
     });
     invalidateSettingCache();
-    const { primeSettingCache } = await import("@/lib/app-settings");
+    const { primeSettingCache } = await import("@/lib/config/app-settings");
     await primeSettingCache();
 
     expect(getAiTimeoutMs("discuss")).toBe(180_000);
@@ -887,8 +887,8 @@ export function getAiTimeoutMs(key: AiTimeoutKey) {
 }
 ```
 
-Swap the import: `import { getSettingSync } from "@/lib/app-settings";` replaces
-`import { getEnv } from "@/lib/config";`.
+Swap the import: `import { getSettingSync } from "@/lib/config/app-settings";` replaces
+`import { getEnv } from "@/lib/config/config";`.
 
 Leave `withAiTimeout` unchanged — `getAiTimeoutMs` stays synchronous, so the
 default parameter still works.
@@ -917,7 +917,7 @@ export function getAgentMaxSteps(key: AiAgentStepKey): number {
 - [ ] **Step 6: Rewire `ai-models.ts`**
 
 ```ts
-import { getSettingSync } from "@/lib/app-settings";
+import { getSettingSync } from "@/lib/config/app-settings";
 
 export const DEFAULT_AI_MODEL = "default-combo";
 
@@ -982,8 +982,8 @@ git commit -m "feat(settings): make AI timeouts, step budgets, and model ids DB-
 Append to `src/lib/user-credits.test.ts`:
 
 ```ts
-import { invalidateSettingCache, primeSettingCache } from "@/lib/app-settings";
-import { getEnergyConfig, getProjectLimit } from "@/lib/user-credits";
+import { invalidateSettingCache, primeSettingCache } from "@/lib/config/app-settings";
+import { getEnergyConfig, getProjectLimit } from "@/lib/payment/user-credits";
 
 describe("economics settings are DB-first", () => {
   afterEach(() => {
@@ -1061,7 +1061,7 @@ with defaults plus an accessor. Keep the existing explanatory comment block
 above them.
 
 ```ts
-import { getSettingSync } from "@/lib/app-settings";
+import { getSettingSync } from "@/lib/config/app-settings";
 
 const DEFAULT_MICRO_USD_PER_ENERGY = 1_000_000;
 const DEFAULT_DAILY_ENERGY_LIMIT = 250_000;
@@ -1171,7 +1171,7 @@ git commit -m "feat(settings): add economics category and make energy limits DB-
 Append to `src/lib/projects/runtime-network.test.ts`:
 
 ```ts
-import { invalidateSettingCache, primeSettingCache } from "@/lib/app-settings";
+import { invalidateSettingCache, primeSettingCache } from "@/lib/config/app-settings";
 import { getRuntimeFetchTimeoutMs } from "@/lib/projects/runtime-network";
 
 describe("runtime timeouts are DB-first", () => {
@@ -1452,7 +1452,7 @@ import {
   type SettingCategory,
   type SettingTier,
   type SettingType,
-} from "@/lib/app-settings-registry";
+} from "@/lib/config/app-settings-registry";
 
 export type SettingEntry = {
   category: SettingCategory;

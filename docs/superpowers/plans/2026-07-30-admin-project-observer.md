@@ -359,7 +359,7 @@ Create `src/components/projects/AdminProjectObserver.tsx`:
 ```tsx
 import type { UIMessage } from "ai";
 
-import type { ProjectViewerData } from "@/lib/admin-project-observer";
+import type { ProjectViewerData } from "@/lib/admin/admin-project-observer";
 
 import { getTextFromUIMessage } from "@/lib/projects/chat-memory";
 
@@ -520,8 +520,8 @@ import type { UIMessage } from "ai";
 import { AdminProjectObserver } from "@/components/projects/AdminProjectObserver";
 import { ClearProjectDraft } from "@/components/projects/dashboard/ClearProjectDraft";
 import { WorkspaceShell } from "@/components/projects/workspace/WorkspaceShell";
-import { auth } from "@/lib/auth";
-import { loadProjectForViewer } from "@/lib/admin-project-observer";
+import { auth } from "@/lib/auth/auth";
+import { loadProjectForViewer } from "@/lib/admin/admin-project-observer";
 
 const loadProject = createServerFn({ method: "GET" })
   .validator((data: { id: string }) => data)

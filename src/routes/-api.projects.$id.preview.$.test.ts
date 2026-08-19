@@ -21,7 +21,7 @@ const {
 }));
 
 vi.mock("next/server", () => ({ after: afterMock }));
-vi.mock("@/lib/auth", () => ({ auth: authMock }));
+vi.mock("@/lib/auth/auth", () => ({ auth: authMock }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     $queryRaw: prismaQueryRawMock,

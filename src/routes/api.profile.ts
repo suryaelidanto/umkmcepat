@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { auth, requireNotBanned } from "@/lib/auth";
+import { auth, requireNotBanned } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { normalizeProfileName } from "@/lib/profile";
 

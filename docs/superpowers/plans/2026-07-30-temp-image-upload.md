@@ -105,7 +105,7 @@ Expected: FAIL because `src/lib/uploads/temp-image-token.ts` does not exist.
 ```ts
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-import { getEnv } from "@/lib/config";
+import { getEnv } from "@/lib/config/config";
 
 export type TempImageTokenPayload = {
   contentType: string;
@@ -207,7 +207,7 @@ import {
   uploadTempImage,
 } from "./temp-image-storage";
 
-vi.mock("@/lib/s3-client", () => {
+vi.mock("@/lib/storage/s3-client", () => {
   const objects = new Map<string, { body: Buffer; contentType: string }>();
   return {
     copyS3Object: vi.fn(async (_bucket: string, from: string, to: string) => {
@@ -233,7 +233,7 @@ vi.mock("@/lib/s3-client", () => {
 
 describe("temp image storage", () => {
   beforeEach(async () => {
-    const s3 = await import("@/lib/s3-client");
+    const s3 = await import("@/lib/storage/s3-client");
     (s3 as unknown as { __objects: Map<string, unknown> }).__objects.clear();
   });
 
@@ -335,7 +335,7 @@ import {
   getS3Object,
   listS3Keys,
   putS3Object,
-} from "@/lib/s3-client";
+} from "@/lib/storage/s3-client";
 
 import {
   signTempImageToken,
@@ -483,8 +483,8 @@ Expected: FAIL because route does not exist.
 ```ts
 import { createFileRoute } from "@tanstack/react-router";
 
-import { requireUser } from "@/lib/auth-server";
-import { uploadTempImage } from "@/lib/uploads/temp-image-storage";
+import { requireUser } from "@/lib/auth/auth-server";
+import { uploadTempImage } from "@/lib/storage/uploads/temp-image-storage";
 
 export const Route = createFileRoute("/api/uploads/temp-images")({
   server: {
@@ -517,11 +517,11 @@ export const Route = createFileRoute("/api/uploads/temp-images")({
 ```ts
 import { createFileRoute } from "@tanstack/react-router";
 
-import { requireUser } from "@/lib/auth-server";
+import { requireUser } from "@/lib/auth/auth-server";
 import {
   deleteTempImage,
   readTempImage,
-} from "@/lib/uploads/temp-image-storage";
+} from "@/lib/storage/uploads/temp-image-storage";
 
 export const Route = createFileRoute("/api/uploads/temp-images/$assetId")({
   server: {

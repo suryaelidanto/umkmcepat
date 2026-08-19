@@ -1,7 +1,6 @@
 import { QueryClient } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { signOut } from "./auth-client";
 import {
   ADMIN_SUMMARY_POLL_MS,
   ADMIN_WAITLIST_POLL_MS,
@@ -16,7 +15,9 @@ import {
   type CachePatch,
 } from "./query-client";
 
-vi.mock("./auth-client", () => ({
+import { signOut } from "@/lib/auth/auth-client";
+
+vi.mock("@/lib/auth/auth-client", () => ({
   signOut: vi.fn().mockResolvedValue(undefined),
 }));
 

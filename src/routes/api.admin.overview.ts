@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { requireAdmin } from "@/lib/auth-admin";
+import { requireAdmin } from "@/lib/auth/auth-admin";
 import { prisma } from "@/lib/prisma";
-import { WAITLIST_PENDING_STATUSES } from "@/lib/waitlist";
+import { WAITLIST_PENDING_STATUSES } from "@/lib/waitlist/waitlist";
 
 export const Route = createFileRoute("/api/admin/overview")({
   server: {

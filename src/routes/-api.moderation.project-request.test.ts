@@ -4,7 +4,7 @@ const { moderateProjectRequestMock } = vi.hoisted(() => ({
   moderateProjectRequestMock: vi.fn(),
 }));
 
-vi.mock("@/lib/ai-moderation", () => ({
+vi.mock("@/lib/ai/ai-moderation", () => ({
   moderateProjectRequest: moderateProjectRequestMock,
 }));
 vi.mock("@/lib/rate-limit", () => ({

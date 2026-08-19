@@ -11,9 +11,9 @@ import {
   getAiModel,
   getAiTelemetry,
   getNoReasoningCallOptions,
-} from "@/lib/ai";
-import { getGenerationModel } from "@/lib/ai-models";
-import { getAiTimeoutMs } from "@/lib/ai-timeouts";
+} from "@/lib/ai/ai";
+import { getGenerationModel } from "@/lib/ai/ai-models";
+import { getAiTimeoutMs } from "@/lib/ai/ai-timeouts";
 
 export type VisualFindingCategory =
   | "hierarchy"

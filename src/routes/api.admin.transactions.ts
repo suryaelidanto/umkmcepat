@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { createFileRoute } from "@tanstack/react-router";
 
-import { requireAdmin } from "@/lib/auth-admin";
+import { requireAdmin } from "@/lib/auth/auth-admin";
 import { prisma } from "@/lib/prisma";
 
 const PAGE_SIZE = 20;

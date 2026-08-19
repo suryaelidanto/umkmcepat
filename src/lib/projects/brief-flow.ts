@@ -8,7 +8,7 @@ import type {
   TestimonialValue,
 } from "@/lib/projects/brief-rich-fields";
 
-import { getSettingSync } from "@/lib/app-settings";
+import { getSettingSync } from "@/lib/config/app-settings";
 import {
   type BriefQuestion,
   type ImageUploadCard,

@@ -1,6 +1,6 @@
 import { GetBucketLocationCommand } from "@aws-sdk/client-s3";
 
-import { getS3Config } from "@/lib/s3-client";
+import { getS3Config } from "@/lib/storage/s3-client";
 
 export async function assertProjectArtifactStorageReady() {
   const config = getS3Config("public");

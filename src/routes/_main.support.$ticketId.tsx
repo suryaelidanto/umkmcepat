@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ImageUploadThumb } from "@/components/ui/image-upload-thumb";
 import { Link } from "@/components/ui/link";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth/auth";
 import { fetchJson } from "@/lib/query-client";
 
 const requireAuth = createServerFn({ method: "GET" }).handler(async () => {

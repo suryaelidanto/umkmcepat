@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { invalidateSettingCache } from "@/lib/app-settings";
+import { invalidateSettingCache } from "@/lib/config/app-settings";
 import {
   checkRateLimit,
   getClientIp,

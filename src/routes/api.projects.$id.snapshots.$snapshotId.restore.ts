@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth/auth";
 import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
 import { isSnapshotRestorableAgainstActiveHandoff } from "@/lib/projects/build-handoffs";

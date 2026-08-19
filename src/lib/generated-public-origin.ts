@@ -1,4 +1,4 @@
-import { getEnv, isGeneratedPublicExecutionEnabled } from "@/lib/config";
+import { getEnv, isGeneratedPublicExecutionEnabled } from "@/lib/config/config";
 
 export type GeneratedPublicRequestResolution =
   | { action: "disabled" }

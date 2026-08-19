@@ -5,7 +5,7 @@ import { FormEvent, useState } from "react";
 
 import { AvatarFrame } from "@/components/ui/avatar-frame";
 import { Button } from "@/components/ui/button";
-import { useSession } from "@/lib/auth-client";
+import { useSession } from "@/lib/auth/auth-client";
 import { useRouter } from "@/lib/navigation";
 import { fetchJson, useCacheMutation } from "@/lib/query-client";
 

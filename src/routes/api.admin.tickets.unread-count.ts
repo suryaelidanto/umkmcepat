@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { requireAdmin } from "@/lib/auth-admin";
+import { requireAdmin } from "@/lib/auth/auth-admin";
 import { getUnreadCounts } from "@/lib/support/service";
 
 export const Route = createFileRoute("/api/admin/tickets/unread-count")({

@@ -2,14 +2,17 @@ import { randomUUID } from "node:crypto";
 
 import { createFileRoute } from "@tanstack/react-router";
 
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth/auth";
 import { devLog } from "@/lib/dev-log";
-import { contentTypeFromExt, detectImageFormat } from "@/lib/images/format";
-import { putStoredObject } from "@/lib/object-storage";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { claimTempImage } from "@/lib/uploads/temp-image-storage";
+import {
+  contentTypeFromExt,
+  detectImageFormat,
+} from "@/lib/storage/images/format";
+import { putStoredObject } from "@/lib/storage/object-storage";
+import { claimTempImage } from "@/lib/storage/uploads/temp-image-storage";
 import { mapToUserFacingError } from "@/lib/user-facing-error";
-import { buildWaitlistStory, submitWaitlist } from "@/lib/waitlist";
+import { buildWaitlistStory, submitWaitlist } from "@/lib/waitlist/waitlist";
 
 const MAX_WAITLIST_IMAGE_BYTES = 5 * 1024 * 1024;
 

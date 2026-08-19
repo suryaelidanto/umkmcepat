@@ -5,8 +5,8 @@ const { authMock, uploadTempImageMock } = vi.hoisted(() => ({
   uploadTempImageMock: vi.fn(),
 }));
 
-vi.mock("@/lib/auth", () => ({ auth: authMock }));
-vi.mock("@/lib/uploads/temp-image-storage", () => ({
+vi.mock("@/lib/auth/auth", () => ({ auth: authMock }));
+vi.mock("@/lib/storage/uploads/temp-image-storage", () => ({
   uploadTempImage: uploadTempImageMock,
 }));
 

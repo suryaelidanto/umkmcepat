@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { requireAdmin } from "@/lib/auth-admin";
-import { getStoredObject } from "@/lib/object-storage";
+import { requireAdmin } from "@/lib/auth/auth-admin";
 import { prisma } from "@/lib/prisma";
+import { getStoredObject } from "@/lib/storage/object-storage";
 
 export const Route = createFileRoute(
   "/api/admin/waitlist/image/$entryId/$index",

@@ -14,9 +14,8 @@
   "ignoreExportsUsedInFile": true,
   "ignoreIssues": {
     "src/components/ui/**": ["exports"],
-    "src/lib/provider-registry.ts": ["exports"],
-    "src/lib/storage/index.ts": ["exports"],
-    "src/lib/app-settings-registry.ts": ["exports"],
+    "src/lib/ai/provider-registry.ts": ["exports"],
+    "src/lib/config/app-settings-registry.ts": ["exports"],
     "src/lib/zod-schemas.ts": ["exports", "types"],
     "src/components/admin/streamer-mode/streamer-mode-context.tsx": [
       "exports",
@@ -26,8 +25,8 @@
       "exports",
       "files"
     ],
-    "src/lib/uploads/temp-image-client.ts": ["exports"],
-    "src/lib/uploads/temp-image-storage.ts": ["exports"],
+    "src/lib/storage/uploads/temp-image-client.ts": ["exports"],
+    "src/lib/storage/uploads/temp-image-storage.ts": ["exports"],
     "src/lib/projects/generated-site-contract.ts": ["exports"],
     "src/lib/projects/brief-admission.ts": ["exports"],
     "src/components/projects/workspace/WorkspaceShell.tsx": ["exports"],

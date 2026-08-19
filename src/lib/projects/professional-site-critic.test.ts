@@ -5,7 +5,7 @@ const { generateTextMock } = vi.hoisted(() => ({
 }));
 
 vi.mock("ai", () => ({ generateText: generateTextMock }));
-vi.mock("@/lib/ai", () => ({
+vi.mock("@/lib/ai/ai", () => ({
   getAiModel: vi.fn(() => ({ modelId: "critic-requested" })),
   getAiTelemetry: vi.fn(
     (functionId: string, metadata: Record<string, unknown>) => ({
@@ -15,10 +15,10 @@ vi.mock("@/lib/ai", () => ({
   ),
   getNoReasoningCallOptions: vi.fn(() => ({})),
 }));
-vi.mock("@/lib/ai-models", () => ({
+vi.mock("@/lib/ai/ai-models", () => ({
   getGenerationModel: vi.fn(() => "critic-requested"),
 }));
-vi.mock("@/lib/ai-timeouts", () => ({
+vi.mock("@/lib/ai/ai-timeouts", () => ({
   getAiTimeoutMs: vi.fn(() => 10_000),
 }));
 

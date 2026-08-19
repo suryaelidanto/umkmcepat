@@ -7,7 +7,7 @@ const sessionState = vi.hoisted(() => ({
   status: "loading" as "loading" | "unauthenticated",
 }));
 
-vi.mock("@/lib/auth-client", () => ({
+vi.mock("@/lib/auth/auth-client", () => ({
   signOut: vi.fn(),
   useSession: () => sessionState,
 }));

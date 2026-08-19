@@ -1,14 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { auth } from "@/lib/auth";
-import { canUseDevTools } from "@/lib/dev-admin";
+import { canUseDevTools } from "@/lib/admin/dev-admin";
+import { auth } from "@/lib/auth/auth";
 import {
   type WaitlistStatus,
   isAdminEmail,
   isWaitlistApproved,
-} from "@/lib/waitlist";
-import { isWaitlistEnabled } from "@/lib/waitlist-enabled";
-import { type OwnEntry, getOwnWaitlistEntry } from "@/lib/waitlist-own-entry";
+} from "@/lib/waitlist/waitlist";
+import { isWaitlistEnabled } from "@/lib/waitlist/waitlist-enabled";
+import {
+  type OwnEntry,
+  getOwnWaitlistEntry,
+} from "@/lib/waitlist/waitlist-own-entry";
 
 type ResolveInput = {
   email: string | null;

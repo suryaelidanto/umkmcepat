@@ -5,8 +5,8 @@ import {
 } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 
-import { primeSettingCache } from "@/lib/app-settings";
-import { getAuthStore } from "@/lib/auth";
+import { getAuthStore } from "@/lib/auth/auth";
+import { primeSettingCache } from "@/lib/config/app-settings";
 import { generateNonce, getNonceStore } from "@/lib/csp-nonce";
 import { applyLandingCacheHeaders } from "@/lib/landing-cache";
 import { checkRateLimit } from "@/lib/rate-limit";

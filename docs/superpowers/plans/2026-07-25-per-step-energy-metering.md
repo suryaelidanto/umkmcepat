@@ -356,7 +356,7 @@ const { chargeEnergyForStepMock } = vi.hoisted(() => ({
   chargeEnergyForStepMock: vi.fn(),
 }));
 
-vi.mock("@/lib/user-credits", () => ({
+vi.mock("@/lib/payment/user-credits", () => ({
   chargeEnergyForStep: chargeEnergyForStepMock,
 }));
 
@@ -504,7 +504,7 @@ Expected: FAIL — cannot resolve `./energy-step-charger`.
 Create `src/lib/projects/energy-step-charger.ts`:
 
 ```ts
-import { chargeEnergyForStep } from "@/lib/user-credits";
+import { chargeEnergyForStep } from "@/lib/payment/user-credits";
 
 export type StepChargeEvent = {
   energyUsed: number;

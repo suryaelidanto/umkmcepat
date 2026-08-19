@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 
-import { useSession } from "@/lib/auth-client";
+import { useSession } from "@/lib/auth/auth-client";
 import { fetchJson, queryKeys } from "@/lib/query-client";
 
 export type EnergyLedgerEntry = {

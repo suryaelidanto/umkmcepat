@@ -1,4 +1,4 @@
-import { getGenerationModel } from "@/lib/ai-models";
+import { getGenerationModel } from "@/lib/ai/ai-models";
 import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
 import { enqueueAndWaitEditBuild } from "@/lib/projects/attempt-queue";

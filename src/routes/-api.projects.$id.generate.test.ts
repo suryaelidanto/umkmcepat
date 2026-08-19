@@ -22,15 +22,15 @@ const hoisted = vi.hoisted(() => {
 });
 
 vi.mock("@/lib/prisma", () => ({ prisma: hoisted.prismaMock }));
-vi.mock("@/lib/auth", () => ({ auth: hoisted.authMock }));
-vi.mock("@/lib/user-credits", () => ({
+vi.mock("@/lib/auth/auth", () => ({ auth: hoisted.authMock }));
+vi.mock("@/lib/payment/user-credits", () => ({
   checkEnergy: hoisted.checkEnergyMock,
   getEnergyConfig: () => ({ minBuild: 1 }),
 }));
 vi.mock("@/lib/rate-limit", () => ({
   checkRateLimit: hoisted.checkRateLimitMock,
 }));
-vi.mock("@/lib/config", () => ({
+vi.mock("@/lib/config/config", () => ({
   isGeneratedBuildExecutionEnabled: () => true,
 }));
 vi.mock("@/lib/projects/project-operation", () => ({

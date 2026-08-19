@@ -743,7 +743,7 @@ Extend `src/lib/waitlist.test.ts` imports and tests:
 import {
   isWaitlistPendingStatus,
   WAITLIST_PENDING_STATUSES,
-} from "@/lib/waitlist";
+} from "@/lib/waitlist/waitlist";
 
 it("defines the same pending set used by admin work queues", () => {
   expect(WAITLIST_PENDING_STATUSES).toEqual(["pending", "waitlisted"]);
@@ -787,7 +787,7 @@ const {
   sendRejectedMock: vi.fn(),
 }));
 
-vi.mock("@/lib/auth-admin", () => ({ requireAdmin: requireAdminMock }));
+vi.mock("@/lib/auth/auth-admin", () => ({ requireAdmin: requireAdminMock }));
 vi.mock("@/lib/email/templates", () => ({
   sendWaitlistAccepted: sendAcceptedMock,
   sendWaitlistRejected: sendRejectedMock,
@@ -795,7 +795,7 @@ vi.mock("@/lib/email/templates", () => ({
 vi.mock("@/lib/prisma", () => ({
   prisma: { waitlistEntry: { findUnique: findUniqueMock } },
 }));
-vi.mock("@/lib/waitlist", () => ({
+vi.mock("@/lib/waitlist/waitlist", () => ({
   approveWaitlistEntry: approveWaitlistEntryMock,
   listPendingWaitlist: vi.fn(),
   rejectWaitlistEntry: rejectWaitlistEntryMock,
@@ -990,8 +990,8 @@ Create `tests/integration/waitlist-approval.itest.ts`:
 ```ts
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
-import { invalidateSettingCache, primeSettingCache } from "@/lib/app-settings";
-import { approveWaitlistEntry } from "@/lib/waitlist";
+import { invalidateSettingCache, primeSettingCache } from "@/lib/config/app-settings";
+import { approveWaitlistEntry } from "@/lib/waitlist/waitlist";
 import { prisma } from "./setup";
 
 const STORY =

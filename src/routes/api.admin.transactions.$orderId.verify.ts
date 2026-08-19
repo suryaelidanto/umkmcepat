@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { requireAdmin } from "@/lib/auth-admin";
+import { requireAdmin } from "@/lib/auth/auth-admin";
 import { sendPaymentReceipt } from "@/lib/email/templates";
-import { getMayarTransaction } from "@/lib/mayar";
+import { getMayarTransaction } from "@/lib/payment/mayar";
 import { prisma } from "@/lib/prisma";
 
 export const Route = createFileRoute("/api/admin/transactions/$orderId/verify")(

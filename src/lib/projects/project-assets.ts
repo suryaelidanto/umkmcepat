@@ -3,15 +3,15 @@ import { randomUUID } from "node:crypto";
 import {
   detectImageFormat,
   EXT_CONTENT_TYPE as FORMAT_CONTENT_TYPES,
-} from "@/lib/images/format";
+} from "@/lib/storage/images/format";
 import {
   deleteS3Object,
   getS3Object,
   publicUrlFor,
   putS3Object,
   S3_PREFIXES,
-} from "@/lib/s3-client";
-import { getStorageProvider } from "@/lib/storage-provider";
+} from "@/lib/storage/s3-client";
+import { getStorageProvider } from "@/lib/storage/storage-provider";
 
 const S3_REF_PREFIX = "project-asset:s3:";
 const S3_PRIVATE_REF_PREFIX = "project-asset:s3-private:";
@@ -243,7 +243,7 @@ function contentTypeForExt(ext: string): string {
   return "application/octet-stream";
 }
 
-export { detectImageFormat } from "@/lib/images/format";
+export { detectImageFormat } from "@/lib/storage/images/format";
 
 function assertSafeProjectId(projectId: string): void {
   if (!isValidProjectId(projectId)) {

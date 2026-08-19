@@ -9,7 +9,7 @@ import {
 
 import type { UIMessage } from "ai";
 
-vi.mock("@/lib/ai", () => ({
+vi.mock("@/lib/ai/ai", () => ({
   getAiModel: vi.fn(),
   getAiTelemetry: vi.fn(() => ({})),
 }));

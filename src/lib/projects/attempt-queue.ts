@@ -1,6 +1,6 @@
 import { Queue, QueueEvents, Worker, type ConnectionOptions } from "bullmq";
 
-import { getSettingSync } from "@/lib/app-settings";
+import { getSettingSync } from "@/lib/config/app-settings";
 import { devLog } from "@/lib/dev-log";
 import {
   abortJob,

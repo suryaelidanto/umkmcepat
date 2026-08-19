@@ -19,7 +19,7 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
-vi.mock("@/lib/auth", () => ({ auth: authMock }));
+vi.mock("@/lib/auth/auth", () => ({ auth: authMock }));
 
 vi.mock("@/lib/projects/discuss-turn", () => ({
   getActiveDiscussTurn: getActiveDiscussTurnMock,

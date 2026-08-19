@@ -12,17 +12,17 @@ vi.mock("ai", () => ({
   tool: (config: unknown) => config,
 }));
 
-vi.mock("@/lib/ai", () => ({
+vi.mock("@/lib/ai/ai", () => ({
   getAiModel: vi.fn(() => ({})),
   getAiTelemetry: vi.fn(() => ({})),
   getNoReasoningCallOptions: vi.fn(() => ({})),
 }));
 
-vi.mock("@/lib/ai-models", () => ({
+vi.mock("@/lib/ai/ai-models", () => ({
   getGenerationModel: vi.fn(() => "default-combo"),
 }));
 
-vi.mock("@/lib/app-settings", () => ({
+vi.mock("@/lib/config/app-settings", () => ({
   getSettingSync: vi.fn((key: string, def: unknown) => def),
 }));
 

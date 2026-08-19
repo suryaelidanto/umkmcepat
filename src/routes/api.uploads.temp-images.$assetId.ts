@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth/auth";
 import {
   deleteTempImage,
   readTempImage,
-} from "@/lib/uploads/temp-image-storage";
+} from "@/lib/storage/uploads/temp-image-storage";
 
 export const Route = createFileRoute("/api/uploads/temp-images/$assetId")({
   server: {

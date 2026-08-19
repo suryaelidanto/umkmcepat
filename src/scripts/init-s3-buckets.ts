@@ -5,8 +5,8 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 
-import { getEnv } from "@/lib/config";
-import { getStorageProvider } from "@/lib/storage-provider";
+import { getEnv } from "@/lib/config/config";
+import { getStorageProvider } from "@/lib/storage/storage-provider";
 
 // Anonymous-read policy for the PUBLIC bucket only (display media is public by
 // design). Private bucket gets no policy → only signed requests read it.

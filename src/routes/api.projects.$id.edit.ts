@@ -3,11 +3,12 @@ import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { createFileRoute } from "@tanstack/react-router";
 
-import { getSetting } from "@/lib/app-settings";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth/auth";
 import { isBoundedJsonError, readBoundedJson } from "@/lib/bounded-json";
-import { isGeneratedBuildExecutionEnabled } from "@/lib/config";
+import { getSetting } from "@/lib/config/app-settings";
+import { isGeneratedBuildExecutionEnabled } from "@/lib/config/config";
 import { devLog } from "@/lib/dev-log";
+import { checkEnergy, getEnergyConfig } from "@/lib/payment/user-credits";
 import { prisma } from "@/lib/prisma";
 import { enqueueAttemptJob } from "@/lib/projects/attempt-queue";
 import { createReadStreamFromChannel } from "@/lib/projects/build-attempt-pubsub";
@@ -23,7 +24,6 @@ import { readProjectSourceArtifact } from "@/lib/projects/runtime-artifacts";
 import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
 import { sanitizeVisualAnnotations } from "@/lib/projects/visual-annotations";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { checkEnergy, getEnergyConfig } from "@/lib/user-credits";
 
 type EditRequest = {
   annotations?: unknown;

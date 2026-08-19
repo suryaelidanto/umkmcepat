@@ -668,7 +668,7 @@ git commit -m "feat(projects): direct edit-mode preview bridge (reorder + remove
 **Interfaces:**
 - Consumes:
   - `EditLayout`, `editHistoryPush`, `editHistoryUndo`, `editHistoryRedo`, `EditHistory` from `@/lib/projects/direct-edit`.
-  - `uploadTempImageFile` from `@/lib/uploads/temp-image-client`.
+  - `uploadTempImageFile` from `@/lib/storage/uploads/temp-image-client`.
   - `createImageReplaceEditInstruction`, `VisualAnnotationDraft` from `@/lib/projects/visual-annotations`.
 - Produces:
   - `WorkspaceTopBar` new optional props: `directEditActive?: boolean`, `directEditAvailable?: boolean`, `onToggleDirectEdit?: () => void`.
@@ -1207,7 +1207,7 @@ git commit -m "feat(projects): frame posts direct-edit mode + toolbar toggle"
 
 **Interfaces:**
 - Consumes:
-  - `uploadTempImageFile` from `@/lib/uploads/temp-image-client`.
+  - `uploadTempImageFile` from `@/lib/storage/uploads/temp-image-client`.
   - `createImageReplaceEditInstruction`, `VisualAnnotationDraft` from `@/lib/projects/visual-annotations`.
 - Produces: `onReplaceImage` in `WorkspaceShell` opens a picker, claims via `/api/projects/$id/assets/upload`, builds an `image_replace` edit instruction, and submits an edit.
 

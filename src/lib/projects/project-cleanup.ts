@@ -3,7 +3,7 @@ import path from "node:path";
 
 import type { RuntimeSupervisor } from "@/lib/projects/runtime-supervisor";
 
-import { getEnv } from "@/lib/config";
+import { getEnv } from "@/lib/config/config";
 import { deleteProjectAsset } from "@/lib/projects/project-assets";
 import { deleteProjectThumbnail } from "@/lib/projects/project-thumbnail";
 import { deleteProjectArtifact } from "@/lib/projects/runtime-artifacts";

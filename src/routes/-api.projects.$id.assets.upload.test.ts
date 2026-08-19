@@ -16,19 +16,19 @@ const {
   moderateProjectRequestMock: vi.fn(),
 }));
 
-vi.mock("@/lib/auth", () => ({ auth: authMock }));
-vi.mock("@/lib/app-settings", () => ({ getSetting: getSettingMock }));
+vi.mock("@/lib/auth/auth", () => ({ auth: authMock }));
+vi.mock("@/lib/config/app-settings", () => ({ getSetting: getSettingMock }));
 vi.mock("@/middleware/ownership", () => ({
   verifyProjectOwnership: verifyProjectOwnershipMock,
 }));
-vi.mock("@/lib/uploads/temp-image-storage", () => ({
+vi.mock("@/lib/storage/uploads/temp-image-storage", () => ({
   claimTempImage: claimTempImageMock,
 }));
 vi.mock("@/lib/projects/project-asset-upload", () => ({
   isAllowedAssetPurpose: () => true,
   uploadProjectAsset: uploadProjectAssetMock,
 }));
-vi.mock("@/lib/ai-moderation", () => ({
+vi.mock("@/lib/ai/ai-moderation", () => ({
   moderateProjectRequest: moderateProjectRequestMock,
 }));
 

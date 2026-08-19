@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/app-settings", () => ({
+vi.mock("@/lib/config/app-settings", () => ({
   getSettingSync: vi.fn(() => false),
 }));
 

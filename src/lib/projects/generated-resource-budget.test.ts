@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { invalidateSettingCache, primeSettingCache } from "@/lib/app-settings";
+import {
+  invalidateSettingCache,
+  primeSettingCache,
+} from "@/lib/config/app-settings";
 import {
   assertGeneratedResourceBudget,
   getGeneratedResourceBudget,

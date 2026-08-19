@@ -903,7 +903,7 @@ Current code at lines 4-9:
 ```ts
 import { prisma } from "@/lib/prisma";
 import { getDiceBearAvatarUrl } from "@/lib/profile";
-import { isAdminEmail, linkApprovedWaitlistOnSignup } from "@/lib/waitlist";
+import { isAdminEmail, linkApprovedWaitlistOnSignup } from "@/lib/waitlist/waitlist";
 ```
 
 Add after line 9 (insert before `const googleConfigured`):

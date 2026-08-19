@@ -127,7 +127,7 @@ export type PublicFeatureFlag = (typeof PUBLIC_FEATURE_FLAGS)[number];
 #### `src/lib/feature-flags.ts` (new)
 
 ```ts
-import { getSetting } from "@/lib/app-settings";
+import { getSetting } from "@/lib/config/app-settings";
 import { PUBLIC_FEATURE_FLAGS, type PublicFeatureFlag } from "./feature-flags-keys";
 
 export async function getPublicFlags(): Promise<Record<PublicFeatureFlag, boolean>> {
@@ -144,8 +144,8 @@ export async function getPublicFlags(): Promise<Record<PublicFeatureFlag, boolea
 
 ```ts
 import { useQuery } from "@tanstack/react-query";
-import { getPublicFlags } from "@/lib/feature-flags";
-import type { PublicFeatureFlag } from "@/lib/feature-flags-keys";
+import { getPublicFlags } from "@/lib/config/feature-flags";
+import type { PublicFeatureFlag } from "@/lib/config/feature-flags-keys";
 
 const FLAGS_KEY = ["public-flags"] as const;
 
@@ -168,7 +168,7 @@ export function useFeatureFlag(key: PublicFeatureFlag): boolean {
 
 ```ts
 import { createFileRoute } from "@tanstack/react-router";
-import { getPublicFlags } from "@/lib/feature-flags";
+import { getPublicFlags } from "@/lib/config/feature-flags";
 
 export const Route = createFileRoute("/api/flags")({
   server: {
@@ -188,7 +188,7 @@ export const Route = createFileRoute("/api/flags")({
 
 #### `src/components/projects/HomePromptForm.tsx`
 
-- Import `useFeatureFlag` from `@/lib/use-feature-flag`.
+- Import `useFeatureFlag` from `@/lib/config/use-feature-flag`.
 - Inside the component: `const uploadsEnabled = useFeatureFlag("feature.composer_uploads_enabled");`
 - Wrap the existing ternary at line 316–367
   (`status === "authenticated" ? <ComposerAttachButton .../> : <Paperclip .../>`)

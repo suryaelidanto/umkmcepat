@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { getPublicFlags } from "@/lib/feature-flags";
+import { getPublicFlags } from "@/lib/config/feature-flags";
 
 export const Route = createFileRoute("/api/flags")({
   server: {

@@ -3,15 +3,24 @@ import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { createFileRoute } from "@tanstack/react-router";
 
-import { getDefaultAiModel, getModerationModel } from "@/lib/ai-models";
+import { getDefaultAiModel, getModerationModel } from "@/lib/ai/ai-models";
 import {
   moderateProjectRequest,
   type ModerationImage,
-} from "@/lib/ai-moderation";
+} from "@/lib/ai/ai-moderation";
 import { apiError } from "@/lib/api-errors";
-import { getSetting } from "@/lib/app-settings";
-import { auth } from "@/lib/auth";
-import { contentTypeFromExt, detectImageFormat } from "@/lib/images/format";
+import { auth } from "@/lib/auth/auth";
+import { getSetting } from "@/lib/config/app-settings";
+import {
+  assertUnderProjectLimit,
+  chargeEnergyForAiUsage,
+  checkEnergy,
+  getEnergyConfig,
+  getProjectCount,
+  getProjectLimit,
+  isAtOrOverProjectLimit,
+  ProjectLimitExceededError,
+} from "@/lib/payment/user-credits";
 import { prisma } from "@/lib/prisma";
 import { createInitialBrief } from "@/lib/projects/brief";
 import { createFallbackWorkspaceCard } from "@/lib/projects/brief-flow";
@@ -28,17 +37,11 @@ import {
 import { uploadProjectAsset } from "@/lib/projects/project-asset-upload";
 import { getProjectTitle, type WorkspaceMode } from "@/lib/projects/workspace";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { claimTempImage } from "@/lib/uploads/temp-image-storage";
 import {
-  assertUnderProjectLimit,
-  chargeEnergyForAiUsage,
-  checkEnergy,
-  getEnergyConfig,
-  getProjectCount,
-  getProjectLimit,
-  isAtOrOverProjectLimit,
-  ProjectLimitExceededError,
-} from "@/lib/user-credits";
+  contentTypeFromExt,
+  detectImageFormat,
+} from "@/lib/storage/images/format";
+import { claimTempImage } from "@/lib/storage/uploads/temp-image-storage";
 const CREATE_PROJECT_IDEMPOTENCY_ACTION = "project.create";
 const IDEMPOTENCY_KEY_MAX_LENGTH = 120;
 

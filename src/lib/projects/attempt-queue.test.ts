@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/app-settings", () => ({
+vi.mock("@/lib/config/app-settings", () => ({
   getSettingSync: vi.fn((_key: string, fallback: number) => fallback),
 }));
 
-import { getSettingSync } from "@/lib/app-settings";
+import { getSettingSync } from "@/lib/config/app-settings";
 import {
   ATTEMPT_QUEUE_NAME,
   COMPACTION_QUEUE_NAME,

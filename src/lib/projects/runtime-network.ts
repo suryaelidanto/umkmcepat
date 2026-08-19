@@ -1,4 +1,4 @@
-import { getSettingSync } from "@/lib/app-settings";
+import { getSettingSync } from "@/lib/config/app-settings";
 
 export type RuntimeFetchKind = "health" | "proxy";
 

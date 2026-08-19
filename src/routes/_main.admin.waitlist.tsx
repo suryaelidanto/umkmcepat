@@ -9,14 +9,14 @@ import { AdminStatusBadge } from "@/components/admin/status/AdminStatusBadge";
 import { AdminStatusFilter } from "@/components/admin/status/AdminStatusFilter";
 import { SensitiveText } from "@/components/admin/streamer-mode/SensitiveText";
 import { useStreamerMode } from "@/components/admin/streamer-mode/streamer-mode-context";
-import { requireAdmin } from "@/lib/auth-admin";
+import { requireAdmin } from "@/lib/auth/auth-admin";
 import {
   ADMIN_WAITLIST_POLL_MS,
   fetchJson,
   invalidateAdminWaitlistData,
   queryKeys,
 } from "@/lib/query-client";
-import { listPendingWaitlist } from "@/lib/waitlist";
+import { listPendingWaitlist } from "@/lib/waitlist/waitlist";
 
 type WaitlistStatusFilter = "pending" | "approved" | "rejected" | "all";
 

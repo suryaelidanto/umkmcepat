@@ -150,7 +150,7 @@ Expected: FAIL — module `@/lib/r2-client` does not exist.
 ```ts
 import { createHash, createHmac } from "node:crypto";
 
-import { getEnv } from "@/lib/config";
+import { getEnv } from "@/lib/config/config";
 
 export type R2Config = {
   accessKeyId: string;
@@ -594,7 +594,7 @@ Update `readProjectAsset` + `deleteProjectAsset` to branch on the r2 prefix: for
 Add imports at the top:
 ```ts
 import { getR2Config, publicUrlFor, signedR2Fetch } from "@/lib/r2-client";
-import { getEnv } from "@/lib/config";
+import { getEnv } from "@/lib/config/config";
 ```
 
 - [x] **Step 4: Update callers of writeProjectAsset (return-type change)**

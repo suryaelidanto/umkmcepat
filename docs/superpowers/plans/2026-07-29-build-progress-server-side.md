@@ -385,9 +385,9 @@ Expected: FAIL — `./build-attempt-worker` module not found.
 // src/lib/projects/build-attempt-worker.ts
 import { generateText } from "ai";
 
-import { getAiModel, getAiTelemetry } from "@/lib/ai";
-import { getGenerationModel } from "@/lib/ai-models";
-import { getAiTimeoutMs } from "@/lib/ai-timeouts";
+import { getAiModel, getAiTelemetry } from "@/lib/ai/ai";
+import { getGenerationModel } from "@/lib/ai/ai-models";
+import { getAiTimeoutMs } from "@/lib/ai/ai-timeouts";
 import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
 import { briefToBuildPrompt, parseProjectBrief } from "@/lib/projects/brief";
@@ -438,7 +438,7 @@ import { projectSiteGenerationSystemPrompt } from "@/lib/projects/site-generatio
 import { createProjectSiteSchemaFromBrief } from "@/lib/projects/site-schema";
 import {
   chargeEnergyForAiUsage,
-} from "@/lib/user-credits";
+} from "@/lib/payment/user-credits";
 
 // ponytail: modelOverride reserved for the worker unit test (mirrors
 // runDiscussTurn at discuss-turn-worker.ts). Production omits → uses the
@@ -575,7 +575,7 @@ git commit -m "refactor(build): detach generate worker; POST returns channel tai
 // src/routes/api.projects.$id.attempts.$attemptId.stream.test.ts
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/auth", () => ({
+vi.mock("@/lib/auth/auth", () => ({
   auth: vi.fn(),
 }));
 vi.mock("@/lib/prisma", () => ({
@@ -586,7 +586,7 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { publishBuildProgress } from "@/lib/projects/build-attempt-pubsub";
 import { Route } from "./api.projects.$id.attempts.$attemptId.stream";
@@ -700,7 +700,7 @@ Expected: FAIL — `./api.projects.$id.attempts.$attemptId.stream` module not fo
 // src/routes/api.projects.$id.attempts.$attemptId.stream.ts
 import { createFileRoute } from "@tanstack/react-router";
 
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import {
   createReadStreamFromChannel,

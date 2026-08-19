@@ -144,7 +144,7 @@ import { describe, expect, it } from "vitest";
 import {
   APP_SETTINGS,
   type ConfigEntry,
-} from "@/lib/app-settings-registry";
+} from "@/lib/config/app-settings-registry";
 
 describe("APP_SETTINGS registry", () => {
   it("has no duplicate keys", () => {
@@ -421,7 +421,7 @@ git commit -m "feat(config): typed AppSetting registry (feature/booster/rate_lim
 ```ts
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { invalidateSettingCache, getSettingSync } from "@/lib/app-settings";
+import { invalidateSettingCache, getSettingSync } from "@/lib/config/app-settings";
 
 // getSetting is async + hits prisma; mock the client.
 vi.mock("@/lib/prisma", () => {
@@ -459,7 +459,7 @@ describe("getSetting", () => {
       create: { key: "feature.waitlist_enabled", category: "feature_flag", value: false },
       update: { value: false },
     });
-    const { getSetting } = await import("@/lib/app-settings");
+    const { getSetting } = await import("@/lib/config/app-settings");
     invalidateSettingCache();
     const v = await getSetting<boolean>("feature.waitlist_enabled", true);
     expect(v).toBe(false);
@@ -467,14 +467,14 @@ describe("getSetting", () => {
 
   it("falls back to env when no DB row", async () => {
     process.env.WAITLIST_ENABLED = "false";
-    const { getSetting } = await import("@/lib/app-settings");
+    const { getSetting } = await import("@/lib/config/app-settings");
     invalidateSettingCache();
     const v = await getSetting<boolean>("feature.waitlist_enabled", true);
     expect(v).toBe(false);
   });
 
   it("falls back to hardcoded default when no DB row and no env", async () => {
-    const { getSetting } = await import("@/lib/app-settings");
+    const { getSetting } = await import("@/lib/config/app-settings");
     invalidateSettingCache();
     const v = await getSetting<boolean>("feature.waitlist_enabled", true);
     expect(v).toBe(true);
@@ -487,7 +487,7 @@ describe("getSetting", () => {
       create: { key: "feature.waitlist_enabled", category: "feature_flag", value: "not-a-bool" },
       update: { value: "not-a-bool" },
     });
-    const { getSetting } = await import("@/lib/app-settings");
+    const { getSetting } = await import("@/lib/config/app-settings");
     invalidateSettingCache();
     const v = await getSetting<boolean>("feature.waitlist_enabled", true);
     expect(v).toBe(true);
@@ -668,8 +668,8 @@ git commit -m "feat(config): getSetting read layer — DB-first, env-fallback, 5
 ```ts
 import { afterEach, describe, expect, it } from "vitest";
 
-import { invalidateSettingCache } from "@/lib/app-settings";
-import { isWaitlistEnabled } from "@/lib/waitlist-enabled";
+import { invalidateSettingCache } from "@/lib/config/app-settings";
+import { isWaitlistEnabled } from "@/lib/waitlist/waitlist-enabled";
 
 // Mock prisma so getSetting's DB read returns nothing → env/fallback path.
 vi.mock("@/lib/prisma", () => ({
@@ -731,7 +731,7 @@ Expected: FAIL — `isWaitlistEnabled` returns a Promise, not boolean.
 `src/lib/waitlist-enabled.ts`:
 
 ```ts
-import { getSetting } from "@/lib/app-settings";
+import { getSetting } from "@/lib/config/app-settings";
 
 // Waitlist onboarding gate. false = pass-through (signed-in users skip the
 // gate). Unset/invalid defaults true (fail-safe: over-gate rather than
@@ -800,7 +800,7 @@ export async function getRateLimitConfig(
 ): Promise<RateLimitConfig> {
   const fallback = defaults[type][subject];
   const names = envNames[type][subject];
-  const { getSetting } = await import("@/lib/app-settings");
+  const { getSetting } = await import("@/lib/config/app-settings");
   const limit = await getSetting<number>(
     `ratelimit.${type === "global" ? "global_ip" : `${type}_${subject}`}.requests`,
     fallback.limit,
@@ -847,7 +847,7 @@ Run: `ls src/lib/config.test.ts 2>/dev/null && echo exists || echo none`
 In `src/lib/config.ts`, replace `getCapabilityFlag` body and the two callers. The functions stay sync; they read `getSettingSync`:
 
 ```ts
-import { getSettingSync } from "@/lib/app-settings";
+import { getSettingSync } from "@/lib/config/app-settings";
 
 export function isGeneratedBuildExecutionEnabled() {
   return getCapabilityFlag("feature.generated_build_execution");
@@ -908,7 +908,7 @@ git commit -m "feat(config): capability flags read AppSetting cache (sync, env-f
 Append to `src/lib/pakasir.ts` (after `BOOSTER_PACKS`):
 
 ```ts
-import { getSetting } from "@/lib/app-settings";
+import { getSetting } from "@/lib/config/app-settings";
 
 // Resolves a booster pack's amount/energy from AppSetting (DB-first),
 // falling back to the hardcoded BOOSTER_PACKS const. Used at payment-creation
@@ -1111,7 +1111,7 @@ import { Outlet, createFileRoute, redirect } from "@tanstack/react-router";
 import { Toaster } from "sonner";
 
 import { AdminTabs } from "@/components/admin/AdminTabs";
-import { requireAdmin } from "@/lib/auth-admin";
+import { requireAdmin } from "@/lib/auth/auth-admin";
 
 const loadAdmin = createServerFn({ method: "GET" }).handler(async () => {
   const admin = await requireAdmin();
@@ -1187,7 +1187,7 @@ git commit -m "feat(admin): tabbed shell at /admin (5 tabs, sonner toaster)"
 ```ts
 import { createFileRoute } from "@tanstack/react-router";
 
-import { requireAdmin } from "@/lib/auth-admin";
+import { requireAdmin } from "@/lib/auth/auth-admin";
 import { prisma } from "@/lib/prisma";
 
 export const Route = createFileRoute("/api/admin/overview")({
@@ -1425,9 +1425,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 
-import { requireAdmin } from "@/lib/auth-admin";
+import { requireAdmin } from "@/lib/auth/auth-admin";
 import { fetchJson } from "@/lib/query-client";
-import { listPendingWaitlist } from "@/lib/waitlist";
+import { listPendingWaitlist } from "@/lib/waitlist/waitlist";
 
 type PendingEntry = {
   businessName: string;
@@ -1601,7 +1601,7 @@ git commit -m "feat(admin): waitlist tab (relocated queue UI, sonner toasts)"
 ```ts
 import { createFileRoute } from "@tanstack/react-router";
 
-import { requireAdmin } from "@/lib/auth-admin";
+import { requireAdmin } from "@/lib/auth/auth-admin";
 import { prisma } from "@/lib/prisma";
 
 const PAGE_SIZE = 20;
@@ -1675,7 +1675,7 @@ export const Route = createFileRoute("/api/admin/users")({
 ```ts
 import { createFileRoute } from "@tanstack/react-router";
 
-import { requireAdmin } from "@/lib/auth-admin";
+import { requireAdmin } from "@/lib/auth/auth-admin";
 import { prisma } from "@/lib/prisma";
 
 export const Route = createFileRoute("/api/admin/users/$id")({
@@ -1880,7 +1880,7 @@ git commit -m "feat(admin): users tab — list/search + ban/unban"
 ```ts
 import { createFileRoute } from "@tanstack/react-router";
 
-import { requireAdmin } from "@/lib/auth-admin";
+import { requireAdmin } from "@/lib/auth/auth-admin";
 import { prisma } from "@/lib/prisma";
 
 const PAGE_SIZE = 20;
@@ -1957,7 +1957,7 @@ export const Route = createFileRoute("/api/admin/transactions")({
 ```ts
 import { createFileRoute } from "@tanstack/react-router";
 
-import { requireAdmin } from "@/lib/auth-admin";
+import { requireAdmin } from "@/lib/auth/auth-admin";
 import { prisma } from "@/lib/prisma";
 import { verifyPakasirTransaction } from "@/lib/pakasir";
 
@@ -2182,13 +2182,13 @@ git commit -m "feat(admin): transactions tab — list/filter + Pakasir verify"
 ```ts
 import { createFileRoute } from "@tanstack/react-router";
 
-import { requireAdmin } from "@/lib/auth-admin";
-import { invalidateSettingCache } from "@/lib/app-settings";
+import { requireAdmin } from "@/lib/auth/auth-admin";
+import { invalidateSettingCache } from "@/lib/config/app-settings";
 import {
   APP_SETTINGS,
   findConfigEntry,
   type SettingCategory,
-} from "@/lib/app-settings-registry";
+} from "@/lib/config/app-settings-registry";
 import { prisma } from "@/lib/prisma";
 
 export const Route = createFileRoute("/api/admin/settings")({
@@ -2450,7 +2450,7 @@ git commit -m "feat(admin): settings tab — typed DB-config editor per category
 
 - [ ] **Step 1: Add the admin link to Header + MobileNav**
 
-In `src/components/common/Header.tsx` and `src/components/common/MobileNav.tsx`, read the session; if `isAdminEmail(user.email)`, render a link to `/admin` labeled "Admin". Follow the existing pattern in those files for auth-gated links (import `isAdminEmail` from `@/lib/waitlist`, read session via the same hook the file already uses). Match the surrounding link styling.
+In `src/components/common/Header.tsx` and `src/components/common/MobileNav.tsx`, read the session; if `isAdminEmail(user.email)`, render a link to `/admin` labeled "Admin". Follow the existing pattern in those files for auth-gated links (import `isAdminEmail` from `@/lib/waitlist/waitlist`, read session via the same hook the file already uses). Match the surrounding link styling.
 
 - [ ] **Step 2: Update docs/architecture.md**
 

@@ -9,7 +9,7 @@ import {
   writeProjectAsset,
   type ProjectAssetKind,
 } from "@/lib/projects/project-assets";
-import { getStorageProvider } from "@/lib/storage-provider";
+import { getStorageProvider } from "@/lib/storage/storage-provider";
 
 const { putMock, getMock, deleteMock, pngBytes } = vi.hoisted(() => {
   const PNG_HEX =
@@ -22,7 +22,7 @@ const { putMock, getMock, deleteMock, pngBytes } = vi.hoisted(() => {
   };
 });
 
-vi.mock("@/lib/s3-client", () => ({
+vi.mock("@/lib/storage/s3-client", () => ({
   getS3Config: () => ({ client: {}, bucket: "pub" }),
   publicUrlFor: (_b: "public", key: string) =>
     `https://media.test/project-assets/${key}`,

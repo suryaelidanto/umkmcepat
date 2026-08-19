@@ -76,7 +76,7 @@ Add a new `describe("requireNotBanned")` block with 3 cases:
 
 ### `src/routes/_main.tsx` — banned branch in `checkRouteGates`
 
-Change import at line 7: replace `import { auth } from "@/lib/auth";` with `import { getAuthState } from "@/lib/auth";`.
+Change import at line 7: replace `import { auth } from "@/lib/auth/auth";` with `import { getAuthState } from "@/lib/auth/auth";`.
 
 In the handler (line 14), replace the session check (lines 20-24):
 
@@ -164,8 +164,8 @@ Note: today these routes already 401 banned users (because `auth()` returns null
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 
-import { getAuthState } from "@/lib/auth";
-import { signOut } from "@/lib/auth-client";
+import { getAuthState } from "@/lib/auth/auth";
+import { signOut } from "@/lib/auth/auth-client";
 
 const loadBlocked = createServerFn({ method: "GET" }).handler(async () => {
   const { session, banned } = await getAuthState();
@@ -229,7 +229,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const getAuthStateMock = vi.fn();
 
-vi.mock("@/lib/auth", () => ({
+vi.mock("@/lib/auth/auth", () => ({
   getAuthState: (...args: unknown[]) => getAuthStateMock(...args),
 }));
 
