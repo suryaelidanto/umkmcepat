@@ -140,69 +140,74 @@ function TransactionsPage() {
           </p>
         </div>
       ) : (
-        txs.map((t) => {
-          const payment = paymentStatusDisplay(t.status);
-          return (
-            <div
-              className="rounded-radius-md border border-black/10 bg-[#fcfbf8] p-spacing-3 text-sm shadow-sm transition-colors duration-200 dark:border-surface-warm-white/12 dark:bg-surface-warm-white/5 dark:shadow-none"
-              key={t.orderId}
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-mono text-[#5f5f5d] dark:text-surface-warm-white/80">
-                  {streamerMode ? (
-                    <SensitiveText kind="orderId" value={t.orderId} />
-                  ) : (
-                    t.orderId
-                  )}
-                </span>
-                <AdminStatusBadge tone={payment.tone}>
-                  {payment.label}
-                </AdminStatusBadge>
-              </div>
-              <p className="mt-1 font-medium text-[#1c1c1c] dark:text-surface-warm-white">
-                {streamerMode ? (
-                  <>
-                    <SensitiveText
-                      kind="amount"
-                      value={formatRupiah(t.amount)}
-                    />{" "}
-                    · {t.energyGranted} energi ·{" "}
-                    {t.email ? (
-                      <SensitiveText kind="email" value={t.email} />
+        <div className="flex flex-col gap-spacing-3">
+          <div className="flex items-center justify-between px-1 text-xs text-[#5f5f5d] dark:text-surface-warm-white/60">
+            <span>Menampilkan {txs.length} transaksi</span>
+          </div>
+          {txs.map((t) => {
+            const payment = paymentStatusDisplay(t.status);
+            return (
+              <div
+                className="rounded-radius-md border border-black/10 bg-[#fcfbf8] p-spacing-3 text-sm shadow-sm transition-colors duration-200 dark:border-surface-warm-white/12 dark:bg-surface-warm-white/5 dark:shadow-none"
+                key={t.orderId}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-[#5f5f5d] dark:text-surface-warm-white/80">
+                    {streamerMode ? (
+                      <SensitiveText kind="orderId" value={t.orderId} />
                     ) : (
-                      "—"
+                      t.orderId
                     )}
-                  </>
-                ) : (
-                  <>
-                    {formatRupiah(t.amount)} · {t.energyGranted} energi ·{" "}
-                    {t.email ?? "—"}
-                  </>
-                )}
-              </p>
-              {t.paymentNumber ? (
-                <p className="text-xs text-[#5f5f5d] dark:text-surface-warm-white/70">
+                  </span>
+                  <AdminStatusBadge tone={payment.tone}>
+                    {payment.label}
+                  </AdminStatusBadge>
+                </div>
+                <p className="mt-1 font-medium text-[#1c1c1c] dark:text-surface-warm-white">
                   {streamerMode ? (
-                    <SensitiveText kind="orderId" value={t.paymentNumber} />
+                    <>
+                      <SensitiveText
+                        kind="amount"
+                        value={formatRupiah(t.amount)}
+                      />{" "}
+                      · {t.energyGranted} energi ·{" "}
+                      {t.email ? (
+                        <SensitiveText kind="email" value={t.email} />
+                      ) : (
+                        "—"
+                      )}
+                    </>
                   ) : (
-                    t.paymentNumber
+                    <>
+                      {formatRupiah(t.amount)} · {t.energyGranted} energi ·{" "}
+                      {t.email ?? "—"}
+                    </>
                   )}
                 </p>
-              ) : null}
-              {t.status === "PENDING" ? (
-                <button
-                  className="mt-spacing-2 rounded-lg border border-accent-orange/30 bg-accent-orange/10 px-3 py-1.5 text-xs font-bold text-accent-orange transition hover:bg-accent-orange/20 shadow-2xs"
-                  onClick={() => verify.mutate(t.orderId)}
-                  type="button"
-                >
-                  {verify.isPending && verify.variables === t.orderId
-                    ? "Memverifikasi..."
-                    : "Verifikasi Pembayaran"}
-                </button>
-              ) : null}
-            </div>
-          );
-        })
+                {t.paymentNumber ? (
+                  <p className="text-xs text-[#5f5f5d] dark:text-surface-warm-white/70">
+                    {streamerMode ? (
+                      <SensitiveText kind="orderId" value={t.paymentNumber} />
+                    ) : (
+                      t.paymentNumber
+                    )}
+                  </p>
+                ) : null}
+                {t.status === "PENDING" ? (
+                  <button
+                    className="mt-spacing-2 rounded-lg border border-accent-orange/30 bg-accent-orange/10 px-3 py-1.5 text-xs font-bold text-accent-orange transition hover:bg-accent-orange/20 shadow-2xs"
+                    onClick={() => verify.mutate(t.orderId)}
+                    type="button"
+                  >
+                    {verify.isPending && verify.variables === t.orderId
+                      ? "Memverifikasi..."
+                      : "Verifikasi Pembayaran"}
+                  </button>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );

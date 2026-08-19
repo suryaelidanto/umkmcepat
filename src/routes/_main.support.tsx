@@ -379,9 +379,15 @@ function SupportPage() {
         )}
 
         <div className="mt-spacing-6 flex flex-col gap-spacing-3">
-          <h2 className="border-b border-black/5 pb-2 text-lg font-medium dark:border-surface-warm-white/5">
-            Tiket Anda
-          </h2>
+          <div className="flex items-center justify-between border-b border-black/5 pb-2 dark:border-surface-warm-white/5">
+            <h2 className="text-lg font-medium">Tiket Anda</h2>
+            {ticketsQuery.data?.tickets &&
+              ticketsQuery.data.tickets.length > 0 && (
+                <span className="text-xs text-[#5f5f5d] dark:text-surface-warm-white/60">
+                  {ticketsQuery.data.tickets.length} tiket
+                </span>
+              )}
+          </div>
 
           {ticketsQuery.isLoading ? (
             <div className="flex justify-center py-spacing-8">

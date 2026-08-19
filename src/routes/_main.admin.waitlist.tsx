@@ -143,141 +143,148 @@ function WaitlistPage() {
           </p>
         </div>
       ) : (
-        entries.map((entry) => {
-          const status = waitlistStatusDisplay(entry.status);
-          const rowActionPending =
-            act.isPending && act.variables?.entryId === entry.id;
-          const approving =
-            rowActionPending && act.variables?.action === "approve";
-          return (
-            <div
-              className="rounded-radius-lg border border-black/10 bg-[#fcfbf8] p-spacing-4 shadow-sm transition-colors duration-200 dark:border-surface-warm-white/12 dark:bg-surface-warm-white/5 dark:shadow-none"
-              key={entry.id}
-            >
-              <div className="flex items-start justify-between gap-spacing-3">
-                <div className="min-w-0">
-                  <p className="font-medium text-[#1c1c1c] dark:text-surface-warm-white">
-                    {streamerMode ? (
-                      <SensitiveText kind="name" value={entry.businessName} />
-                    ) : (
-                      entry.businessName
-                    )}
-                  </p>
-                  {entry.businessType ? (
-                    <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/70">
-                      {entry.businessType}
-                    </p>
-                  ) : null}
-                  <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/70">
-                    {streamerMode ? (
-                      <SensitiveText kind="email" value={entry.email} />
-                    ) : (
-                      entry.email
-                    )}
-                  </p>
-                  {entry.phone ? (
-                    <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/70">
+        <div className="flex flex-col gap-spacing-3">
+          <div className="flex items-center justify-between px-1 text-xs text-[#5f5f5d] dark:text-surface-warm-white/60">
+            <span>Menampilkan {entries.length} pendaftar</span>
+          </div>
+          {entries.map((entry) => {
+            const status = waitlistStatusDisplay(entry.status);
+            const rowActionPending =
+              act.isPending && act.variables?.entryId === entry.id;
+            const approving =
+              rowActionPending && act.variables?.action === "approve";
+            return (
+              <div
+                className="rounded-radius-lg border border-black/10 bg-[#fcfbf8] p-spacing-4 shadow-sm transition-colors duration-200 dark:border-surface-warm-white/12 dark:bg-surface-warm-white/5 dark:shadow-none"
+                key={entry.id}
+              >
+                <div className="flex items-start justify-between gap-spacing-3">
+                  <div className="min-w-0">
+                    <p className="font-medium text-[#1c1c1c] dark:text-surface-warm-white">
                       {streamerMode ? (
-                        <SensitiveText kind="phone" value={entry.phone} />
+                        <SensitiveText kind="name" value={entry.businessName} />
                       ) : (
-                        entry.phone
+                        entry.businessName
                       )}
                     </p>
-                  ) : null}
+                    {entry.businessType ? (
+                      <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/70">
+                        {entry.businessType}
+                      </p>
+                    ) : null}
+                    <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/70">
+                      {streamerMode ? (
+                        <SensitiveText kind="email" value={entry.email} />
+                      ) : (
+                        entry.email
+                      )}
+                    </p>
+                    {entry.phone ? (
+                      <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/70">
+                        {streamerMode ? (
+                          <SensitiveText kind="phone" value={entry.phone} />
+                        ) : (
+                          entry.phone
+                        )}
+                      </p>
+                    ) : null}
+                  </div>
+                  <AdminStatusBadge tone={status.tone}>
+                    {status.label}
+                  </AdminStatusBadge>
                 </div>
-                <AdminStatusBadge tone={status.tone}>
-                  {status.label}
-                </AdminStatusBadge>
-              </div>
-              <p className="mt-spacing-2 line-clamp-4 text-sm text-[#1c1c1c] dark:text-surface-warm-white">
-                {entry.story}
-              </p>
-              {entry.rejectionReason ? (
-                <p className="mt-spacing-2 text-sm text-destructive">
-                  Alasan tolak: {entry.rejectionReason}
+                <p className="mt-spacing-2 line-clamp-4 text-sm text-[#1c1c1c] dark:text-surface-warm-white">
+                  {entry.story}
                 </p>
-              ) : null}
-              {entry.imageCount > 0 ? (
-                <div className="mt-spacing-2 flex flex-wrap gap-spacing-2">
-                  {Array.from({ length: entry.imageCount }).map((_, index) => (
-                    <img
-                      alt={`${entry.businessName} (${index + 1}/${entry.imageCount})`}
-                      className="max-h-48 rounded-radius-md border border-black/10 dark:border-surface-warm-white/12"
-                      key={`${entry.id}-${index}`}
-                      src={`/api/admin/waitlist/image/${entry.id}/${index}?v=2`}
-                    />
-                  ))}
-                </div>
-              ) : null}
-              {isPending(entry.status) ? (
-                <div className="mt-spacing-4 flex gap-spacing-3">
-                  <button
-                    className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-500 transition disabled:opacity-50"
-                    disabled={act.isPending}
-                    onClick={() =>
-                      act.mutate({ action: "approve", entryId: entry.id })
-                    }
-                    type="button"
-                  >
-                    {approving ? "Menyetujui..." : "Setujui"}
-                  </button>
-                  <button
-                    className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2 text-xs font-bold text-destructive hover:bg-destructive/20 hover:border-destructive/40 transition disabled:opacity-50"
-                    disabled={act.isPending}
-                    onClick={() => {
-                      const reason =
-                        window.prompt("Alasan penolakan (opsional)?") ?? "";
-                      act.mutate({
-                        action: "reject",
-                        entryId: entry.id,
-                        reason,
-                      });
-                    }}
-                    type="button"
-                  >
-                    {rowActionPending && !approving ? "Menolak..." : "Tolak"}
-                  </button>
-                </div>
-              ) : entry.status === "rejected" ? (
-                <div className="mt-spacing-4 flex gap-spacing-3">
-                  <button
-                    className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-500 transition disabled:opacity-50"
-                    disabled={act.isPending}
-                    onClick={() =>
-                      act.mutate({ action: "approve", entryId: entry.id })
-                    }
-                    type="button"
-                  >
-                    {approving ? "Menyetujui..." : "Setujui (Koreksi)"}
-                  </button>
-                </div>
-              ) : entry.status === "approved" ? (
-                <div className="mt-spacing-4 flex gap-spacing-3">
-                  <button
-                    className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2 text-xs font-bold text-destructive hover:bg-destructive/20 hover:border-destructive/40 transition disabled:opacity-50"
-                    disabled={act.isPending}
-                    onClick={() => {
-                      const reason =
-                        window.prompt(
-                          "Alasan pembatalan persetujuan (opsional)?",
-                        ) ?? "";
-                      act.mutate({
-                        action: "reject",
-                        entryId: entry.id,
-                        reason,
-                      });
-                    }}
-                    type="button"
-                  >
-                    {rowActionPending
-                      ? "Membatalkan..."
-                      : "Batalkan Persetujuan"}
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          );
-        })
+                {entry.rejectionReason ? (
+                  <p className="mt-spacing-2 text-sm text-destructive">
+                    Alasan tolak: {entry.rejectionReason}
+                  </p>
+                ) : null}
+                {entry.imageCount > 0 ? (
+                  <div className="mt-spacing-2 flex flex-wrap gap-spacing-2">
+                    {Array.from({ length: entry.imageCount }).map(
+                      (_, index) => (
+                        <img
+                          alt={`${entry.businessName} (${index + 1}/${entry.imageCount})`}
+                          className="max-h-48 rounded-radius-md border border-black/10 dark:border-surface-warm-white/12"
+                          key={`${entry.id}-${index}`}
+                          src={`/api/admin/waitlist/image/${entry.id}/${index}?v=2`}
+                        />
+                      ),
+                    )}
+                  </div>
+                ) : null}
+                {isPending(entry.status) ? (
+                  <div className="mt-spacing-4 flex gap-spacing-3">
+                    <button
+                      className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-500 transition disabled:opacity-50"
+                      disabled={act.isPending}
+                      onClick={() =>
+                        act.mutate({ action: "approve", entryId: entry.id })
+                      }
+                      type="button"
+                    >
+                      {approving ? "Menyetujui..." : "Setujui"}
+                    </button>
+                    <button
+                      className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2 text-xs font-bold text-destructive hover:bg-destructive/20 hover:border-destructive/40 transition disabled:opacity-50"
+                      disabled={act.isPending}
+                      onClick={() => {
+                        const reason =
+                          window.prompt("Alasan penolakan (opsional)?") ?? "";
+                        act.mutate({
+                          action: "reject",
+                          entryId: entry.id,
+                          reason,
+                        });
+                      }}
+                      type="button"
+                    >
+                      {rowActionPending && !approving ? "Menolak..." : "Tolak"}
+                    </button>
+                  </div>
+                ) : entry.status === "rejected" ? (
+                  <div className="mt-spacing-4 flex gap-spacing-3">
+                    <button
+                      className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-500 transition disabled:opacity-50"
+                      disabled={act.isPending}
+                      onClick={() =>
+                        act.mutate({ action: "approve", entryId: entry.id })
+                      }
+                      type="button"
+                    >
+                      {approving ? "Menyetujui..." : "Setujui (Koreksi)"}
+                    </button>
+                  </div>
+                ) : entry.status === "approved" ? (
+                  <div className="mt-spacing-4 flex gap-spacing-3">
+                    <button
+                      className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2 text-xs font-bold text-destructive hover:bg-destructive/20 hover:border-destructive/40 transition disabled:opacity-50"
+                      disabled={act.isPending}
+                      onClick={() => {
+                        const reason =
+                          window.prompt(
+                            "Alasan pembatalan persetujuan (opsional)?",
+                          ) ?? "";
+                        act.mutate({
+                          action: "reject",
+                          entryId: entry.id,
+                          reason,
+                        });
+                      }}
+                      type="button"
+                    >
+                      {rowActionPending
+                        ? "Membatalkan..."
+                        : "Batalkan Persetujuan"}
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );

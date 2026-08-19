@@ -184,6 +184,11 @@ function AdminTicketsPage() {
         </div>
       ) : (
         <div className="flex flex-col gap-spacing-3">
+          <div className="flex items-center justify-between px-1 text-xs text-[#5f5f5d] dark:text-surface-warm-white/60">
+            <span>
+              Menampilkan {ticketsQuery.data?.tickets.length ?? 0} tiket
+            </span>
+          </div>
           {ticketsQuery.data?.tickets.map((ticket) => {
             const lastMsg = ticket.messages[0];
             const shortId = ticket.id.slice(-8).toUpperCase();
