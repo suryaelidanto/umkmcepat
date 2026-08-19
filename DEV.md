@@ -140,7 +140,7 @@ Task model ids (9Router labels) are configurable in `/admin/settings` (AI advanc
 
 Empty task value → default → hardcode `default-combo`. Admin dropdown loads `GET /api/admin/ai-models` → 9Router `GET {NINE_ROUTER_BASE_URL}/models` filtered to `owned_by: "combo"` (not upstream provider models). Create combos in 9Router dashboard with these ids: `default-combo`, `moderation-combo`, `discuss-combo`, `build-combo`.
 
-`config/model-pricing.json` is the sole runtime pricing source. Keys are provider-qualified (`openrouter/<provider>/<model>` or `cmc/<provider>/<model>`); legacy bare model IDs resolve as OpenRouter for compatibility. Unknown models use the conservative non-zero floor and log the missing served ID, so energy charging never becomes free. There is no pricing DB cache, startup refresh, cron, or provider API call. Refresh the tracked catalog manually from `https://openrouter.ai/api/v1/models` and `https://commandcode.ai/models`, preserving USD-per-token units and source/check dates.
+`src/lib/model-pricing.json` is the sole runtime pricing source. Keys are provider-qualified (`openrouter/<provider>/<model>` or `cmc/<provider>/<model>`); legacy bare model IDs resolve as OpenRouter for compatibility. Unknown models use the conservative non-zero floor and log the missing served ID, so energy charging never becomes free. There is no pricing DB cache, startup refresh, cron, or provider API call. Refresh the tracked catalog manually from `https://openrouter.ai/api/v1/models` and `https://commandcode.ai/models`, preserving USD-per-token units and source/check dates.
 
 `STORAGE_PROVIDER` is env-only, not user-configurable: local dev speaks S3 to the MinIO container `bun run infra` starts, and production points the same `S3_*` variables at Cloudflare R2. Set Google OAuth, Turnstile, Chromatic, and AI provider secrets only in `.env` or deployment secrets. Error tracking (Sentry) was intentionally removed; there is currently no error-tracking provider wired.
 
@@ -216,28 +216,8 @@ Test behavior boundaries and non-trivial logic, not private implementation detai
 For UI, styling, layout, typography, colors, or components:
 
 1. Read `DESIGN.md`.
-2. Reuse `src/components/ui`, design tokens, and existing stories first.
-3. Check Storybook foundations, atoms, molecules, and organisms.
-4. Add or update a Storybook story for new reusable UI or meaningful repeated visual states.
-5. Keep visible product copy Indonesian; keep Storybook/developer chrome and internal prompts English.
-
-Storybook:
-
-```bash
-bun run storybook
-bun run storybook:build
-bun run test:storybook
-```
-
-```text
-Storybook: http://localhost:6006
-```
-
-Chromatic requires `CHROMATIC_PROJECT_TOKEN`:
-
-```bash
-bun run chromatic
-```
+2. Reuse `src/components/ui` and design tokens first.
+3. Keep visible product copy Indonesian; keep internal prompts English.
 
 ## shadcn/ui
 

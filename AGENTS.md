@@ -81,23 +81,15 @@ Local quality gates are automated:
 
 - **Pre-commit** runs `bun scripts/check-staged-fix.ts`: staged-file secret scan plus Prettier/ESLint auto-fix and read-only check. No typecheck, no tests, no Knip at commit time.
 - **No pre-push hook.** Push is intentionally cheap locally; CI runs the full suite on every push to `dev`/`main` and on every PR.
-- **CI** runs route generation, Storybook build/tests, Chromatic visual tests (if token), `bun run build`, `bun run verify`, generated-file diff check, and integration tests. This is the real quality gate.
+- **CI** runs route generation, `bun run build`, `bun run verify`, generated-file diff check, and integration tests. This is the real quality gate.
 - The local `bun run check` is the manual fast gate (parallel format/lint/typecheck/`test:changed`/Knip) — a feedback loop, not a substitute for CI. Both must pass before anything reaches `main`.
 - During fast iteration, run the nearest focused test plus targeted ESLint; do not repeatedly run the full suite. Never bypass a failing gate.
 
-`bun run verify` checks docs, regenerates the route tree, and runs format/lint/typecheck/full unit tests/Knip. It does not run `bun run build`, Storybook, integration tests, or generated-file diff check — those are separate CI steps. Use it before handoff without a push, or when you want to confirm a clean state locally.
+`bun run verify` checks docs, regenerates the route tree, and runs format/lint/typecheck/full unit tests/Knip. It does not run `bun run build`, integration tests, or generated-file diff check — those are separate CI steps. Use it before handoff without a push, or when you want to confirm a clean state locally.
 
 `bun run sweep:project-orphans` purges `.data/project-*` dirs whose IDs are not in the DB. Run after deleting projects via the DB / CLI (the homepage's delete path runs cleanup automatically).
 
 `bun run infra` starts full local infra (no Compose profiles): Postgres, Redis (BullMQ), 9Router, Headroom, and MinIO (local S3 on `http://localhost:9000`; `scripts/init-s3-buckets.ts` auto-creates the two buckets from `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`). Use `bun run infra:minimal` for Postgres + Redis only.
-
-Optional Storybook:
-
-```bash
-bun run storybook
-bun run storybook:build
-bun run test:storybook
-```
 
 ## Rules — god-tier
 
@@ -114,7 +106,7 @@ bun run test:storybook
 - Use Bun only; keep `bun.lock` canonical; work from `dev`; PRs into `dev`
 - User-facing copy Indonesian; dev docs/code/logs English
 - Always unslop — follow `.agents/skills/unslop/SKILL.md` by default across all code, prompt strings, and docs. Cut AI tells, puffery, filler verbs (utilize/leverage/showcase), and fake ranges. Plain words, active voice, concrete facts.
-- Follow `PRODUCT.md`, `DESIGN.md`, `.agents/skills/impeccable` before frontend design; new reusable UI → Storybook in same change
+- Follow `PRODUCT.md`, `DESIGN.md`, `.agents/skills/impeccable` before frontend design;
 - Use Graphify for non-trivial discovery when available; do not add as project dep
 
 ## Docs are part of change — you are the linter
@@ -125,5 +117,5 @@ bun run test:storybook
 - Verification before completion — no claim without fresh evidence. Run `bun run check` (or nearest focused test + lint + typecheck), read exit code, then claim. "Should pass" is not evidence
 - Pre-commit runs `bun scripts/check-staged-fix.ts`; CI is real gate. Never bypass failing gate. Before handoff without push, run `bun run check`
 - Do not run `bun run build` unless requested or touching build/deployment
-- Never commit `.env`/secrets/private data/uploads/logs/screenshots/.next/.pi/graphify-out/storybook-static; env blocks use empty "" values
+- Never commit `.env`/secrets/private data/uploads/logs/screenshots/.next/.pi/graphify-out; env blocks use empty "" values
 - Never echo `process.env` values to terminal/logs; log name + set/unset only. Open-source mindset: every tracked file is public forever

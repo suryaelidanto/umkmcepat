@@ -1,12 +1,6 @@
 import path from "node:path";
 
-import { storybookTest } from "@storybook/addon-vitest/vitest-plugin";
-import { playwright } from "@vitest/browser-playwright";
 import { defineConfig } from "vitest/config";
-
-const storybookConfigDir = path
-  .resolve(__dirname, ".storybook")
-  .replace(/\\/g, "/");
 
 export default defineConfig({
   optimizeDeps: {
@@ -54,20 +48,6 @@ export default defineConfig({
           name: "integration",
           // Real transactions and advisory locks; no parallel file isolation.
           fileParallelism: false,
-        },
-      },
-      {
-        extends: true,
-        plugins: [storybookTest({ configDir: storybookConfigDir })],
-        test: {
-          name: `storybook:${storybookConfigDir}`,
-          browser: {
-            api: { port: 0 },
-            enabled: true,
-            headless: true,
-            instances: [{ browser: "chromium" }],
-            provider: playwright({}),
-          },
         },
       },
     ],

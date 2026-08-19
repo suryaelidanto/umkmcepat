@@ -9,7 +9,7 @@ import {
 
 const definitions = JSON.parse(
   readFileSync(
-    "fixtures/generation-evaluation/professional-defects.json",
+    "src/lib/projects/__fixtures__/professional-defects.json",
     "utf8",
   ),
 ) as { defects: ProfessionalDefectDefinition[] };

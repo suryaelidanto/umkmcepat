@@ -63,9 +63,6 @@ graphify-out/
 # Local dev process files
 *.pid
 
-# Storybook build output
-/storybook-static/
-
 cookie.txt
 cookie.header.txt
 cookie_local.txt
@@ -75,7 +72,6 @@ cookie.txt.claude/
 .nitro/
 .tanstack/
 src/routeTree.gen.ts
-storybook-static/
 sb-err.txt
 sb-full.txt
 _session_token.txt
@@ -95,6 +91,3 @@ __captures__/
 
 .playwright-mcp/
 tmp/
-
-# E2E build driver — contains real account id, never commit
-scripts/e2e-seed-and-build.ts

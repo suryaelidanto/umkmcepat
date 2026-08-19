@@ -20,7 +20,6 @@ const eslintConfig = [
       "coverage/**",
       "dist/**",
       "build/**",
-      "storybook-static/**",
       "src/routeTree.gen.ts",
       "*.config.*",
     ],

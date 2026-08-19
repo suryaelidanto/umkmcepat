@@ -1,7 +1,0 @@
-{
-  "buildScriptName": "storybook:build",
-  "exitZeroOnChanges": true,
-  "onlyChanged": true,
-  "storybookConfigDir": ".storybook",
-  "zip": true
-}

@@ -23,11 +23,9 @@ skills-lock.json
 .tanstack/
 src/routeTree.gen.ts
 .claude/
-storybook-static/
 .superpowers/
 docs/superpowers/
 
 .playwright-mcp/
 .firecrawl/
 tmp/
-scripts/e2e-seed-and-build.ts

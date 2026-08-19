@@ -33,7 +33,7 @@ The goal: help an Indonesian UMKM owner make their first website — one that ac
 - Prisma and PostgreSQL
 - Auth.js Google OAuth with Turnstile consent gate
 - Vercel AI SDK through 9Router
-- Storybook, Vitest, ESLint, Prettier, TypeScript, and Knip
+- Vitest, ESLint, Prettier, TypeScript, and Knip
 
 ## Local development
 

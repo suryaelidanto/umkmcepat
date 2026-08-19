@@ -1,4 +1,4 @@
-import modelPricing from "../../config/model-pricing.json";
+import modelPricing from "./model-pricing.json";
 
 export type ModelPrice = { promptPrice: number; completionPrice: number };
 
@@ -41,7 +41,7 @@ function warnUnresolvedModel(rawModelId: string): void {
   }
   unresolvedWarnings.add(rawModelId);
   console.warn(
-    `[model-pricing] unresolved model "${rawModelId}" — using conservative floor; add config/model-pricing.json entry`,
+    `[model-pricing] unresolved model "${rawModelId}" — using conservative floor; add src/lib/model-pricing.json entry`,
   );
 }
 
