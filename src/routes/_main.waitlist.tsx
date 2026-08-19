@@ -442,14 +442,14 @@ function WaitlistPage() {
     !form.errors.photo;
   if (devSkipDone) {
     return (
-      <div className="mx-auto flex min-h-dvh max-w-xl flex-col items-center justify-center gap-spacing-5 px-spacing-6 py-spacing-14 text-center text-surface-warm-white">
+      <div className="mx-auto flex min-h-dvh max-w-xl flex-col items-center justify-center gap-spacing-5 px-spacing-6 py-spacing-14 text-center text-[#1c1c1c] dark:text-surface-warm-white">
         <div className="flex size-14 items-center justify-center rounded-full border border-accent-orange-border bg-accent-orange-subtle text-accent-orange">
           <Check className="size-7" strokeWidth={2.5} />
         </div>
-        <h1 className="text-heading-xl font-semibold tracking-tight">
+        <h1 className="text-heading-xl font-semibold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white">
           Berhasil di-skip!
         </h1>
-        <p className="max-w-md text-sm text-surface-warm-white/60">
+        <p className="max-w-md text-sm text-[#5f5f5d] dark:text-surface-warm-white/60">
           Mengalihkan ke beranda...
         </p>
       </div>
@@ -484,16 +484,16 @@ function WaitlistPage() {
       </header>
 
       {wasRejected ? (
-        <div className="mb-spacing-6 rounded-radius-lg border border-destructive/30 bg-destructive/10 px-spacing-5 py-spacing-4 text-sm text-surface-warm-white/85">
-          <p className="font-semibold text-surface-warm-white">
+        <div className="mb-spacing-6 rounded-radius-lg border border-destructive/30 bg-destructive/10 px-spacing-5 py-spacing-4 text-sm text-[#1c1c1c] dark:text-surface-warm-white/85">
+          <p className="font-semibold text-destructive dark:text-surface-warm-white">
             Pendaftaran sebelumnya belum bisa kami terima
           </p>
           {statusQuery.data?.own?.rejectionReason ? (
-            <p className="mt-spacing-2 text-surface-warm-white/70">
+            <p className="mt-spacing-2 text-[#5f5f5d] dark:text-surface-warm-white/70">
               Alasan: {statusQuery.data.own.rejectionReason}
             </p>
           ) : null}
-          <p className="mt-spacing-2 text-surface-warm-white/70">
+          <p className="mt-spacing-2 text-[#5f5f5d] dark:text-surface-warm-white/70">
             Silakan perbaiki dan ajukan lagi di bawah ini.
           </p>
         </div>
@@ -595,7 +595,7 @@ function WaitlistPage() {
         ) : null}
 
         {hasTurnstile && step === 3 ? (
-          <p className="mt-spacing-4 text-xs text-surface-warm-white/50">
+          <p className="mt-spacing-4 text-xs text-[#5f5f5d] dark:text-surface-warm-white/50">
             Ada cek keamanan sebelum kirim.
           </p>
         ) : null}
@@ -731,13 +731,13 @@ function WaitlistPage() {
 
         {isDev && isAdmin ? (
           <div className="mt-spacing-6 flex flex-col items-center gap-spacing-3">
-            <div className="flex w-full items-center gap-spacing-3 text-[10px] uppercase tracking-wider text-surface-warm-white/40">
-              <span className="h-px flex-1 bg-surface-warm-white/10" />
-              atau
-              <span className="h-px flex-1 bg-surface-warm-white/10" />
+            <div className="flex w-full items-center gap-spacing-3 text-[10px] uppercase tracking-wider text-[#5f5f5d]/70 dark:text-surface-warm-white/40">
+              <span className="h-px flex-1 bg-black/10 dark:bg-surface-warm-white/10" />
+              <span>atau</span>
+              <span className="h-px flex-1 bg-black/10 dark:bg-surface-warm-white/10" />
             </div>
             <button
-              className="text-xs text-surface-warm-white/60 underline-offset-4 hover:text-surface-warm-white hover:underline disabled:opacity-50"
+              className="text-xs text-[#5f5f5d] underline-offset-4 hover:text-[#1c1c1c] hover:underline disabled:opacity-50 dark:text-surface-warm-white/60 dark:hover:text-surface-warm-white"
               disabled={devSkipMutation.isPending}
               onClick={() => devSkipMutation.mutate()}
               type="button"
@@ -1044,7 +1044,7 @@ function Step3({
       {photoError ? (
         <p className="mt-spacing-2 text-xs text-destructive">{photoError}</p>
       ) : (
-        <p className="mt-spacing-2 text-xs text-surface-warm-white/50">
+        <p className="mt-spacing-2 text-xs text-[#5f5f5d] dark:text-surface-warm-white/50">
           {photoCount}/3 foto · PNG / JPG / WEBP, maksimal 5 MB per file
         </p>
       )}
@@ -1079,14 +1079,14 @@ function Step({
 
 function ApprovalScreen() {
   return (
-    <div className="mx-auto flex min-h-dvh max-w-xl flex-col items-center justify-center gap-spacing-5 px-spacing-6 py-spacing-14 text-center text-surface-warm-white">
-      <div className="flex size-14 items-center justify-center rounded-full border border-emerald-400/30 bg-emerald-400/10 text-emerald-300">
+    <div className="mx-auto flex min-h-dvh max-w-xl flex-col items-center justify-center gap-spacing-5 px-spacing-6 py-spacing-14 text-center text-[#1c1c1c] dark:text-surface-warm-white">
+      <div className="flex size-14 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300">
         <Check className="size-7" strokeWidth={2.5} />
       </div>
-      <h1 className="text-heading-xl font-semibold tracking-tight">
+      <h1 className="text-heading-xl font-semibold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white">
         Pendaftaran disetujui!
       </h1>
-      <p className="max-w-md text-sm text-surface-warm-white/60">
+      <p className="max-w-md text-sm text-[#5f5f5d] dark:text-surface-warm-white/60">
         Mengalihkan kamu ke beranda untuk mulai membuat website.
       </p>
     </div>
@@ -1109,19 +1109,22 @@ function SuccessScreen({
   isApproving: boolean;
 }) {
   return (
-    <div className="mx-auto flex min-h-dvh max-w-xl flex-col items-center justify-center gap-spacing-5 px-spacing-6 py-spacing-14 text-center text-surface-warm-white">
+    <div className="mx-auto flex min-h-dvh max-w-xl flex-col items-center justify-center gap-spacing-5 px-spacing-6 py-spacing-14 text-center text-[#1c1c1c] dark:text-surface-warm-white">
       <div className="flex size-14 items-center justify-center rounded-full border border-accent-orange-border bg-accent-orange-subtle text-accent-orange">
         <Check className="size-7" strokeWidth={2.5} />
       </div>
-      <h1 className="text-heading-xl font-semibold tracking-tight">
+      <h1 className="text-heading-xl font-semibold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white">
         Terima kasih, {businessName || "kamu"}!
       </h1>
-      <p className="max-w-md text-sm text-surface-warm-white/60">
+      <p className="max-w-md text-sm text-[#5f5f5d] dark:text-surface-warm-white/60">
         Pendaftaran kamu sudah kami terima. Tim kami akan menghubungi lewat
         {email ? (
           <>
             {" "}
-            email <span className="text-surface-warm-white/80">{email}</span>
+            email{" "}
+            <span className="font-medium text-[#1c1c1c] dark:text-surface-warm-white/80">
+              {email}
+            </span>
           </>
         ) : (
           " email"
@@ -1131,13 +1134,13 @@ function SuccessScreen({
       <WhatsAppCommunityInvite variant="waitlist" />
       <Link
         href="/"
-        className="text-sm text-surface-warm-white/60 underline-offset-4 transition hover:text-surface-warm-white hover:underline"
+        className="text-sm text-[#5f5f5d] underline-offset-4 transition hover:text-[#1c1c1c] hover:underline dark:text-surface-warm-white/60 dark:hover:text-surface-warm-white"
       >
         Lihat beranda
       </Link>
       {isAdmin && entryId ? (
         <button
-          className="mt-spacing-4 text-xs text-surface-warm-white/60 underline-offset-4 hover:text-surface-warm-white hover:underline disabled:opacity-50"
+          className="mt-spacing-4 text-xs text-[#5f5f5d] underline-offset-4 hover:text-[#1c1c1c] hover:underline disabled:opacity-50 dark:text-surface-warm-white/60 dark:hover:text-surface-warm-white"
           disabled={isApproving}
           onClick={onAdminApprove}
           type="button"
