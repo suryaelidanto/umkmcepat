@@ -32,9 +32,10 @@ export const Route = createFileRoute("/api/payment/create")({
 
         const body = (await request.json().catch(() => ({}))) as {
           packageId?: string;
+          packId?: string;
         };
 
-        const packageId = body.packageId as BoosterPackId;
+        const packageId = (body.packId || body.packageId) as BoosterPackId;
         const fallbackPack = BOOSTER_PACKS[packageId];
         if (!fallbackPack) {
           return Response.json(

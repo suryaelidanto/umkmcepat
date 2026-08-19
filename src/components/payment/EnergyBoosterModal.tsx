@@ -1,13 +1,13 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Loader2Icon,
-  ZapIcon,
-  CreditCardIcon,
-  CheckCircle2Icon,
-} from "lucide-react";
+import { Loader2Icon, ZapIcon, CreditCardIcon } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 
+import {
+  BoosterMascot,
+  WaitingPaymentMascot,
+  SuccessMascot,
+} from "@/components/payment/mascots/BoosterMascots";
 import {
   Dialog,
   DialogContent,
@@ -15,10 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  type BoosterPackId,
-  type BoosterPackResolved,
-} from "@/lib/payment/mayar";
+import { type BoosterPackResolved } from "@/lib/payment/mayar";
 import { fetchJson, notifyEnergyChanged, queryKeys } from "@/lib/query-client";
 import { isDev } from "@/lib/utils";
 
@@ -48,7 +45,7 @@ export function EnergyBoosterModal({
   onOpenChange,
 }: EnergyBoosterModalProps) {
   const queryClient = useQueryClient();
-  const [selectedPack, setSelectedPack] = useState<BoosterPackId>("starter");
+  const [selectedPack, setSelectedPack] = useState<string>("");
   const [isCreating, setIsCreating] = useState(false);
   const creatingLockRef = useRef(false);
   const [paymentSession, setPaymentSession] = useState<PaymentSession | null>(
@@ -65,6 +62,14 @@ export function EnergyBoosterModal({
     enabled: open,
     staleTime: 30_000,
   });
+
+  // Auto-select first or popular pack from DB response
+  useEffect(() => {
+    if (packsQuery.data?.packs?.length && !selectedPack) {
+      const popular = packsQuery.data.packs.find((p) => p.isPopular);
+      setSelectedPack(popular ? popular.id : packsQuery.data.packs[0]!.id);
+    }
+  }, [packsQuery.data?.packs, selectedPack]);
 
   // Reset states when modal is opened or closed
   useEffect(() => {
@@ -103,7 +108,7 @@ export function EnergyBoosterModal({
     return () => clearInterval(interval);
   }, [paymentSession, paymentStatus, queryClient]);
 
-  const handleBuy = async (packId: BoosterPackId) => {
+  const handleBuy = async (packId: string) => {
     if (creatingLockRef.current || isCreating) {
       return;
     }
@@ -112,11 +117,15 @@ export function EnergyBoosterModal({
     setIsCreating(true);
 
     try {
-      const res = await fetchJson<PaymentSession>("/api/payment/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ packId }),
-      });
+      // 2s pleasant transitional redirection delay + invoice creation
+      const [res] = await Promise.all([
+        fetchJson<PaymentSession>("/api/payment/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ packId }),
+        }),
+        new Promise((resolve) => setTimeout(resolve, 2000)),
+      ]);
 
       if (res.success && res.paymentUrl) {
         setPaymentSession(res);
@@ -141,15 +150,11 @@ export function EnergyBoosterModal({
       return;
     }
     try {
-      await fetchJson("/api/payment/webhook", {
+      await fetchJson("/api/dev/simulate-payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          event: "payment.received",
-          data: {
-            id: paymentSession.orderId,
-            status: "SUCCESS",
-          },
+          orderId: paymentSession.orderId,
         }),
       });
       setPaymentStatus("SUCCESS");
@@ -157,8 +162,12 @@ export function EnergyBoosterModal({
       await queryClient.invalidateQueries({ queryKey: queryKeys.energy });
       await queryClient.invalidateQueries({ queryKey: queryKeys.projects });
       toast.success("Simulasi pembayaran berhasil!");
-    } catch {
-      toast.error("Gagal melakukan simulasi pembayaran.");
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Gagal melakukan simulasi pembayaran.",
+      );
     }
   };
 
@@ -179,7 +188,31 @@ export function EnergyBoosterModal({
           </DialogDescription>
         </DialogHeader>
 
-        {!paymentSession ? (
+        {isCreating ? (
+          /* Fullscreen Modal Redirecting State with Selected Pack's Mascot Celebration */
+          <div className="flex flex-col items-center gap-3.5 py-4 text-center animate-in fade-in-50 duration-300">
+            <BoosterMascot
+              packId={selectedPack}
+              state="selected"
+              className="size-28 sm:size-32"
+            />
+
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-accent-orange/15 border border-accent-orange/30 px-3 py-1 text-xs font-bold text-accent-orange shadow-2xs">
+              <Loader2Icon className="size-3.5 animate-spin" />
+              <span>Menyiapkan Invoice…</span>
+            </div>
+
+            <div className="flex flex-col gap-1 max-w-xs">
+              <h3 className="text-lg font-bold text-[#1c1c1c] dark:text-surface-warm-white">
+                Mengarahkan ke Pembayaran…
+              </h3>
+              <p className="text-xs text-[#5f5f5d] dark:text-surface-warm-white/70 leading-relaxed">
+                Tab pembayaran Mayar akan segera terbuka. Selesaikan pembayaran
+                dengan aman.
+              </p>
+            </div>
+          </div>
+        ) : !paymentSession ? (
           <div className="flex flex-col gap-4">
             {packsQuery.isLoading ? (
               <div className="flex items-center justify-center gap-2 py-10 text-sm text-[#5f5f5d] dark:text-surface-warm-white/60">
@@ -211,43 +244,61 @@ export function EnergyBoosterModal({
                       key={key}
                       type="button"
                       onClick={() => setSelectedPack(key)}
-                      className={`relative flex items-center justify-between rounded-xl border p-4 text-left transition-all cursor-pointer ${
+                      className={`relative flex items-center justify-between rounded-2xl border p-3.5 sm:p-4 text-left transition-all cursor-pointer ${
                         isSelected
-                          ? "border-accent-orange bg-orange-500/[0.08] ring-1 ring-accent-orange/30 shadow-xs text-[#1c1c1c] dark:border-accent-orange dark:bg-accent-orange-subtle dark:text-surface-warm-white dark:ring-0"
-                          : "border-black/10 bg-black/[0.02] hover:border-black/20 hover:bg-black/[0.04] dark:border-white/[0.08] dark:bg-white/[0.02] dark:hover:border-white/15 dark:hover:bg-white/[0.04]"
+                          ? "border-accent-orange bg-orange-500/[0.08] ring-1 ring-accent-orange/40 shadow-sm text-[#1c1c1c] dark:border-accent-orange dark:bg-accent-orange-subtle dark:text-surface-warm-white dark:ring-0"
+                          : "border-black/10 bg-white/70 hover:border-black/20 hover:bg-white dark:border-white/[0.08] dark:bg-white/[0.02] dark:hover:border-white/15 dark:hover:bg-white/[0.04]"
                       }`}
                     >
-                      <div className="min-w-0 flex-1 flex flex-col gap-0.5 pr-2 max-w-[58%]">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-sm font-bold text-[#1c1c1c] dark:text-surface-warm-white">
-                            {pack.name}
-                          </span>
-                          {pack.isPopular ? (
-                            <span className="rounded-full bg-accent-orange-subtle border border-accent-orange-border px-2 py-0.5 text-[9px] font-semibold text-accent-orange uppercase tracking-wider shrink-0">
-                              Terlaris
-                            </span>
-                          ) : null}
+                      {/* Left: Mascot & Details */}
+                      <div className="flex items-center gap-3 min-w-0 flex-1 pr-2">
+                        <div className="shrink-0">
+                          <BoosterMascot
+                            packId={key}
+                            state={
+                              isCreating && isSelected
+                                ? "launching"
+                                : isSelected
+                                  ? "selected"
+                                  : "idle"
+                            }
+                            className="size-12 sm:size-13"
+                          />
                         </div>
-                        <span className="text-xs text-[#5f5f5d] dark:text-surface-warm-white/60 line-clamp-2 leading-relaxed">
-                          {pack.desc}
-                        </span>
-                        <span className="text-xs font-semibold text-accent-orange mt-1">
-                          +{formatEnergy(pack.energy)} Energi
-                        </span>
+
+                        <div className="min-w-0 flex-1 flex flex-col gap-0.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-sm font-bold text-[#1c1c1c] dark:text-surface-warm-white">
+                              {pack.name}
+                            </span>
+                            {pack.isPopular ? (
+                              <span className="rounded-full bg-accent-orange-subtle border border-accent-orange-border px-2 py-0.2 text-[9px] font-bold text-accent-orange uppercase tracking-wider shrink-0 shadow-2xs">
+                                Terlaris
+                              </span>
+                            ) : null}
+                          </div>
+                          <span className="text-xs text-[#5f5f5d] dark:text-surface-warm-white/60 line-clamp-1 leading-relaxed">
+                            {pack.desc}
+                          </span>
+                          <span className="text-xs font-bold text-accent-orange mt-0.5">
+                            +{formatEnergy(pack.energy)} Energi
+                          </span>
+                        </div>
                       </div>
 
+                      {/* Right: Pricing & Discount Badge */}
                       <div className="flex flex-col items-end gap-1 shrink-0">
                         {showDiscount ? (
                           <div className="flex items-center gap-1.5">
                             <span className="whitespace-nowrap shrink-0 rounded-full bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 text-[9px] font-bold text-rose-600 dark:bg-rose-400/15 dark:border-rose-400/30 dark:text-rose-300">
                               Hemat {pack.discountPercent}%
                             </span>
-                            <span className="whitespace-nowrap text-xs text-[#5f5f5d]/70 dark:text-white/35 line-through">
+                            <span className="whitespace-nowrap text-[11px] text-[#5f5f5d]/70 dark:text-white/35 line-through">
                               {formatRupiah(pack.compareAtAmount)}
                             </span>
                           </div>
                         ) : null}
-                        <span className="whitespace-nowrap text-base font-extrabold text-[#1c1c1c] dark:text-surface-warm-white">
+                        <span className="whitespace-nowrap text-sm sm:text-base font-extrabold text-[#1c1c1c] dark:text-surface-warm-white">
                           {formatRupiah(pack.amount)}
                         </span>
                       </div>
@@ -257,32 +308,45 @@ export function EnergyBoosterModal({
               </div>
             )}
 
-            <button
-              type="button"
-              disabled={isCreating}
-              onClick={() => handleBuy(selectedPack)}
-              className="flex w-full items-center justify-center gap-2 rounded-radius-lg bg-[#1c1c1c] py-3 text-sm font-bold text-white transition duration-200 hover:bg-[#1c1c1c]/90 active:scale-[0.98] cursor-pointer disabled:opacity-50 dark:bg-[#fcfbf8] dark:text-[#1c1c1c] dark:hover:bg-[#eceae4]"
-            >
-              {isCreating ? (
-                <>
-                  <Loader2Icon className="size-4 animate-spin" />
-                  <span>Membuat Invoice…</span>
-                </>
-              ) : (
-                <>
-                  <CreditCardIcon className="size-4" />
-                  <span>Bayar Sekarang (QRIS)</span>
-                </>
-              )}
-            </button>
+            {(() => {
+              const activePackData = packsQuery.data?.packs?.find(
+                (p) => p.id === selectedPack,
+              );
+              const formattedPrice = activePackData
+                ? formatRupiah(activePackData.amount)
+                : "";
+
+              return (
+                <button
+                  type="button"
+                  disabled={isCreating}
+                  onClick={() => handleBuy(selectedPack)}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#1c1c1c] py-3.5 text-sm font-bold text-white transition duration-200 hover:bg-[#1c1c1c]/90 active:scale-[0.98] cursor-pointer disabled:opacity-50 dark:bg-[#fcfbf8] dark:text-[#1c1c1c] dark:hover:bg-[#eceae4] shadow-sm"
+                >
+                  {isCreating ? (
+                    <>
+                      <ZapIcon className="size-4 animate-bounce text-amber-400 fill-amber-400" />
+                      <span>Meluncur ke Pembayaran…</span>
+                    </>
+                  ) : (
+                    <>
+                      <CreditCardIcon className="size-4" />
+                      <span>
+                        {formattedPrice
+                          ? `Bayar ${formattedPrice} Sekarang`
+                          : "Bayar Sekarang"}
+                      </span>
+                    </>
+                  )}
+                </button>
+              );
+            })()}
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-5 py-4 text-center">
+          <div className="flex flex-col items-center gap-4 py-2 text-center">
             {paymentStatus === "SUCCESS" ? (
               <>
-                <div className="flex size-14 items-center justify-center rounded-full bg-green-500/10 text-green-500">
-                  <CheckCircle2Icon className="size-8" />
-                </div>
+                <SuccessMascot className="size-24" />
                 <div className="flex flex-col gap-1">
                   <h3 className="text-lg font-bold text-[#1c1c1c] dark:text-surface-warm-white">
                     Pembayaran Berhasil!
@@ -295,23 +359,21 @@ export function EnergyBoosterModal({
                 <button
                   type="button"
                   onClick={() => onOpenChange(false)}
-                  className="w-full rounded-radius-lg bg-green-600 py-2.5 text-xs font-bold text-white hover:bg-green-500"
+                  className="w-full rounded-xl bg-emerald-600 py-3 text-xs font-bold text-white hover:bg-emerald-500 shadow-sm cursor-pointer transition"
                 >
-                  Selesai
+                  Selesai & Lanjutkan
                 </button>
               </>
             ) : (
               <>
-                <div className="flex size-14 items-center justify-center rounded-full bg-[#ff7a59]/10 text-[#ff7a59]">
-                  <Loader2Icon className="size-8 animate-spin" />
-                </div>
+                <WaitingPaymentMascot className="size-24" />
                 <div className="flex flex-col gap-1">
                   <h3 className="text-lg font-bold text-[#1c1c1c] dark:text-surface-warm-white">
-                    Menunggu Pembayaran
+                    Selesaikan Pembayaran
                   </h3>
                   <p className="text-xs text-[#5f5f5d] dark:text-surface-warm-white/70">
-                    Silakan selesaikan pembayaran QRIS di tab browser yang
-                    terbuka. Halaman ini akan otomatis diperbarui.
+                    Selesaikan pembayaran di halaman Mayar yang terbuka ya.
+                    Halaman ini akan otomatis menyambutmu saat sukses!
                   </p>
                 </div>
 
@@ -320,7 +382,7 @@ export function EnergyBoosterModal({
                     href={paymentSession.paymentUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex w-full items-center justify-center gap-2 rounded-radius-lg border border-black/15 bg-black/[0.04] py-2.5 text-xs font-bold text-[#1c1c1c] hover:bg-black/[0.08] dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-black/15 bg-white py-3 text-xs font-bold text-[#1c1c1c] hover:bg-black/5 dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 shadow-2xs transition"
                   >
                     Buka Ulang Halaman Pembayaran
                   </a>
@@ -329,7 +391,7 @@ export function EnergyBoosterModal({
                     <button
                       type="button"
                       onClick={handleSimulatePayment}
-                      className="w-full rounded-radius-lg bg-[#ff7a59]/20 py-2 text-xs font-semibold text-[#ff7a59] hover:bg-[#ff7a59]/30"
+                      className="w-full rounded-xl bg-accent-orange/15 border border-accent-orange/30 py-2 text-xs font-bold text-accent-orange hover:bg-accent-orange/25 transition cursor-pointer"
                     >
                       [DEV] Simulasi Bayar Berhasil
                     </button>
