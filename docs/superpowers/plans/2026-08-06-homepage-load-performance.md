@@ -1047,7 +1047,7 @@ git commit -m "perf: cache anonymous landing HTML at the shared cache"
 **Interfaces:**
 - Consumes: TanStack Router generator 1.167 file-based route splitting (`.lazy.tsx` piece; confirmed in `router-generator/dist/esm/generator.js`); `bun run routes:generate`.
 - Produces: `_main.admin.index.tsx` exports only `Route`; `_main.admin.index.lazy.tsx` exports `Route` from `createLazyFileRoute("/_main/admin/")` with `component: OverviewPage`. `GET /api/admin/overview` behavior is unchanged.
-- Fallback if the generator output is wrong: instead of file splitting, keep `_main.admin.index.tsx` and use `lazyRouteComponent(() => import("@/components/admin/AdminOverviewDashboard"), "AdminOverviewDashboard")` as the component — same goal, no generator involvement.
+- Fallback if the generator output is wrong: instead of file splitting, keep `_main.admin.index.tsx` and use `lazyRouteComponent(() => import("@/components/admin/overview/AdminOverviewDashboard"), "AdminOverviewDashboard")` as the component — same goal, no generator involvement.
 
 - [ ] **Step 1: Spike — split the route and inspect generator output**
 
@@ -1068,7 +1068,7 @@ import { createLazyFileRoute } from "@tanstack/react-router";
 import {
   AdminOverviewDashboard,
   type OverviewData,
-} from "@/components/admin/AdminOverviewDashboard";
+} from "@/components/admin/overview/AdminOverviewDashboard";
 import { fetchJson } from "@/lib/query-client";
 
 export const Route = createLazyFileRoute("/_main/admin/")({

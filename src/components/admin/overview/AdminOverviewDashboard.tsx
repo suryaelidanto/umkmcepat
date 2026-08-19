@@ -17,11 +17,11 @@ import {
   YAxis,
 } from "recharts";
 
-import { paymentStatusDisplay } from "@/components/admin/admin-status";
-import { AdminStatusBadge } from "@/components/admin/AdminStatusBadge";
 import { DashboardCard } from "@/components/admin/DashboardCard";
-import { SensitiveText } from "@/components/admin/SensitiveText";
-import { useStreamerMode } from "@/components/admin/streamer-mode-context";
+import { paymentStatusDisplay } from "@/components/admin/status/admin-status";
+import { AdminStatusBadge } from "@/components/admin/status/AdminStatusBadge";
+import { SensitiveText } from "@/components/admin/streamer-mode/SensitiveText";
+import { useStreamerMode } from "@/components/admin/streamer-mode/streamer-mode-context";
 import { Link } from "@/components/ui/link";
 
 export type OverviewData = {

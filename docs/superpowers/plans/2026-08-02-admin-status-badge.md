@@ -353,8 +353,8 @@ EOF
 Add imports:
 
 ```tsx
-import { AdminStatusBadge } from "@/components/admin/AdminStatusBadge";
-import { waitlistStatusDisplay } from "@/components/admin/admin-status";
+import { AdminStatusBadge } from "@/components/admin/status/AdminStatusBadge";
+import { waitlistStatusDisplay } from "@/components/admin/status/admin-status";
 ```
 
 Keep local `statusLabel` only if still used elsewhere; if only used by the pill, delete `statusLabel` and use `waitlistStatusDisplay` exclusively. Keep `isPending` as-is.
@@ -548,8 +548,8 @@ Delete the entire `statusPillClass` function (approx lines 48–75).
 - [ ] **Step 2: Import and use badge**
 
 ```tsx
-import { AdminStatusBadge } from "@/components/admin/AdminStatusBadge";
-import { projectStatusTone } from "@/components/admin/admin-status";
+import { AdminStatusBadge } from "@/components/admin/status/AdminStatusBadge";
+import { projectStatusTone } from "@/components/admin/status/admin-status";
 ```
 
 Replace the two status spans (approx 156–165):

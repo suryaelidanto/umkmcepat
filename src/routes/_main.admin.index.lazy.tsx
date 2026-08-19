@@ -4,7 +4,7 @@ import { createLazyFileRoute } from "@tanstack/react-router";
 import {
   AdminOverviewDashboard,
   type OverviewData,
-} from "@/components/admin/AdminOverviewDashboard";
+} from "@/components/admin/overview/AdminOverviewDashboard";
 import {
   ADMIN_SUMMARY_POLL_MS,
   fetchJson,

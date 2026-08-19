@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 
-import { useStreamerMode } from "@/components/admin/streamer-mode-context";
+import { useStreamerMode } from "@/components/admin/streamer-mode/streamer-mode-context";
 import { EnergyDisplay } from "@/components/common/EnergyDisplay";
 import { LoginConsentDialog } from "@/components/common/LoginConsentDialog";
 import { ThemeToggle } from "@/components/common/ThemeToggle";

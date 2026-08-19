@@ -14,7 +14,7 @@ import {
 
 import type { ReactNode } from "react";
 
-import { useStreamerMode } from "@/components/admin/streamer-mode-context";
+import { useStreamerMode } from "@/components/admin/streamer-mode/streamer-mode-context";
 import { Link } from "@/components/ui/link";
 import {
   ADMIN_SUMMARY_POLL_MS,

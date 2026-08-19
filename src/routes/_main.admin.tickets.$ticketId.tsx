@@ -5,9 +5,9 @@ import { ArrowLeft, ImagePlus, Loader2, Send } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
 
-import { ticketStatusDisplay } from "@/components/admin/admin-status";
-import { AdminStatusBadge } from "@/components/admin/AdminStatusBadge";
-import { SensitiveText } from "@/components/admin/SensitiveText";
+import { ticketStatusDisplay } from "@/components/admin/status/admin-status";
+import { AdminStatusBadge } from "@/components/admin/status/AdminStatusBadge";
+import { SensitiveText } from "@/components/admin/streamer-mode/SensitiveText";
 import { Button } from "@/components/ui/button";
 import { ImageUploadThumb } from "@/components/ui/image-upload-thumb";
 import { Link } from "@/components/ui/link";
