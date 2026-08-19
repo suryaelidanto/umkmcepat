@@ -3283,13 +3283,13 @@ export function WorkspaceShell({
             />
           ) : null}
 
-          {isRetrying ? (
-            <p className="text-sm text-surface-warm-white/46">
-              Memproses ulang...
-            </p>
-          ) : isPreparingNextQuestion ? (
+          {isPreparingNextQuestion ? (
             <p className="text-sm text-surface-warm-white/46">
               Menyiapkan pertanyaan berikutnya...
+            </p>
+          ) : isRetrying ? (
+            <p className="text-sm text-surface-warm-white/46">
+              Memproses ulang...
             </p>
           ) : isResponding ? (
             <p className="text-sm text-surface-warm-white/46">
@@ -3411,10 +3411,10 @@ export function WorkspaceShell({
                   currentStep={resolveCurrentBuildProgressStep(buildProgress)}
                   mode={isBuilding ? "Buat" : "Diskusi"}
                   discussPhase={
-                    isRetrying
-                      ? "retrying"
-                      : isPreparingNextQuestion
-                        ? "preparing_card"
+                    isPreparingNextQuestion
+                      ? "preparing_card"
+                      : isRetrying
+                        ? "retrying"
                         : isResponding
                           ? "streaming"
                           : "processing"
