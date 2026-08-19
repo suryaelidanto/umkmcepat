@@ -8,14 +8,21 @@ import { SessionProvider } from "@/lib/auth/auth-client";
 import { useDefaultThemeSetting } from "@/lib/config/use-feature-flag";
 import { createAppQueryClient } from "@/lib/query-client";
 
-function ThemedApp({ children }: { children: React.ReactNode }) {
-  const defaultTheme = useDefaultThemeSetting();
+function ThemedApp({
+  children,
+  initialTheme,
+}: {
+  children: React.ReactNode;
+  initialTheme?: string;
+}) {
+  const dynamicTheme = useDefaultThemeSetting();
+  const theme = dynamicTheme || initialTheme || "dark";
 
   return (
     <ThemeProvider
       attribute="class"
-      defaultTheme={defaultTheme}
-      enableSystem={defaultTheme === "system"}
+      defaultTheme={theme}
+      enableSystem={theme === "system"}
       forcedTheme={undefined}
     >
       <SessionProvider>{children}</SessionProvider>
@@ -23,12 +30,18 @@ function ThemedApp({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function AppProviders({ children }: { children: React.ReactNode }) {
+export function AppProviders({
+  children,
+  initialTheme,
+}: {
+  children: React.ReactNode;
+  initialTheme?: string;
+}) {
   const [queryClient] = useState(() => createAppQueryClient());
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemedApp>{children}</ThemedApp>
+      <ThemedApp initialTheme={initialTheme}>{children}</ThemedApp>
     </QueryClientProvider>
   );
 }
