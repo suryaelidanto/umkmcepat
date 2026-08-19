@@ -67,7 +67,9 @@ describe("homepage cache consistency", () => {
       projects: [{ id: "p1", title: "Toko A" }],
     });
 
-    const snapshot = client.getQueryData(queryKeys.projects);
+    const snapshot = client.getQueryData<{ pages: ProjectsPage[] }>(
+      queryKeys.projects,
+    );
     const next = applyPatches(snapshot, [buildDeletePatch("p1")], undefined);
     client.setQueryData(queryKeys.projects, next);
 

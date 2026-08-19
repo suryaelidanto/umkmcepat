@@ -41,7 +41,7 @@ vi.mock("@/lib/projects/load-persisted-project-source", () => ({
   projectHasPersistedSource: vi.fn(async () => false),
 }));
 
-import { getHandler } from "./_handler";
+import { getHandler } from "../../tests/support/route-handler";
 
 import { Route } from "@/routes/api.projects.$id.runtime";
 

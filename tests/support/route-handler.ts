@@ -1,20 +1,16 @@
-import type { createFileRoute } from "@tanstack/react-router";
-
 // Test helper: pull a method handler out of a TanStack server route so existing
 // handler tests can invoke it directly the way they used to call the exported
 // Next.js route function. Usage:
 //   const GET = getHandler(Route, "GET");
 //   const res = await GET(new Request(url), { id: "123" });
-type AnyRoute = ReturnType<ReturnType<typeof createFileRoute>>;
-
 type HandlerFn = (ctx: {
   request: Request;
   params: Record<string, string | undefined>;
 }) => Response | Promise<Response>;
 
-export function getHandler(route: AnyRoute, method: string) {
+export function getHandler(route: unknown, method: string) {
   const handlers = (
-    route as unknown as {
+    route as {
       options?: {
         server?: {
           handlers?: Record<

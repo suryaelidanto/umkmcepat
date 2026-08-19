@@ -90,7 +90,7 @@ vi.mock("@/lib/email/templates", () => ({
   sendPaymentReceipt: sendPaymentReceiptMock,
 }));
 
-import { getHandler } from "./_handler";
+import { getHandler } from "../../tests/support/route-handler";
 
 import { Route as CreateRoute } from "@/routes/api.payment.create";
 import { Route as StatusRoute } from "@/routes/api.payment.status.$orderId";

@@ -32,7 +32,7 @@ vi.mock("@/lib/ai-moderation", () => ({
   moderateProjectRequest: moderateProjectRequestMock,
 }));
 
-import { getHandler } from "./_handler";
+import { getHandler } from "../../tests/support/route-handler";
 
 import { Route } from "@/routes/api.projects.$id.assets.upload";
 

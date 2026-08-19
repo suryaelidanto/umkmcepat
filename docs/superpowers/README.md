@@ -12,6 +12,7 @@ Decision trail for specs, plans, handoffs, and tickets. These files are not all 
 
 ## Current High-Signal Areas
 
+- Repository organization and zero-context contract: `specs/2026-08-19-repository-organization-and-agent-contract-design.md` and `plans/2026-08-19-repository-organization-and-agent-contract.md`.
 - Production hardening: `specs/2026-07-28-production-security-hardening-design.md` and `plans/2026-07-28-prod-hardening-phase-*.md`.
 - Payment: Mayar replaced Pakasir; see `specs/2026-07-29-mayar-payment-migration-design.md`.
 - Storage: local dev and production both use S3-compatible storage through MinIO/R2; see the newest storage specs, then `src/lib/s3-client.ts`.

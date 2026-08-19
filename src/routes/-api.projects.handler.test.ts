@@ -121,7 +121,7 @@ vi.mock("@/lib/projects/brief-flow", () => ({
   })),
 }));
 
-import { getHandler } from "./_handler";
+import { getHandler } from "../../tests/support/route-handler";
 
 import { Route } from "@/routes/api.projects";
 
@@ -140,7 +140,6 @@ describe("projects route", () => {
     queryRawMock.mockResolvedValue([]);
     moderateProjectRequestMock.mockResolvedValue({
       allowed: true,
-      usage: { inputTokens: 0, outputTokens: 0 },
     });
     prismaProjectCreateMock.mockResolvedValue({ id: "project_1" });
     prismaProjectFindManyMock.mockResolvedValue([]);

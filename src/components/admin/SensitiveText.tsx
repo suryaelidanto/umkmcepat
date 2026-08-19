@@ -30,7 +30,7 @@ export function SensitiveText({ value, kind, className }: Props) {
     select: (state) => state.location.pathname,
   });
 
-  // Re-mask on every route change.
+  // why: re-mask sensitive values on every route transition
   useEffect(() => {
     setRevealed(false);
   }, [pathname]);

@@ -8,7 +8,7 @@ vi.mock("@/lib/feature-flags", () => ({
   getPublicFlags: getPublicFlagsMock,
 }));
 
-import { getHandler } from "./_handler";
+import { getHandler } from "../../tests/support/route-handler";
 
 import { Route } from "@/routes/api.flags";
 

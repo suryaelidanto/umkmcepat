@@ -102,7 +102,7 @@ vi.mock("@/lib/user-credits", () => ({
   chargeEnergyForAiUsage: vi.fn(async () => ({})),
 }));
 
-import { getHandler } from "./_handler";
+import { getHandler } from "../../tests/support/route-handler";
 
 import { Route } from "@/routes/api.projects.$id.generate";
 
