@@ -5,9 +5,11 @@ Maintainer and agent workflow for UMKM Cepat. For the quality bar, read `PRINCIP
 ## Core rules
 
 - Keep changes small and reviewable.
+- **Domain before file type** — organize by feature/domain first. Never create generic catch-all folders (`hooks`, `utils`, `helpers`, `misc`). Local hooks, contexts, types, schemas, and helpers stay directly with the feature they serve.
+- **Colocated tests by default** — single-module unit/component/route tests sit directly beside the source file (`foo.ts` + `foo.test.ts`). Top-level `tests/` is strictly for cross-domain (`tests/unit`), real DB/Redis infra (`tests/integration/*.itest.ts`), browser/mobile audits (`tests/browser/*.browser.test.ts`), and support harnesses (`tests/support`).
 - No any — `any` is lying to the compiler. Use `unknown` + narrowing, define the shape. Never `any`, `as any`, or `ts-ignore`/`eslint-disable` without one-liner why.
 - Solid as hell — nothing ships without `typecheck + lint + affected tests` green together. CI is not your safety net. Run `bun run check` before handoff. → See `AGENTS.md` god-tier Rules for single truth.
-- **Prefer self-explanatory code over comments.** Write code that says what it does through clear names and structure. Only add a one-liner `why` when it explains a non-obvious invariant, guarded edge case, or decision that would otherwise look wrong. Never restate code ("// loop over items" above `for`), narrate obvious, or split section that function name already communicates. When comment becomes unnecessary, delete it; do not leave it "just in case."
+- **Prefer self-explanatory code over comments.** Write code that says what it does through clear names and structure. Authored comments delete by default; only add a one-liner `why:` or `ponytail:` when it explains a non-obvious invariant, guarded edge case, or decision that would otherwise look wrong. Never restate code ("// loop over items" above `for`), narrate obvious, or split section that function name already communicates. When comment becomes unnecessary, delete it; do not leave it "just in case."
 - Keep every developer-facing or internal-facing surface in English: docs, system prompts, agent prompts, code names, comments, logs, errors, test names, commits, scripts, and internal tooling copy.
 - Keep only consumer-facing product UI copy in Indonesian unless an i18n layer is introduced.
 - Do not commit secrets, `.env`, local logs, screenshots, browser artifacts, uploads, or generated junk.

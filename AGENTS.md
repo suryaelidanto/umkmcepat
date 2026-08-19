@@ -93,21 +93,23 @@ Local quality gates are automated:
 
 ## Rules — god-tier
 
-- No any — any is lying to the compiler. Use unknown + narrowing, define the shape. No any, no as any, no ts-ignore / eslint-disable without one-liner why
-- Comments — code must be self-explanatory. No // loop over items. Only one-liner why when code looks wrong but is right. Delete the rest
-- Solid as hell — nothing ships without typecheck + lint + affected tests green together. CI is not your safety net. Broken = rejected, no excuses
-- Small, surgical — one concern per change. 50-line fix beats 500-line refactor. If description says also, split it
-- No dead weight — no commented-out code, no dead exports, no TODO without ticket. Knip + typecheck must stay green
-- Explicit over clever — boring explicit beats clever abstraction. Deep modules hide complexity behind small stable interfaces
-- Fail loud — validate at trust boundaries, fail closed on auth/money/publish, bound time/size/retries/concurrency. Silent fallback is a bug
-- Prefer deletion, reuse, platform features, existing deps before adding code
-- Plain over technical — explain to a developer in everyday words, not jargon. Sacrifice terminology for understanding. Only drop a technical term when it changes what they must do; skip exhaustive honesty when it adds nothing the user can act on
-- Optimize for next capable agent with zero context: leave canonical docs/scripts/checks clear enough to resume in minutes
-- Use Bun only; keep `bun.lock` canonical; work from `dev`; PRs into `dev`
-- User-facing copy Indonesian; dev docs/code/logs English
+- Domain before file type — organize by feature/domain first; no generic catch-all folders (`hooks`, `utils`, `helpers`, `misc`). Local hooks/context/types/helpers stay beside their feature.
+- Colocated tests by default — unit/component/route tests sit directly beside the module they verify (`foo.ts` + `foo.test.ts`). Top-level `tests/` is strictly for cross-domain (`tests/unit`), real DB/Redis infra (`tests/integration/*.itest.ts`), browser/mobile audits (`tests/browser/*.browser.test.ts`), and fixtures/helpers (`tests/support`).
+- No any — any is lying to the compiler. Use unknown + narrowing, define the shape. No any, no as any, no ts-ignore / eslint-disable without one-liner why.
+- Comments — code must be self-explanatory. No // loop over items. Authored comments delete by default; only one-liner `why:` or `ponytail:` when code looks wrong but is right. Delete the rest.
+- Solid as hell — nothing ships without typecheck + lint + affected tests green together. CI is not your safety net. Broken = rejected, no excuses.
+- Small, surgical — one concern per change. 50-line fix beats 500-line refactor. If description says also, split it.
+- No dead weight — no commented-out code, no dead exports, no TODO without ticket. Knip + typecheck must stay green.
+- Explicit over clever — boring explicit beats clever abstraction. Deep modules hide complexity behind small stable interfaces.
+- Fail loud — validate at trust boundaries, fail closed on auth/money/publish, bound time/size/retries/concurrency. Silent fallback is a bug.
+- Prefer deletion, reuse, platform features, existing deps before adding code.
+- Plain over technical — explain to a developer in everyday words, not jargon. Sacrifice terminology for understanding. Only drop a technical term when it changes what they must do; skip exhaustive honesty when it adds nothing the user can act on.
+- Optimize for next capable agent with zero context: leave canonical docs/scripts/checks clear enough to resume in minutes.
+- Use Bun only; keep `bun.lock` canonical; work from `dev`; PRs into `dev`.
+- User-facing copy Indonesian; dev docs/code/logs English.
 - Always unslop — follow `.agents/skills/unslop/SKILL.md` by default across all code, prompt strings, and docs. Cut AI tells, puffery, filler verbs (utilize/leverage/showcase), and fake ranges. Plain words, active voice, concrete facts.
 - Follow `PRODUCT.md`, `DESIGN.md`, `.agents/skills/impeccable` before frontend design;
-- Use Graphify for non-trivial discovery when available; do not add as project dep
+- Use Graphify for non-trivial discovery when available; do not add as project dep.
 
 ## Docs are part of change — you are the linter
 
