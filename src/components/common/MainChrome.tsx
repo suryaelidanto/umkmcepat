@@ -37,6 +37,9 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
 
   const isWorkspace =
     pathname.startsWith("/projects/") && pathname !== "/projects/new";
+  const isTicketDetail =
+    (pathname.startsWith("/admin/tickets/") && pathname !== "/admin/tickets") ||
+    (pathname.startsWith("/support/") && pathname !== "/support");
   const isWaitlistPage = isWaitlistPagePath(pathname);
   const isNavigatingToWaitlist = targetPathname === "/waitlist";
 
@@ -131,7 +134,7 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
         showResetButton={Boolean(waitlistQuery.data?.own)}
       />
       <main className="flex-1">{children}</main>
-      <Footer />
+      {!isTicketDetail && <Footer />}
     </div>
   );
 }

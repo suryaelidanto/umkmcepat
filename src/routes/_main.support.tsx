@@ -403,7 +403,7 @@ function SupportPage() {
                   <Link
                     key={ticket.id}
                     href={`/support/${ticket.id}`}
-                    className="flex flex-col gap-spacing-2 rounded-radius-md border border-black/10 bg-black/[0.02] p-spacing-4 transition hover:border-black/20 hover:bg-black/[0.05] dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5 dark:hover:border-surface-warm-white/20 dark:hover:bg-surface-warm-white/8"
+                    className="flex flex-col gap-spacing-2 rounded-radius-md border border-black/10 bg-[#fcfbf8] p-spacing-4 text-[#1c1c1c] transition hover:border-black/20 hover:bg-black/[0.02] dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/8"
                   >
                     <div className="flex items-start justify-between gap-spacing-3">
                       <div className="flex items-center gap-spacing-2">
@@ -427,7 +427,7 @@ function SupportPage() {
                       </span>
                     </div>
 
-                    <h3 className="line-clamp-1 font-semibold text-sm">
+                    <h3 className="line-clamp-1 font-semibold text-sm text-[#1c1c1c] dark:text-surface-warm-white">
                       {ticket.subject}
                     </h3>
 
