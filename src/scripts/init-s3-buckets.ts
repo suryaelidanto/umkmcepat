@@ -1,4 +1,4 @@
-/* eslint-disable no-console */
+/* eslint-disable no-console -- why: standalone CLI initialization script */
 import {
   CreateBucketCommand,
   PutBucketPolicyCommand,

@@ -10,6 +10,7 @@ const steps: Array<[label: string, cmd: string, args: string[]]> = [
   ["typecheck", "bun", ["run", "typecheck"]],
   ["test", "bun", ["run", "test:changed"]],
   ["knip", "bun", ["run", "knip"]],
+  ["discipline", "bun", ["run", "check:discipline"]],
   ["docs", "bun", ["run", "check:docs"]],
 ];
 
