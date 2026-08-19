@@ -17,7 +17,7 @@ export const Route = createFileRoute("/api/support/tickets/$ticketId")({
           );
         }
 
-        // Mark counterpart (admin) messages as read for this ticket
+        // Mark admin messages as read when User opens /support/$ticketId
         await prisma.supportMessage
           .updateMany({
             where: {
