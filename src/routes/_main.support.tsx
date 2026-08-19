@@ -245,27 +245,31 @@ function SupportPage() {
         </div>
 
         {formOpen && (
-          <div className="mt-spacing-4 rounded-radius-lg border border-black/10 bg-black/[0.02] p-spacing-5 dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5">
-            <div className="flex items-center justify-between border-b border-black/10 pb-spacing-3 dark:border-surface-warm-white/10">
-              <h2 className="text-lg font-medium text-[#1c1c1c] dark:text-surface-warm-white">
-                Buat Tiket Baru
-              </h2>
+          <div className="mt-spacing-4 rounded-2xl border border-black/10 bg-[#fcfbf8] p-5 sm:p-6 shadow-sm dark:border-white/10 dark:bg-[#1c1c1a]">
+            <div className="flex items-center justify-between border-b border-black/10 pb-4 dark:border-white/10">
+              <div>
+                <h2 className="text-base sm:text-lg font-bold text-[#1c1c1c] dark:text-surface-warm-white">
+                  Buat Tiket Bantuan
+                </h2>
+                <p className="text-xs text-[#5f5f5d] dark:text-surface-warm-white/60 mt-0.5">
+                  Tim kami akan merespons kendala teknis atau pertanyaanmu
+                  secepatnya.
+                </p>
+              </div>
               <button
+                type="button"
                 onClick={() => setFormOpen(false)}
-                className="text-[#5f5f5d] hover:text-[#1c1c1c] dark:text-surface-warm-white/60 dark:hover:text-surface-warm-white"
+                className="rounded-lg p-1.5 text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:text-surface-warm-white/60 dark:hover:bg-white/10 dark:hover:text-surface-warm-white transition cursor-pointer"
               >
                 <X className="size-5" />
               </button>
             </div>
 
-            <form
-              onSubmit={handleSubmit}
-              className="mt-spacing-4 flex flex-col gap-spacing-4"
-            >
-              <div className="flex flex-col gap-spacing-1">
+            <form onSubmit={handleSubmit} className="mt-5 flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
                 <label
                   htmlFor="subject"
-                  className="text-xs font-semibold text-[#1c1c1c] dark:text-surface-warm-white/80"
+                  className="text-xs font-bold text-[#1c1c1c] dark:text-surface-warm-white/90"
                 >
                   Subjek Kendala
                 </label>
@@ -277,14 +281,14 @@ function SupportPage() {
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
                   placeholder="Contoh: Eror saat generate halaman kontak / Pembayaran energi belum masuk"
-                  className="h-10 w-full rounded-radius-md border border-black/15 bg-transparent px-spacing-3 text-sm text-[#1c1c1c] outline-none placeholder:text-black/30 focus:border-accent-orange focus:ring-1 focus:ring-accent-orange dark:border-surface-warm-white/10 dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/30"
+                  className="h-11 w-full rounded-xl border border-black/15 bg-white px-3.5 text-sm text-[#1c1c1c] outline-none placeholder:text-[#5f5f5d]/60 focus:border-accent-orange focus:ring-1 focus:ring-accent-orange dark:border-white/15 dark:bg-white/[0.04] dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/40 shadow-2xs transition"
                 />
               </div>
 
-              <div className="flex flex-col gap-spacing-1">
+              <div className="flex flex-col gap-1.5">
                 <label
                   htmlFor="category"
-                  className="text-xs font-semibold text-[#1c1c1c] dark:text-surface-warm-white/80"
+                  className="text-xs font-bold text-[#1c1c1c] dark:text-surface-warm-white/90"
                 >
                   Kategori
                 </label>
@@ -294,7 +298,7 @@ function SupportPage() {
                   onChange={(e) =>
                     setCategory(e.target.value as SupportCategory)
                   }
-                  className="h-10 w-full rounded-radius-md border border-black/15 bg-[#fcfbf8] px-spacing-3 text-sm text-[#1c1c1c] outline-none focus:border-accent-orange focus:ring-1 focus:ring-accent-orange dark:border-surface-warm-white/10 dark:bg-[#171715] dark:text-surface-warm-white"
+                  className="h-11 w-full rounded-xl border border-black/15 bg-white px-3.5 text-sm text-[#1c1c1c] outline-none focus:border-accent-orange focus:ring-1 focus:ring-accent-orange dark:border-white/15 dark:bg-[#171715] dark:text-surface-warm-white shadow-2xs transition cursor-pointer"
                 >
                   {Object.keys(CATEGORY_LABELS).map((cat) => (
                     <option key={cat} value={cat}>
@@ -304,10 +308,10 @@ function SupportPage() {
                 </select>
               </div>
 
-              <div className="flex flex-col gap-spacing-1">
+              <div className="flex flex-col gap-1.5">
                 <label
                   htmlFor="body"
-                  className="text-xs font-semibold text-[#1c1c1c] dark:text-surface-warm-white/80"
+                  className="text-xs font-bold text-[#1c1c1c] dark:text-surface-warm-white/90"
                 >
                   Detail Pesan
                 </label>
@@ -318,19 +322,19 @@ function SupportPage() {
                   value={body}
                   onChange={(e) => setBody(e.target.value)}
                   placeholder="Jelaskan secara rinci kendala Anda..."
-                  className="w-full resize-y rounded-radius-md border border-black/15 bg-transparent p-spacing-3 text-sm text-[#1c1c1c] outline-none placeholder:text-black/30 focus:border-accent-orange focus:ring-1 focus:ring-accent-orange dark:border-surface-warm-white/10 dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/30"
+                  className="w-full resize-y rounded-xl border border-black/15 bg-white p-3.5 text-sm text-[#1c1c1c] outline-none placeholder:text-[#5f5f5d]/60 focus:border-accent-orange focus:ring-1 focus:ring-accent-orange dark:border-white/15 dark:bg-white/[0.04] dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/40 shadow-2xs transition"
                 />
               </div>
 
-              <div className="flex flex-col gap-spacing-2">
-                <span className="text-xs font-semibold text-[#1c1c1c] dark:text-surface-warm-white/80">
+              <div className="flex flex-col gap-2">
+                <span className="text-xs font-bold text-[#1c1c1c] dark:text-surface-warm-white/90">
                   Lampiran Gambar (Maks 3, Opsional)
                 </span>
-                <div className="flex flex-wrap gap-spacing-3">
+                <div className="flex flex-wrap gap-3">
                   {attachments.map((item) => (
                     <ImageUploadThumb
                       alt="Attachment preview"
-                      className="size-16"
+                      className="size-16 rounded-xl overflow-hidden shadow-2xs"
                       key={item.id}
                       onRemove={() => removeAttachment(item.id)}
                       src={item.url}
@@ -339,9 +343,9 @@ function SupportPage() {
                   ))}
 
                   {attachments.length < 3 && (
-                    <label className="flex size-16 cursor-pointer flex-col items-center justify-center rounded-radius-md border border-dashed border-black/20 bg-black/[0.03] hover:border-black/40 hover:bg-black/[0.06] dark:border-surface-warm-white/20 dark:bg-surface-warm-white/5 dark:hover:border-surface-warm-white/40 dark:hover:bg-surface-warm-white/10">
+                    <label className="flex size-16 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-black/20 bg-white hover:border-black/40 hover:bg-black/[0.02] dark:border-white/20 dark:bg-white/[0.02] dark:hover:border-white/40 dark:hover:bg-white/[0.05] transition shadow-2xs">
                       <ImagePlus className="size-5 text-[#5f5f5d] dark:text-surface-warm-white/60" />
-                      <span className="mt-1 text-[9px] text-[#5f5f5d] dark:text-surface-warm-white/60">
+                      <span className="mt-1 text-[10px] font-semibold text-[#5f5f5d] dark:text-surface-warm-white/60">
                         Upload
                       </span>
                       <input
@@ -356,23 +360,27 @@ function SupportPage() {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-spacing-3 border-t border-black/10 pt-spacing-4 dark:border-surface-warm-white/10">
-                <Button
+              <div className="mt-2 flex items-center justify-end gap-2.5 pt-2 border-t border-black/10 dark:border-white/10">
+                <button
                   type="button"
-                  variant="outline"
                   onClick={() => setFormOpen(false)}
+                  className="rounded-xl border border-black/15 bg-white px-4 py-2.5 text-xs font-semibold text-[#1c1c1c] hover:bg-black/5 dark:border-white/15 dark:bg-white/[0.04] dark:text-surface-warm-white dark:hover:bg-white/10 shadow-2xs transition cursor-pointer"
                 >
                   Batal
-                </Button>
-                <Button
+                </button>
+                <button
                   type="submit"
                   disabled={
                     createMutation.isPending ||
                     attachments.some((item) => item.uploading)
                   }
+                  className="flex items-center gap-2 rounded-xl bg-[#1c1c1c] px-5 py-2.5 text-xs font-bold text-white hover:bg-black active:scale-95 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-white shadow-sm transition disabled:opacity-50 cursor-pointer"
                 >
-                  {createMutation.isPending ? "Mengirim..." : "Kirim Tiket"}
-                </Button>
+                  {createMutation.isPending && (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  )}
+                  <span>Kirim Tiket</span>
+                </button>
               </div>
             </form>
           </div>
