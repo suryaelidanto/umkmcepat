@@ -314,8 +314,9 @@ export function TicketThreadView({
           <div className="flex items-center gap-spacing-3 min-w-0 flex-1">
             <Link
               href={backUrl}
-              className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-black/10 bg-white text-[#1c1c1c] transition hover:bg-black/5 dark:border-surface-warm-white/10 dark:bg-white/[0.04] dark:text-surface-warm-white dark:hover:bg-white/10 shadow-2xs"
+              className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-black/10 bg-transparent text-[#5f5f5d] transition-colors hover:border-black/20 hover:bg-black/[0.04] hover:text-[#1c1c1c] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-black/50 dark:border-white/14 dark:bg-transparent dark:text-surface-warm-white dark:hover:bg-white/[0.06] dark:focus-visible:ring-white/50"
               title="Kembali"
+              aria-label="Kembali"
             >
               <ArrowLeft className="size-4" />
             </Link>
@@ -343,7 +344,7 @@ export function TicketThreadView({
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-spacing-2">
+          <div className="flex shrink-0 items-center gap-2">
             <AdminStatusBadge tone={statusDisplay.tone}>
               {statusDisplay.label}
             </AdminStatusBadge>
@@ -353,7 +354,7 @@ export function TicketThreadView({
                 onClick={() => resolveMutation.mutate()}
                 size="sm"
                 variant="outline"
-                className="text-xs rounded-xl shadow-2xs cursor-pointer"
+                className="h-8 rounded-lg border-black/15 bg-black/[0.03] px-3 text-xs font-semibold hover:bg-black/[0.07] dark:border-white/14 dark:bg-white/[0.04] dark:hover:bg-white/[0.08]"
                 disabled={resolveMutation.isPending}
               >
                 {resolveMutation.isPending ? "Memproses..." : "Tandai Selesai"}
@@ -362,10 +363,11 @@ export function TicketThreadView({
               <Button
                 onClick={() => reopenMutation.mutate()}
                 size="sm"
-                className="bg-accent-orange text-white hover:bg-accent-orange/90 text-xs font-bold rounded-xl shadow-2xs cursor-pointer"
+                variant="outline"
+                className="h-8 rounded-lg border-accent-orange/30 bg-accent-orange/10 px-3 text-xs font-semibold text-accent-orange hover:bg-accent-orange/20 dark:border-accent-orange/40 dark:bg-accent-orange/15"
                 disabled={reopenMutation.isPending}
               >
-                {reopenMutation.isPending ? "Membuka..." : "Buka Kembali Tiket"}
+                {reopenMutation.isPending ? "Membuka..." : "Buka Kembali"}
               </Button>
             )}
           </div>
