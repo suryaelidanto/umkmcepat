@@ -6,7 +6,7 @@
     "tests/**/*.test.ts",
     ".husky/pre-commit",
     ".husky/commit-msg",
-    "scripts/capture-project-thumbnail.cjs"
+    "scripts/capture-project-thumbnail.ts"
   ],
   "project": ["src/**/*.{ts,tsx}"],
   "ignoreBinaries": ["graphify", "netstat"],

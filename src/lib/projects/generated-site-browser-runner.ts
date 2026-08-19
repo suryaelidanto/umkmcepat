@@ -300,13 +300,13 @@ function spawnRunner(input: {
 }): Promise<string> {
   const script = path.resolve(
     process.cwd(),
-    "scripts/qualify-generated-site.cjs",
+    "scripts/qualify-generated-site.ts",
   );
-  const node = process.env.PROJECT_THUMBNAIL_NODE_PATH || "node";
+  const runner = process.execPath;
   const executable = browserExecutable();
   return new Promise((resolve, reject) => {
     const child = spawn(
-      node,
+      runner,
       [
         script,
         input.origin,
