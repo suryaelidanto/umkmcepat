@@ -8,6 +8,7 @@ Boot instructions for AI agents working on UMKM Cepat.
 - `DEV.md` → workflow + Cleanliness + typecheck/lint/test gate
 - `PRODUCT.md` → who/what for
 - `DESIGN.md` → tokens/UI
+- `.agents/skills/unslop/SKILL.md` → unslop writing standard (cut AI tells, active voice, plain speech)
 - `docs/superpowers/README.md` → specs/plans are decision trail, trust source over old specs
 
 ## What makes UMKM Cepat special
@@ -112,6 +113,7 @@ bun run test:storybook
 - Optimize for next capable agent with zero context: leave canonical docs/scripts/checks clear enough to resume in minutes
 - Use Bun only; keep `bun.lock` canonical; work from `dev`; PRs into `dev`
 - User-facing copy Indonesian; dev docs/code/logs English
+- Always unslop — follow `.agents/skills/unslop/SKILL.md` by default across all code, prompt strings, and docs. Cut AI tells, puffery, filler verbs (utilize/leverage/showcase), and fake ranges. Plain words, active voice, concrete facts.
 - Follow `PRODUCT.md`, `DESIGN.md`, `.agents/skills/impeccable` before frontend design; new reusable UI → Storybook in same change
 - Use Graphify for non-trivial discovery when available; do not add as project dep
 
