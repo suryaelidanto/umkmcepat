@@ -32,8 +32,11 @@ export default defineConfig({
           environment: "node",
           include: [
             "src/**/*.test.ts",
-            "tests/**/*.test.ts",
+            "src/**/*.test.tsx",
+            "tests/unit/**/*.test.ts",
+            "tests/unit/**/*.test.tsx",
             "scripts/**/*.test.ts",
+            "tests/**/*.test.ts",
           ],
           name: "unit",
         },
@@ -42,12 +45,17 @@ export default defineConfig({
         extends: true,
         test: {
           environment: "node",
-          // `.itest.ts`, not `.test.ts`: the `unit` project globs
-          // `tests/**/*.test.ts` and would otherwise run these without a DB.
           include: ["tests/integration/**/*.itest.ts"],
           name: "integration",
-          // Real transactions and advisory locks; no parallel file isolation.
           fileParallelism: false,
+        },
+      },
+      {
+        extends: true,
+        test: {
+          environment: "node",
+          include: ["tests/browser/**/*.browser.test.ts"],
+          name: "browser",
         },
       },
     ],

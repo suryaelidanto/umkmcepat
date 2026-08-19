@@ -2,8 +2,8 @@
   "$schema": "https://unpkg.com/knip@latest/schema.json",
   "entry": [
     "src/routes/**/*.{ts,tsx}",
-    "src/**/*.test.ts",
-    "tests/**/*.test.ts",
+    "src/**/*.{test,itest}.{ts,tsx}",
+    "tests/**/*.{test,itest}.{ts,tsx}",
     ".husky/pre-commit",
     ".husky/commit-msg",
     "scripts/capture-project-thumbnail.ts"

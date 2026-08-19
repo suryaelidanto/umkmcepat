@@ -150,7 +150,10 @@ export function runDisciplineCheck(): Violation[] {
   return violations;
 }
 
-if (import.meta.main) {
+if (
+  import.meta.url === `file://${process.argv[1]}` ||
+  (import.meta as { main?: boolean }).main
+) {
   const results = runDisciplineCheck();
   if (results.length === 0) {
     console.log("✓ Codebase discipline check passed");

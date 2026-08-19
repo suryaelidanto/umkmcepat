@@ -140,7 +140,6 @@ describe("projects route", () => {
     queryRawMock.mockResolvedValue([]);
     moderateProjectRequestMock.mockResolvedValue({
       allowed: true,
-      usage: { inputTokens: 0, outputTokens: 0 },
     });
     prismaProjectCreateMock.mockResolvedValue({ id: "project_1" });
     prismaProjectFindManyMock.mockResolvedValue([]);
