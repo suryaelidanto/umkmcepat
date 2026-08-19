@@ -204,15 +204,15 @@ function captureWithNode({
   origin: string;
   timeout: number;
 }) {
-  const nodePath = process.env.PROJECT_THUMBNAIL_NODE_PATH || "node";
+  const runnerPath = process.execPath;
   const scriptPath = path.resolve(
     process.cwd(),
-    "scripts/capture-project-thumbnail.cjs",
+    "scripts/capture-project-thumbnail.ts",
   );
 
   return new Promise<Buffer>((resolve, reject) => {
     const child = spawn(
-      nodePath,
+      runnerPath,
       [
         scriptPath,
         origin,

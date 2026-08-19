@@ -397,7 +397,7 @@ function spawnRuntimeProcess(root: string, port: number) {
   const child = spawn(
     process.execPath,
     [
-      path.join(process.cwd(), "scripts", "runtime-static-server.mjs"),
+      path.join(process.cwd(), "scripts", "runtime-static-server.ts"),
       "--root",
       root,
       "--port",

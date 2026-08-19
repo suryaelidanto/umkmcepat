@@ -1,8 +1,26 @@
-"use strict";
+export const TRANSPARENT_CSS_COLOR_PATTERN = String.raw`^rgba\([^)]*,\s*0\s*\)$`;
 
-const TRANSPARENT_CSS_COLOR_PATTERN = String.raw`^rgba\([^)]*,\s*0\s*\)$`;
+export type ParsedColor = {
+  r: number;
+  g: number;
+  b: number;
+  a: number;
+};
 
-function isTransparentCssColor(value) {
+export type ContrastEntry = {
+  selector?: string;
+  foreground: string;
+  background: string;
+  fontSize: string | number;
+  fontWeight: string | number;
+};
+
+export type ContrastFailure = ContrastEntry & {
+  ratio: number;
+  minimum: number;
+};
+
+export function isTransparentCssColor(value: unknown): boolean {
   if (typeof value !== "string") {
     return false;
   }
@@ -13,7 +31,7 @@ function isTransparentCssColor(value) {
   );
 }
 
-function parseCssColor(value) {
+export function parseCssColor(value: unknown): ParsedColor | null {
   if (typeof value !== "string") {
     return null;
   }
@@ -63,12 +81,12 @@ function parseCssColor(value) {
   if (channels.length < 3) {
     return null;
   }
-  const channel = (part) => {
+  const channel = (part: string) => {
     const numeric = Number.parseFloat(part);
     return part.endsWith("%") ? (numeric / 100) * 255 : numeric;
   };
   const alpha = alphaValue === undefined ? 1 : Number.parseFloat(alphaValue);
-  const color = {
+  const color: ParsedColor = {
     r: channel(channels[0]),
     g: channel(channels[1]),
     b: channel(channels[2]),
@@ -90,7 +108,10 @@ function parseCssColor(value) {
   return color;
 }
 
-function composite(foreground, background) {
+function composite(
+  foreground: ParsedColor,
+  background: ParsedColor,
+): ParsedColor {
   const alpha = foreground.a + background.a * (1 - foreground.a);
   if (alpha === 0) {
     return { r: 0, g: 0, b: 0, a: 0 };
@@ -112,14 +133,14 @@ function composite(foreground, background) {
   };
 }
 
-function channelLuminance(channel) {
+function channelLuminance(channel: number): number {
   const normalized = channel / 255;
   return normalized <= 0.03928
     ? normalized / 12.92
     : ((normalized + 0.055) / 1.055) ** 2.4;
 }
 
-function luminance(color) {
+function luminance(color: ParsedColor): number {
   return (
     0.2126 * channelLuminance(color.r) +
     0.7152 * channelLuminance(color.g) +
@@ -127,9 +148,14 @@ function luminance(color) {
   );
 }
 
-function contrastRatio(foreground, background) {
-  const foregroundColor = parseCssColor(foreground);
-  const backgroundColor = parseCssColor(background);
+export function contrastRatio(
+  foreground: string | ParsedColor,
+  background: string | ParsedColor,
+): number | null {
+  const foregroundColor =
+    typeof foreground === "string" ? parseCssColor(foreground) : foreground;
+  const backgroundColor =
+    typeof background === "string" ? parseCssColor(background) : background;
   if (!foregroundColor || !backgroundColor || backgroundColor.a === 0) {
     return null;
   }
@@ -148,13 +174,24 @@ function contrastRatio(foreground, background) {
   return (light + 0.05) / (dark + 0.05);
 }
 
-function minimumForText(input) {
-  const fontSize = Number.parseFloat(input.fontSize);
-  const fontWeight = Number.parseInt(input.fontWeight, 10);
+export function minimumForText(input: {
+  fontSize: string | number;
+  fontWeight: string | number;
+}): number {
+  const fontSize =
+    typeof input.fontSize === "number"
+      ? input.fontSize
+      : Number.parseFloat(input.fontSize);
+  const fontWeight =
+    typeof input.fontWeight === "number"
+      ? input.fontWeight
+      : Number.parseInt(input.fontWeight, 10);
   return fontSize >= 18 || (fontSize >= 14 && fontWeight >= 700) ? 3 : 4.5;
 }
 
-function findContrastFailures(entries) {
+export function findContrastFailures(
+  entries: ContrastEntry[],
+): ContrastFailure[] {
   return entries.flatMap((entry) => {
     const ratio = contrastRatio(entry.foreground, entry.background);
     if (ratio === null) {
@@ -165,8 +202,28 @@ function findContrastFailures(entries) {
   });
 }
 
-function evaluateProfessionalTypography(input) {
-  const failures = [];
+export type TypographyEvaluationInput = {
+  bodyFontSizePx: number;
+  minBodyPx: number;
+  bodyLineHeightRatio: number;
+  minBodyLineHeight: number;
+  bodyMaxCh: number;
+  maxBodyCh: number;
+  maxDisplayPx: number;
+  minDisplayLetterSpacingEm: number;
+  displayHeadings?: Array<{
+    fontSizePx: number;
+    letterSpacingEm: number;
+  }>;
+};
+
+export function evaluateProfessionalTypography(
+  input: TypographyEvaluationInput,
+): {
+  pass: boolean;
+  failures: string[];
+} {
+  const failures: string[] = [];
   if (input.bodyFontSizePx < input.minBodyPx) {
     failures.push(`body font ${input.bodyFontSizePx}px < ${input.minBodyPx}px`);
   }
@@ -193,15 +250,34 @@ function evaluateProfessionalTypography(input) {
   return { pass: failures.length === 0, failures };
 }
 
-function normalizeVisibleText(value) {
+function normalizeVisibleText(value: unknown): string {
   return String(value || "")
-    .replace(/\\s+/g, " ")
+    .replace(/\s+/g, " ")
     .trim()
     .toLocaleLowerCase("id-ID");
 }
 
-function evaluateFirstViewContract(input) {
-  const failures = [];
+export type FirstViewEvaluationInput = {
+  firstViewCount?: number;
+  firstViewVisible?: boolean;
+  firstViewText?: string;
+  identityText?: string;
+  offerTexts?: string[];
+  primaryActionCount?: number;
+  primaryAction?: {
+    visible: boolean;
+    label: string;
+    href: string;
+  } | null;
+  primaryCtaLabel?: string;
+  primaryCtaHref?: string;
+};
+
+export function evaluateFirstViewContract(input: FirstViewEvaluationInput): {
+  pass: boolean;
+  failures: string[];
+} {
+  const failures: string[] = [];
   const firstViewText = normalizeVisibleText(input.firstViewText);
   if (input.firstViewCount !== undefined && input.firstViewCount !== 1) {
     failures.push("first-view-count");
@@ -240,10 +316,29 @@ function evaluateFirstViewContract(input) {
   return { pass: failures.length === 0, failures };
 }
 
-function evaluateSectionCoverage(input) {
-  const failures = [];
+export type SectionCandidate = {
+  id: string;
+  visible: boolean;
+  text?: string;
+};
+
+export type ExpectedSection = {
+  id: string;
+  requiredVisibleTexts?: string[];
+};
+
+export type SectionCoverageInput = {
+  actualSections?: SectionCandidate[];
+  expectedSections?: ExpectedSection[];
+};
+
+export function evaluateSectionCoverage(input: SectionCoverageInput): {
+  pass: boolean;
+  failures: string[];
+} {
+  const failures: string[] = [];
   const actual = input.actualSections ?? [];
-  const seen = new Set();
+  const seen = new Set<string>();
   for (const section of actual) {
     if (seen.has(section.id)) {
       failures.push(`duplicate:${section.id}`);
@@ -273,7 +368,15 @@ function evaluateSectionCoverage(input) {
   return { pass: failures.length === 0, failures };
 }
 
-function rectanglesOverlap(left, right) {
+export type Rect = {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+  label?: string;
+};
+
+export function rectanglesOverlap(left: Rect, right: Rect): boolean {
   return (
     Math.max(
       0,
@@ -287,8 +390,16 @@ function rectanglesOverlap(left, right) {
   );
 }
 
-function evaluateFixedOverlaps(input) {
-  const failures = [];
+export type FixedOverlapsInput = {
+  fixedRects?: Rect[];
+  targetRects?: Rect[];
+};
+
+export function evaluateFixedOverlaps(input: FixedOverlapsInput): {
+  pass: boolean;
+  failures: string[];
+} {
+  const failures: string[] = [];
   for (const fixed of input.fixedRects ?? []) {
     for (const target of input.targetRects ?? []) {
       if (rectanglesOverlap(fixed, target)) {
@@ -299,7 +410,18 @@ function evaluateFixedOverlaps(input) {
   return { pass: failures.length === 0, failures };
 }
 
-function evaluateEmptyMediaFrame(input) {
+export type MediaFrameInput = {
+  area: number;
+  borderedOrBackgrounded: boolean;
+  visibleText: boolean;
+  hasImage: boolean;
+  hasSvgPath: boolean;
+};
+
+export function evaluateEmptyMediaFrame(input: MediaFrameInput): {
+  pass: boolean;
+  failures: string[];
+} {
   const empty =
     input.area >= 12000 &&
     input.borderedOrBackgrounded &&
@@ -309,7 +431,18 @@ function evaluateEmptyMediaFrame(input) {
   return { pass: !empty, failures: empty ? ["empty-media-frame"] : [] };
 }
 
-function evaluateSignaturePresence(input) {
+export type SignaturePresenceInput = {
+  route: string;
+  signatureRoute: string;
+  count: number;
+  visibleCount: number;
+  hasVisibleText: boolean;
+};
+
+export function evaluateSignaturePresence(input: SignaturePresenceInput): {
+  pass: boolean;
+  failures: string[];
+} {
   const expected = input.route === input.signatureRoute;
   const valid = expected
     ? input.count === 1 && input.visibleCount === 1 && input.hasVisibleText
@@ -318,21 +451,6 @@ function evaluateSignaturePresence(input) {
     pass: valid,
     failures: valid
       ? []
-      : [expected ? "missing-or-duplicate-signature" : "unexpected-signature"],
+      : [expected ? "signature-missing" : "signature-unexpected"],
   };
 }
-
-module.exports = {
-  contrastRatio,
-  findContrastFailures,
-  evaluateEmptyMediaFrame,
-  evaluateFixedOverlaps,
-  evaluateFirstViewContract,
-  evaluateProfessionalTypography,
-  evaluateSectionCoverage,
-  evaluateSignaturePresence,
-  isTransparentCssColor,
-  minimumForText,
-  parseCssColor,
-  TRANSPARENT_CSS_COLOR_PATTERN,
-};

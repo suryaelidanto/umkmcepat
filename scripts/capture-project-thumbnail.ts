@@ -1,18 +1,17 @@
-/* eslint-disable @typescript-eslint/no-require-imports -- CommonJS subprocess entrypoint. */
-const { chromium } = require("playwright-core");
+import { chromium, type Browser, type BrowserContext } from "playwright-core";
 
 const [url, executablePath = "", timeoutRaw = "15000"] = process.argv.slice(2);
 const timeout = Number(timeoutRaw);
 
 if (!url || !Number.isInteger(timeout) || timeout < 1) {
   process.stderr.write(
-    "Usage: capture-project-thumbnail.cjs <url> [browser-path] [timeout-ms]\n",
+    "Usage: capture-project-thumbnail.ts <url> [browser-path] [timeout-ms]\n",
   );
   process.exit(2);
 }
 
-let browser;
-let context;
+let browser: Browser | undefined;
+let context: BrowserContext | undefined;
 
 (async () => {
   browser = await chromium.launch({
@@ -70,6 +69,10 @@ let context;
     process.exitCode = 1;
   })
   .finally(async () => {
-    await context?.close().catch(() => undefined);
-    await browser?.close().catch(() => undefined);
+    if (context) {
+      await context.close().catch(() => {});
+    }
+    if (browser) {
+      await browser.close().catch(() => {});
+    }
   });

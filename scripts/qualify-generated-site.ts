@@ -1,10 +1,9 @@
-/* eslint-disable @typescript-eslint/no-require-imports -- isolated CommonJS browser subprocess. */
-const { mkdirSync } = require("node:fs");
-const path = require("node:path");
+import { mkdirSync } from "node:fs";
+import path from "node:path";
 
-const { chromium } = require("playwright-core");
+import { chromium } from "playwright-core";
 
-const {
+import {
   evaluateEmptyMediaFrame,
   evaluateFixedOverlaps,
   evaluateFirstViewContract,
@@ -13,7 +12,7 @@ const {
   evaluateSignaturePresence,
   findContrastFailures,
   TRANSPARENT_CSS_COLOR_PATTERN,
-} = require("./generated-site-contrast.cjs");
+} from "./generated-site-contrast";
 
 const [
   origin,
