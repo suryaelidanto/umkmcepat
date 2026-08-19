@@ -166,6 +166,32 @@ export function TicketThreadView({
     },
   });
 
+  const reopenMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch(`/api/admin/tickets/${ticketId}/reopen`, {
+        method: "POST",
+      });
+
+      const json = await response.json();
+      if (!response.ok) {
+        throw new Error(json.message || "Gagal membuka kembali tiket.");
+      }
+      return json;
+    },
+    onSuccess: () => {
+      toast.success("Tiket telah dibuka kembali.");
+      queryClient.invalidateQueries({ queryKey });
+      if (isAdmin) {
+        queryClient.invalidateQueries({ queryKey: ["admin", "nav-counts"] });
+      }
+    },
+    onError: (err) => {
+      toast.error(
+        err instanceof Error ? err.message : "Gagal membuka kembali tiket.",
+      );
+    },
+  });
+
   // Auto-scroll to bottom of messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -308,16 +334,45 @@ export function TicketThreadView({
               {statusDisplay.label}
             </AdminStatusBadge>
 
-            {canResolve && (
-              <Button
-                onClick={() => resolveMutation.mutate()}
-                size="sm"
-                variant="outline"
-                className="text-xs"
-                disabled={resolveMutation.isPending}
-              >
-                {resolveMutation.isPending ? "Memproses..." : "Tandai Selesai"}
-              </Button>
+            {isAdmin ? (
+              isOpen ? (
+                <Button
+                  onClick={() => resolveMutation.mutate()}
+                  size="sm"
+                  variant="outline"
+                  className="text-xs"
+                  disabled={resolveMutation.isPending}
+                >
+                  {resolveMutation.isPending
+                    ? "Memproses..."
+                    : "Tandai Selesai"}
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => reopenMutation.mutate()}
+                  size="sm"
+                  className="bg-accent-orange text-white hover:bg-accent-orange/90 text-xs font-semibold"
+                  disabled={reopenMutation.isPending}
+                >
+                  {reopenMutation.isPending
+                    ? "Membuka..."
+                    : "Buka Kembali Tiket"}
+                </Button>
+              )
+            ) : (
+              canResolve && (
+                <Button
+                  onClick={() => resolveMutation.mutate()}
+                  size="sm"
+                  variant="outline"
+                  className="text-xs"
+                  disabled={resolveMutation.isPending}
+                >
+                  {resolveMutation.isPending
+                    ? "Memproses..."
+                    : "Tandai Selesai"}
+                </Button>
+              )
             )}
           </div>
         </div>
@@ -400,7 +455,7 @@ export function TicketThreadView({
       </div>
 
       {/* Reply Input */}
-      {isOpen ? (
+      {isOpen || isAdmin ? (
         <form
           onSubmit={handleSend}
           className="mt-auto flex flex-col gap-spacing-2 border-t border-black/10 pt-spacing-4 dark:border-surface-warm-white/10"
@@ -442,7 +497,11 @@ export function TicketThreadView({
               value={replyBody}
               onChange={(e) => setReplyBody(e.target.value)}
               placeholder={
-                isAdmin ? "Tulis balasan sebagai admin…" : "Tulis balasan Anda…"
+                isAdmin
+                  ? isOpen
+                    ? "Tulis balasan sebagai admin…"
+                    : "Balas dan buka kembali tiket ini…"
+                  : "Tulis balasan Anda…"
               }
               className="h-10 flex-1 rounded-radius-md border border-black/15 bg-white px-spacing-3 text-sm text-[#1c1c1c] outline-none placeholder:text-black/40 focus:border-accent-orange focus:ring-1 focus:ring-accent-orange dark:border-surface-warm-white/15 dark:bg-white/[0.04] dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/40"
             />
@@ -459,7 +518,7 @@ export function TicketThreadView({
             >
               <Send className="size-4" />
               <span className="hidden sm:inline">
-                {isAdmin ? "Balas" : "Kirim"}
+                {isAdmin ? (isOpen ? "Balas" : "Balas & Buka") : "Kirim"}
               </span>
             </Button>
           </div>

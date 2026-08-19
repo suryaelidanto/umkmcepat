@@ -169,7 +169,9 @@ export async function addMessage(
     throw new Error("Tiket tidak ditemukan.");
   }
   if (ticket.status === SupportTicketStatus.RESOLVED) {
-    throw new Error("Tidak bisa membalas tiket yang sudah selesai.");
+    if (input.authorRole !== "admin") {
+      throw new Error("Tidak bisa membalas tiket yang sudah selesai.");
+    }
   }
 
   return prisma.$transaction(async (tx) => {
@@ -192,13 +194,44 @@ export async function addMessage(
 
     await tx.supportTicket.update({
       where: { id: input.ticketId },
-      data: { updatedAt: new Date() },
+      data: {
+        status: SupportTicketStatus.OPEN,
+        updatedAt: new Date(),
+      },
     });
 
     return {
       messageId: message.id,
     };
   });
+}
+
+export async function reopenTicket(
+  ticketId: string,
+  _userId: string,
+): Promise<{ success: boolean }> {
+  const ticket = await prisma.supportTicket.findUnique({
+    where: { id: ticketId },
+  });
+
+  if (!ticket) {
+    throw new Error("Tiket tidak ditemukan.");
+  }
+  if (ticket.status === SupportTicketStatus.OPEN) {
+    return { success: true };
+  }
+
+  await prisma.supportTicket.update({
+    where: { id: ticketId },
+    data: {
+      status: SupportTicketStatus.OPEN,
+      resolvedAt: null,
+      resolvedBy: null,
+      updatedAt: new Date(),
+    },
+  });
+
+  return { success: true };
 }
 
 export async function resolveTicket(

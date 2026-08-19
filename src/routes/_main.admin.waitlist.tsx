@@ -238,6 +238,42 @@ function WaitlistPage() {
                     {rowActionPending && !approving ? "Menolak..." : "Tolak"}
                   </button>
                 </div>
+              ) : entry.status === "rejected" ? (
+                <div className="mt-spacing-4 flex gap-spacing-3">
+                  <button
+                    className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-500 transition disabled:opacity-50"
+                    disabled={act.isPending}
+                    onClick={() =>
+                      act.mutate({ action: "approve", entryId: entry.id })
+                    }
+                    type="button"
+                  >
+                    {approving ? "Menyetujui..." : "Setujui (Koreksi)"}
+                  </button>
+                </div>
+              ) : entry.status === "approved" ? (
+                <div className="mt-spacing-4 flex gap-spacing-3">
+                  <button
+                    className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2 text-xs font-bold text-destructive hover:bg-destructive/20 hover:border-destructive/40 transition disabled:opacity-50"
+                    disabled={act.isPending}
+                    onClick={() => {
+                      const reason =
+                        window.prompt(
+                          "Alasan pembatalan persetujuan (opsional)?",
+                        ) ?? "";
+                      act.mutate({
+                        action: "reject",
+                        entryId: entry.id,
+                        reason,
+                      });
+                    }}
+                    type="button"
+                  >
+                    {rowActionPending
+                      ? "Membatalkan..."
+                      : "Batalkan Persetujuan"}
+                  </button>
+                </div>
               ) : null}
             </div>
           );
