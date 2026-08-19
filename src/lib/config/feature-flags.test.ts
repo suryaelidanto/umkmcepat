@@ -17,12 +17,15 @@ describe("getPublicFlags", () => {
 
   it("returns both flags with stored values when getSetting resolves", async () => {
     getSettingMock.mockImplementation(
-      async (key: string, fallback: boolean) => {
+      async (key: string, fallback: boolean | string) => {
         if (key === "feature.composer_uploads_enabled") {
           return false;
         }
         if (key === "feature.direct_edit_enabled") {
           return true;
+        }
+        if (key === "feature.default_theme") {
+          return "light";
         }
         return fallback;
       },
@@ -33,10 +36,11 @@ describe("getPublicFlags", () => {
     expect(flags).toEqual({
       "feature.composer_uploads_enabled": false,
       "feature.direct_edit_enabled": true,
+      "feature.default_theme": "light",
     });
   });
 
-  it("falls back to true for every key when getSetting rejects", async () => {
+  it("falls back to default for every key when getSetting rejects", async () => {
     getSettingMock.mockRejectedValue(new Error("db down"));
 
     const flags = await getPublicFlags();
@@ -44,6 +48,7 @@ describe("getPublicFlags", () => {
     expect(flags).toEqual({
       "feature.composer_uploads_enabled": true,
       "feature.direct_edit_enabled": true,
+      "feature.default_theme": "dark",
     });
   });
 
@@ -52,7 +57,7 @@ describe("getPublicFlags", () => {
 
     await getPublicFlags();
 
-    expect(getSettingMock).toHaveBeenCalledTimes(2);
+    expect(getSettingMock).toHaveBeenCalledTimes(3);
     expect(getSettingMock).toHaveBeenCalledWith(
       "feature.composer_uploads_enabled",
       true,
@@ -60,6 +65,10 @@ describe("getPublicFlags", () => {
     expect(getSettingMock).toHaveBeenCalledWith(
       "feature.direct_edit_enabled",
       true,
+    );
+    expect(getSettingMock).toHaveBeenCalledWith(
+      "feature.default_theme",
+      "dark",
     );
   });
 });

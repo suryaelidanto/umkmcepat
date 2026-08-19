@@ -81,6 +81,15 @@ export const APP_SETTINGS: ConfigEntry[] = [
     fallback: true,
   },
   {
+    key: "feature.default_theme",
+    category: "feature_flag",
+    tier: "basic",
+    type: "string",
+    label: "Tema Bawaan Situs (Default Theme)",
+    fallback: "dark",
+    enumOptions: ["dark", "light", "system"],
+  },
+  {
     key: "generation.engine",
     category: "feature_flag",
     tier: "basic",

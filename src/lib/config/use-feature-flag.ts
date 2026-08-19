@@ -1,12 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
 
-import type { PublicFeatureFlag } from "@/lib/config/feature-flags-keys";
+import type { PublicAppSettingKey } from "@/lib/config/feature-flags-keys";
 
 const FLAGS_KEY = ["public-flags"] as const;
 
-async function fetchPublicFlags(): Promise<Record<PublicFeatureFlag, boolean>> {
+async function fetchPublicFlags(): Promise<
+  Record<PublicAppSettingKey, boolean | string>
+> {
   const response = await fetch("/api/flags", { cache: "no-store" });
-  return (await response.json()) as Record<PublicFeatureFlag, boolean>;
+  return (await response.json()) as Record<
+    PublicAppSettingKey,
+    boolean | string
+  >;
 }
 
 export function usePublicFlags() {
@@ -18,7 +23,15 @@ export function usePublicFlags() {
   });
 }
 
-export function useFeatureFlag(key: PublicFeatureFlag): boolean {
+export function useFeatureFlag(
+  key: "feature.composer_uploads_enabled" | "feature.direct_edit_enabled",
+): boolean {
   const { data } = usePublicFlags();
-  return data?.[key] ?? true;
+  return (data?.[key] as boolean | undefined) ?? true;
+}
+
+export function useDefaultThemeSetting(): string {
+  const { data } = usePublicFlags();
+  const val = data?.["feature.default_theme"];
+  return typeof val === "string" ? val : "dark";
 }
