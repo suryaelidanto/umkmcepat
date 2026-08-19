@@ -319,7 +319,7 @@ function HomePage() {
   return (
     <div className="cursor-default bg-[#eceae4] text-[#1c1c1c] transition-colors duration-200 dark:bg-[#151515] dark:text-surface-warm-white">
       <ResetCursorOnMount />
-      <section className="relative isolate overflow-hidden px-4 py-spacing-14 sm:px-spacing-9 lg:px-spacing-10">
+      <section className="relative isolate flex min-h-[calc(100dvh-3.5rem)] flex-col justify-center overflow-hidden px-4 sm:px-spacing-9 lg:px-spacing-10">
         <HeroAuroraBackground />
 
         <HeroContentMotion>
@@ -386,8 +386,8 @@ function HomePage() {
       {hasUser && !waitlisted ? (
         <section className="bg-[#eceae4] px-4 pb-spacing-15 pt-spacing-12 text-[#1c1c1c] transition-colors duration-200 dark:bg-[#151515] dark:text-surface-warm-white sm:px-spacing-9 lg:px-spacing-10">
           <ScrollReveal>
-            <div className="mx-auto max-w-6xl text-left">
-              <div className="max-w-2xl">
+            <div className="mx-auto max-w-6xl text-center sm:text-left">
+              <div className="mx-auto max-w-2xl sm:mx-0">
                 <h2 className="text-3xl font-semibold tracking-[-0.05em] sm:text-4xl">
                   Website kamu
                 </h2>

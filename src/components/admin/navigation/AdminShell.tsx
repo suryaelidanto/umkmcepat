@@ -29,7 +29,7 @@ type AdminNavCounts = {
   waitlistPending: number;
   ticketsUnread: number;
   paymentsPending: number;
-  projectsActive: number;
+  projectsReady: number;
   usersTotal: number;
 };
 
@@ -56,7 +56,7 @@ const TABS = [
     label: "Proyek",
     to: "/admin/projects",
     icon: FolderKanban,
-    badge: "projectsActive" as const,
+    badge: "projectsReady" as const,
   },
   {
     label: "Tiket",
@@ -98,7 +98,7 @@ function useNavCounts(): AdminNavCounts {
       waitlistPending: 0,
       ticketsUnread: 0,
       paymentsPending: 0,
-      projectsActive: 0,
+      projectsReady: 0,
       usersTotal: 0,
     }
   );
@@ -199,9 +199,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
   if (isTicketDetail) {
     return (
-      <main className="mx-auto flex min-h-dvh w-full max-w-7xl flex-col px-3 pb-20 pt-6 text-[#1c1c1c] transition-colors duration-200 dark:text-surface-warm-white sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-full w-full max-w-7xl flex-col overflow-hidden px-3 pb-3 text-[#1c1c1c] transition-colors duration-200 dark:text-surface-warm-white sm:px-6 lg:px-8">
         {children}
-      </main>
+      </div>
     );
   }
 

@@ -577,12 +577,14 @@ model SupportMessage {
   authorId   String
   authorRole String        @db.VarChar(16) // 'user' | 'admin'
   body       String        @db.Text
+  readAt     DateTime?
   createdAt  DateTime      @default(now())
   ticket     SupportTicket  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   assetIds   String[]
   assets     SupportAsset[]
 
   @@index([ticketId, createdAt])
+  @@index([ticketId, readAt])
 }
 
 model SupportAsset {

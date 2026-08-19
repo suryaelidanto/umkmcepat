@@ -23,12 +23,12 @@ function UserTicketThreadRoute() {
   const { ticketId } = Route.useParams();
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-7xl flex-col px-3 pb-20 pt-6 text-[#1c1c1c] transition-colors duration-200 dark:text-surface-warm-white sm:px-6 lg:px-8">
+    <div className="mx-auto flex h-full w-full max-w-7xl flex-col overflow-hidden px-3 sm:px-6 lg:px-8 pb-3 text-[#1c1c1c] transition-colors duration-200 dark:text-surface-warm-white">
       <TicketThreadView
         ticketId={ticketId}
         isAdmin={false}
         backUrl="/support"
       />
-    </main>
+    </div>
   );
 }

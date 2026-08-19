@@ -174,7 +174,7 @@ export async function addMessage(
     }
   }
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const message = await tx.supportMessage.create({
       data: {
         ticketId: input.ticketId,
@@ -204,11 +204,16 @@ export async function addMessage(
       messageId: message.id,
     };
   });
+
+  invalidateUnreadCache();
+
+  return result;
 }
 
 export async function reopenTicket(
   ticketId: string,
-  _userId: string,
+  userId: string,
+  isAdmin = false,
 ): Promise<{ success: boolean }> {
   const ticket = await prisma.supportTicket.findUnique({
     where: { id: ticketId },
@@ -216,6 +221,9 @@ export async function reopenTicket(
 
   if (!ticket) {
     throw new Error("Tiket tidak ditemukan.");
+  }
+  if (!isAdmin && ticket.userId !== userId) {
+    throw new Error("Akses ditolak.");
   }
   if (ticket.status === SupportTicketStatus.OPEN) {
     return { success: true };
@@ -230,6 +238,8 @@ export async function reopenTicket(
       updatedAt: new Date(),
     },
   });
+
+  invalidateUnreadCache();
 
   return { success: true };
 }
@@ -254,16 +264,6 @@ export async function resolveTicket(
     if (ticket.userId !== userId) {
       throw new Error("Akses ditolak.");
     }
-    // Check if last message is from user
-    const lastMessage = await prisma.supportMessage.findFirst({
-      where: { ticketId },
-      orderBy: { createdAt: "desc" },
-    });
-    if (!lastMessage || lastMessage.authorRole !== "user") {
-      throw new Error(
-        "Hanya bisa menutup tiket setelah Anda mengirim pesan terakhir.",
-      );
-    }
   }
 
   await prisma.supportTicket.update({
@@ -274,6 +274,8 @@ export async function resolveTicket(
       resolvedBy: isAdmin ? userId : null,
     },
   });
+
+  invalidateUnreadCache();
 
   return { success: true };
 }
@@ -289,6 +291,15 @@ const cache = new Map<
   { counts: TicketBadgeCounts; expiresAt: number }
 >();
 const CACHE_TTL_MS = 30 * 1000;
+
+export function invalidateUnreadCache(userId?: string): void {
+  if (userId) {
+    cache.delete(`${userId}-false`);
+    cache.delete(`${userId}-true`);
+  } else {
+    cache.clear();
+  }
+}
 
 export async function getUnreadCounts(actor: {
   userId: string;
@@ -306,10 +317,17 @@ export async function getUnreadCounts(actor: {
   let adminUnreadCount = 0;
 
   if (actor.isAdmin) {
-    // Admin unread count: count of OPEN tickets where the latest message's authorRole is 'user'
-    // To do this query efficiently:
-    const openTickets = await prisma.supportTicket.findMany({
+    // Admin ticket count: all OPEN tickets
+    adminUnreadCount = await prisma.supportTicket.count({
       where: { status: SupportTicketStatus.OPEN },
+    });
+  } else {
+    // User unread count: count of OPEN tickets where the latest message was written by 'admin'
+    const userOpenTickets = await prisma.supportTicket.findMany({
+      where: {
+        userId: actor.userId,
+        status: SupportTicketStatus.OPEN,
+      },
       select: {
         id: true,
         messages: {
@@ -319,17 +337,9 @@ export async function getUnreadCounts(actor: {
         },
       },
     });
-    adminUnreadCount = openTickets.filter(
-      (t) => t.messages.length > 0 && t.messages[0].authorRole === "user",
+    userUnreadCount = userOpenTickets.filter(
+      (t) => t.messages.length > 0 && t.messages[0].authorRole === "admin",
     ).length;
-  } else {
-    // User unread count: count of own OPEN tickets
-    userUnreadCount = await prisma.supportTicket.count({
-      where: {
-        userId: actor.userId,
-        status: SupportTicketStatus.OPEN,
-      },
-    });
   }
 
   const counts = { userUnreadCount, adminUnreadCount };

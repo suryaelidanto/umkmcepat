@@ -3392,7 +3392,7 @@ export function WorkspaceShell({
 
       <div className="mt-spacing-5">
         {readOnly ? (
-          <div className="mt-spacing-3 rounded-[22px] border border-surface-warm-white/10 bg-[#242421] px-spacing-5 py-spacing-4 text-sm text-surface-warm-white/62">
+          <div className="mt-spacing-3 rounded-[22px] border border-black/10 bg-black/[0.03] px-spacing-5 py-spacing-4 text-sm text-[#5f5f5d] dark:border-surface-warm-white/10 dark:bg-[#242421] dark:text-surface-warm-white/62">
             Mode baca-saja aktif. Chat, build, dan aksi edit tidak tersedia.
           </div>
         ) : (
@@ -3996,7 +3996,7 @@ export function WorkspaceShell({
       onTouchStart={handleTouchStart}
     >
       {readOnly ? (
-        <div className="shrink-0 border-b border-surface-warm-white/10 bg-surface-warm-white/8 px-spacing-4 py-spacing-3 text-sm text-surface-warm-white/82">
+        <div className="shrink-0 border-b border-black/10 bg-black/[0.04] px-spacing-4 py-spacing-3 text-sm text-[#5f5f5d] dark:border-surface-warm-white/10 dark:bg-surface-warm-white/8 dark:text-surface-warm-white/82">
           Mode admin baca-saja. Kamu melihat proyek seperti pengguna, tanpa izin
           mengubah atau mengirim aksi.
         </div>

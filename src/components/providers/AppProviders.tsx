@@ -5,16 +5,42 @@ import { ThemeProvider } from "next-themes";
 import { useState } from "react";
 
 import { SessionProvider } from "@/lib/auth/auth-client";
+import { useDefaultThemeSetting } from "@/lib/config/use-feature-flag";
 import { createAppQueryClient } from "@/lib/query-client";
 
-export function AppProviders({ children }: { children: React.ReactNode }) {
+function ThemedApp({
+  children,
+  initialTheme,
+}: {
+  children: React.ReactNode;
+  initialTheme?: string;
+}) {
+  const theme = useDefaultThemeSetting(initialTheme);
+
+  return (
+    <ThemeProvider
+      attribute="class"
+      defaultTheme={theme}
+      enableSystem={theme === "system"}
+      forcedTheme={undefined}
+    >
+      <SessionProvider>{children}</SessionProvider>
+    </ThemeProvider>
+  );
+}
+
+export function AppProviders({
+  children,
+  initialTheme,
+}: {
+  children: React.ReactNode;
+  initialTheme?: string;
+}) {
   const [queryClient] = useState(() => createAppQueryClient());
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
-        <SessionProvider>{children}</SessionProvider>
-      </ThemeProvider>
+      <ThemedApp initialTheme={initialTheme}>{children}</ThemedApp>
     </QueryClientProvider>
   );
 }

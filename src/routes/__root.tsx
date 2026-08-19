@@ -5,6 +5,7 @@ import {
   createRootRoute,
   useRouter,
 } from "@tanstack/react-router";
+import { createServerFn } from "@tanstack/react-start";
 import { AlertTriangle } from "lucide-react";
 
 import type { ReactNode } from "react";
@@ -13,8 +14,16 @@ import { AppProviders } from "@/components/providers/AppProviders";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/components/ui/link";
 import { Toaster } from "@/components/ui/sonner";
+import { getSetting } from "@/lib/config/app-settings";
 import { cn } from "@/lib/utils";
 import globalCss from "@/styles/globals.css?url";
+
+const loadRootConfig = createServerFn({ method: "GET" }).handler(async () => {
+  const defaultTheme = await getSetting("feature.default_theme", "dark").catch(
+    () => "dark",
+  );
+  return { defaultTheme: String(defaultTheme) };
+});
 
 const siteUrl = "https://umkmcepat.com";
 const siteTitle =
@@ -59,6 +68,9 @@ const jsonLd = {
 };
 
 export const Route = createRootRoute({
+  loader: async () => {
+    return await loadRootConfig();
+  },
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -188,9 +200,11 @@ function RootError({ error, reset }: { error: Error; reset: () => void }) {
 function RootComponent() {
   const router = useRouter();
   const nonce = router.options.ssr?.nonce;
+  const loaderData = Route.useLoaderData();
+  const defaultTheme = loaderData?.defaultTheme || "dark";
 
   return (
-    <RootDocument nonce={nonce}>
+    <RootDocument defaultTheme={defaultTheme} nonce={nonce}>
       <Outlet />
     </RootDocument>
   );
@@ -198,9 +212,11 @@ function RootComponent() {
 
 function RootDocument({
   children,
+  defaultTheme,
   nonce,
 }: Readonly<{
   children: ReactNode;
+  defaultTheme: string;
   nonce?: string;
 }>) {
   return (
@@ -209,7 +225,7 @@ function RootDocument({
         <script
           nonce={nonce}
           dangerouslySetInnerHTML={{
-            __html: `!function(){try{var d=document.documentElement,c=d.classList;c.remove('dark','light');var e=localStorage.getItem('theme');var t=e||'dark';c.add(t);d.style.colorScheme=t}catch(e){}}();`,
+            __html: `!function(){try{var d=document.documentElement,c=d.classList;c.remove('dark','light');var e=localStorage.getItem('theme');var t=e||${JSON.stringify(defaultTheme)};if(t==='system'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}c.add(t);d.style.colorScheme=t}catch(e){}}();`,
           }}
         />
         <HeadContent />
@@ -234,7 +250,7 @@ function RootDocument({
             data-website-id={process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID}
           />
         ) : null}
-        <AppProviders>{children}</AppProviders>
+        <AppProviders initialTheme={defaultTheme}>{children}</AppProviders>
         <Toaster richColors position="bottom-right" />
         <Scripts />
       </body>

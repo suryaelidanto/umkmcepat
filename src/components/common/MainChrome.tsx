@@ -126,14 +126,22 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col bg-[#eceae4] text-[#1c1c1c] transition-colors duration-200 dark:bg-[#151515] dark:text-[#fcfbf8]">
+    <div
+      className={`relative flex min-h-screen flex-col bg-[#eceae4] text-[#1c1c1c] transition-colors duration-200 dark:bg-[#151515] dark:text-[#fcfbf8] ${
+        isTicketDetail ? "h-dvh overflow-hidden" : ""
+      }`}
+    >
       <Header
         devResetPending={devResetMutation.isPending}
         onDevReset={() => devResetMutation.mutate()}
         showDevBanner={isDevModeBannerVisible}
         showResetButton={Boolean(waitlistQuery.data?.own)}
       />
-      <main className="flex-1">{children}</main>
+      <main
+        className={`flex-1 ${isTicketDetail ? "min-h-0 overflow-hidden flex flex-col" : ""}`}
+      >
+        {children}
+      </main>
       {!isTicketDetail && <Footer />}
     </div>
   );

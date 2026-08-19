@@ -15,6 +15,20 @@ export const Route = createFileRoute("/api/admin/tickets/$ticketId")({
           );
         }
 
+        // Mark user messages as read when Admin opens this ticket
+        await prisma.supportMessage
+          .updateMany({
+            where: {
+              ticketId: params.ticketId,
+              authorRole: "user",
+              readAt: null,
+            },
+            data: {
+              readAt: new Date(),
+            },
+          })
+          .catch(() => {});
+
         const ticket = await prisma.supportTicket.findUnique({
           where: { id: params.ticketId },
           include: {

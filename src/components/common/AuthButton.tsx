@@ -59,6 +59,9 @@ export function AuthButton() {
     }
 
     function handlePointerDown(event: PointerEvent) {
+      if (!isDesktop) {
+        return;
+      }
       const target = event.target as Node;
       // Do not close if clicking inside container or dropdown
       if (containerRef.current?.contains(target)) {
@@ -137,10 +140,18 @@ export function AuthButton() {
         aria-controls={menuId}
         aria-label={open ? "Tutup menu akun" : "Buka menu akun"}
       >
-        <AvatarFrame
-          seed={displayName}
-          className="size-6 bg-black/10 text-[10px] font-semibold text-[#1c1c1c] dark:bg-surface-warm-white dark:text-foreground-primary"
-        />
+        <div className="relative inline-flex size-6 shrink-0 items-center justify-center">
+          <AvatarFrame
+            seed={displayName}
+            className="size-6 bg-black/10 text-[10px] font-semibold text-[#1c1c1c] dark:bg-surface-warm-white dark:text-foreground-primary"
+          />
+          {unreadCount > 0 && !open ? (
+            <span
+              aria-hidden="true"
+              className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-accent-orange ring-2 ring-[#eceae4] dark:ring-[#151515]"
+            />
+          ) : null}
+        </div>
         <span className="hidden min-w-0 truncate sm:block">{displayName}</span>
         <ChevronDown
           className={`size-4 shrink-0 text-[#5f5f5d] transition dark:text-surface-warm-white/58 ${open ? "rotate-180" : ""}`}
@@ -230,7 +241,7 @@ export function AuthButton() {
                   <Link
                     href="/profile"
                     onClick={() => setOpen(false)}
-                    className="flex items-center gap-3 px-3 py-3 text-sm font-medium"
+                    className="flex items-center gap-3 px-3 py-3 text-sm font-medium hover:bg-black/5 active:bg-black/10 dark:hover:bg-white/5 dark:active:bg-white/10 rounded-lg transition"
                   >
                     <UserRound className="size-4 text-[#5f5f5d] dark:text-surface-warm-white/62" />
                     Profil
@@ -239,17 +250,30 @@ export function AuthButton() {
                     <Link
                       href="/admin"
                       onClick={() => setOpen(false)}
-                      className="flex items-center gap-3 px-3 py-3 text-sm font-medium"
+                      className="flex items-center gap-3 px-3 py-3 text-sm font-medium hover:bg-black/5 active:bg-black/10 dark:hover:bg-white/5 dark:active:bg-white/10 rounded-lg transition"
                     >
                       <Shield className="size-4 text-[#1c1c1c] dark:text-surface-warm-white" />
                       Admin
                     </Link>
                   ) : null}
+                  {isBlockedPage ? null : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOpen(false);
+                        setBoosterOpen(true);
+                      }}
+                      className="flex w-full items-center gap-3 px-3 py-3 text-left text-sm font-medium text-accent-orange hover:bg-accent-orange-subtle active:bg-accent-orange-subtle/80 rounded-lg transition cursor-pointer"
+                    >
+                      <Zap className="size-4 fill-accent-orange/10 text-accent-orange" />
+                      <span>Tambah Energi</span>
+                    </button>
+                  )}
                   {!isBlockedPage ? (
                     <Link
                       href="/support"
                       onClick={() => setOpen(false)}
-                      className="flex items-center justify-between px-3 py-3 text-sm font-medium"
+                      className="flex items-center justify-between px-3 py-3 text-sm font-medium hover:bg-black/5 active:bg-black/10 dark:hover:bg-white/5 dark:active:bg-white/10 rounded-lg transition"
                     >
                       <div className="flex items-center gap-3">
                         <LifeBuoy className="size-4 text-[#5f5f5d] dark:text-surface-warm-white/62" />
@@ -268,7 +292,7 @@ export function AuthButton() {
                       setOpen(false);
                       void signOut({ callbackUrl: "/" });
                     }}
-                    className="flex w-full items-center gap-3 px-3 py-3 text-left text-sm font-medium text-destructive"
+                    className="flex w-full items-center gap-3 px-3 py-3 text-left text-sm font-medium text-destructive hover:bg-destructive-subtle active:bg-destructive-subtle/80 rounded-lg transition cursor-pointer"
                   >
                     <LogOut className="size-4 text-destructive" />
                     Keluar

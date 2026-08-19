@@ -22,6 +22,7 @@ export type TicketMessage = {
   body: string;
   createdAt: string;
   assetIds: string[];
+  readAt?: string | null;
 };
 
 export type TicketDetail = {
@@ -72,7 +73,11 @@ export function TicketThreadView({
 
   const { data, isLoading, error } = useQuery({
     queryKey,
-    queryFn: () => fetchJson<{ ticket: TicketDetail }>(queryEndpoint),
+    queryFn: async () => {
+      const res = await fetchJson<{ ticket: TicketDetail }>(queryEndpoint);
+      return res;
+    },
+    retry: false,
     refetchInterval: 10_000,
   });
 
@@ -98,7 +103,7 @@ export function TicketThreadView({
     mutationFn: async (payload: { body: string; assetIds: string[] }) => {
       const endpoint = isAdmin
         ? `/api/admin/tickets/${ticketId}/reply`
-        : `/api/support/tickets/${ticketId}/reply`;
+        : `/api/support/tickets/${ticketId}`;
 
       const response = await fetch(endpoint, {
         method: "POST",
@@ -116,13 +121,10 @@ export function TicketThreadView({
       setReplyBody("");
       setAttachments([]);
       queryClient.invalidateQueries({ queryKey });
-      if (isAdmin) {
-        queryClient.invalidateQueries({ queryKey: ["admin", "nav-counts"] });
-      } else {
-        queryClient.invalidateQueries({
-          queryKey: ["support", "unread-count"],
-        });
-      }
+      queryClient.invalidateQueries({ queryKey: ["admin", "tickets"] });
+      queryClient.invalidateQueries({ queryKey: ["support", "tickets"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "nav-counts"] });
+      queryClient.invalidateQueries({ queryKey: ["support", "unread-count"] });
       toast.success("Balasan terkirim.");
     },
     onError: (err) => {
@@ -151,13 +153,10 @@ export function TicketThreadView({
     onSuccess: () => {
       toast.success("Tiket telah diselesaikan.");
       queryClient.invalidateQueries({ queryKey });
-      if (isAdmin) {
-        queryClient.invalidateQueries({ queryKey: ["admin", "nav-counts"] });
-      } else {
-        queryClient.invalidateQueries({
-          queryKey: ["support", "unread-count"],
-        });
-      }
+      queryClient.invalidateQueries({ queryKey: ["admin", "tickets"] });
+      queryClient.invalidateQueries({ queryKey: ["support", "tickets"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "nav-counts"] });
+      queryClient.invalidateQueries({ queryKey: ["support", "unread-count"] });
     },
     onError: (err) => {
       toast.error(
@@ -168,7 +167,11 @@ export function TicketThreadView({
 
   const reopenMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch(`/api/admin/tickets/${ticketId}/reopen`, {
+      const endpoint = isAdmin
+        ? `/api/admin/tickets/${ticketId}/reopen`
+        : `/api/support/tickets/${ticketId}/reopen`;
+
+      const response = await fetch(endpoint, {
         method: "POST",
       });
 
@@ -181,9 +184,10 @@ export function TicketThreadView({
     onSuccess: () => {
       toast.success("Tiket telah dibuka kembali.");
       queryClient.invalidateQueries({ queryKey });
-      if (isAdmin) {
-        queryClient.invalidateQueries({ queryKey: ["admin", "nav-counts"] });
-      }
+      queryClient.invalidateQueries({ queryKey: ["admin", "tickets"] });
+      queryClient.invalidateQueries({ queryKey: ["support", "tickets"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "nav-counts"] });
+      queryClient.invalidateQueries({ queryKey: ["support", "unread-count"] });
     },
     onError: (err) => {
       toast.error(
@@ -192,9 +196,22 @@ export function TicketThreadView({
     },
   });
 
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+
   // Auto-scroll to bottom of messages
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop =
+        messagesContainerRef.current.scrollHeight;
+    }
+    const timer = setTimeout(() => {
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.scrollTop =
+          messagesContainerRef.current.scrollHeight;
+      }
+      messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+    }, 50);
+    return () => clearTimeout(timer);
   }, [data?.ticket?.messages]);
 
   const handleFileChange = async (
@@ -287,26 +304,24 @@ export function TicketThreadView({
   const { ticket } = data;
   const shortId = ticket.id.slice(-8).toUpperCase();
   const isOpen = ticket.status === "OPEN";
-  const lastMsg = ticket.messages[ticket.messages.length - 1];
-  const canResolve =
-    isOpen && (isAdmin || (lastMsg && lastMsg.authorRole === "user"));
   const statusDisplay = ticketStatusDisplay(ticket.status);
 
   return (
-    <div className="flex h-[calc(100dvh-7rem)] w-full flex-col text-[#1c1c1c] dark:text-surface-warm-white">
+    <div className="flex flex-col h-full w-full overflow-hidden text-[#1c1c1c] dark:text-surface-warm-white">
       {/* Header */}
-      <div className="flex flex-col gap-spacing-2 border-b border-black/10 pb-spacing-4 dark:border-surface-warm-white/10">
+      <div className="flex shrink-0 flex-col gap-spacing-2 border-b border-black/10 pb-3 pt-2 dark:border-surface-warm-white/10">
         <div className="flex items-center justify-between gap-spacing-3">
           <div className="flex items-center gap-spacing-3 min-w-0 flex-1">
             <Link
               href={backUrl}
-              className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-black/10 bg-white text-[#1c1c1c] transition hover:bg-black/5 dark:border-surface-warm-white/10 dark:bg-white/[0.04] dark:text-surface-warm-white dark:hover:bg-white/10"
+              className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-black/10 bg-transparent text-[#5f5f5d] transition-colors hover:border-black/20 hover:bg-black/[0.04] hover:text-[#1c1c1c] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-black/50 dark:border-white/14 dark:bg-transparent dark:text-surface-warm-white dark:hover:bg-white/[0.06] dark:focus-visible:ring-white/50"
               title="Kembali"
+              aria-label="Kembali"
             >
               <ArrowLeft className="size-4" />
             </Link>
             <div className="min-w-0 flex-1">
-              <h1 className="truncate text-base font-semibold sm:text-lg">
+              <h1 className="truncate text-base font-bold sm:text-lg">
                 {ticket.subject}
               </h1>
               <div className="mt-0.5 flex flex-wrap items-center gap-x-spacing-2 gap-y-spacing-1 text-xs text-[#5f5f5d] dark:text-surface-warm-white/60">
@@ -329,57 +344,41 @@ export function TicketThreadView({
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-spacing-2">
+          <div className="flex shrink-0 items-center gap-2">
             <AdminStatusBadge tone={statusDisplay.tone}>
               {statusDisplay.label}
             </AdminStatusBadge>
 
-            {isAdmin ? (
-              isOpen ? (
-                <Button
-                  onClick={() => resolveMutation.mutate()}
-                  size="sm"
-                  variant="outline"
-                  className="text-xs"
-                  disabled={resolveMutation.isPending}
-                >
-                  {resolveMutation.isPending
-                    ? "Memproses..."
-                    : "Tandai Selesai"}
-                </Button>
-              ) : (
-                <Button
-                  onClick={() => reopenMutation.mutate()}
-                  size="sm"
-                  className="bg-accent-orange text-white hover:bg-accent-orange/90 text-xs font-semibold"
-                  disabled={reopenMutation.isPending}
-                >
-                  {reopenMutation.isPending
-                    ? "Membuka..."
-                    : "Buka Kembali Tiket"}
-                </Button>
-              )
+            {isOpen ? (
+              <Button
+                onClick={() => resolveMutation.mutate()}
+                size="sm"
+                variant="outline"
+                className="h-8 rounded-lg border-black/15 bg-black/[0.03] px-3 text-xs font-semibold hover:bg-black/[0.07] dark:border-white/14 dark:bg-white/[0.04] dark:hover:bg-white/[0.08]"
+                disabled={resolveMutation.isPending}
+              >
+                {resolveMutation.isPending ? "Memproses..." : "Tandai Selesai"}
+              </Button>
             ) : (
-              canResolve && (
-                <Button
-                  onClick={() => resolveMutation.mutate()}
-                  size="sm"
-                  variant="outline"
-                  className="text-xs"
-                  disabled={resolveMutation.isPending}
-                >
-                  {resolveMutation.isPending
-                    ? "Memproses..."
-                    : "Tandai Selesai"}
-                </Button>
-              )
+              <Button
+                onClick={() => reopenMutation.mutate()}
+                size="sm"
+                variant="outline"
+                className="h-8 rounded-lg border-accent-orange/30 bg-accent-orange/10 px-3 text-xs font-semibold text-accent-orange hover:bg-accent-orange/20 dark:border-accent-orange/40 dark:bg-accent-orange/15"
+                disabled={reopenMutation.isPending}
+              >
+                {reopenMutation.isPending ? "Membuka..." : "Buka Kembali"}
+              </Button>
             )}
           </div>
         </div>
       </div>
 
-      {/* Messages */}
-      <div className="scrollbar-thin flex flex-1 flex-col gap-spacing-4 overflow-y-auto py-spacing-4 pr-1">
+      {/* Messages Scroll Area */}
+      <div
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto py-4 space-y-3 px-1 sm:px-2 min-h-0 [overscroll-behavior:contain]"
+      >
         {ticket.messages.map((msg) => {
           // Align right if message is by current role viewing
           const isOwn = isAdmin
@@ -390,35 +389,39 @@ export function TicketThreadView({
           return (
             <div
               key={msg.id}
-              className={`flex max-w-[85%] flex-col ${isOwn ? "items-end self-end" : "items-start self-start"}`}
+              className={`flex max-w-[85%] sm:max-w-[75%] flex-col ${isOwn ? "items-end ml-auto" : "items-start mr-auto"}`}
             >
               <div
-                className={`rounded-2xl px-spacing-4 py-spacing-3 text-sm shadow-2xs ${
+                className={`rounded-2xl px-4 py-3 text-sm shadow-2xs ${
                   isOwn
-                    ? "rounded-tr-none bg-accent-orange text-white dark:bg-accent-orange dark:text-white"
+                    ? "rounded-tr-none bg-accent-orange text-white"
                     : isUserRole
                       ? "rounded-tl-none border border-black/10 bg-white text-[#1c1c1c] dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5 dark:text-surface-warm-white"
                       : "rounded-tl-none border border-accent-orange-border bg-accent-orange-subtle text-[#1c1c1c] dark:border-accent-orange-border dark:bg-accent-orange-subtle dark:text-surface-warm-white"
                 }`}
               >
-                <div className="whitespace-pre-wrap leading-relaxed">
-                  {msg.body}
-                </div>
+                {msg.body ? (
+                  <div className="whitespace-pre-wrap leading-relaxed">
+                    {msg.body}
+                  </div>
+                ) : null}
 
                 {msg.assetIds && msg.assetIds.length > 0 && (
-                  <div className="mt-spacing-3 flex flex-wrap gap-spacing-2">
+                  <div
+                    className={`${msg.body ? "mt-2.5" : ""} flex flex-wrap gap-2`}
+                  >
                     {msg.assetIds.map((assetId) => (
                       <a
                         key={assetId}
                         href={`/api/support/assets/${assetId}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="block overflow-hidden rounded-radius-md border border-black/10 bg-black/5 dark:border-surface-warm-white/10"
+                        className="block overflow-hidden rounded-xl border border-black/10 bg-black/5 dark:border-surface-warm-white/10 shadow-2xs"
                       >
                         <img
                           src={`/api/support/assets/${assetId}`}
                           alt="Lampiran"
-                          className="size-20 object-cover transition hover:scale-105"
+                          className="size-24 sm:size-28 object-cover transition hover:scale-105"
                         />
                       </a>
                     ))}
@@ -454,18 +457,18 @@ export function TicketThreadView({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Reply Input */}
+      {/* Sticky Bottom Reply Input */}
       {isOpen || isAdmin ? (
         <form
           onSubmit={handleSend}
-          className="mt-auto flex flex-col gap-spacing-2 border-t border-black/10 pt-spacing-4 dark:border-surface-warm-white/10"
+          className="sticky bottom-0 z-10 shrink-0 border-t border-black/10 bg-[#eceae4]/95 backdrop-blur-md pt-3 pb-2 dark:border-surface-warm-white/10 dark:bg-[#151515]/95"
         >
           {attachments.length > 0 && (
-            <div className="flex flex-wrap gap-spacing-2">
+            <div className="flex flex-wrap gap-2 pb-2">
               {attachments.map((item) => (
                 <ImageUploadThumb
                   alt="Attachment preview"
-                  className="size-14"
+                  className="size-14 rounded-xl overflow-hidden shadow-2xs"
                   key={item.id}
                   onRemove={() => removeAttachment(item.id)}
                   src={item.url}
@@ -475,10 +478,10 @@ export function TicketThreadView({
             </div>
           )}
 
-          <div className="flex items-center gap-spacing-2">
+          <div className="flex items-center gap-2">
             {attachments.length < 3 && (
               <label
-                className="flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-radius-md border border-black/15 bg-white text-[#5f5f5d] transition hover:bg-black/5 dark:border-surface-warm-white/15 dark:bg-white/[0.04] dark:text-surface-warm-white/60 dark:hover:bg-white/10"
+                className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-black/15 bg-white text-[#5f5f5d] transition hover:bg-black/5 dark:border-surface-warm-white/15 dark:bg-white/[0.04] dark:text-surface-warm-white/60 dark:hover:bg-white/10 shadow-2xs"
                 title="Lampirkan gambar (maks 3)"
               >
                 <ImagePlus className="size-5" />
@@ -503,13 +506,13 @@ export function TicketThreadView({
                     : "Balas dan buka kembali tiket ini…"
                   : "Tulis balasan Anda…"
               }
-              className="h-10 flex-1 rounded-radius-md border border-black/15 bg-white px-spacing-3 text-sm text-[#1c1c1c] outline-none placeholder:text-black/40 focus:border-accent-orange focus:ring-1 focus:ring-accent-orange dark:border-surface-warm-white/15 dark:bg-white/[0.04] dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/40"
+              className="h-11 flex-1 rounded-xl border border-black/15 bg-white px-3.5 text-sm text-[#1c1c1c] outline-none placeholder:text-[#5f5f5d]/60 focus:border-accent-orange focus:ring-1 focus:ring-accent-orange dark:border-surface-warm-white/15 dark:bg-white/[0.04] dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/40 shadow-2xs"
             />
 
             <Button
               type="submit"
               size="sm"
-              className="flex h-10 shrink-0 items-center gap-2"
+              className="flex h-11 shrink-0 items-center gap-2 rounded-xl px-4 font-bold shadow-sm"
               disabled={
                 (!replyBody.trim() && attachments.length === 0) ||
                 attachments.some((item) => item.uploading) ||
@@ -524,7 +527,7 @@ export function TicketThreadView({
           </div>
         </form>
       ) : (
-        <div className="border-t border-black/10 py-spacing-4 text-center text-xs text-[#5f5f5d] dark:border-surface-warm-white/10 dark:text-surface-warm-white/40">
+        <div className="shrink-0 border-t border-black/10 py-3 text-center text-xs text-[#5f5f5d] dark:border-surface-warm-white/10 dark:text-surface-warm-white/40">
           Tiket ini telah selesai ditangani.
         </div>
       )}
