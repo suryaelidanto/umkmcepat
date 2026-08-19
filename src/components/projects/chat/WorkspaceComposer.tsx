@@ -10,7 +10,7 @@ import {
   type ImageUploadQuestion,
 } from "@/lib/projects/brief";
 import { formatWorkspaceAnswerSelection } from "@/lib/projects/workspace-answer-format";
-import { uploadTempImageFile } from "@/lib/uploads/temp-image-client";
+import { uploadTempImageFile } from "@/lib/storage/uploads/temp-image-client";
 
 export type WorkspaceAnswerPayload = {
   answer: string;

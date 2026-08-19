@@ -5,7 +5,7 @@ import { PlusIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { EnergyBoosterModal } from "@/components/payment/EnergyBoosterModal";
-import { useSession } from "@/lib/auth-client";
+import { useSession } from "@/lib/auth/auth-client";
 import { fetchJson, queryKeys } from "@/lib/query-client";
 
 type EnergyStats = {

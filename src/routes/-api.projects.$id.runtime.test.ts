@@ -18,7 +18,7 @@ const {
   prismaRuntimeEventFindManyMock: vi.fn(),
 }));
 
-vi.mock("@/lib/auth", () => ({ auth: authMock }));
+vi.mock("@/lib/auth/auth", () => ({ auth: authMock }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     project: { findFirst: prismaProjectFindFirstMock },

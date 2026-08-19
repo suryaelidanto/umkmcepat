@@ -5,11 +5,11 @@ const { chargeEnergyForStepMock, recordAiCallMock } = vi.hoisted(() => ({
   recordAiCallMock: vi.fn(),
 }));
 
-vi.mock("@/lib/user-credits", () => ({
+vi.mock("@/lib/payment/user-credits", () => ({
   chargeEnergyForStep: chargeEnergyForStepMock,
 }));
 
-vi.mock("@/lib/ai-call-record", () => ({
+vi.mock("@/lib/ai/ai-call-record", () => ({
   recordAiCall: recordAiCallMock,
 }));
 

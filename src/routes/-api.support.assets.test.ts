@@ -5,8 +5,8 @@ const getStoredObjectMock = vi.fn();
 const isAdminEmailMock = vi.fn();
 const putStoredObjectMock = vi.fn();
 
-vi.mock("@/lib/auth", () => ({ auth: authMock }));
-vi.mock("@/lib/object-storage", () => ({
+vi.mock("@/lib/auth/auth", () => ({ auth: authMock }));
+vi.mock("@/lib/storage/object-storage", () => ({
   getStoredObject: getStoredObjectMock,
   putStoredObject: putStoredObjectMock,
 }));
@@ -25,7 +25,7 @@ vi.mock("@/lib/prisma", () => {
   };
 });
 
-vi.mock("@/lib/waitlist", () => ({ isAdminEmail: isAdminEmailMock }));
+vi.mock("@/lib/waitlist/waitlist", () => ({ isAdminEmail: isAdminEmailMock }));
 
 import { prisma } from "@/lib/prisma";
 

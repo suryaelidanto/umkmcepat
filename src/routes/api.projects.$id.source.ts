@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { selectActivePreviewDeployment } from "@/lib/projects/deployment-resolution";
 import { resolveProjectSourceFiles } from "@/lib/projects/resolve-project-source-files";
 import { readProjectSourceArtifact } from "@/lib/projects/runtime-artifacts";
-import { isAdminEmail } from "@/lib/waitlist";
+import { isAdminEmail } from "@/lib/waitlist/waitlist";
 
 export const Route = createFileRoute("/api/projects/$id/source")({
   server: {

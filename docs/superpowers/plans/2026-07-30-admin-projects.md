@@ -258,8 +258,8 @@ Create `src/routes/api.admin.projects.ts`:
 ```ts
 import { createFileRoute } from "@tanstack/react-router";
 
-import { listAdminProjects } from "@/lib/admin-projects";
-import { requireAdmin } from "@/lib/auth-admin";
+import { listAdminProjects } from "@/lib/admin/admin-projects";
+import { requireAdmin } from "@/lib/auth/auth-admin";
 
 export const Route = createFileRoute("/api/admin/projects")({
   server: {

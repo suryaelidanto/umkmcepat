@@ -46,7 +46,7 @@ const sessionState = vi.hoisted(() => ({
   status: "loading" as const,
 }));
 
-vi.mock("@/lib/auth-client", () => ({
+vi.mock("@/lib/auth/auth-client", () => ({
   signOut: vi.fn(),
   useSession: () => sessionState,
 }));

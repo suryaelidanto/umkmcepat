@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { requireAdmin } from "@/lib/auth-admin";
-import { isStreamerModeEnabled } from "@/lib/config";
+import { requireAdmin } from "@/lib/auth/auth-admin";
+import { isStreamerModeEnabled } from "@/lib/config/config";
 
 export const Route = createFileRoute("/api/admin/streamer-mode")({
   server: {

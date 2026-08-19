@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { requireAdmin } from "@/lib/auth-admin";
+import { requireAdmin } from "@/lib/auth/auth-admin";
 import { sendTicketResolved } from "@/lib/email/templates";
 import { prisma } from "@/lib/prisma";
 import { resolveTicket } from "@/lib/support/service";

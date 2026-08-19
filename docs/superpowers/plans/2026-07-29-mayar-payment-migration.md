@@ -449,7 +449,7 @@ describe("verifyMayarWebhookRequest", () => {
 
 describe("getBoosterPack", () => {
   it("falls back to BOOSTER_PACKS when no AppSetting override exists", async () => {
-    vi.doMock("@/lib/app-settings", () => ({
+    vi.doMock("@/lib/config/app-settings", () => ({
       getSetting: vi.fn(
         async (_key: string, fallback: number) => fallback,
       ),
@@ -461,7 +461,7 @@ describe("getBoosterPack", () => {
       energy: BOOSTER_PACKS.starter.energy,
       name: BOOSTER_PACKS.starter.name,
     });
-    vi.doUnmock("@/lib/app-settings");
+    vi.doUnmock("@/lib/config/app-settings");
   });
 });
 ```
@@ -474,7 +474,7 @@ Expected: FAIL — `Cannot find module './mayar'` (file doesn't exist yet).
 - [ ] **Step 3: Write `src/lib/mayar.ts`**
 
 ```ts
-import { getSetting } from "@/lib/app-settings";
+import { getSetting } from "@/lib/config/app-settings";
 
 export const BOOSTER_PACKS = {
   pocket: { amount: 2900, energy: 50000, name: "Pocket Booster" },
@@ -650,7 +650,7 @@ git commit -m "feat: add Mayar payment client (create, verify, webhook token che
 
 **Interfaces:**
 - Consumes: `createMayarPayment`, `getBoosterPack`, `BOOSTER_PACKS`,
-  `BoosterPackId` from `@/lib/mayar` (Task 3)
+  `BoosterPackId` from `@/lib/payment/mayar` (Task 3)
 - Produces: response shape `{ success: true, orderId, amount, paymentUrl,
   status }` — Task 8 (EnergyBoosterModal) consumes `paymentUrl`.
 
@@ -701,8 +701,8 @@ const {
   ),
 }));
 
-vi.mock("@/lib/auth", () => ({ auth: authMock }));
-vi.mock("@/lib/mayar", () => ({
+vi.mock("@/lib/auth/auth", () => ({ auth: authMock }));
+vi.mock("@/lib/payment/mayar", () => ({
   createMayarPayment: createMayarPaymentMock,
   getBoosterPack: getBoosterPackMock,
   getMayarTransaction: getMayarTransactionMock,
@@ -865,13 +865,13 @@ which the mock above doesn't provide, and the response still returns
 ```ts
 import { createFileRoute } from "@tanstack/react-router";
 
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth/auth";
 import {
   createMayarPayment,
   getBoosterPack,
   type BoosterPackId,
   BOOSTER_PACKS,
-} from "@/lib/mayar";
+} from "@/lib/payment/mayar";
 import { prisma } from "@/lib/prisma";
 import { mapToUserFacingError } from "@/lib/user-facing-error";
 
@@ -983,7 +983,7 @@ git commit -m "feat: create Mayar QRIS payment requests instead of Pakasir"
 
 **Interfaces:**
 - Consumes: `verifyMayarWebhookRequest`, `getMayarTransaction` from
-  `@/lib/mayar` (Task 3)
+  `@/lib/payment/mayar` (Task 3)
 - Produces: no new exports; behavior contract is what Task 1 findings and
   this task's tests establish for the webhook payload shape
   `{ event: string, data: { transactionId: string } }`.
@@ -1189,9 +1189,9 @@ Expected: FAIL — route still imports `verifyPakasirTransaction` from
 ```ts
 import { createFileRoute } from "@tanstack/react-router";
 
-import { getMayarTransaction, verifyMayarWebhookRequest } from "@/lib/mayar";
+import { getMayarTransaction, verifyMayarWebhookRequest } from "@/lib/payment/mayar";
 import { prisma } from "@/lib/prisma";
-import { logCreditTransaction } from "@/lib/user-credits";
+import { logCreditTransaction } from "@/lib/payment/user-credits";
 
 interface MayarWebhookPayload {
   event: string;
@@ -1395,7 +1395,7 @@ git commit -m "feat: verify Mayar webhook token and correlate by transactionId"
 - Modify: `tests/routes/payment.test.ts` (status describe block)
 
 **Interfaces:**
-- Consumes: `getMayarTransaction` from `@/lib/mayar` (Task 3)
+- Consumes: `getMayarTransaction` from `@/lib/payment/mayar` (Task 3)
 - Produces: no new exports; response shape unchanged
   (`{ success, orderId, status, amount, paymentMethod }`).
 
@@ -1499,10 +1499,10 @@ Expected: FAIL — route doesn't reconcile, and the new test expects
 ```ts
 import { createFileRoute } from "@tanstack/react-router";
 
-import { auth } from "@/lib/auth";
-import { getMayarTransaction } from "@/lib/mayar";
+import { auth } from "@/lib/auth/auth";
+import { getMayarTransaction } from "@/lib/payment/mayar";
 import { prisma } from "@/lib/prisma";
-import { logCreditTransaction } from "@/lib/user-credits";
+import { logCreditTransaction } from "@/lib/payment/user-credits";
 
 // If a payment has been PENDING longer than this, the client is still
 // polling but a webhook may never arrive (undocumented retry policy on
@@ -1704,7 +1704,7 @@ git commit -m "feat: reconcile stale PENDING payments directly against Mayar"
 - Create: `tests/routes/admin-transactions-verify.test.ts`
 
 **Interfaces:**
-- Consumes: `getMayarTransaction` from `@/lib/mayar` (Task 3)
+- Consumes: `getMayarTransaction` from `@/lib/payment/mayar` (Task 3)
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1725,8 +1725,8 @@ const {
   prismaPaymentUpdateMock: vi.fn(),
 }));
 
-vi.mock("@/lib/auth-admin", () => ({ requireAdmin: requireAdminMock }));
-vi.mock("@/lib/mayar", () => ({
+vi.mock("@/lib/auth/auth-admin", () => ({ requireAdmin: requireAdminMock }));
+vi.mock("@/lib/payment/mayar", () => ({
   getMayarTransaction: getMayarTransactionMock,
 }));
 vi.mock("@/lib/prisma", () => ({
@@ -1846,8 +1846,8 @@ Expected: FAIL — route still imports `verifyPakasirTransaction` and has no
 ```ts
 import { createFileRoute } from "@tanstack/react-router";
 
-import { requireAdmin } from "@/lib/auth-admin";
-import { getMayarTransaction } from "@/lib/mayar";
+import { requireAdmin } from "@/lib/auth/auth-admin";
+import { getMayarTransaction } from "@/lib/payment/mayar";
 import { prisma } from "@/lib/prisma";
 
 export const Route = createFileRoute("/api/admin/transactions/$orderId/verify")(
@@ -1955,10 +1955,10 @@ manual).
 
 Three changes to the existing file:
 
-1. Line 19 — import from `@/lib/mayar` instead of `@/lib/pakasir`:
+1. Line 19 — import from `@/lib/payment/mayar` instead of `@/lib/pakasir`:
 
 ```ts
-import { BOOSTER_PACKS, type BoosterPackId } from "@/lib/mayar";
+import { BOOSTER_PACKS, type BoosterPackId } from "@/lib/payment/mayar";
 ```
 
 2. Replace the `PaymentSession` type (lines 28–34) and remove `getQRUrl`
@@ -2136,7 +2136,7 @@ git commit -m "refactor: rename Pakasir reference to Mayar in error mapping"
 - Modify: `scripts/simulate-payment.ts`
 
 **Interfaces:**
-- Consumes: `createMayarPayment`, `BOOSTER_PACKS` from `@/lib/mayar` (Task 3)
+- Consumes: `createMayarPayment`, `BOOSTER_PACKS` from `@/lib/payment/mayar` (Task 3)
 
 No sandbox-simulate endpoint was found in Mayar's public API docs (unlike
 Pakasir's `/api/paymentsimulation`, which completes a payment instantly

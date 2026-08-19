@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { handleAuthRequest } from "@/lib/auth";
-import { verifyTurnstileVerification } from "@/lib/turnstile-gate";
+import { handleAuthRequest } from "@/lib/auth/auth";
+import { verifyTurnstileVerification } from "@/lib/auth/turnstile-gate";
 
 // Matches signin initiation only: /api/auth/signin/<provider>. The OAuth
 // callback (/api/auth/callback/*) is a redirect back from the provider and is

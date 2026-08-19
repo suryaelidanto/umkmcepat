@@ -8,8 +8,8 @@ const { requireAdminMock, getStoredObjectMock, findUniqueMock } = vi.hoisted(
   }),
 );
 
-vi.mock("@/lib/auth-admin", () => ({ requireAdmin: requireAdminMock }));
-vi.mock("@/lib/object-storage", () => ({
+vi.mock("@/lib/auth/auth-admin", () => ({ requireAdmin: requireAdminMock }));
+vi.mock("@/lib/storage/object-storage", () => ({
   getStoredObject: getStoredObjectMock,
 }));
 vi.mock("@/lib/prisma", () => ({

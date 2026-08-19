@@ -215,7 +215,7 @@ describe("task model getters", () => {
 
   it("falls through empty task to default then hardcode", async () => {
     invalidateSettingCache();
-    const { primeSettingCache } = await import("@/lib/app-settings");
+    const { primeSettingCache } = await import("@/lib/config/app-settings");
     await primeSettingCache();
     expect(getModerationModel()).toBe(DEFAULT_AI_MODEL);
     expect(getDiscussModel()).toBe(DEFAULT_AI_MODEL);
@@ -226,7 +226,7 @@ describe("task model getters", () => {
     process.env.AI_MODELS = "default-combo";
     process.env.AI_MODEL_MODERATION = "mod-combo";
     invalidateSettingCache();
-    const { primeSettingCache } = await import("@/lib/app-settings");
+    const { primeSettingCache } = await import("@/lib/config/app-settings");
     await primeSettingCache();
     expect(getModerationModel()).toBe("mod-combo");
     expect(getDiscussModel()).toBe("default-combo");
@@ -245,7 +245,7 @@ describe("task model getters", () => {
     });
     process.env.AI_MODEL_DISCUSS = "discuss-env";
     invalidateSettingCache();
-    const { primeSettingCache } = await import("@/lib/app-settings");
+    const { primeSettingCache } = await import("@/lib/config/app-settings");
     await primeSettingCache();
     expect(getDiscussModel()).toBe("discuss-db");
   });
@@ -253,7 +253,7 @@ describe("task model getters", () => {
   it("build prefers AI_MODEL_BUILD then AI_GENERATION_MODEL", async () => {
     process.env.AI_GENERATION_MODEL = "legacy-gen";
     invalidateSettingCache();
-    const { primeSettingCache } = await import("@/lib/app-settings");
+    const { primeSettingCache } = await import("@/lib/config/app-settings");
     await primeSettingCache();
     expect(getGenerationModel()).toBe("legacy-gen");
 
@@ -265,7 +265,7 @@ describe("task model getters", () => {
     process.env.AI_MODEL_MODERATION = "   ";
     process.env.AI_MODELS = "default-combo";
     invalidateSettingCache();
-    const { primeSettingCache } = await import("@/lib/app-settings");
+    const { primeSettingCache } = await import("@/lib/config/app-settings");
     await primeSettingCache();
     expect(getModerationModel()).toBe("default-combo");
   });
@@ -283,7 +283,7 @@ bun test src/lib/ai-models.test.ts
 Replace `src/lib/ai-models.ts` with:
 
 ```ts
-import { getSettingSync } from "@/lib/app-settings";
+import { getSettingSync } from "@/lib/config/app-settings";
 
 export const DEFAULT_AI_MODEL = "default-combo";
 
@@ -465,7 +465,7 @@ bun test src/lib/nine-router-models.test.ts
 
 ```ts
 // src/lib/nine-router-models.ts
-import { getEnv } from "@/lib/config";
+import { getEnv } from "@/lib/config/config";
 
 const CACHE_TTL_MS = 60_000;
 const FETCH_TIMEOUT_MS = 8_000;
@@ -548,8 +548,8 @@ git commit -m "feat(ai): list models from 9Router /models"
 // src/routes/api.admin.ai-models.ts
 import { createFileRoute } from "@tanstack/react-router";
 
-import { requireAdmin } from "@/lib/auth-admin";
-import { listNineRouterModels } from "@/lib/nine-router-models";
+import { requireAdmin } from "@/lib/auth/auth-admin";
+import { listNineRouterModels } from "@/lib/ai/nine-router-models";
 
 export const Route = createFileRoute("/api/admin/ai-models")({
   server: {
@@ -717,14 +717,14 @@ git commit -m "feat(admin): model dropdowns from 9Router"
 
 ```ts
 // ai-moderation.ts — replace getDefaultAiModel with getModerationModel
-import { getModerationModel } from "@/lib/ai-models";
+import { getModerationModel } from "@/lib/ai/ai-models";
 // devLog model, getAiModel(...), telemetry model, result fallback modelId
 ```
 
 - [ ] **Step 2: Compaction**
 
 ```ts
-import { getModerationModel } from "@/lib/ai-models";
+import { getModerationModel } from "@/lib/ai/ai-models";
 // model: getAiModel(getModerationModel()),
 ```
 
@@ -732,7 +732,7 @@ import { getModerationModel } from "@/lib/ai-models";
 
 ```ts
 // discuss-turn-worker.ts
-import { getDiscussModel } from "@/lib/ai-models";
+import { getDiscussModel } from "@/lib/ai/ai-models";
 const modelName = getDiscussModel();
 ```
 
@@ -742,7 +742,7 @@ In `api.projects.preview.ts`, any discuss path that still calls `getDefaultAiMod
 
 ```ts
 // source-edit-agent.ts + edit-attempt-worker.ts
-import { getGenerationModel } from "@/lib/ai-models";
+import { getGenerationModel } from "@/lib/ai/ai-models";
 // replace getDefaultAiModel() defaults with getGenerationModel()
 ```
 
@@ -758,10 +758,10 @@ Prefer getters over reintroducing the magic string.
 
 - [ ] **Step 6: Fix unit tests/mocks**
 
-Update `src/lib/ai-moderation.test.ts` and any file that mocks `@/lib/ai-models` to export the new getters used by production code:
+Update `src/lib/ai-moderation.test.ts` and any file that mocks `@/lib/ai/ai-models` to export the new getters used by production code:
 
 ```ts
-vi.mock("@/lib/ai-models", () => ({
+vi.mock("@/lib/ai/ai-models", () => ({
   DEFAULT_AI_MODEL: "default-combo",
   getDefaultAiModel: vi.fn(() => "default-combo"),
   getModerationModel: vi.fn(() => "default-combo"),

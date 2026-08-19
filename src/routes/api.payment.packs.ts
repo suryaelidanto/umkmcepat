@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { auth, requireNotBanned } from "@/lib/auth";
-import { listBoosterPacks } from "@/lib/mayar";
+import { auth, requireNotBanned } from "@/lib/auth/auth";
+import { listBoosterPacks } from "@/lib/payment/mayar";
 
 export const Route = createFileRoute("/api/payment/packs")({
   server: {

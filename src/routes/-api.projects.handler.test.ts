@@ -38,17 +38,17 @@ const {
   ),
 }));
 
-vi.mock("@/lib/auth", () => ({ auth: authMock }));
+vi.mock("@/lib/auth/auth", () => ({ auth: authMock }));
 vi.mock("@/lib/rate-limit", () => ({
   checkRateLimit: checkRateLimitMock,
 }));
-vi.mock("@/lib/ai-models", () => ({
+vi.mock("@/lib/ai/ai-models", () => ({
   getDefaultAiModel: () => "test/model",
   getModerationModel: () => "test/moderation-model",
   getDiscussModel: () => "test/model",
   getGenerationModel: () => "test/model",
 }));
-vi.mock("@/lib/ai-moderation", () => ({
+vi.mock("@/lib/ai/ai-moderation", () => ({
   moderateProjectRequest: moderateProjectRequestMock,
 }));
 vi.mock("@/lib/projects/input", async () => {
@@ -87,11 +87,10 @@ vi.mock("@/lib/prisma", () => ({
     },
   },
 }));
-vi.mock("@/lib/user-credits", async () => {
-  const actual =
-    await vi.importActual<typeof import("@/lib/user-credits")>(
-      "@/lib/user-credits",
-    );
+vi.mock("@/lib/payment/user-credits", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/payment/user-credits")
+  >("@/lib/payment/user-credits");
 
   return {
     ...actual,

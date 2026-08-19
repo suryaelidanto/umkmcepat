@@ -18,7 +18,7 @@ import {
   type GeneratedProjectFile,
 } from "./generated-types";
 
-import { isGeneratedBuildExecutionEnabled } from "@/lib/config";
+import { isGeneratedBuildExecutionEnabled } from "@/lib/config/config";
 import { devLog } from "@/lib/dev-log";
 import { sanitizeBuildLog } from "@/lib/projects/build-logs";
 import { validateGeneratedAppManifest } from "@/lib/projects/generated-app-manifest";

@@ -16,9 +16,14 @@ import { HomePromptForm } from "@/components/projects/dashboard/HomePromptForm";
 import { ProjectList } from "@/components/projects/dashboard/ProjectList";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/components/ui/link";
-import { auth } from "@/lib/auth";
-import { useSession } from "@/lib/auth-client";
+import { auth } from "@/lib/auth/auth";
+import { useSession } from "@/lib/auth/auth-client";
 import { resolveHomeAccessState } from "@/lib/home-access-state";
+import {
+  getProjectCount,
+  getProjectLimit,
+  isAtOrOverProjectLimit,
+} from "@/lib/payment/user-credits";
 import { prisma } from "@/lib/prisma";
 import {
   encodeProjectCursor,
@@ -30,11 +35,6 @@ import {
   queryKeys,
   waitlistPendingPollInterval,
 } from "@/lib/query-client";
-import {
-  getProjectCount,
-  getProjectLimit,
-  isAtOrOverProjectLimit,
-} from "@/lib/user-credits";
 
 const loadHome = createServerFn({ method: "GET" }).handler(async () => {
   const session = await auth().catch(() => null);

@@ -307,7 +307,7 @@ Confirm by reading the code: when `repairToolCall` returns `null`, the SDK treat
 - [x] **Step 4: Typecheck**
 
 Run: `bun run check`
-Expected: PASS. If `getAiTimeoutMs` isn't imported in scope, add `getAiTimeoutMs` to the `@/lib/ai-timeouts` import (it's already used elsewhere in the file at `:926`).
+Expected: PASS. If `getAiTimeoutMs` isn't imported in scope, add `getAiTimeoutMs` to the `@/lib/ai/ai-timeouts` import (it's already used elsewhere in the file at `:926`).
 
 - [x] **Step 5: Commit**
 

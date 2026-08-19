@@ -2,9 +2,10 @@ import { randomUUID } from "node:crypto";
 
 import { createFileRoute } from "@tanstack/react-router";
 
-import { auth } from "@/lib/auth";
-import { isGeneratedBuildExecutionEnabled } from "@/lib/config";
+import { auth } from "@/lib/auth/auth";
+import { isGeneratedBuildExecutionEnabled } from "@/lib/config/config";
 import { devLog } from "@/lib/dev-log";
+import { checkEnergy, getEnergyConfig } from "@/lib/payment/user-credits";
 import { prisma } from "@/lib/prisma";
 import { enqueueAttemptJob } from "@/lib/projects/attempt-queue";
 import {
@@ -25,7 +26,6 @@ import {
 } from "@/lib/projects/runtime-types";
 import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { checkEnergy, getEnergyConfig } from "@/lib/user-credits";
 import { mapToUserFacingError } from "@/lib/user-facing-error";
 
 export const Route = createFileRoute("/api/projects/$id/generate")({

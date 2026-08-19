@@ -1,4 +1,4 @@
-import { getConfiguredProvider } from "@/lib/config";
+import { getConfiguredProvider } from "@/lib/config/config";
 
 type RateLimitType = "global" | "ai" | "build" | "otp";
 type RateLimitSubject = "ip" | "user";
@@ -72,7 +72,7 @@ export async function getRateLimitConfig(
   subject: RateLimitSubject,
 ): Promise<RateLimitConfig> {
   const fallback = defaults[type][subject];
-  const { getSetting } = await import("@/lib/app-settings");
+  const { getSetting } = await import("@/lib/config/app-settings");
   const scope = type === "global" ? "global_ip" : `${type}_${subject}`;
   const limit = await getSetting<number>(
     `ratelimit.${scope}.requests`,

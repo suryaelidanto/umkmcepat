@@ -45,7 +45,7 @@ const {
   ),
 }));
 
-vi.mock("@/lib/auth", () => ({ auth: authMock }));
+vi.mock("@/lib/auth/auth", () => ({ auth: authMock }));
 vi.mock("@/lib/dev-log", () => ({ devLog: vi.fn() }));
 vi.mock("@/lib/projects/project-operation", () => ({
   claimProjectOperation: claimProjectOperationMock,
@@ -91,7 +91,7 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/rate-limit", () => ({
   checkRateLimit: checkRateLimitMock,
 }));
-vi.mock("@/lib/user-credits", () => ({
+vi.mock("@/lib/payment/user-credits", () => ({
   checkEnergy: vi.fn(async () => ({ allowed: true, remaining: 200_000 })),
   getEnergyConfig: vi.fn(() => ({ minBuild: 1 })),
   addEnergyUsage: vi.fn(async () => ({

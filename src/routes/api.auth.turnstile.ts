@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { getEnv } from "@/lib/config";
-import { verifyTurnstileToken } from "@/lib/turnstile";
-import { turnstileVerifiedCookie } from "@/lib/turnstile-gate";
+import { verifyTurnstileToken } from "@/lib/auth/turnstile";
+import { turnstileVerifiedCookie } from "@/lib/auth/turnstile-gate";
+import { getEnv } from "@/lib/config/config";
 
 export const Route = createFileRoute("/api/auth/turnstile")({
   server: {

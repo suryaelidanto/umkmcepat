@@ -26,12 +26,12 @@ vi.mock("ai", async (importOriginal) => {
   };
 });
 
-vi.mock("@/lib/ai", () => ({
+vi.mock("@/lib/ai/ai", () => ({
   getAiModel: vi.fn(() => ({ modelId: "mock-model" })),
   getAiTelemetry: vi.fn(() => ({ isEnabled: false })),
 }));
 
-vi.mock("@/lib/ai-models", () => ({
+vi.mock("@/lib/ai/ai-models", () => ({
   getGenerationModel: vi.fn(() => "mock-model"),
   getDefaultAiModel: vi.fn(() => "mock-model"),
   getModerationModel: vi.fn(() => "mock-model"),
@@ -94,7 +94,7 @@ vi.mock("@/lib/rate-limit", () => ({
   checkRateLimit: vi.fn().mockResolvedValue(null),
 }));
 
-vi.mock("@/lib/user-credits", () => ({
+vi.mock("@/lib/payment/user-credits", () => ({
   checkEnergy: vi.fn().mockResolvedValue({ allowed: true, remaining: 200_000 }),
   addEnergyUsage: vi.fn().mockResolvedValue({
     energyUsed: 0,
@@ -116,7 +116,7 @@ vi.mock("@/lib/user-credits", () => ({
   })),
 }));
 
-vi.mock("@/lib/auth", () => ({
+vi.mock("@/lib/auth/auth", () => ({
   auth: vi.fn().mockResolvedValue({
     user: {
       id: "test-user-id",
@@ -181,7 +181,7 @@ vi.mock("@/lib/projects/brief", () => ({
   BRIEF_CONFIDENCE_THRESHOLD: 95,
 }));
 
-vi.mock("@/lib/config", () => ({
+vi.mock("@/lib/config/config", () => ({
   isGeneratedBuildExecutionEnabled: vi.fn().mockReturnValue(true),
   getEnv: vi.fn((name: string) => process.env[name]),
 }));
@@ -196,7 +196,7 @@ describe("Build pipeline integration", () => {
       text: "",
       usage: { inputTokens: 5, outputTokens: 0 },
     });
-    const { moderateProjectRequest } = await import("@/lib/ai-moderation");
+    const { moderateProjectRequest } = await import("@/lib/ai/ai-moderation");
     const result = await moderateProjectRequest(
       `unique empty moderation ${Date.now()}`,
     );

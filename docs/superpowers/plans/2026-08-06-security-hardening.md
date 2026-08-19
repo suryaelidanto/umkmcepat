@@ -392,7 +392,7 @@ import {
   turnstileVerifiedCookie,
   TURNSTILE_VERIFIED_COOKIE,
   verifyTurnstileVerification,
-} from "@/lib/turnstile-gate";
+} from "@/lib/auth/turnstile-gate";
 
 const envNames = ["NEXTAUTH_SECRET", "AUTH_SECRET"] as const;
 const previous = Object.fromEntries(
@@ -489,14 +489,14 @@ describe("turnstile verification gate", () => {
 - [ ] **Step 2: Run to verify it fails**
 
 Run: `bunx vitest run --project unit src/lib/turnstile-gate.test.ts`
-Expected: FAIL — module `@/lib/turnstile-gate` does not exist.
+Expected: FAIL — module `@/lib/auth/turnstile-gate` does not exist.
 
 - [ ] **Step 3: Implement `src/lib/turnstile-gate.ts`**
 
 ```ts
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 
-import { getEnv } from "@/lib/config";
+import { getEnv } from "@/lib/config/config";
 
 export const TURNSTILE_VERIFIED_COOKIE = "umkm_turnstile_verified";
 export const TURNSTILE_GRACE_MS = 10 * 60 * 1000;
@@ -611,11 +611,11 @@ In `src/routes/api.auth.turnstile.ts`, replace the success return (`:21`):
 Add the imports to the same file:
 
 ```ts
-import { getEnv } from "@/lib/config";
-import { turnstileVerifiedCookie } from "@/lib/turnstile-gate";
+import { getEnv } from "@/lib/config/config";
+import { turnstileVerifiedCookie } from "@/lib/auth/turnstile-gate";
 ```
 
-(Keep the existing `verifyTurnstileToken` import from `@/lib/turnstile`.)
+(Keep the existing `verifyTurnstileToken` import from `@/lib/auth/turnstile`.)
 
 - [ ] **Step 6: Gate signin initiation in the auth catch-all**
 
@@ -624,8 +624,8 @@ In `src/routes/api.auth.$.ts`, replace the whole file body with:
 ```ts
 import { createFileRoute } from "@tanstack/react-router";
 
-import { handleAuthRequest } from "@/lib/auth";
-import { verifyTurnstileVerification } from "@/lib/turnstile-gate";
+import { handleAuthRequest } from "@/lib/auth/auth";
+import { verifyTurnstileVerification } from "@/lib/auth/turnstile-gate";
 
 // Matches signin initiation only: /api/auth/signin/<provider>. The OAuth
 // callback (/api/auth/callback/*) is a redirect back from the provider and is

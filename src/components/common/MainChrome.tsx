@@ -6,7 +6,7 @@ import { toast } from "sonner";
 
 import { Footer } from "@/components/common/Footer";
 import { Header } from "@/components/common/Header";
-import { useSession } from "@/lib/auth-client";
+import { useSession } from "@/lib/auth/auth-client";
 import {
   useIsRoutePending,
   usePathname,
@@ -23,7 +23,7 @@ import {
 import {
   isWaitlistGateBypassPath,
   isWaitlistPagePath,
-} from "@/lib/waitlist-route-access";
+} from "@/lib/waitlist/waitlist-route-access";
 
 export function MainChrome({ children }: { children: React.ReactNode }) {
   // Layout must follow the *committed* page (Outlet), not the in-flight target.

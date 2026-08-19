@@ -2,7 +2,7 @@
 // Private gate-screenshot evidence for contract-v1 qualification. Evidence is
 // owner/project/candidate-scoped, never telemetry and never a public URL.
 // Non-selected candidate evidence expires after 30 days.
-import { getS3Object, putS3Object, S3_PREFIXES } from "@/lib/s3-client";
+import { getS3Object, putS3Object, S3_PREFIXES } from "@/lib/storage/s3-client";
 
 export const GATE_EVIDENCE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 export const GATE_EVIDENCE_PREFIX = "gate-evidence";

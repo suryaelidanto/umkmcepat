@@ -272,7 +272,7 @@ git commit -m "feat(settings): register discuss.chat.auto_retry_attempts (defaul
 - Modify: `src/components/projects/WorkspaceShell.tsx` (props type + destructure only)
 
 **Interfaces:**
-- Consumes: `getSettingSync` from `@/lib/app-settings`; `WorkspaceShellProps`.
+- Consumes: `getSettingSync` from `@/lib/config/app-settings`; `WorkspaceShellProps`.
 - Produces: `<WorkspaceShell autoRetryAttempts={number} ... />` prop.
 
 - [ ] **Step 1: Write the failing test**
@@ -324,7 +324,7 @@ Expected: FAIL — `Property 'autoRetryAttempts' does not exist on type 'Workspa
 Apply both edits above (props type + loader + destructure). Confirm `getSettingSync` is imported in `_main.projects.$id.tsx`:
 
 ```ts
-import { getSettingSync } from "@/lib/app-settings";
+import { getSettingSync } from "@/lib/config/app-settings";
 ```
 
 - [ ] **Step 4: Run typecheck to verify it passes**

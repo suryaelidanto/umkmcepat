@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-import { getSettingSync } from "@/lib/app-settings";
-import { getEnv } from "@/lib/config";
+import { getSettingSync } from "@/lib/config/app-settings";
+import { getEnv } from "@/lib/config/config";
 
 export const PREVIEW_ASSET_TOKEN_PARAM = "assetToken";
 

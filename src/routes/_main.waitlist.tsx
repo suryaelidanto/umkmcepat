@@ -24,8 +24,9 @@ import {
 } from "@/components/ui/dialog";
 import { ImageUploadThumb } from "@/components/ui/image-upload-thumb";
 import { Link } from "@/components/ui/link";
-import { auth } from "@/lib/auth";
-import { useSession } from "@/lib/auth-client";
+import { auth } from "@/lib/auth/auth";
+import { useSession } from "@/lib/auth/auth-client";
+import { getTurnstileSiteKey } from "@/lib/auth/turnstile";
 import { useValidatedForm } from "@/lib/forms";
 import { useRouter } from "@/lib/navigation";
 import {
@@ -37,11 +38,10 @@ import {
   queryKeys,
   waitlistPagePollInterval,
 } from "@/lib/query-client";
-import { getTurnstileSiteKey } from "@/lib/turnstile";
-import { uploadTempImageFile } from "@/lib/uploads/temp-image-client";
-import { isWaitlistEnabled } from "@/lib/waitlist-enabled";
-import { getOwnWaitlistEntry } from "@/lib/waitlist-own-entry";
-import { resolveWaitlistView } from "@/lib/waitlist-view";
+import { uploadTempImageFile } from "@/lib/storage/uploads/temp-image-client";
+import { isWaitlistEnabled } from "@/lib/waitlist/waitlist-enabled";
+import { getOwnWaitlistEntry } from "@/lib/waitlist/waitlist-own-entry";
+import { resolveWaitlistView } from "@/lib/waitlist/waitlist-view";
 
 // Server-side gate: must be signed-in AND (gate disabled OR not yet approved).
 // Runs in the route loader so the page never renders for users who shouldn't
@@ -55,7 +55,8 @@ const gateIfApproved = createServerFn({ method: "GET" }).handler(async () => {
     throw redirect({ to: "/" });
   }
 
-  const { isAdminEmail, isWaitlistApproved } = await import("@/lib/waitlist");
+  const { isAdminEmail, isWaitlistApproved } =
+    await import("@/lib/waitlist/waitlist");
   const email = session.user.email;
   const isAdmin = isAdminEmail(email);
   const isApproved = await isWaitlistApproved(email);

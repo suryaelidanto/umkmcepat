@@ -1,7 +1,7 @@
 import { Prisma, SupportCategory, SupportTicketStatus } from "@prisma/client";
 import { createFileRoute } from "@tanstack/react-router";
 
-import { requireAdmin } from "@/lib/auth-admin";
+import { requireAdmin } from "@/lib/auth/auth-admin";
 import { prisma } from "@/lib/prisma";
 
 export const Route = createFileRoute("/api/admin/tickets")({

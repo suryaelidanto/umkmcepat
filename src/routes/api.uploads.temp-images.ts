@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { auth } from "@/lib/auth";
-import { uploadTempImage } from "@/lib/uploads/temp-image-storage";
+import { auth } from "@/lib/auth/auth";
+import { uploadTempImage } from "@/lib/storage/uploads/temp-image-storage";
 import { mapToUserFacingError } from "@/lib/user-facing-error";
 
 export const Route = createFileRoute("/api/uploads/temp-images")({

@@ -74,7 +74,8 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { track } from "@/lib/analytics";
-import { signOut, useSession } from "@/lib/auth-client";
+import { signOut, useSession } from "@/lib/auth/auth-client";
+import { useFeatureFlag } from "@/lib/config/use-feature-flag";
 import { type ProjectBrief, type WorkspaceCard } from "@/lib/projects/brief";
 import { buildHandoffLine } from "@/lib/projects/build-handoff";
 import {
@@ -150,8 +151,7 @@ import {
   isUserVisibleAssistantText,
 } from "@/lib/projects/workspace-sync";
 import { fetchJson, queryKeys, useCacheMutation } from "@/lib/query-client";
-import { uploadTempImageFile } from "@/lib/uploads/temp-image-client";
-import { useFeatureFlag } from "@/lib/use-feature-flag";
+import { uploadTempImageFile } from "@/lib/storage/uploads/temp-image-client";
 import { useIsDesktopViewport } from "@/lib/use-is-desktop-viewport";
 import { cn } from "@/lib/utils";
 

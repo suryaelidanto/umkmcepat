@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { auth, requireNotBanned } from "@/lib/auth";
-import { getEnergyStats } from "@/lib/user-credits";
+import { auth, requireNotBanned } from "@/lib/auth/auth";
+import { getEnergyStats } from "@/lib/payment/user-credits";
 
 export const Route = createFileRoute("/api/user/credits")({
   server: {

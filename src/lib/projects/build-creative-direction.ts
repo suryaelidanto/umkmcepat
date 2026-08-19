@@ -4,14 +4,14 @@ import { generateText } from "ai";
 
 import type { UIMessage } from "ai";
 
-import { getAiModel, getAiTelemetry } from "@/lib/ai";
+import { getAiModel, getAiTelemetry } from "@/lib/ai/ai";
 import {
   classifyAiError,
   recordAiCall,
   startAiCallTimer,
-} from "@/lib/ai-call-record";
-import { getGenerationModel } from "@/lib/ai-models";
-import { getAiTimeoutMs } from "@/lib/ai-timeouts";
+} from "@/lib/ai/ai-call-record";
+import { getGenerationModel } from "@/lib/ai/ai-models";
+import { getAiTimeoutMs } from "@/lib/ai/ai-timeouts";
 import { devLog } from "@/lib/dev-log";
 
 /**

@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { requireAdmin } from "@/lib/auth-admin";
-import { listNineRouterModels } from "@/lib/nine-router-models";
+import { listNineRouterModels } from "@/lib/ai/nine-router-models";
+import { requireAdmin } from "@/lib/auth/auth-admin";
 
 export const Route = createFileRoute("/api/admin/ai-models")({
   server: {

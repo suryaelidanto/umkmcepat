@@ -6,9 +6,9 @@ import type { UIMessage } from "ai";
 
 import { ClearProjectDraft } from "@/components/projects/dashboard/ClearProjectDraft";
 import { WorkspaceShell } from "@/components/projects/workspace/WorkspaceShell";
-import { loadProjectForViewer } from "@/lib/admin-project-observer";
-import { getSettingSync } from "@/lib/app-settings";
-import { auth } from "@/lib/auth";
+import { loadProjectForViewer } from "@/lib/admin/admin-project-observer";
+import { auth } from "@/lib/auth/auth";
+import { getSettingSync } from "@/lib/config/app-settings";
 
 const loadProject = createServerFn({ method: "GET" })
   .validator((data: { id: string }) => data)

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { requireAdmin } from "@/lib/auth-admin";
+import { requireAdmin } from "@/lib/auth/auth-admin";
 import {
   sendWaitlistAccepted,
   sendWaitlistRejected,
@@ -11,7 +11,7 @@ import {
   type AdminWaitlistStatusFilter,
   listPendingWaitlist,
   rejectWaitlistEntry,
-} from "@/lib/waitlist";
+} from "@/lib/waitlist/waitlist";
 
 const WAITLIST_STATUS: AdminWaitlistStatusFilter[] = [
   "pending",

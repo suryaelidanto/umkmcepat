@@ -1,4 +1,4 @@
-import { getEnv } from "@/lib/config";
+import { getEnv } from "@/lib/config/config";
 
 type SendEmailInput = {
   html?: string;

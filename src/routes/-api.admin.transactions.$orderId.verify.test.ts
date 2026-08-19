@@ -20,8 +20,8 @@ const {
   sendPaymentReceiptMock: vi.fn(async () => undefined),
 }));
 
-vi.mock("@/lib/auth-admin", () => ({ requireAdmin: requireAdminMock }));
-vi.mock("@/lib/mayar", () => ({
+vi.mock("@/lib/auth/auth-admin", () => ({ requireAdmin: requireAdminMock }));
+vi.mock("@/lib/payment/mayar", () => ({
   getMayarTransaction: getMayarTransactionMock,
 }));
 vi.mock("@/lib/prisma", () => ({

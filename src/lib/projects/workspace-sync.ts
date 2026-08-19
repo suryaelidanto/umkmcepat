@@ -1,6 +1,6 @@
 import { type UIMessage } from "ai";
 
-import { DISCUSS_CARD_SERVER_DEADLINE_MS } from "@/lib/ai-timeouts";
+import { DISCUSS_CARD_SERVER_DEADLINE_MS } from "@/lib/ai/ai-timeouts";
 import { type WorkspaceCard } from "@/lib/projects/brief";
 
 export type WorkspaceChatStatus =

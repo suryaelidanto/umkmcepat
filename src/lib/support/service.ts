@@ -4,9 +4,9 @@ import { SupportCategory, SupportTicketStatus } from "@prisma/client";
 
 import type { Prisma } from "@prisma/client";
 
-import { putStoredObject } from "@/lib/object-storage";
 import { prisma } from "@/lib/prisma";
-import { claimTempImage } from "@/lib/uploads/temp-image-storage";
+import { putStoredObject } from "@/lib/storage/object-storage";
+import { claimTempImage } from "@/lib/storage/uploads/temp-image-storage";
 
 export type TicketInput = {
   userId: string;

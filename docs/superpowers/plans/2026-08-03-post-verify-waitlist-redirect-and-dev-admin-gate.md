@@ -122,10 +122,10 @@ git commit -m "feat: add postVerifyDestination helper"
 - Create: `src/lib/dev-admin.test.ts`
 
 **Interfaces:**
-- Consumes: `auth` from `@/lib/auth`, `isAdminEmail` from `@/lib/waitlist` (or reuse `requireAdmin` from `@/lib/auth-admin`)
+- Consumes: `auth` from `@/lib/auth/auth`, `isAdminEmail` from `@/lib/waitlist/waitlist` (or reuse `requireAdmin` from `@/lib/auth/auth-admin`)
 - Produces:
   - `canUseDevTools(input: { isDevelopment: boolean; isAdmin: boolean }): boolean`
-  - `requireDevAdmin(): Promise<AdminCheck>` — same shape as `requireAdmin` (`AdminCheck` from `@/lib/auth-admin`)
+  - `requireDevAdmin(): Promise<AdminCheck>` — same shape as `requireAdmin` (`AdminCheck` from `@/lib/auth/auth-admin`)
 
 - [ ] **Step 1: Write failing tests**
 
@@ -149,7 +149,7 @@ describe("canUseDevTools", () => {
 // cases: non-development → 403; no session → 401; non-admin → 403; ok → ok:true
 ```
 
-For `requireDevAdmin` tests, follow patterns in existing auth-admin or waitlist tests: `vi.stubEnv("NODE_ENV", ...)`, mock `@/lib/auth` and `@/lib/waitlist` as needed. Prefer testing pure `canUseDevTools` thoroughly and a thin `requireDevAdmin` that:
+For `requireDevAdmin` tests, follow patterns in existing auth-admin or waitlist tests: `vi.stubEnv("NODE_ENV", ...)`, mock `@/lib/auth/auth` and `@/lib/waitlist/waitlist` as needed. Prefer testing pure `canUseDevTools` thoroughly and a thin `requireDevAdmin` that:
 
 1. if `process.env.NODE_ENV !== "development"` → `{ ok: false, status: 403, message: "Endpoint ini hanya tersedia di mode development." }`
 2. else return `await requireAdmin()` (reuse messages from `requireAdmin`)
@@ -164,7 +164,7 @@ Expected: FAIL — module not found.
 
 ```ts
 // src/lib/dev-admin.ts
-import { requireAdmin, type AdminCheck } from "@/lib/auth-admin";
+import { requireAdmin, type AdminCheck } from "@/lib/auth/auth-admin";
 
 export function canUseDevTools(input: {
   isDevelopment: boolean;
@@ -217,7 +217,7 @@ git commit -m "feat: add requireDevAdmin for skip/reset APIs"
 Replace the open `if (process.env.NODE_ENV !== "development")` + separate session checks with:
 
 ```ts
-import { requireDevAdmin } from "@/lib/dev-admin";
+import { requireDevAdmin } from "@/lib/admin/dev-admin";
 
 // inside POST:
 const gate = await requireDevAdmin();
@@ -280,8 +280,8 @@ Expected: FAIL on new field expectations.
 `api.user.verification.ts`:
 
 ```ts
-import { isAdminEmail } from "@/lib/waitlist";
-import { canUseDevTools } from "@/lib/dev-admin";
+import { isAdminEmail } from "@/lib/waitlist/waitlist";
+import { canUseDevTools } from "@/lib/admin/dev-admin";
 
 // after session ok:
 const verified = await isUserVerified(session.user.id);
@@ -404,8 +404,8 @@ if (await isUserVerified(session.user.id)) {
   const { resolveUserWaitlistStatus } = await import(
     "@/routes/api.user.waitlist"
   );
-  const { isAdminEmail, isWaitlistApproved } = await import("@/lib/waitlist");
-  const { isWaitlistEnabled } = await import("@/lib/waitlist-enabled");
+  const { isAdminEmail, isWaitlistApproved } = await import("@/lib/waitlist/waitlist");
+  const { isWaitlistEnabled } = await import("@/lib/waitlist/waitlist-enabled");
   const email = session.user.email ?? "";
   const resolved = resolveUserWaitlistStatus({
     email,

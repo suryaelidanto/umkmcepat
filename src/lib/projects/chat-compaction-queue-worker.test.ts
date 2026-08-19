@@ -19,7 +19,7 @@ vi.mock("@/lib/dev-log", () => ({
   devLog: (...args: unknown[]) => mocks.devLog(...args),
 }));
 
-vi.mock("@/lib/ai-models", () => ({
+vi.mock("@/lib/ai/ai-models", () => ({
   getModerationModel: () => mocks.moderationModel(),
 }));
 
@@ -32,7 +32,7 @@ vi.mock("@/lib/projects/discuss-turn-shared", () => ({
     mocks.persistCompaction(...args),
 }));
 
-vi.mock("@/lib/user-credits", () => ({
+vi.mock("@/lib/payment/user-credits", () => ({
   chargeEnergyForAiUsage: (...args: unknown[]) => mocks.charge(...args),
 }));
 

@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { projectWhere } from "@/lib/admin-projects";
-import { requireAdmin } from "@/lib/auth-admin";
+import { projectWhere } from "@/lib/admin/admin-projects";
+import { requireAdmin } from "@/lib/auth/auth-admin";
 import { prisma } from "@/lib/prisma";
 import { getUnreadCounts } from "@/lib/support/service";
-import { WAITLIST_PENDING_STATUSES } from "@/lib/waitlist";
+import { WAITLIST_PENDING_STATUSES } from "@/lib/waitlist/waitlist";
 
 export const Route = createFileRoute("/api/admin/nav-counts")({
   server: {

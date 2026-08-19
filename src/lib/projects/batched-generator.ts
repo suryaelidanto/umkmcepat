@@ -37,14 +37,14 @@ import {
   getAiModel,
   getAiTelemetry,
   getNoReasoningCallOptions,
-} from "@/lib/ai";
+} from "@/lib/ai/ai";
 import {
   classifyAiError,
   recordAiCall,
   startAiCallTimer,
-} from "@/lib/ai-call-record";
-import { getGenerationModel } from "@/lib/ai-models";
-import { getAiTimeoutMs } from "@/lib/ai-timeouts";
+} from "@/lib/ai/ai-call-record";
+import { getGenerationModel } from "@/lib/ai/ai-models";
+import { getAiTimeoutMs } from "@/lib/ai/ai-timeouts";
 import { devLog } from "@/lib/dev-log";
 import {
   buildBatchedWriterPrompt,
@@ -1098,7 +1098,7 @@ export async function runBatchedGenerate(input: {
 
   // -- Pass 1: writer -------------------------------------------------------
   const photoEnabled = Boolean(
-    (await import("@/lib/app-settings")).getSettingSync(
+    (await import("@/lib/config/app-settings")).getSettingSync(
       "feature.composer_uploads_enabled",
       true,
     ),

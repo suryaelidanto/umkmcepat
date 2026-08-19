@@ -216,14 +216,14 @@ Cycle-safe extract (use only if needed):
 ```ts
 // src/lib/admin-streamer-mode.ts
 import { createServerFn } from "@tanstack/react-start";
-import { isStreamerModeEnabled } from "@/lib/config";
+import { isStreamerModeEnabled } from "@/lib/config/config";
 
 export const loadStreamerMode = createServerFn({ method: "GET" }).handler(
   async () => isStreamerModeEnabled(),
 );
 ```
 
-Then `_main.admin.tsx` and the provider both import from `@/lib/admin-streamer-mode`.
+Then `_main.admin.tsx` and the provider both import from `@/lib/admin/admin-streamer-mode`.
 
 - [ ] **Step 3: Grep for old prop**
 
@@ -263,7 +263,7 @@ git commit -m "feat(admin): load streamer mode via React Query"
 In `SettingsPage` save mutation:
 
 ```ts
-import { settingsSaveInvalidateKeys } from "@/lib/admin-settings-sync";
+import { settingsSaveInvalidateKeys } from "@/lib/admin/admin-settings-sync";
 
 // inside useMutation:
 onSuccess: async () => {

@@ -1,14 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { moderateProjectRequest } from "@/lib/ai-moderation";
-import { getSetting } from "@/lib/app-settings";
-import { auth } from "@/lib/auth";
-import { contentTypeFromExt, detectImageFormat } from "@/lib/images/format";
+import { moderateProjectRequest } from "@/lib/ai/ai-moderation";
+import { auth } from "@/lib/auth/auth";
+import { getSetting } from "@/lib/config/app-settings";
 import {
   isAllowedAssetPurpose,
   uploadProjectAsset,
 } from "@/lib/projects/project-asset-upload";
-import { claimTempImage } from "@/lib/uploads/temp-image-storage";
+import {
+  contentTypeFromExt,
+  detectImageFormat,
+} from "@/lib/storage/images/format";
+import { claimTempImage } from "@/lib/storage/uploads/temp-image-storage";
 import { mapToUserFacingError } from "@/lib/user-facing-error";
 import { verifyProjectOwnership } from "@/middleware/ownership";
 

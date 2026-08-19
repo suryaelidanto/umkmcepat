@@ -1,14 +1,17 @@
 import { Prisma } from "@prisma/client";
 import { createFileRoute } from "@tanstack/react-router";
 
-import { invalidateSettingCache, primeSettingCache } from "@/lib/app-settings";
+import { requireAdmin } from "@/lib/auth/auth-admin";
+import {
+  invalidateSettingCache,
+  primeSettingCache,
+} from "@/lib/config/app-settings";
 import {
   APP_SETTINGS,
   findConfigEntry,
   type ConfigEntry,
   type SettingCategory,
-} from "@/lib/app-settings-registry";
-import { requireAdmin } from "@/lib/auth-admin";
+} from "@/lib/config/app-settings-registry";
 import { prisma } from "@/lib/prisma";
 
 // Returns an error message, or null when the value is acceptable.

@@ -17,7 +17,7 @@ const { authMock, moderateProjectRequestMock, validateProjectRequestMock } =
     ),
   }));
 
-vi.mock("@/lib/auth", () => ({
+vi.mock("@/lib/auth/auth", () => ({
   auth: authMock,
 }));
 
@@ -25,7 +25,7 @@ vi.mock("@/lib/rate-limit", () => ({
   checkRateLimit: vi.fn(async () => null),
 }));
 
-vi.mock("@/lib/ai-moderation", () => ({
+vi.mock("@/lib/ai/ai-moderation", () => ({
   moderateProjectRequest: moderateProjectRequestMock,
 }));
 
@@ -33,11 +33,10 @@ vi.mock("@/lib/projects/input", () => ({
   validateProjectRequest: validateProjectRequestMock,
 }));
 
-vi.mock("@/lib/user-credits", async () => {
-  const actual =
-    await vi.importActual<typeof import("@/lib/user-credits")>(
-      "@/lib/user-credits",
-    );
+vi.mock("@/lib/payment/user-credits", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/payment/user-credits")
+  >("@/lib/payment/user-credits");
 
   return {
     ...actual,

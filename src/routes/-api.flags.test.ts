@@ -4,7 +4,7 @@ const { getPublicFlagsMock } = vi.hoisted(() => ({
   getPublicFlagsMock: vi.fn(),
 }));
 
-vi.mock("@/lib/feature-flags", () => ({
+vi.mock("@/lib/config/feature-flags", () => ({
   getPublicFlags: getPublicFlagsMock,
 }));
 

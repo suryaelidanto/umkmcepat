@@ -50,8 +50,8 @@ const {
   getSettingMock: vi.fn(async (_key: string, fallback: boolean) => fallback),
 }));
 
-vi.mock("@/lib/auth", () => ({ auth: authMock }));
-vi.mock("@/lib/app-settings", () => ({ getSetting: getSettingMock }));
+vi.mock("@/lib/auth/auth", () => ({ auth: authMock }));
+vi.mock("@/lib/config/app-settings", () => ({ getSetting: getSettingMock }));
 vi.mock("@/lib/prisma", () => {
   const prisma = {
     $executeRaw: prismaExecuteRawMock,
@@ -91,7 +91,7 @@ vi.mock("@/lib/prisma", () => {
 vi.mock("@/lib/rate-limit", () => ({
   checkRateLimit: vi.fn(async () => null),
 }));
-vi.mock("@/lib/user-credits", () => ({
+vi.mock("@/lib/payment/user-credits", () => ({
   getEnergyConfig: vi.fn(() => ({
     signupGrant: 500_000,
     microUsdPerEnergy: "100",

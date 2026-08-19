@@ -53,7 +53,7 @@ Create `src/lib/waitlist-enabled.test.ts`:
 ```ts
 import { afterEach, describe, expect, it } from "vitest";
 
-import { isWaitlistEnabled } from "@/lib/waitlist-enabled";
+import { isWaitlistEnabled } from "@/lib/waitlist/waitlist-enabled";
 
 describe("isWaitlistEnabled", () => {
   const original = process.env.WAITLIST_ENABLED;
@@ -127,7 +127,7 @@ git commit -m "feat(waitlist): isWaitlistEnabled toggle (unset defaults true)"
 - Create: `src/lib/waitlist-own-entry.test.ts`
 
 **Interfaces:**
-- Consumes: `prisma` from `@/lib/prisma`, `normalizeEmail` from `@/lib/waitlist`.
+- Consumes: `prisma` from `@/lib/prisma`, `normalizeEmail` from `@/lib/waitlist/waitlist`.
 - Produces: `getOwnWaitlistEntry(email): Promise<OwnEntry | null>` where `OwnEntry = { businessName, phone, businessType, story, imageRef, status }`. `null` when no entry or invalid email.
 
 - [x] **Step 1: Write the failing test**
@@ -137,7 +137,7 @@ Create `src/lib/waitlist-own-entry.test.ts` (mock `prisma.waitlistEntry.findUniq
 ```ts
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { getOwnWaitlistEntry } from "@/lib/waitlist-own-entry";
+import { getOwnWaitlistEntry } from "@/lib/waitlist/waitlist-own-entry";
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -188,7 +188,7 @@ Create `src/lib/waitlist-own-entry.ts`:
 
 ```ts
 import { prisma } from "@/lib/prisma";
-import { normalizeEmail } from "@/lib/waitlist";
+import { normalizeEmail } from "@/lib/waitlist/waitlist";
 
 export type OwnEntry = {
   businessName: string;
@@ -242,7 +242,7 @@ git commit -m "feat(waitlist): getOwnWaitlistEntry for pre-fill on rejection"
 - Create: `src/routes/api.user.waitlist.test.ts` (if not present; the spec references this route, add a focused test)
 
 **Interfaces:**
-- Consumes: `isWaitlistEnabled` (Task 1), `getOwnWaitlistEntry` (Task 2), `isAdminEmail` + `isWaitlistApproved` from `@/lib/waitlist`, `auth`.
+- Consumes: `isWaitlistEnabled` (Task 1), `getOwnWaitlistEntry` (Task 2), `isAdminEmail` + `isWaitlistApproved` from `@/lib/waitlist/waitlist`, `auth`.
 - Produces: `GET /api/user/waitlist` → `{ status: "approved" | string | null, own?: OwnEntry }`. When `WAITLIST_ENABLED=false`, returns `{status:"approved"}` for signed-in non-admins (pass-through). When true, behaves as today (null gates). When unset → true (fail-safe). Always includes `own` for a signed-in user (for pre-fill) unless admin.
 
 - [x] **Step 1: Write the failing test**
@@ -254,7 +254,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { resolveUserWaitlistStatus } from "@/routes/api.user.waitlist";
 
-vi.mock("@/lib/config", () => ({ getEnv: () => "" }));
+vi.mock("@/lib/config/config", () => ({ getEnv: () => "" }));
 
 describe("resolveUserWaitlistStatus", () => {
   it("toggle off → pass-through (approved) for a signed-in non-admin", () => {
@@ -311,10 +311,10 @@ Modify `src/routes/api.user.waitlist.ts`:
 ```ts
 import { createFileRoute } from "@tanstack/react-router";
 
-import { auth } from "@/lib/auth";
-import { getOwnWaitlistEntry, type OwnEntry } from "@/lib/waitlist-own-entry";
-import { isAdminEmail, isWaitlistApproved } from "@/lib/waitlist";
-import { isWaitlistEnabled } from "@/lib/waitlist-enabled";
+import { auth } from "@/lib/auth/auth";
+import { getOwnWaitlistEntry, type OwnEntry } from "@/lib/waitlist/waitlist-own-entry";
+import { isAdminEmail, isWaitlistApproved } from "@/lib/waitlist/waitlist";
+import { isWaitlistEnabled } from "@/lib/waitlist/waitlist-enabled";
 
 type ResolveInput = {
   email: string | null;
@@ -411,8 +411,8 @@ Create `src/routes/_main.admin.tsx`:
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { requireAdmin } from "@/lib/auth-admin";
-import { listPendingWaitlist } from "@/lib/waitlist";
+import { requireAdmin } from "@/lib/auth/auth-admin";
+import { listPendingWaitlist } from "@/lib/waitlist/waitlist";
 import { fetchJson } from "@/lib/fetch-json";
 
 type PendingEntry = {

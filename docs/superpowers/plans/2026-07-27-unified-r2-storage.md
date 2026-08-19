@@ -60,7 +60,7 @@
 // src/lib/storage-provider.test.ts
 import { afterEach, describe, expect, it } from "vitest";
 
-import { getStorageProvider } from "@/lib/storage-provider";
+import { getStorageProvider } from "@/lib/storage/storage-provider";
 
 describe("storage provider", () => {
   afterEach(() => {
@@ -98,7 +98,7 @@ Expected: FAIL — module not found.
 
 ```ts
 // src/lib/storage-provider.ts
-import { getEnv } from "@/lib/config";
+import { getEnv } from "@/lib/config/config";
 
 export type StorageProvider = "local" | "r2";
 
@@ -368,7 +368,7 @@ Add to `src/lib/object-storage.test.ts` a provider-switch + R2 prefix test (mock
 
 ```ts
 import { vi } from "vitest";
-import { putStoredObject } from "@/lib/object-storage";
+import { putStoredObject } from "@/lib/storage/object-storage";
 
 vi.mock("@/lib/r2-client", () => ({
   getR2Config: () => ({ accessKeyId: "a", accountId: "b", bucket: "priv", prefix: "objects", secretAccessKey: "s" }),
@@ -404,7 +404,7 @@ Expected: FAIL — still reads `OBJECT_STORAGE_PROVIDER`, ref is `object:local:.
 In `src/lib/object-storage.ts`, replace the provider reader and `r2Config`:
 
 ```ts
-import { getStorageProvider } from "@/lib/storage-provider";
+import { getStorageProvider } from "@/lib/storage/storage-provider";
 import { getR2Config, signedR2Fetch } from "@/lib/r2-client";
 
 // ... delete getObjectStorageProvider entirely ...
@@ -479,7 +479,7 @@ Expected: FAIL — reads `PROJECT_ARTIFACT_STORAGE_PROVIDER`.
 In `src/lib/projects/runtime-artifacts.ts`:
 
 ```ts
-import { getStorageProvider } from "@/lib/storage-provider";
+import { getStorageProvider } from "@/lib/storage/storage-provider";
 import { getR2Config, signedR2Fetch } from "@/lib/r2-client";
 
 // replace getProjectArtifactProvider():
@@ -594,7 +594,7 @@ Expected: FAIL — `getProjectAssetStorageProvider` still reads old var; no `r2-
 In `src/lib/projects/project-assets.ts`:
 
 ```ts
-import { getStorageProvider } from "@/lib/storage-provider";
+import { getStorageProvider } from "@/lib/storage/storage-provider";
 
 const REF_PREFIX = "project-asset:local:";
 const LOCAL_REF_PREFIX = "project-asset:local:";
@@ -727,7 +727,7 @@ Expected: FAIL — no r2-private handling.
 In `src/lib/projects/project-thumbnail.ts`:
 
 ```ts
-import { getStorageProvider } from "@/lib/storage-provider";
+import { getStorageProvider } from "@/lib/storage/storage-provider";
 import { getR2Config, signedR2Fetch } from "@/lib/r2-client";
 
 const REF_PREFIX = "project-thumbnail:local:";
@@ -846,7 +846,7 @@ Expected: FAIL — reads old var, only checks one bucket.
 In `src/lib/projects/artifact-storage-readiness.ts`:
 
 ```ts
-import { getStorageProvider } from "@/lib/storage-provider";
+import { getStorageProvider } from "@/lib/storage/storage-provider";
 
 export async function assertProjectArtifactStorageReady() {
   if (getStorageProvider() === "r2") {
@@ -899,7 +899,7 @@ git commit -m "feat(storage): readiness validates both R2 buckets under STORAGE_
 // src/routes/-api.admin.waitlist.image.$entryId.test.ts
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/auth", () => ({ auth: vi.fn() }));
+vi.mock("@/lib/auth/auth", () => ({ auth: vi.fn() }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     waitlistEntry: {
@@ -938,8 +938,8 @@ Expected: FAIL — route does not exist.
 import { createFileRoute } from "@tanstack/react-router";
 
 import { prisma } from "@/lib/prisma";
-import { getStoredObject } from "@/lib/object-storage";
-import { requireAdmin } from "@/lib/waitlist"; // confirm exact export name
+import { getStoredObject } from "@/lib/storage/object-storage";
+import { requireAdmin } from "@/lib/waitlist/waitlist"; // confirm exact export name
 
 export const Route = createFileRoute("/api/admin/waitlist/image/$entryId")({
   server: {

@@ -5,12 +5,12 @@ const { generateTextMock } = vi.hoisted(() => ({
 }));
 
 vi.mock("ai", () => ({ generateText: generateTextMock }));
-vi.mock("@/lib/ai", () => ({
+vi.mock("@/lib/ai/ai", () => ({
   getAiModel: vi.fn(() => ({ modelId: "critic" })),
   getAiTelemetry: vi.fn(() => ({ isEnabled: false })),
   getNoReasoningCallOptions: vi.fn(() => ({})),
 }));
-vi.mock("@/lib/ai-models", () => ({
+vi.mock("@/lib/ai/ai-models", () => ({
   getGenerationModel: vi.fn(() => "critic"),
 }));
 

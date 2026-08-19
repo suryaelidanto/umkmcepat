@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import path from "node:path";
 
-import { getSettingSync } from "@/lib/app-settings";
+import { getSettingSync } from "@/lib/config/app-settings";
 import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
 import { readProjectDistArtifact } from "@/lib/projects/runtime-artifacts";
@@ -12,8 +12,8 @@ import {
   getS3Object,
   putS3Object,
   S3_PREFIXES,
-} from "@/lib/s3-client";
-import { getStorageProvider } from "@/lib/storage-provider";
+} from "@/lib/storage/s3-client";
+import { getStorageProvider } from "@/lib/storage/storage-provider";
 
 const S3_REF_PREFIX = "project-thumbnail:s3-private:";
 const MAX_BYTES = 1024 * 1024;

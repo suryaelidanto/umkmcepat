@@ -4,8 +4,8 @@ import { Toaster } from "sonner";
 
 import { AdminShell } from "@/components/admin/navigation/AdminShell";
 import { StreamerModeProvider } from "@/components/admin/streamer-mode/streamer-mode-context";
-import { loadStreamerMode } from "@/lib/admin-streamer-mode";
-import { requireAdmin } from "@/lib/auth-admin";
+import { loadStreamerMode } from "@/lib/admin/admin-streamer-mode";
+import { requireAdmin } from "@/lib/auth/auth-admin";
 
 const loadAdmin = createServerFn({ method: "GET" }).handler(async () => {
   const admin = await requireAdmin();

@@ -7,16 +7,17 @@ import {
   getAiModel,
   getAiTelemetry,
   getNoReasoningCallOptions,
-} from "@/lib/ai";
+} from "@/lib/ai/ai";
 import {
   classifyAiError,
   recordAiCall,
   startAiCallTimer,
-} from "@/lib/ai-call-record";
-import { getGenerationModel } from "@/lib/ai-models";
-import { getAiTimeoutMs } from "@/lib/ai-timeouts";
-import { getSettingSync } from "@/lib/app-settings";
+} from "@/lib/ai/ai-call-record";
+import { getGenerationModel } from "@/lib/ai/ai-models";
+import { getAiTimeoutMs } from "@/lib/ai/ai-timeouts";
+import { getSettingSync } from "@/lib/config/app-settings";
 import { devLog } from "@/lib/dev-log";
+import { chargeEnergyForAiUsage } from "@/lib/payment/user-credits";
 import { prisma } from "@/lib/prisma";
 import { runAgenticGenerate } from "@/lib/projects/agentic-generator";
 import {
@@ -94,7 +95,6 @@ import {
   createProjectSiteSchemaFromGeneratedContract,
 } from "@/lib/projects/site-schema";
 import { runShadowCritic } from "@/lib/projects/visual-critic";
-import { chargeEnergyForAiUsage } from "@/lib/user-credits";
 
 const GENERATED_SNAPSHOT_SOURCE_TYPE =
   "generated" satisfies ProjectSnapshotSourceType;

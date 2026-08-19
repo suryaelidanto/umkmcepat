@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth/auth";
 import { getUnreadCounts } from "@/lib/support/service";
 
 export const Route = createFileRoute("/api/support/unread-count")({

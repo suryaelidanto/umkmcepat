@@ -3,8 +3,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
   listAdminProjects,
   parseAdminProjectFilter,
-} from "@/lib/admin-projects";
-import { requireAdmin } from "@/lib/auth-admin";
+} from "@/lib/admin/admin-projects";
+import { requireAdmin } from "@/lib/auth/auth-admin";
 
 export const Route = createFileRoute("/api/admin/projects")({
   server: {

@@ -69,7 +69,7 @@ import {
   contentTypeFromExt,
   detectImageFormat,
   EXT_CONTENT_TYPE,
-} from "@/lib/images/format";
+} from "@/lib/storage/images/format";
 
 function bytesOf(...values: number[]): Buffer {
   return Buffer.from(values);
@@ -146,7 +146,7 @@ describe("EXT_CONTENT_TYPE", () => {
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `bun test src/lib/images/format.test.ts`
-Expected: FAIL with "Cannot find module '@/lib/images/format'".
+Expected: FAIL with "Cannot find module '@/lib/storage/images/format'".
 
 - [ ] **Step 3: Implement the module**
 
@@ -264,7 +264,7 @@ Read `src/lib/projects/project-assets.ts` lines 40-50 and 250-285. Confirm the l
 In `src/lib/projects/project-assets.ts`, delete the local `FORMAT_CONTENT_TYPES` constant (lines 44-48) and replace it with:
 
 ```ts
-import { EXT_CONTENT_TYPE as FORMAT_CONTENT_TYPES } from "@/lib/images/format";
+import { EXT_CONTENT_TYPE as FORMAT_CONTENT_TYPES } from "@/lib/storage/images/format";
 ```
 
 This keeps the local binding name `FORMAT_CONTENT_TYPES` so all existing call sites continue to work without edits.
@@ -272,7 +272,7 @@ This keeps the local binding name `FORMAT_CONTENT_TYPES` so all existing call si
 Delete the local `detectImageFormat` function (lines 250-285). Replace it with:
 
 ```ts
-export { detectImageFormat } from "@/lib/images/format";
+export { detectImageFormat } from "@/lib/storage/images/format";
 ```
 
 - [ ] **Step 3: Run `bun run check`**
@@ -598,8 +598,8 @@ Read `src/routes/api.projects.$id.assets.upload.ts` lines 60-83 to see the curre
 Add to the top of the file (with the other imports):
 
 ```ts
-import { moderateProjectRequest } from "@/lib/ai-moderation";
-import { contentTypeFromExt, detectImageFormat } from "@/lib/images/format";
+import { moderateProjectRequest } from "@/lib/ai/ai-moderation";
+import { contentTypeFromExt, detectImageFormat } from "@/lib/storage/images/format";
 ```
 
 - [ ] **Step 3: Insert the moderation step**
@@ -721,12 +721,12 @@ import { randomUUID } from "node:crypto";
 
 import { createFileRoute } from "@tanstack/react-router";
 
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth/auth";
 import {
   contentTypeFromExt,
   detectImageFormat,
-} from "@/lib/images/format";
-import { putStoredObject } from "@/lib/object-storage";
+} from "@/lib/storage/images/format";
+import { putStoredObject } from "@/lib/storage/object-storage";
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
@@ -887,15 +887,15 @@ import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { createFileRoute } from "@tanstack/react-router";
 
-import { getDefaultAiModel } from "@/lib/ai-models";
-import { moderateProjectRequest, type ModerationImage } from "@/lib/ai-moderation";
+import { getDefaultAiModel } from "@/lib/ai/ai-models";
+import { moderateProjectRequest, type ModerationImage } from "@/lib/ai/ai-moderation";
 import { apiError } from "@/lib/api-errors";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth/auth";
 import { isBoundedJsonError, readBoundedJson } from "@/lib/bounded-json";
 import {
   contentTypeFromExt,
   detectImageFormat,
-} from "@/lib/images/format";
+} from "@/lib/storage/images/format";
 import { prisma } from "@/lib/prisma";
 import { createInitialBrief } from "@/lib/projects/brief";
 import { createFallbackWorkspaceCard } from "@/lib/projects/brief-flow";
@@ -919,7 +919,7 @@ import {
   isAtOrOverProjectLimit,
   MIN_ENERGY_MODERATION,
   ProjectLimitExceededError,
-} from "@/lib/user-credits";
+} from "@/lib/payment/user-credits";
 ```
 
 (Add `moderateProjectRequest`, `type ModerationImage`, `contentTypeFromExt`, `detectImageFormat`, `uploadProjectAsset` imports. Keep everything else as-is.)

@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { requireDevAdmin } from "@/lib/dev-admin";
-import { devApproveOwnWaitlistEntry } from "@/lib/waitlist";
+import { requireDevAdmin } from "@/lib/admin/dev-admin";
+import { devApproveOwnWaitlistEntry } from "@/lib/waitlist/waitlist";
 
 export const Route = createFileRoute("/api/dev/skip-waitlist")({
   server: {

@@ -4,7 +4,7 @@ const { sendMock } = vi.hoisted(() => ({
   sendMock: vi.fn(),
 }));
 
-vi.mock("@/lib/s3-client", () => ({
+vi.mock("@/lib/storage/s3-client", () => ({
   getS3Config: () => ({
     bucket: "pub",
     client: { send: sendMock },

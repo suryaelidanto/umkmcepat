@@ -14,7 +14,7 @@ import {
 import type { CategoryGroup } from "./-_main.admin.settings.helpers";
 
 import { AdvancedSettingsDisclosure } from "@/components/admin/AdvancedSettingsDisclosure";
-import { settingsSaveInvalidateKeys } from "@/lib/admin-settings-sync";
+import { settingsSaveInvalidateKeys } from "@/lib/admin/admin-settings-sync";
 import { fetchJson } from "@/lib/query-client";
 
 export const Route = createFileRoute("/_main/admin/settings")({

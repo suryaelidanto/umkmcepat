@@ -20,7 +20,7 @@ import { AvatarFrame } from "@/components/ui/avatar-frame";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/components/ui/link";
 import { MobileSheet } from "@/components/ui/mobile-sheet";
-import { signOut, useSession } from "@/lib/auth-client";
+import { signOut, useSession } from "@/lib/auth/auth-client";
 import { mask } from "@/lib/mask";
 import { usePathname } from "@/lib/navigation";
 import { fetchJson } from "@/lib/query-client";

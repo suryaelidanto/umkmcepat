@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { auth } from "@/lib/auth";
-import { isGeneratedPublicExecutionEnabled } from "@/lib/config";
+import { auth } from "@/lib/auth/auth";
+import { isGeneratedPublicExecutionEnabled } from "@/lib/config/config";
 import { getGeneratedPublicUrl } from "@/lib/generated-public-origin";
 import { prisma } from "@/lib/prisma";
 import { selectLatestSuccessfulBuild } from "@/lib/projects/deployment-resolution";

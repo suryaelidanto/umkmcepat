@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 
-import { signOut } from "@/lib/auth-client";
+import { signOut } from "@/lib/auth/auth-client";
 import { loadBlocked } from "@/server/loaders/load-blocked";
 
 const loadBlockedServer = createServerFn({ method: "GET" }).handler(

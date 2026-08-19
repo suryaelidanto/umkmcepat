@@ -1,12 +1,12 @@
 // Server-only loader for /profile. Marked server-only via the
 // @tanstack/react-start/server-only side-effect import so the import-protection
-// plugin does not bundle it (or its transitive @/lib/auth + @/lib/prisma
+// plugin does not bundle it (or its transitive @/lib/auth/auth + @/lib/prisma
 // imports) into the client.
 import "@tanstack/react-start/server-only";
 
 import { redirect } from "@tanstack/react-router";
 
-import { getAuthState } from "@/lib/auth";
+import { getAuthState } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function loadProfile() {

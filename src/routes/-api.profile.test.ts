@@ -8,7 +8,7 @@ const { authMock, requireNotBannedMock, userUpdateMock } = vi.hoisted(() => ({
   })),
 }));
 
-vi.mock("@/lib/auth", () => ({
+vi.mock("@/lib/auth/auth", () => ({
   auth: authMock,
   requireNotBanned: requireNotBannedMock,
 }));

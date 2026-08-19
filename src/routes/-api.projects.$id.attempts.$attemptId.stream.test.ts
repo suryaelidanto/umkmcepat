@@ -7,7 +7,7 @@ const findEvents = vi.fn();
 const readBuildProgressState = vi.fn();
 const createReadStreamFromChannel = vi.fn();
 
-vi.mock("@/lib/auth", () => ({
+vi.mock("@/lib/auth/auth", () => ({
   auth: () => authMock(),
 }));
 

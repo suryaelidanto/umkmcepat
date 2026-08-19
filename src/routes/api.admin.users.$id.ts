@@ -1,12 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { requireAdmin } from "@/lib/auth-admin";
+import { requireAdmin } from "@/lib/auth/auth-admin";
 import {
   sendBannedNotification,
   sendUnbannedNotification,
 } from "@/lib/email/templates";
+import { grantAdminEnergy } from "@/lib/payment/user-credits";
 import { prisma } from "@/lib/prisma";
-import { grantAdminEnergy } from "@/lib/user-credits";
 
 export type AdminActionParseError = { ok: false; message: string };
 export type AdminEnergyGrantParseOk = { ok: true; amount: number };

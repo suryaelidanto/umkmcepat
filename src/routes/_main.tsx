@@ -2,8 +2,8 @@ import { Outlet, createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 
 import { MainChrome } from "@/components/common/MainChrome";
-import { auth } from "@/lib/auth";
-import { SessionProvider } from "@/lib/auth-client";
+import { auth } from "@/lib/auth/auth";
+import { SessionProvider } from "@/lib/auth/auth-client";
 import { checkRouteGates } from "@/server/loaders/check-route-gates";
 
 const runRouteGates = createServerFn({ method: "GET" })

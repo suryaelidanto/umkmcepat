@@ -18,7 +18,8 @@ import {
   ComposerAttachButton,
 } from "@/components/projects/chat/ComposerAttachments";
 import { Button } from "@/components/ui/button";
-import { useSession } from "@/lib/auth-client";
+import { useSession } from "@/lib/auth/auth-client";
+import { useFeatureFlag } from "@/lib/config/use-feature-flag";
 import { useRouter } from "@/lib/navigation";
 import {
   hasUploadingAttachments,
@@ -42,8 +43,7 @@ import {
   queryKeys,
   useCacheMutation,
 } from "@/lib/query-client";
-import { uploadTempImageFile } from "@/lib/uploads/temp-image-client";
-import { useFeatureFlag } from "@/lib/use-feature-flag";
+import { uploadTempImageFile } from "@/lib/storage/uploads/temp-image-client";
 
 function getProjectCreateIdempotencyKey(prompt: string) {
   const draft = parseProjectDraft(

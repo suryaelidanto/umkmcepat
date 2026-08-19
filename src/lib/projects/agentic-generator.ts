@@ -9,9 +9,9 @@ import {
   getAiModel,
   getAiTelemetry,
   getNoReasoningCallOptions,
-} from "@/lib/ai";
-import { getGenerationModel } from "@/lib/ai-models";
-import { getSettingSync } from "@/lib/app-settings";
+} from "@/lib/ai/ai";
+import { getGenerationModel } from "@/lib/ai/ai-models";
+import { getSettingSync } from "@/lib/config/app-settings";
 import { devLog } from "@/lib/dev-log";
 import {
   buildGeneratedProject,

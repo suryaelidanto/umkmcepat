@@ -32,7 +32,7 @@ const { putMock, getMock, deleteMock, store } = vi.hoisted(() => {
   };
 });
 
-vi.mock("@/lib/s3-client", () => ({
+vi.mock("@/lib/storage/s3-client", () => ({
   getS3Config: () => ({ client: {}, bucket: "priv" }),
   putS3Object: putMock,
   getS3Object: getMock,

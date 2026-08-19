@@ -1,7 +1,7 @@
 import { SupportCategory } from "@prisma/client";
 import { createFileRoute } from "@tanstack/react-router";
 
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { createTicket } from "@/lib/support/service";
 import { mapToUserFacingError } from "@/lib/user-facing-error";

@@ -165,7 +165,7 @@ git commit -m "fix(runtime): treat 404 health probe as unhealthy so deleted docr
 - Create: `tests/routes/projects.id.restart.test.ts`
 
 **Interfaces:**
-- Consumes: `auth()` (from `@/lib/auth`), `verifyProjectOwnership(id, userId)` (from `@/middleware/ownership`), `getRuntimeSupervisor()` (from `@/lib/projects/runtime-supervisor`), `prisma` (from `@/lib/prisma`).
+- Consumes: `auth()` (from `@/lib/auth/auth`), `verifyProjectOwnership(id, userId)` (from `@/middleware/ownership`), `getRuntimeSupervisor()` (from `@/lib/projects/runtime-supervisor`), `prisma` (from `@/lib/prisma`).
 - Produces: `POST /api/projects/:id/restart` → `{ ok: true }` (200), `{ message }` (401/404).
 
 - [ ] **Step 1: Write the failing route test**
@@ -189,7 +189,7 @@ const {
   stopDeploymentMock: vi.fn(async () => "stopped" as const),
 }));
 
-vi.mock("@/lib/auth", () => ({ auth: authMock }));
+vi.mock("@/lib/auth/auth", () => ({ auth: authMock }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     project: { findFirst: prismaProjectFindFirstMock },
@@ -263,7 +263,7 @@ Create `src/routes/api.projects.$id.restart.ts`:
 ```ts
 import { createFileRoute } from "@tanstack/react-router";
 
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { getRuntimeSupervisor } from "@/lib/projects/runtime-supervisor";
 import { verifyProjectOwnership } from "@/middleware/ownership";

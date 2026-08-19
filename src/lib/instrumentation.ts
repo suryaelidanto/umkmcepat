@@ -14,9 +14,9 @@ export async function register() {
     { assertProjectArtifactStorageReady },
     { assertProvidersForProduction },
   ] = await Promise.all([
-    import("@/lib/production-config"),
+    import("@/lib/config/production-config"),
     import("@/lib/projects/artifact-storage-readiness"),
-    import("@/lib/provider-startup-check"),
+    import("@/lib/ai/provider-startup-check"),
   ]);
 
   assertProductionConfigReady();
@@ -47,7 +47,7 @@ export async function register() {
       );
     });
 
-  const { primeSettingCache } = await import("@/lib/app-settings");
+  const { primeSettingCache } = await import("@/lib/config/app-settings");
   await primeSettingCache();
 
   try {

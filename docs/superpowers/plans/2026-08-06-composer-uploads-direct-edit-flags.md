@@ -139,7 +139,7 @@ git commit -m "feat(admin): public feature flag key union"
 - Create: `tests/lib/feature-flags.test.ts`
 
 **Interfaces:**
-- Consumes: `getSetting(key, fallback)` from `@/lib/app-settings`; `PUBLIC_FEATURE_FLAGS` from Task 2
+- Consumes: `getSetting(key, fallback)` from `@/lib/config/app-settings`; `PUBLIC_FEATURE_FLAGS` from Task 2
 - Produces: `getPublicFlags(): Promise<Record<PublicFeatureFlag, boolean>>`
 
 - [ ] **Step 1: Write the failing test**
@@ -153,11 +153,11 @@ const { getSettingMock } = vi.hoisted(() => ({
   getSettingMock: vi.fn(),
 }));
 
-vi.mock("@/lib/app-settings", () => ({
+vi.mock("@/lib/config/app-settings", () => ({
   getSetting: getSettingMock,
 }));
 
-import { getPublicFlags } from "@/lib/feature-flags";
+import { getPublicFlags } from "@/lib/config/feature-flags";
 
 describe("getPublicFlags", () => {
   afterEach(() => {
@@ -212,14 +212,14 @@ describe("getPublicFlags", () => {
 
 Run: `bun run test -- tests/lib/feature-flags.test.ts`
 
-Expected: FAIL — module not found (`@/lib/feature-flags`).
+Expected: FAIL — module not found (`@/lib/config/feature-flags`).
 
 - [ ] **Step 3: Implement `getPublicFlags`**
 
 Create `src/lib/feature-flags.ts`:
 
 ```ts
-import { getSetting } from "@/lib/app-settings";
+import { getSetting } from "@/lib/config/app-settings";
 
 import {
   PUBLIC_FEATURE_FLAGS,
@@ -271,8 +271,8 @@ git commit -m "feat(admin): getPublicFlags server helper with tests"
 ```ts
 import { useQuery } from "@tanstack/react-query";
 
-import { getPublicFlags } from "@/lib/feature-flags";
-import type { PublicFeatureFlag } from "@/lib/feature-flags-keys";
+import { getPublicFlags } from "@/lib/config/feature-flags";
+import type { PublicFeatureFlag } from "@/lib/config/feature-flags-keys";
 
 const FLAGS_KEY = ["public-flags"] as const;
 
@@ -329,7 +329,7 @@ const { getPublicFlagsMock } = vi.hoisted(() => ({
   getPublicFlagsMock: vi.fn(),
 }));
 
-vi.mock("@/lib/feature-flags", () => ({
+vi.mock("@/lib/config/feature-flags", () => ({
   getPublicFlags: getPublicFlagsMock,
 }));
 
@@ -378,7 +378,7 @@ Create `src/routes/api.flags.ts`:
 ```ts
 import { createFileRoute } from "@tanstack/react-router";
 
-import { getPublicFlags } from "@/lib/feature-flags";
+import { getPublicFlags } from "@/lib/config/feature-flags";
 
 export const Route = createFileRoute("/api/flags")({
   server: {
@@ -431,7 +431,7 @@ git commit -m "feat(admin): public GET /api/flags endpoint"
 In `src/components/projects/HomePromptForm.tsx`, add to the import block at line 14–18 (alphabetical order, matching surrounding style):
 
 ```ts
-import { useFeatureFlag } from "@/lib/use-feature-flag";
+import { useFeatureFlag } from "@/lib/config/use-feature-flag";
 ```
 
 Inside the `HomePromptForm` component body, add a new line directly after the `attachments` state declaration (line 74, after `const [attachments, setAttachments] = useState<PendingAttachment[]>([]);`):
@@ -509,7 +509,7 @@ git commit -m "feat(home): gate paperclip uploads behind feature flag"
 - Modify: `src/routes/api.projects.ts:115–181` (POST handler)
 
 **Interfaces:**
-- Consumes: `getSetting(key, fallback)` from `@/lib/app-settings`
+- Consumes: `getSetting(key, fallback)` from `@/lib/config/app-settings`
 - Produces: when `feature.composer_uploads_enabled` is off, `assetIds` and `files` FormData entries are dropped before project creation; the project is still created successfully
 
 - [ ] **Step 1: Read the flag and zero out uploads**
@@ -517,7 +517,7 @@ git commit -m "feat(home): gate paperclip uploads behind feature flag"
 In `src/routes/api.projects.ts`, line 12 currently imports `getSettingSync`. Add `getSetting` alongside it (do not delete the existing import — `getSettingSync` is still used on line 484 inside `resolveEngineForOwner`):
 
 ```ts
-import { getSetting, getSettingSync } from "@/lib/app-settings";
+import { getSetting, getSettingSync } from "@/lib/config/app-settings";
 ```
 
 Inside the `POST` handler, directly after the existing `if (!form) { … return … }` block (line 157–162), insert:
@@ -560,7 +560,7 @@ git commit -m "feat(server): strip asset uploads when composer flag is off"
 - Modify: `tests/routes/projects.id.edit.test.ts` (add 1 test case)
 
 **Interfaces:**
-- Consumes: `getSetting(key, fallback)` from `@/lib/app-settings`
+- Consumes: `getSetting(key, fallback)` from `@/lib/config/app-settings`
 - Produces: when `feature.direct_edit_enabled` is off, the handler returns `404` before any side effects
 
 - [ ] **Step 1: Add the flag import + guard**
@@ -568,7 +568,7 @@ git commit -m "feat(server): strip asset uploads when composer flag is off"
 In `src/routes/api.projects.$id.edit.ts`, add this import (next to the existing imports near line 1–25; alphabetical order):
 
 ```ts
-import { getSetting } from "@/lib/app-settings";
+import { getSetting } from "@/lib/config/app-settings";
 ```
 
 At the very top of `handleEditPost` (line 42), directly after the existing `if (!session?.user?.id) { … return … }` block (currently lines 45–50), insert:
@@ -587,15 +587,15 @@ This goes before rate-limit + energy checks so a stale client cannot burn budget
 
 - [ ] **Step 2: Write the failing test case**
 
-In `tests/routes/projects.id.edit.test.ts`, find the existing `vi.mock("@/lib/app-settings", …)` block (or add one if missing). Add a hoisted mock at the top of the file alongside the other hoisted mocks (line 27–51):
+In `tests/routes/projects.id.edit.test.ts`, find the existing `vi.mock("@/lib/config/app-settings", …)` block (or add one if missing). Add a hoisted mock at the top of the file alongside the other hoisted mocks (line 27–51):
 
 ```ts
   getSettingMock: vi.fn(async (_key: string, fallback: boolean) => fallback),
 ```
 
-(If a `@/lib/app-settings` mock block already exists, merge the new mock into it instead of duplicating.)
+(If a `@/lib/config/app-settings` mock block already exists, merge the new mock into it instead of duplicating.)
 
-Add the `vi.mock("@/lib/app-settings", () => ({ getSetting: getSettingMock }))` line at the same place as the other `vi.mock` calls (line 53 onward). Then inside the existing `describe` block, add a new test:
+Add the `vi.mock("@/lib/config/app-settings", () => ({ getSetting: getSettingMock }))` line at the same place as the other `vi.mock` calls (line 53 onward). Then inside the existing `describe` block, add a new test:
 
 ```ts
   it("returns 404 when feature.direct_edit_enabled is off", async () => {
@@ -650,7 +650,7 @@ git commit -m "feat(server): 404 /edit when direct_edit flag is off"
 In `src/components/projects/WorkspaceShell.tsx`, find the existing `@/lib/...` imports near the top (lines 1–60). Add, matching the surrounding alphabetical / block order:
 
 ```ts
-import { useFeatureFlag } from "@/lib/use-feature-flag";
+import { useFeatureFlag } from "@/lib/config/use-feature-flag";
 ```
 
 - [ ] **Step 2: Read the flag and derive `effectiveDirectEditMode`**

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { isPrismaDatabaseUnavailable } from "@/lib/prisma-errors";
 import {
@@ -14,7 +14,7 @@ import { projectHasPersistedSource } from "@/lib/projects/load-persisted-project
 import { deriveActiveProjectJob } from "@/lib/projects/project-job";
 import { getRuntimeSupervisor } from "@/lib/projects/runtime-supervisor";
 import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
-import { isAdminEmail } from "@/lib/waitlist";
+import { isAdminEmail } from "@/lib/waitlist/waitlist";
 
 const runtimeStateCache = new Map<
   string,

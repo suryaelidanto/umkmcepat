@@ -137,24 +137,24 @@ const prismaMock = vi.hoisted(() => {
 
 vi.mock("@/lib/prisma", () => ({ prisma: prismaMock }));
 
-vi.mock("@/lib/app-settings", () => ({
+vi.mock("@/lib/config/app-settings", () => ({
   getSettingSync: getSettingSyncMock,
 }));
 
-vi.mock("@/lib/ai", () => ({
+vi.mock("@/lib/ai/ai", () => ({
   getAiModel: vi.fn((name?: string) => ({ modelId: name ?? "test-model" })),
   getAiTelemetry: vi.fn(() => ({ isEnabled: false })),
   getNoReasoningCallOptions: vi.fn(() => ({ reasoning: "none" })),
 }));
 
-vi.mock("@/lib/ai-models", () => ({
+vi.mock("@/lib/ai/ai-models", () => ({
   DEFAULT_AI_MODEL: "test/model",
   getDefaultAiModel: vi.fn(() => "test/model"),
   getGenerationModel: vi.fn(() => "test/model"),
 }));
 
-vi.mock("@/lib/ai-call-record", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/ai-call-record")>()),
+vi.mock("@/lib/ai/ai-call-record", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/ai/ai-call-record")>()),
   recordAiCall: recordAiCallMock,
 }));
 
@@ -170,7 +170,7 @@ vi.mock("@/lib/projects/build-handoffs", () => ({
   loadAcceptedHandoffForAttempt: loadAcceptedHandoffMock,
 }));
 
-vi.mock("@/lib/waitlist", () => ({
+vi.mock("@/lib/waitlist/waitlist", () => ({
   isAdminEmail: vi.fn(() => false),
   isWaitlistApproved: vi.fn(async () => false),
 }));

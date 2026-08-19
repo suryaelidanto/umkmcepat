@@ -14,13 +14,13 @@ const providerMock = vi.fn();
 const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-vi.mock("@/lib/production-config", () => ({
+vi.mock("@/lib/config/production-config", () => ({
   assertProductionConfigReady: (...args: unknown[]) => prodMock(...args),
 }));
-vi.mock("@/lib/provider-startup-check", () => ({
+vi.mock("@/lib/ai/provider-startup-check", () => ({
   assertProvidersForProduction: (...args: unknown[]) => providerMock(...args),
 }));
-vi.mock("@/lib/app-settings", () => ({
+vi.mock("@/lib/config/app-settings", () => ({
   primeSettingCache: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("@/lib/projects/attempt-queue", () => ({

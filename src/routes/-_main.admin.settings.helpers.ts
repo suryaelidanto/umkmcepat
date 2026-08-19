@@ -3,7 +3,7 @@ import {
   type SettingCategory,
   type SettingTier,
   type SettingType,
-} from "@/lib/app-settings-registry";
+} from "@/lib/config/app-settings-registry";
 
 export type SettingEntry = {
   category: SettingCategory;

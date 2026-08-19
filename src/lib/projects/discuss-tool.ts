@@ -1,7 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 
-import { getSettingSync } from "@/lib/app-settings";
+import { getSettingSync } from "@/lib/config/app-settings";
 import { unstringifyJsonObject } from "@/lib/projects/json-unstringify";
 import { DISCUSS_SYSTEM_PROMPT } from "@/lib/projects/prompts/discuss-system";
 import { buildChatSystemPrompt } from "@/routes/api.projects.preview";
