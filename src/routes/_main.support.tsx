@@ -409,7 +409,7 @@ function SupportPage() {
               </p>
             </div>
           ) : (
-            <div className="flex flex-col gap-spacing-3">
+            <div className="flex flex-col gap-3">
               {ticketsQuery.data?.tickets.map((ticket) => {
                 const lastMsg = ticket.messages[0];
                 const shortId = ticket.id.slice(-8).toUpperCase();
@@ -417,31 +417,31 @@ function SupportPage() {
                   <Link
                     key={ticket.id}
                     href={`/support/${ticket.id}`}
-                    className="flex flex-col gap-spacing-2 rounded-radius-md border border-black/10 bg-[#fcfbf8] p-spacing-4 text-[#1c1c1c] transition hover:border-black/20 hover:bg-black/[0.02] dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/8"
+                    className="flex flex-col gap-2 rounded-xl border border-black/10 bg-[#fcfbf8] p-4 text-[#1c1c1c] shadow-2xs transition hover:border-black/20 hover:bg-white dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/8"
                   >
-                    <div className="flex items-start justify-between gap-spacing-3">
-                      <div className="flex items-center gap-spacing-2">
-                        <span className="font-mono text-xs text-[#5f5f5d] dark:text-surface-warm-white/40">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs text-[#5f5f5d] dark:text-surface-warm-white/50">
                           #{shortId}
                         </span>
                         <span
-                          className={`rounded-radius-sm border px-2 py-0.5 text-[10px] font-semibold ${CATEGORY_COLORS[ticket.category]}`}
+                          className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${CATEGORY_COLORS[ticket.category]}`}
                         >
                           {CATEGORY_LABELS[ticket.category]}
                         </span>
                       </div>
                       <span
-                        className={`rounded-radius-sm border px-2 py-0.5 text-[10px] font-bold ${
+                        className={`rounded-full border px-2.5 py-0.5 text-[10px] font-extrabold ${
                           ticket.status === "OPEN"
                             ? "bg-accent-orange-subtle border-accent-orange-border text-accent-orange"
-                            : "bg-black/10 text-black/60 border-transparent dark:bg-surface-warm-white/10 dark:text-surface-warm-white/50"
+                            : "bg-black/5 text-black/50 border-black/10 dark:bg-surface-warm-white/10 dark:text-surface-warm-white/50 dark:border-surface-warm-white/10"
                         }`}
                       >
                         {ticket.status === "OPEN" ? "BUKA" : "SELESAI"}
                       </span>
                     </div>
 
-                    <h3 className="line-clamp-1 font-semibold text-sm text-[#1c1c1c] dark:text-surface-warm-white">
+                    <h3 className="line-clamp-1 font-bold text-sm text-[#1c1c1c] dark:text-surface-warm-white">
                       {ticket.subject}
                     </h3>
 
@@ -451,7 +451,7 @@ function SupportPage() {
                       </p>
                     )}
 
-                    <div className="mt-spacing-1 flex justify-end border-t border-black/5 pt-spacing-2 text-[10px] text-[#5f5f5d] dark:border-surface-warm-white/5 dark:text-surface-warm-white/40">
+                    <div className="mt-1 flex justify-end border-t border-black/5 pt-2 text-[10px] font-medium text-[#5f5f5d] dark:border-surface-warm-white/5 dark:text-surface-warm-white/40">
                       Aktif {formatTimeAgo(ticket.updatedAt)}
                     </div>
                   </Link>
