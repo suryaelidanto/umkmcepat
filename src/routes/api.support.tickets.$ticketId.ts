@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
-import { addMessage } from "@/lib/support/service";
+import { addMessage, invalidateUnreadCache } from "@/lib/support/service";
 import { mapToUserFacingError } from "@/lib/user-facing-error";
 
 export const Route = createFileRoute("/api/support/tickets/$ticketId")({
@@ -18,19 +18,20 @@ export const Route = createFileRoute("/api/support/tickets/$ticketId")({
         }
 
         // Mark counterpart (admin) messages as read for this ticket
-        await prisma.supportMessage
-          .updateMany({
-            where: {
-              ticketId: params.ticketId,
-              authorRole: "admin",
-              isRead: false,
-            },
-            data: {
-              isRead: true,
-              readAt: new Date(),
-            },
-          })
-          .catch(() => {});
+        await prisma.supportMessage.updateMany({
+          where: {
+            ticketId: params.ticketId,
+            authorRole: "admin",
+            isRead: false,
+          },
+          data: {
+            isRead: true,
+            readAt: new Date(),
+          },
+        });
+
+        // Invalidate unread cache so counts sync immediately
+        invalidateUnreadCache(session.user.id);
 
         const ticket = await prisma.supportTicket.findUnique({
           where: { id: params.ticketId },
