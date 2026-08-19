@@ -1971,6 +1971,8 @@ export function WorkspaceShell({
       answeredPreviousQuestion: answered,
     });
 
+    setIsRetrying(false);
+
     if (settle.applyToolCard && toolCard) {
       if (
         isFreshWorkspaceCard(
@@ -2896,6 +2898,8 @@ export function WorkspaceShell({
                 setDraftTitle(output.projectTitle);
               }
               setWorkspaceCardError(false);
+              setIsPreparingNextQuestion(false);
+              setIsRetrying(false);
             });
             es.addEventListener("heartbeat", () => {
               // Heartbeat keeps the SSE connection alive while server prepares cards/handoffs.
