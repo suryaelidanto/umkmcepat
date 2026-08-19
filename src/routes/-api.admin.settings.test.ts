@@ -37,12 +37,12 @@ describe("validateSettingValue", () => {
     ).toMatch(/must be a boolean/);
   });
 
-  it("accepts critic sampling only in generated-site quality", () => {
+  it("accepts critic sampling in AI category", () => {
     expect(
       validateSettingValue(
         "quality.generated_site_critic_sample_rate",
         0.25,
-        "generated_quality",
+        "ai",
       ),
     ).toBeNull();
     expect(
