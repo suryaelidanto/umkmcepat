@@ -81,7 +81,7 @@ export function TicketThreadView({
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await fetch("/api/uploads/temp-images", {
+      const response = await fetch("/api/support/assets", {
         method: "POST",
         body: formData,
       });
