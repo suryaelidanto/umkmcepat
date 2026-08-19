@@ -29,6 +29,40 @@ Maintainer and agent workflow for UMKM Cepat. For the quality bar, read `PRINCIP
 - `ponytail:` comments mark deliberate simplifications and their upgrade ceiling — keep them.
 - Deepening opportunities (shallow modules, leaking seams) are surfaced via the `improve-codebase-architecture` skill; each picked candidate is an atomic, gated commit.
 
+## Zero-context codebase architecture & grouping rules
+
+Every human contributor and zero-context AI agent must follow this structure:
+
+### 1. Hierarchy & Domain Organization
+
+- **Domain first, never file type:** Always group by product feature or backend domain (`src/components/admin/`, `src/lib/projects/`).
+- **Forbidden catch-all directories:** Never create generic folders like `hooks/`, `utils/`, `helpers/`, `misc/`, `temp/`, or `stuff/`. Feature-local hooks, contexts, types, schemas, and helpers stay directly beside the feature they serve (e.g. `src/components/admin/useStreamerMode.ts` or `src/components/projects/composer-attachments.ts`).
+- **Flat by default:** Keep directories flat when they have <15 files. Split into `<feature>/<subfeature>/` only when a sub-domain has 4+ tightly coupled files forming a distinct bounded unit.
+- **Shared UI primitives:** Reusable application-wide design system components live in `src/components/ui/`. Domain-specific UI lives in its owning feature directory (`src/components/admin/`, `src/components/projects/`, etc.).
+
+### 2. Test Placement & Decision Tree
+
+- **Colocated tests by default:** Every single-module unit/component/route test sits directly adjacent to its source file:
+  - `src/lib/foo.ts` → `src/lib/foo.test.ts`
+  - `src/components/Button.tsx` → `src/components/Button.test.tsx`
+  - `src/routes/api.payment.ts` → `src/routes/-api.payment.test.ts` (hyphen-prefixed to avoid TanStack router route collision).
+- **Top-level `tests/` is strictly partitioned:**
+  - `tests/unit/`: Cross-module unit tests spanning multiple domains with no single source owner.
+  - `tests/integration/*.itest.ts`: Real DB/Redis/transaction tests requiring backing infrastructure.
+  - `tests/browser/*.browser.test.ts`: Live browser, viewport, and mobile audit tests.
+  - `tests/support/`: Reusable test harnesses and helpers (excluded from test execution globs).
+
+### 3. Comment Hygiene & Style
+
+- **Code explains itself:** Write clean, expressive identifiers and structure. Authored comments delete by default.
+- **Allowed exceptions:** Exactly one line starting with `why:` (non-obvious invariant or security edge case) or `ponytail:` (deliberate simplification and its upgrade ceiling). Delete narrative comments, restatements, dead code, and section dividers.
+
+### 4. Zero-Bypass Type Safety
+
+- **No `any` or `as any`:** Authored code must use `unknown` + narrowing.
+- **No `@ts-ignore` or unreviewed suppressions:** Fix the root type contract.
+- **Enforcement:** `bun run check` includes `check:discipline` which automatically scans for forbidden directory names, `any`, and unreviewed suppressions across `src/`, `tests/`, and `scripts/`.
+
 ## Local runtime
 
 Use Bun only. The version is pinned in `package.json`, and `bun.lock` is canonical.
