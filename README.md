@@ -52,7 +52,7 @@ App: http://localhost:3000
 9Router: http://localhost:20129
 ```
 
-Use `bun run infra:minimal` only when you need Postgres + Redis without AI/observability/storage services.
+`bun run infra` starts the full local stack (Postgres, Redis, 9Router, Headroom, MinIO).
 
 ## Contributing
 

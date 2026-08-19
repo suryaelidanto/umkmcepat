@@ -111,7 +111,7 @@ App: http://localhost:3000
 9Router: http://localhost:20129
 ```
 
-`bun run infra` starts full local infra with no Compose profiles: Postgres, Redis (BullMQ), 9Router, Headroom, and MinIO. Use `bun run infra:minimal` for Postgres + Redis only.
+`bun run infra` starts full local infra with no Compose profiles: Postgres, Redis (BullMQ), 9Router, Headroom, and MinIO.
 
 Useful infrastructure commands:
 

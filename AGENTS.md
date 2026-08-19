@@ -57,7 +57,7 @@ Before calling frontend done, check: build+edit both? preview + /media/<id> + th
 
 ## Dev servers
 
-`bun run infra` (full) / `infra:minimal` (Postgres+Redis only). App `http://localhost:3000`, `dev.log` at root + `docker compose logs`. Read `dev.log` grepping projectId/turnId first. `bun run dev:logs` tails.
+`bun run infra` (full local stack). App `http://localhost:3000`, `dev.log` at root + `docker compose logs`. Read `dev.log` grepping projectId/turnId first. `bun run dev:logs` tails.
 
 ## Test data
 
@@ -89,7 +89,7 @@ Local quality gates are automated:
 
 `bun run sweep:project-orphans` purges `.data/project-*` dirs whose IDs are not in the DB. Run after deleting projects via the DB / CLI (the homepage's delete path runs cleanup automatically).
 
-`bun run infra` starts full local infra (no Compose profiles): Postgres, Redis (BullMQ), 9Router, Headroom, and MinIO (local S3 on `http://localhost:9000`; `scripts/init-s3-buckets.ts` auto-creates the two buckets from `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`). Use `bun run infra:minimal` for Postgres + Redis only.
+`bun run infra` starts full local infra (no Compose profiles): Postgres, Redis (BullMQ), 9Router, Headroom, and MinIO (local S3 on `http://localhost:9000`; `scripts/init-s3-buckets.ts` auto-creates the two buckets from `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`).
 
 ## Rules — god-tier
 
