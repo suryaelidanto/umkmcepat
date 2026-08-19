@@ -81,7 +81,7 @@ export function parseAdminProjectFilter(
   ) {
     return raw;
   }
-  return "active";
+  return "ready";
 }
 
 export function projectWhere(

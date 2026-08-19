@@ -32,9 +32,9 @@ type ProjectsResponse = {
 };
 
 const PROJECT_STATUS_OPTIONS = [
+  { value: "ready", label: "Siap" },
   { value: "active", label: "Berjalan" },
   { value: "needs_attention", label: "Gagal" },
-  { value: "ready", label: "Siap" },
   { value: "all", label: "Semua" },
 ] as const;
 
@@ -72,7 +72,7 @@ function ProjectListSkeleton() {
 
 function ProjectsPage() {
   const streamerMode = useStreamerMode();
-  const [status, setStatus] = useState("active");
+  const [status, setStatus] = useState("ready");
   const [q, setQ] = useState("");
   const { data, isError, isPending, refetch } = useQuery({
     queryFn: () =>

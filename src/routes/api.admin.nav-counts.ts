@@ -19,11 +19,11 @@ export const Route = createFileRoute("/api/admin/nav-counts")({
         }
 
         try {
-          const activeWhere = projectWhere("active");
+          const readyWhere = projectWhere("ready");
           const [
             waitlistPending,
             paymentsPending,
-            projectsActive,
+            projectsReady,
             ticketCounts,
             usersTotal,
           ] = await Promise.all([
@@ -31,7 +31,7 @@ export const Route = createFileRoute("/api/admin/nav-counts")({
               where: { status: { in: [...WAITLIST_PENDING_STATUSES] } },
             }),
             prisma.payment.count({ where: { status: "PENDING" } }),
-            prisma.project.count({ where: activeWhere }),
+            prisma.project.count({ where: readyWhere }),
             getUnreadCounts({
               userId: admin.admin.userId,
               isAdmin: true,
@@ -43,7 +43,7 @@ export const Route = createFileRoute("/api/admin/nav-counts")({
             waitlistPending,
             ticketsUnread: ticketCounts.adminUnreadCount,
             paymentsPending,
-            projectsActive,
+            projectsReady,
             usersTotal,
           });
         } catch {

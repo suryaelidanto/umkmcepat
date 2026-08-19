@@ -29,7 +29,7 @@ type AdminNavCounts = {
   waitlistPending: number;
   ticketsUnread: number;
   paymentsPending: number;
-  projectsActive: number;
+  projectsReady: number;
   usersTotal: number;
 };
 
@@ -56,7 +56,7 @@ const TABS = [
     label: "Proyek",
     to: "/admin/projects",
     icon: FolderKanban,
-    badge: "projectsActive" as const,
+    badge: "projectsReady" as const,
   },
   {
     label: "Tiket",
@@ -98,7 +98,7 @@ function useNavCounts(): AdminNavCounts {
       waitlistPending: 0,
       ticketsUnread: 0,
       paymentsPending: 0,
-      projectsActive: 0,
+      projectsReady: 0,
       usersTotal: 0,
     }
   );
