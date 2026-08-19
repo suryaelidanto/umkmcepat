@@ -49,8 +49,27 @@ export const Route = createFileRoute("/api/support/tickets/$ticketId")({
           );
         }
 
-        if (ticket.userId !== session.user.id && !session.user.admin) {
-          return Response.json({ message: "Akses ditolak." }, { status: 403 });
+        const isAuthorizedUser =
+          ticket.userId === session.user.id || session.user.admin === true;
+
+        if (!isAuthorizedUser) {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: session.user.id },
+            select: { email: true },
+          });
+          const adminEmails = (process.env.ADMIN_EMAILS || "")
+            .split(",")
+            .map((e) => e.trim().toLowerCase());
+          const isDbAdmin = dbUser?.email
+            ? adminEmails.includes(dbUser.email.toLowerCase())
+            : false;
+
+          if (!isDbAdmin) {
+            return Response.json(
+              { message: "Akses ditolak." },
+              { status: 403 },
+            );
+          }
         }
 
         return Response.json({ ticket });
@@ -76,8 +95,27 @@ export const Route = createFileRoute("/api/support/tickets/$ticketId")({
           );
         }
 
-        if (ticket.userId !== session.user.id && !session.user.admin) {
-          return Response.json({ message: "Akses ditolak." }, { status: 403 });
+        const isAuthorizedPoster =
+          ticket.userId === session.user.id || session.user.admin === true;
+
+        if (!isAuthorizedPoster) {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: session.user.id },
+            select: { email: true },
+          });
+          const adminEmails = (process.env.ADMIN_EMAILS || "")
+            .split(",")
+            .map((e) => e.trim().toLowerCase());
+          const isDbAdmin = dbUser?.email
+            ? adminEmails.includes(dbUser.email.toLowerCase())
+            : false;
+
+          if (!isDbAdmin) {
+            return Response.json(
+              { message: "Akses ditolak." },
+              { status: 403 },
+            );
+          }
         }
 
         const body = (await request.json().catch(() => ({}))) as {
