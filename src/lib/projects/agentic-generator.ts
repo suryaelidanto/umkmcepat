@@ -226,7 +226,7 @@ DESIGN DIRECTIVES & PRINCIPLES:
 
 2. TECHNICAL EXECUTION:
    - Data Source: Read from "@/content/site" with import { site } from "@/content/site". Never hardcode fake contact details or prices.
-   - Primitives: Utilize layout primitives from "@/components/site/layout" (SiteSection, SiteStack, SiteSplit, SiteCluster) and UI components from "@/components/ui/*" or "@/components/site/primitives".
+   - Primitives: Use layout primitives from "@/components/site/layout" (SiteSection, SiteStack, SiteSplit, SiteCluster) and UI components from "@/components/ui/*" or "@/components/site/primitives".
    - Preview Hook: MUST call import { usePreviewReady } from "@/lib/preview-ready" inside src/routes/index.tsx: usePreviewReady();
    - Export: In src/routes/index.tsx, export function HomeRouteComponent() { ... } (do not default export).
 

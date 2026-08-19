@@ -2,7 +2,7 @@
  * Comprehensive Catalog of all 45+ Pre-seeded Shadcn/UI Components
  * and Creative Layout Primitives for the AI Landing Page Generator.
  *
- * This serves as the Single Source of Truth for the LLM during code generation.
+ * Single source of truth for the model during code generation.
  */
 
 export interface ComponentDocumentation {
