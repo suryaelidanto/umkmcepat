@@ -30,7 +30,7 @@ http://localhost:3000
 9Router: http://localhost:20129
 ```
 
-`bun run infra` already starts the full local stack (Postgres, Redis, 9Router, Headroom, MinIO); use `bun run infra:minimal` only when you need Postgres + Redis without AI/observability/storage services. 9Router's default dashboard password is documented in its own project, not here — check it after first boot rather than trusting a copy of it in this repo.
+`bun run infra` starts the full local stack (Postgres, Redis, 9Router, Headroom, MinIO). 9Router's default dashboard password is documented in its own project, not here — check it after first boot rather than trusting a copy of it in this repo.
 
 ## Optional agent code map
 
