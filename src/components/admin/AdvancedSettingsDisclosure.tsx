@@ -5,8 +5,7 @@ type Props = {
   count: number;
 };
 
-// Collapsed on every load, deliberately not persisted: an admin opening this
-// page to flip a feature flag should see a short page.
+// ponytail: collapse by default so admin opening page sees concise settings
 export function AdvancedSettingsDisclosure({ children, count }: Props) {
   const [open, setOpen] = useState(false);
 
