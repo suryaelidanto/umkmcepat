@@ -1,4 +1,4 @@
-import { type BuildProgressStep } from "@/components/projects/WorkspacePrimitives";
+import { type BuildProgressStep } from "@/components/projects/workspace/WorkspacePrimitives";
 import {
   appendBuildProgressStep,
   completeBuildProgressSteps,

@@ -1149,7 +1149,7 @@ In `WorkspaceShell.tsx`, render `DirectEditToolbar` when `directEditMode` is act
 ) : null}
 ```
 
-Import `DirectEditToolbar` from `@/components/projects/WorkspacePrimitives`.
+Import `DirectEditToolbar` from `@/components/projects/workspace/WorkspacePrimitives`.
 
 - [ ] **Step 4: Add the mode toggle button to `WorkspaceTopBar`**
 

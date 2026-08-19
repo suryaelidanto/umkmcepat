@@ -1111,7 +1111,7 @@ In `src/components/projects/WorkspaceShell.tsx`, find the existing `<QuestionCom
                       )}
 ```
 
-Add `QuestionsComposer` to the import from `@/components/projects/WorkspacePrimitives` (line ~28-42).
+Add `QuestionsComposer` to the import from `@/components/projects/workspace/WorkspacePrimitives` (line ~28-42).
 
 - [x] **Step 5: Handle empty-text send in `submitChatText`**
 

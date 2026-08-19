@@ -25,7 +25,7 @@ import { AuthButton } from "@/components/common/AuthButton";
 import { EnergyDisplay } from "@/components/common/EnergyDisplay";
 import { EnergyLedgerButton } from "@/components/common/EnergyLedgerButton";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
-import { WorkspaceHistoryButton } from "@/components/projects/WorkspaceHistoryDrawer";
+import { WorkspaceHistoryButton } from "@/components/projects/workspace/WorkspaceHistoryDrawer";
 import { Button } from "@/components/ui/button";
 import { MobileSheet } from "@/components/ui/mobile-sheet";
 import { type WorkspaceCard } from "@/lib/projects/brief";
@@ -37,17 +37,17 @@ export type BuildTab = "preview" | "code";
 export {
   ImageUploadComposer,
   QuestionComposer,
-} from "@/components/projects/WorkspaceComposer";
-export type { WorkspaceAnswerPayload } from "@/components/projects/WorkspaceComposer";
+} from "@/components/projects/chat/WorkspaceComposer";
+export type { WorkspaceAnswerPayload } from "@/components/projects/chat/WorkspaceComposer";
 export {
   GeneratedPreviewFrame,
   PreviewIssueState,
-} from "@/components/projects/WorkspacePreview";
+} from "@/components/projects/workspace/WorkspacePreview";
 export {
   BuildProgressPanel,
   ProcessingControl,
-} from "@/components/projects/WorkspaceBuildProgress";
-export type { BuildProgressStep } from "@/components/projects/WorkspaceBuildProgress";
+} from "@/components/projects/build/WorkspaceBuildProgress";
+export type { BuildProgressStep } from "@/components/projects/build/WorkspaceBuildProgress";
 
 export type WorkspaceRuntimeControl = {
   canPublish?: boolean;

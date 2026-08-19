@@ -4,8 +4,8 @@ import { createServerFn } from "@tanstack/react-start";
 import type { ProjectBrief, WorkspaceCard } from "@/lib/projects/brief";
 import type { UIMessage } from "ai";
 
-import { ClearProjectDraft } from "@/components/projects/ClearProjectDraft";
-import { WorkspaceShell } from "@/components/projects/WorkspaceShell";
+import { ClearProjectDraft } from "@/components/projects/dashboard/ClearProjectDraft";
+import { WorkspaceShell } from "@/components/projects/workspace/WorkspaceShell";
 import { loadProjectForViewer } from "@/lib/admin-project-observer";
 import { getSettingSync } from "@/lib/app-settings";
 import { auth } from "@/lib/auth";

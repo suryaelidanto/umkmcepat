@@ -31,18 +31,18 @@ import { toast } from "sonner";
 import {
   CompletedBuildNotice,
   HeldBuildRecommendationNotice,
-} from "@/components/projects/BuildNotices";
-import { ChatMessages } from "@/components/projects/ChatMessage";
-import { CodeView } from "@/components/projects/CodeViewer";
-import {
-  ComposerAttachButton,
-  ComposerAttachments,
-} from "@/components/projects/ComposerAttachments";
-import { settleDiscussAfterChatReady } from "@/components/projects/discuss-chat-settle";
+} from "@/components/projects/build/BuildNotices";
 import {
   useBuildAttemptStream,
   type BuildStreamEvent,
-} from "@/components/projects/useBuildAttemptStream";
+} from "@/components/projects/build/useBuildAttemptStream";
+import { ChatMessages } from "@/components/projects/chat/ChatMessage";
+import {
+  ComposerAttachButton,
+  ComposerAttachments,
+} from "@/components/projects/chat/ComposerAttachments";
+import { settleDiscussAfterChatReady } from "@/components/projects/chat/discuss-chat-settle";
+import { CodeView } from "@/components/projects/workspace/CodeViewer";
 import {
   BuildProgressPanel,
   EmptyPreviewState,
@@ -58,7 +58,7 @@ import {
   type BuildTab,
   type WorkspaceAnswerPayload,
   type WorkspaceRuntimeControl,
-} from "@/components/projects/WorkspacePrimitives";
+} from "@/components/projects/workspace/WorkspacePrimitives";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -257,7 +257,7 @@ type WorkspaceStateResponse = {
 // survives the remount because it isn't tied to a component instance.
 const autoSentProjectIds = new Set<string>();
 
-export { chatBubbleClass } from "@/components/projects/ChatMessage";
+export { chatBubbleClass } from "@/components/projects/chat/ChatMessage";
 
 const COMPOSER_TRANSITION = {
   initial: { opacity: 0, y: 12, scale: 0.985, filter: "blur(6px)" },
