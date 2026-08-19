@@ -3,6 +3,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRouterState } from "@tanstack/react-router";
 import {
+  EyeOff,
+  ShieldCheck,
   ClipboardList,
   CreditCard,
   FolderKanban,
@@ -103,16 +105,37 @@ function useNavCounts(): AdminNavCounts {
 function StreamerPill() {
   const on = useStreamerMode();
   return (
-    <span
+    <div
       className={cn(
-        "rounded-radius-sm border px-2 py-0.5 text-[10px] font-medium transition-colors",
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-all shadow-2xs",
         on
-          ? "border-black/30 bg-black/10 text-[#1c1c1c] dark:border-surface-warm-white/40 dark:bg-surface-warm-white/10 dark:text-surface-warm-white"
-          : "border-black/15 text-[#5f5f5d] dark:border-surface-warm-white/15 dark:text-surface-warm-white/50",
+          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-400/15 dark:text-emerald-300"
+          : "border-black/10 bg-black/[0.03] text-[#5f5f5d] dark:border-white/10 dark:bg-white/[0.04] dark:text-surface-warm-white/50",
       )}
+      title={
+        on
+          ? "Streamer Mode Aktif: Data sensitif (email, telepon, nama) disamarkan untuk rekaman/streaming."
+          : "Streamer Mode Nonaktif"
+      }
     >
-      Streamer {on ? "ON" : "OFF"}
-    </span>
+      {on ? (
+        <>
+          <span className="relative flex size-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+          </span>
+          <EyeOff className="size-3.5 shrink-0" />
+          <span className="text-[11px] font-bold tracking-tight">
+            Streamer Mode
+          </span>
+        </>
+      ) : (
+        <>
+          <ShieldCheck className="size-3.5 shrink-0 opacity-60" />
+          <span className="text-[11px]">Streamer OFF</span>
+        </>
+      )}
+    </div>
   );
 }
 

@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+import { Users } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { AdminSearchInput } from "@/components/admin/AdminSearchInput";
 import { AdminStatusBadge } from "@/components/admin/status/AdminStatusBadge";
 import { AdminStatusFilter } from "@/components/admin/status/AdminStatusFilter";
 import { SensitiveText } from "@/components/admin/streamer-mode/SensitiveText";
@@ -145,7 +147,7 @@ function UsersPage() {
     items: data?.users,
   });
   return (
-    <div className="flex flex-col gap-spacing-3">
+    <div className="flex flex-col gap-spacing-4">
       <AdminStatusFilter
         onChange={(v) => {
           setStatus(v);
@@ -154,8 +156,7 @@ function UsersPage() {
         options={USER_STATUS_OPTIONS}
         value={status}
       />
-      <input
-        className="rounded-radius-md border border-black/15 bg-black/[0.02] px-spacing-3 py-spacing-2 text-sm text-[#1c1c1c] placeholder:text-[#5f5f5d] focus:outline-none focus:ring-1 focus:ring-[#1c1c1c] dark:border-surface-warm-white/15 dark:bg-surface-warm-white/5 dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/50 dark:focus:ring-surface-warm-white"
+      <AdminSearchInput
         onChange={(e) => {
           setQ(e.target.value);
           setPage(1);
@@ -179,9 +180,16 @@ function UsersPage() {
           </button>
         </div>
       ) : listState === "empty" ? (
-        <p className="text-[#5f5f5d] dark:text-surface-warm-white/70">
-          Tidak ada pengguna.
-        </p>
+        <div className="flex flex-col items-center justify-center rounded-radius-lg border border-dashed border-black/10 py-spacing-12 text-center text-[#5f5f5d] dark:border-surface-warm-white/10 dark:text-surface-warm-white/40">
+          <Users className="size-8 opacity-40" />
+          <p className="mt-spacing-3 text-sm">
+            {status === "banned"
+              ? "Tidak ada pengguna diblokir."
+              : q
+                ? "Tidak ada pengguna yang cocok dengan pencarian."
+                : "Belum ada pengguna terdaftar."}
+          </p>
+        </div>
       ) : (
         users.map((u) => (
           <div

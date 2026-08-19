@@ -40,10 +40,10 @@ export const Route = createFileRoute("/api/admin/waitlist")({
             { status: admin.status },
           );
         }
-        const status = parseWaitlistStatus(
-          new URL(request.url).searchParams.get("status"),
-        );
-        const entries = await listPendingWaitlist(status);
+        const url = new URL(request.url);
+        const status = parseWaitlistStatus(url.searchParams.get("status"));
+        const q = url.searchParams.get("q") ?? undefined;
+        const entries = await listPendingWaitlist(status, q);
         return Response.json({
           entries: entries.map((entry) => ({
             businessName: entry.businessName,

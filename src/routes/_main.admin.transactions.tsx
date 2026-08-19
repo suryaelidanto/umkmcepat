@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+import { Receipt } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { AdminSearchInput } from "@/components/admin/AdminSearchInput";
 import { paymentStatusDisplay } from "@/components/admin/status/admin-status";
 import { AdminStatusBadge } from "@/components/admin/status/AdminStatusBadge";
 import { AdminStatusFilter } from "@/components/admin/status/AdminStatusFilter";
@@ -102,14 +104,13 @@ function TransactionsPage() {
     items: data?.payments,
   });
   return (
-    <div className="flex flex-col gap-spacing-3">
+    <div className="flex flex-col gap-spacing-4">
       <AdminStatusFilter
         onChange={setStatus}
         options={TX_STATUS_OPTIONS}
         value={status}
       />
-      <input
-        className="rounded-radius-md border border-surface-warm-white/15 bg-surface-warm-white/5 px-spacing-3 py-spacing-2 text-sm"
+      <AdminSearchInput
         onChange={(e) => setQ(e.target.value)}
         placeholder="Cari order id atau email…"
         value={q}
@@ -130,9 +131,14 @@ function TransactionsPage() {
           </button>
         </div>
       ) : listState === "empty" ? (
-        <p className="text-[#5f5f5d] dark:text-surface-warm-white/70">
-          Tidak ada transaksi.
-        </p>
+        <div className="flex flex-col items-center justify-center rounded-radius-lg border border-dashed border-black/10 py-spacing-12 text-center text-[#5f5f5d] dark:border-surface-warm-white/10 dark:text-surface-warm-white/40">
+          <Receipt className="size-8 opacity-40" />
+          <p className="mt-spacing-3 text-sm">
+            {q
+              ? "Tidak ada transaksi yang cocok dengan pencarian."
+              : "Tidak ada transaksi."}
+          </p>
+        </div>
       ) : (
         txs.map((t) => {
           const payment = paymentStatusDisplay(t.status);

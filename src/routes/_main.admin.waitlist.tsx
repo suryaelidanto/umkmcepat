@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
+import { ClipboardList } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { AdminSearchInput } from "@/components/admin/AdminSearchInput";
 import { waitlistStatusDisplay } from "@/components/admin/status/admin-status";
 import { AdminStatusBadge } from "@/components/admin/status/AdminStatusBadge";
 import { AdminStatusFilter } from "@/components/admin/status/AdminStatusFilter";
@@ -78,6 +80,7 @@ function WaitlistPage() {
   const streamerMode = useStreamerMode();
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<WaitlistStatusFilter>("pending");
+  const [q, setQ] = useState("");
   const initial = Route.useLoaderData() as unknown as {
     entries: AdminEntry[];
   };
@@ -85,11 +88,11 @@ function WaitlistPage() {
   const { data } = useQuery({
     queryFn: () =>
       fetchJson<{ entries: AdminEntry[] }>(
-        `/api/admin/waitlist?status=${status}`,
+        `/api/admin/waitlist?status=${status}&q=${encodeURIComponent(q)}`,
       ),
-    queryKey: [...queryKeys.adminWaitlist, status],
+    queryKey: [...queryKeys.adminWaitlist, status, q],
     initialData:
-      status === "pending" ? { entries: initial.entries } : undefined,
+      status === "pending" && !q ? { entries: initial.entries } : undefined,
     refetchInterval: ADMIN_WAITLIST_POLL_MS,
     refetchOnReconnect: true,
     refetchOnWindowFocus: true,
@@ -116,19 +119,29 @@ function WaitlistPage() {
   const entries = data?.entries ?? [];
 
   return (
-    <div className="flex flex-col gap-spacing-3">
+    <div className="flex flex-col gap-spacing-4">
       <AdminStatusFilter
         onChange={(v) => setStatus(v as WaitlistStatusFilter)}
         options={STATUS_OPTIONS}
         value={status}
       />
+      <AdminSearchInput
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Cari nama usaha, email, atau cerita…"
+        value={q}
+      />
 
       {entries.length === 0 ? (
-        <p className="text-[#5f5f5d] dark:text-surface-warm-white/70">
-          {status === "pending"
-            ? "Belum ada pendaftar menunggu."
-            : "Tidak ada di filter ini."}
-        </p>
+        <div className="flex flex-col items-center justify-center rounded-radius-lg border border-dashed border-black/10 py-spacing-12 text-center text-[#5f5f5d] dark:border-surface-warm-white/10 dark:text-surface-warm-white/40">
+          <ClipboardList className="size-8 opacity-40" />
+          <p className="mt-spacing-3 text-sm">
+            {status === "pending"
+              ? "Belum ada pendaftar menunggu."
+              : q
+                ? "Tidak ada pendaftar yang cocok dengan pencarian."
+                : "Tidak ada data pendaftar."}
+          </p>
+        </div>
       ) : (
         entries.map((entry) => {
           const status = waitlistStatusDisplay(entry.status);
@@ -197,9 +210,9 @@ function WaitlistPage() {
                 </div>
               ) : null}
               {isPending(entry.status) ? (
-                <div className="mt-spacing-3 flex gap-spacing-2">
+                <div className="mt-spacing-4 flex gap-spacing-3">
                   <button
-                    className="rounded-radius-md bg-emerald-600 px-spacing-3 py-spacing-2 text-sm text-white"
+                    className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-500 transition disabled:opacity-50"
                     disabled={act.isPending}
                     onClick={() =>
                       act.mutate({ action: "approve", entryId: entry.id })
@@ -209,7 +222,7 @@ function WaitlistPage() {
                     {approving ? "Menyetujui..." : "Setujui"}
                   </button>
                   <button
-                    className="rounded-radius-md border border-surface-warm-white/15 px-spacing-3 py-spacing-2 text-sm text-surface-warm-white"
+                    className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2 text-xs font-bold text-destructive hover:bg-destructive/20 hover:border-destructive/40 transition disabled:opacity-50"
                     disabled={act.isPending}
                     onClick={() => {
                       const reason =

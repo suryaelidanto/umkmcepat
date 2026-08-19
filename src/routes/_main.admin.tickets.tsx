@@ -8,6 +8,7 @@ import {
 import { Loader2, MessageSquare } from "lucide-react";
 import { useState } from "react";
 
+import { AdminSearchInput } from "@/components/admin/AdminSearchInput";
 import { ticketStatusDisplay } from "@/components/admin/status/admin-status";
 import { AdminStatusBadge } from "@/components/admin/status/AdminStatusBadge";
 import { AdminStatusFilter } from "@/components/admin/status/AdminStatusFilter";
@@ -66,6 +67,7 @@ function AdminTicketsPage() {
   const [categoryFilter, setCategoryFilter] = useState<SupportCategory | "ALL">(
     "ALL",
   );
+  const [q, setQ] = useState("");
   const { pathname } = useRouterState({ select: (s) => s.location });
   const isTicketThread =
     pathname !== "/admin/tickets" && pathname.startsWith("/admin/tickets/");
@@ -78,12 +80,15 @@ function AdminTicketsPage() {
     if (categoryFilter !== "ALL") {
       params.append("category", categoryFilter);
     }
+    if (q.trim()) {
+      params.append("q", q.trim());
+    }
     const queryStr = params.toString();
     return `/api/admin/tickets${queryStr ? `?${queryStr}` : ""}`;
   };
 
   const ticketsQuery = useQuery({
-    queryKey: ["admin", "tickets", statusFilter, categoryFilter],
+    queryKey: ["admin", "tickets", statusFilter, categoryFilter, q],
     queryFn: () => fetchJson<{ tickets: AdminTicket[] }>(buildUrl()),
     refetchInterval: 15000,
   });
@@ -121,7 +126,7 @@ function AdminTicketsPage() {
           value={statusFilter}
         />
         <select
-          className="h-10 rounded-radius-md border border-black/15 bg-black/[0.02] px-spacing-3 text-sm text-[#1c1c1c] outline-none focus-visible:ring-2 focus-visible:ring-[#1c1c1c] dark:border-surface-warm-white/15 dark:bg-surface-warm-white/5 dark:text-surface-warm-white dark:focus-visible:ring-surface-warm-white/40"
+          className="h-10 rounded-xl border border-black/15 bg-white px-spacing-3 text-sm text-[#1c1c1c] outline-none focus:border-accent-orange focus:ring-1 focus:ring-accent-orange dark:border-white/15 dark:bg-white/[0.04] dark:text-surface-warm-white"
           onChange={(e) =>
             setCategoryFilter(e.target.value as SupportCategory | "ALL")
           }
@@ -129,7 +134,7 @@ function AdminTicketsPage() {
         >
           <option
             value="ALL"
-            className="bg-[#eceae4] text-[#1c1c1c] dark:bg-[#18181b] dark:text-[#fafafa]"
+            className="bg-white text-[#1c1c1c] dark:bg-[#18181b] dark:text-[#fafafa]"
           >
             Semua Kategori
           </option>
@@ -137,13 +142,19 @@ function AdminTicketsPage() {
             <option
               key={cat}
               value={cat}
-              className="bg-[#eceae4] text-[#1c1c1c] dark:bg-[#18181b] dark:text-[#fafafa]"
+              className="bg-white text-[#1c1c1c] dark:bg-[#18181b] dark:text-[#fafafa]"
             >
               {CATEGORY_LABELS[cat as SupportCategory]}
             </option>
           ))}
         </select>
       </div>
+
+      <AdminSearchInput
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Cari subjek tiket, email, atau nama pengguna…"
+        value={q}
+      />
 
       {ticketsQuery.isLoading ? (
         <div className="flex justify-center py-spacing-12">

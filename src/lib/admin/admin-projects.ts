@@ -86,44 +86,74 @@ export function parseAdminProjectFilter(
 
 export function projectWhere(
   filter: AdminProjectFilter,
+  searchQuery?: string,
 ): Prisma.ProjectWhereInput | undefined {
-  if (filter === "all") {
-    return undefined;
+  const filterClause =
+    filter === "all"
+      ? undefined
+      : filter === "needs_attention"
+        ? {
+            OR: [
+              {
+                buildStatus: { contains: "fail", mode: "insensitive" as const },
+              },
+              {
+                buildStatus: {
+                  contains: "error",
+                  mode: "insensitive" as const,
+                },
+              },
+              { buildStatus: { in: [...FAIL_BUILD] } },
+              { status: { contains: "fail", mode: "insensitive" as const } },
+              { status: { contains: "error", mode: "insensitive" as const } },
+              { status: { in: [...FAIL_BUILD] } },
+            ],
+          }
+        : filter === "active"
+          ? {
+              OR: [
+                { buildStatus: { in: [...ACTIVE_BUILD] } },
+                { status: { in: [...ACTIVE_BUILD] } },
+              ],
+            }
+          : {
+              OR: [
+                { buildStatus: { in: [...READY_BUILD] } },
+                { status: { in: [...READY_BUILD] } },
+              ],
+            };
+
+  const trimmedSearch = searchQuery?.trim();
+  const searchClause: Prisma.ProjectWhereInput | undefined = trimmedSearch
+    ? {
+        OR: [
+          { title: { contains: trimmedSearch, mode: "insensitive" as const } },
+          {
+            user: {
+              email: { contains: trimmedSearch, mode: "insensitive" as const },
+            },
+          },
+          {
+            user: {
+              name: { contains: trimmedSearch, mode: "insensitive" as const },
+            },
+          },
+        ],
+      }
+    : undefined;
+
+  if (filterClause && searchClause) {
+    return { AND: [filterClause, searchClause] };
   }
-  if (filter === "needs_attention") {
-    return {
-      OR: [
-        { buildStatus: { contains: "fail", mode: "insensitive" } },
-        { buildStatus: { contains: "error", mode: "insensitive" } },
-        { buildStatus: { in: [...FAIL_BUILD] } },
-        { status: { contains: "fail", mode: "insensitive" } },
-        { status: { contains: "error", mode: "insensitive" } },
-        { status: { in: [...FAIL_BUILD] } },
-      ],
-    };
-  }
-  if (filter === "active") {
-    return {
-      OR: [
-        { buildStatus: { in: [...ACTIVE_BUILD] } },
-        { status: { in: [...ACTIVE_BUILD] } },
-      ],
-    };
-  }
-  // ready
-  return {
-    OR: [
-      { buildStatus: { in: [...READY_BUILD] } },
-      { status: { in: [...READY_BUILD] } },
-    ],
-  };
+  return filterClause || searchClause;
 }
 
 export async function listAdminProjects(
   client: AdminProjectsClient = prisma,
   filter: AdminProjectFilter = "all",
+  searchQuery?: string,
 ): Promise<AdminProjectsResponse> {
-  const where = projectWhere(filter);
+  const where = projectWhere(filter, searchQuery);
   const projects = await client.project.findMany({
     orderBy: { createdAt: "desc" },
     select: {

@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+import { FolderKanban } from "lucide-react";
 import { useState } from "react";
 
+import { AdminSearchInput } from "@/components/admin/AdminSearchInput";
 import { projectStatusTone } from "@/components/admin/status/admin-status";
 import { AdminStatusBadge } from "@/components/admin/status/AdminStatusBadge";
 import { AdminStatusFilter } from "@/components/admin/status/AdminStatusFilter";
@@ -71,10 +73,13 @@ function ProjectListSkeleton() {
 function ProjectsPage() {
   const streamerMode = useStreamerMode();
   const [status, setStatus] = useState("active");
+  const [q, setQ] = useState("");
   const { data, isError, isPending, refetch } = useQuery({
     queryFn: () =>
-      fetchJson<ProjectsResponse>(`/api/admin/projects?status=${status}`),
-    queryKey: ["admin", "projects", status],
+      fetchJson<ProjectsResponse>(
+        `/api/admin/projects?status=${status}&q=${encodeURIComponent(q)}`,
+      ),
+    queryKey: ["admin", "projects", status, q],
   });
   const projects = data?.projects ?? [];
   const listState = resolveAsyncListState({
@@ -84,11 +89,16 @@ function ProjectsPage() {
   });
 
   return (
-    <div className="flex flex-col gap-spacing-3">
+    <div className="flex flex-col gap-spacing-4">
       <AdminStatusFilter
         onChange={setStatus}
         options={PROJECT_STATUS_OPTIONS}
         value={status}
+      />
+      <AdminSearchInput
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Cari judul proyek, email, atau nama pemilik…"
+        value={q}
       />
 
       {listState === "loading" ? (
@@ -107,13 +117,18 @@ function ProjectsPage() {
           </button>
         </div>
       ) : listState === "empty" ? (
-        <p className="text-[#5f5f5d] dark:text-surface-warm-white/70">
-          {status === "needs_attention"
-            ? "Tidak ada proyek gagal."
-            : status === "active"
-              ? "Tidak ada proyek berjalan."
-              : "Belum ada proyek."}
-        </p>
+        <div className="flex flex-col items-center justify-center rounded-radius-lg border border-dashed border-black/10 py-spacing-12 text-center text-[#5f5f5d] dark:border-surface-warm-white/10 dark:text-surface-warm-white/40">
+          <FolderKanban className="size-8 opacity-40" />
+          <p className="mt-spacing-3 text-sm">
+            {status === "needs_attention"
+              ? "Tidak ada proyek gagal."
+              : status === "active"
+                ? "Tidak ada proyek berjalan."
+                : q
+                  ? "Tidak ada proyek yang cocok dengan pencarian."
+                  : "Belum ada proyek."}
+          </p>
+        </div>
       ) : (
         <div className="flex flex-col gap-spacing-2">
           {projects.map((project) => (

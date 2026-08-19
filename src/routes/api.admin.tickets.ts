@@ -23,6 +23,7 @@ export const Route = createFileRoute("/api/admin/tickets")({
         const category = url.searchParams.get(
           "category",
         ) as SupportCategory | null;
+        const q = url.searchParams.get("q")?.trim() ?? "";
 
         const where: Prisma.SupportTicketWhereInput = {};
         if (status && Object.values(SupportTicketStatus).includes(status)) {
@@ -30,6 +31,13 @@ export const Route = createFileRoute("/api/admin/tickets")({
         }
         if (category && Object.values(SupportCategory).includes(category)) {
           where.category = category;
+        }
+        if (q) {
+          where.OR = [
+            { subject: { contains: q, mode: "insensitive" } },
+            { user: { email: { contains: q, mode: "insensitive" } } },
+            { user: { name: { contains: q, mode: "insensitive" } } },
+          ];
         }
 
         const tickets = await prisma.supportTicket.findMany({
