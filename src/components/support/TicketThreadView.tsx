@@ -22,7 +22,6 @@ export type TicketMessage = {
   body: string;
   createdAt: string;
   assetIds: string[];
-  isRead?: boolean;
   readAt?: string | null;
 };
 
@@ -454,17 +453,17 @@ export function TicketThreadView({
                     <span>•</span>
                     <span
                       className={
-                        msg.isRead
+                        msg.readAt
                           ? "font-medium text-emerald-600 dark:text-emerald-400"
                           : "opacity-75"
                       }
                       title={
-                        msg.isRead && msg.readAt
+                        msg.readAt
                           ? `Dibaca user pada ${new Date(msg.readAt).toLocaleString("id-ID")}`
                           : "Terkirim ke user"
                       }
                     >
-                      {msg.isRead ? "✓✓ Dibaca" : "✓ Terkirim"}
+                      {msg.readAt ? "✓✓ Dibaca" : "✓ Terkirim"}
                     </span>
                   </>
                 )}

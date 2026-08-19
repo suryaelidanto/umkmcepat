@@ -44,10 +44,9 @@ export const Route = createFileRoute("/api/admin/tickets/$ticketId")({
             where: {
               ticketId: params.ticketId,
               authorRole: "user",
-              isRead: false,
+              readAt: null,
             },
             data: {
-              isRead: true,
               readAt: new Date(),
             },
           })

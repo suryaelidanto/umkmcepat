@@ -17,6 +17,23 @@ export const Route = createFileRoute("/api/support/tickets/$ticketId")({
           );
         }
 
+        // Mark counterpart (admin) messages as read for this ticket
+        await prisma.supportMessage
+          .updateMany({
+            where: {
+              ticketId: params.ticketId,
+              authorRole: "admin",
+              readAt: null,
+            },
+            data: {
+              readAt: new Date(),
+            },
+          })
+          .catch(() => {});
+
+        // Invalidate unread cache so counts sync immediately
+        invalidateUnreadCache(session.user.id);
+
         const ticket = await prisma.supportTicket.findUnique({
           where: { id: params.ticketId },
           include: {
@@ -55,24 +72,6 @@ export const Route = createFileRoute("/api/support/tickets/$ticketId")({
             );
           }
         }
-
-        // Mark counterpart (admin) messages as read for this ticket
-        await prisma.supportMessage
-          .updateMany({
-            where: {
-              ticketId: params.ticketId,
-              authorRole: "admin",
-              isRead: false,
-            },
-            data: {
-              isRead: true,
-              readAt: new Date(),
-            },
-          })
-          .catch(() => {});
-
-        // Invalidate unread cache so counts sync immediately
-        invalidateUnreadCache(session.user.id);
 
         return Response.json({ ticket });
       },

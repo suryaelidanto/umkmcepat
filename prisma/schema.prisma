@@ -577,7 +577,6 @@ model SupportMessage {
   authorId   String
   authorRole String        @db.VarChar(16) // 'user' | 'admin'
   body       String        @db.Text
-  isRead     Boolean       @default(false)
   readAt     DateTime?
   createdAt  DateTime      @default(now())
   ticket     SupportTicket  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
@@ -585,7 +584,7 @@ model SupportMessage {
   assets     SupportAsset[]
 
   @@index([ticketId, createdAt])
-  @@index([ticketId, isRead])
+  @@index([ticketId, readAt])
 }
 
 model SupportAsset {
