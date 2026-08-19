@@ -259,19 +259,35 @@ export function BuildProgressPanel({
 export function ProcessingControl({
   currentStep,
   mode,
+  discussPhase,
   onStop,
 }: {
   /** Newest live build row; when present it replaces the generic build copy. */
   currentStep?: { detail?: string; label: string } | null;
   mode: "Diskusi" | "Buat";
+  discussPhase?: "streaming" | "preparing_card" | "retrying" | "processing";
   onStop: () => void;
 }) {
+  const discussTitles: Record<NonNullable<typeof discussPhase>, string> = {
+    streaming: "AI sedang menulis balasan...",
+    preparing_card: "Menyiapkan pertanyaan berikutnya...",
+    retrying: "Memproses ulang...",
+    processing: "AI sedang memproses...",
+  };
+  const discussDetails: Record<NonNullable<typeof discussPhase>, string> = {
+    streaming: "Balasan AI akan muncul di atas.",
+    preparing_card: "Merangkum konteks dan opsi jawaban.",
+    retrying: "Menghubungi server kembali.",
+    processing: "Tunggu sebentar, jawaban akan muncul di sini.",
+  };
+
+  const activeDiscussPhase = discussPhase ?? "processing";
   const fallbackTitle =
-    mode === "Buat" ? "Membuat website" : "AI sedang memproses...";
+    mode === "Buat" ? "Membuat website" : discussTitles[activeDiscussPhase];
   const fallbackDetail =
     mode === "Buat"
       ? "Website sedang disiapkan."
-      : "Tunggu sebentar, jawaban akan muncul di sini.";
+      : discussDetails[activeDiscussPhase];
   const title =
     mode === "Buat" && currentStep?.label ? currentStep.label : fallbackTitle;
   const detail =

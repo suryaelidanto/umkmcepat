@@ -3283,9 +3283,17 @@ export function WorkspaceShell({
             />
           ) : null}
 
-          {isResponding || isRetrying || isPreparingNextQuestion ? (
+          {isRetrying ? (
             <p className="text-sm text-surface-warm-white/46">
-              AI sedang memproses...
+              Memproses ulang...
+            </p>
+          ) : isPreparingNextQuestion ? (
+            <p className="text-sm text-surface-warm-white/46">
+              Menyiapkan pertanyaan berikutnya...
+            </p>
+          ) : isResponding ? (
+            <p className="text-sm text-surface-warm-white/46">
+              AI sedang menulis balasan...
             </p>
           ) : rateLimitError ? (
             <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
@@ -3402,6 +3410,15 @@ export function WorkspaceShell({
                 <ProcessingControl
                   currentStep={resolveCurrentBuildProgressStep(buildProgress)}
                   mode={isBuilding ? "Buat" : "Diskusi"}
+                  discussPhase={
+                    isRetrying
+                      ? "retrying"
+                      : isPreparingNextQuestion
+                        ? "preparing_card"
+                        : isResponding
+                          ? "streaming"
+                          : "processing"
+                  }
                   onStop={stopCurrentJob}
                 />
               </motion.div>

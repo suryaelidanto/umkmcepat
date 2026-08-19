@@ -94,17 +94,26 @@ describe("ProcessingControl copy", () => {
     expect(markup).toContain("Website sedang disiapkan.");
   });
 
-  it("ignores the current build step in Diskusi mode", () => {
-    const markup = renderToStaticMarkup(
+  it("supports granular discuss phases in Diskusi mode", () => {
+    const markupStreaming = renderToStaticMarkup(
       createElement(ProcessingControl, {
-        currentStep: { detail: "src/routes/index.tsx", label: "Menulis file" },
         mode: "Diskusi" as const,
+        discussPhase: "streaming",
         onStop: vi.fn(),
       }),
     );
+    expect(markupStreaming).toContain("AI sedang menulis balasan...");
+    expect(markupStreaming).toContain("Balasan AI akan muncul di atas.");
 
-    expect(markup).toContain("AI sedang memproses...");
-    expect(markup).not.toContain("Menulis file");
+    const markupCard = renderToStaticMarkup(
+      createElement(ProcessingControl, {
+        mode: "Diskusi" as const,
+        discussPhase: "preparing_card",
+        onStop: vi.fn(),
+      }),
+    );
+    expect(markupCard).toContain("Menyiapkan pertanyaan berikutnya...");
+    expect(markupCard).toContain("Merangkum konteks dan opsi jawaban.");
   });
 });
 
