@@ -49,7 +49,7 @@ export const Route = createFileRoute("/api/support/tickets/$ticketId")({
           );
         }
 
-        if (ticket.userId !== session.user.id) {
+        if (ticket.userId !== session.user.id && !session.user.admin) {
           return Response.json({ message: "Akses ditolak." }, { status: 403 });
         }
 
@@ -76,7 +76,7 @@ export const Route = createFileRoute("/api/support/tickets/$ticketId")({
           );
         }
 
-        if (ticket.userId !== session.user.id) {
+        if (ticket.userId !== session.user.id && !session.user.admin) {
           return Response.json({ message: "Akses ditolak." }, { status: 403 });
         }
 
