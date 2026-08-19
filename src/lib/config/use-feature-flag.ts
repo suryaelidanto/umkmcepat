@@ -30,8 +30,11 @@ export function useFeatureFlag(
   return (data?.[key] as boolean | undefined) ?? true;
 }
 
-export function useDefaultThemeSetting(): string {
+export function useDefaultThemeSetting(initialTheme?: string): string {
   const { data } = usePublicFlags();
   const val = data?.["feature.default_theme"];
-  return typeof val === "string" ? val : "dark";
+  if (typeof val === "string") {
+    return val;
+  }
+  return initialTheme || "dark";
 }

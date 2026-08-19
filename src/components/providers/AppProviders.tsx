@@ -15,8 +15,7 @@ function ThemedApp({
   children: React.ReactNode;
   initialTheme?: string;
 }) {
-  const dynamicTheme = useDefaultThemeSetting();
-  const theme = dynamicTheme || initialTheme || "dark";
+  const theme = useDefaultThemeSetting(initialTheme);
 
   return (
     <ThemeProvider
