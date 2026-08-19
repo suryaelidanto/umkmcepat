@@ -30,6 +30,7 @@ type AdminNavCounts = {
   ticketsUnread: number;
   paymentsPending: number;
   projectsActive: number;
+  usersTotal: number;
 };
 
 const TABS = [
@@ -49,7 +50,7 @@ const TABS = [
     label: "Pengguna",
     to: "/admin/users",
     icon: Users,
-    badge: null,
+    badge: "usersTotal" as const,
   },
   {
     label: "Proyek",
@@ -98,6 +99,7 @@ function useNavCounts(): AdminNavCounts {
       ticketsUnread: 0,
       paymentsPending: 0,
       projectsActive: 0,
+      usersTotal: 0,
     }
   );
 }

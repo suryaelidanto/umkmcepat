@@ -4,15 +4,15 @@ import { mask } from "@/lib/mask";
 
 describe("mask", () => {
   describe("email", () => {
-    it("masks typical email", () => {
+    it("masks typical email and domain", () => {
       expect(mask("suryaelidanto@gmail.com", "email")).toEqual({
-        masked: "s•••@gmail.com",
+        masked: "s•••@g•••.com",
         revealable: true,
       });
     });
     it("handles short localpart", () => {
-      expect(mask("a@b.co", "email")).toEqual({
-        masked: "a•••@b.co",
+      expect(mask("a@company.co.id", "email")).toEqual({
+        masked: "a•••@c•••.id",
         revealable: true,
       });
     });
