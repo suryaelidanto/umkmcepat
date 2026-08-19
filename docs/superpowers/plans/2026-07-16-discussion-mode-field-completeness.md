@@ -1492,7 +1492,7 @@ In `src/components/projects/WorkspaceShell.tsx`, find:
 
 ```tsx
 import { describe, expect, it } from "vitest";
-import { canStartBuild } from "@/components/projects/WorkspaceShell";
+import { canStartBuild } from "@/components/projects/workspace/WorkspaceShell";
 
 describe("canStartBuild", () => {
   it("returns false when readyForBuild is false", () => {

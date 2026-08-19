@@ -12,8 +12,8 @@ import {
 } from "@/components/home/HeroContentMotion";
 import { ResetCursorOnMount } from "@/components/home/ResetCursorOnMount";
 import { ScrollReveal } from "@/components/home/ScrollReveal";
-import { HomePromptForm } from "@/components/projects/HomePromptForm";
-import { ProjectList } from "@/components/projects/ProjectList";
+import { HomePromptForm } from "@/components/projects/dashboard/HomePromptForm";
+import { ProjectList } from "@/components/projects/dashboard/ProjectList";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/components/ui/link";
 import { auth } from "@/lib/auth";

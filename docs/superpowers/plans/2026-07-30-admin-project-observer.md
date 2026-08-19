@@ -518,8 +518,8 @@ import type { ProjectBrief, WorkspaceCard } from "@/lib/projects/brief";
 import type { UIMessage } from "ai";
 
 import { AdminProjectObserver } from "@/components/projects/AdminProjectObserver";
-import { ClearProjectDraft } from "@/components/projects/ClearProjectDraft";
-import { WorkspaceShell } from "@/components/projects/WorkspaceShell";
+import { ClearProjectDraft } from "@/components/projects/dashboard/ClearProjectDraft";
+import { WorkspaceShell } from "@/components/projects/workspace/WorkspaceShell";
 import { auth } from "@/lib/auth";
 import { loadProjectForViewer } from "@/lib/admin-project-observer";
 

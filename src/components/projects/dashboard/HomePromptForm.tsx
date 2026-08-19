@@ -16,7 +16,7 @@ import { LoginConsentDialog } from "@/components/common/LoginConsentDialog";
 import {
   ComposerAttachments,
   ComposerAttachButton,
-} from "@/components/projects/ComposerAttachments";
+} from "@/components/projects/chat/ComposerAttachments";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/lib/auth-client";
 import { useRouter } from "@/lib/navigation";

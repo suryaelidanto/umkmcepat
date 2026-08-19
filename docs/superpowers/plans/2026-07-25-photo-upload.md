@@ -394,7 +394,7 @@ Add to `src/stories/ComposerAttachments.stories.tsx` (follow existing story patt
 ```tsx
 import type { Meta, StoryObj } from "@storybook/react";
 
-import { ComposerAttachments } from "@/components/projects/ComposerAttachments";
+import { ComposerAttachments } from "@/components/projects/chat/ComposerAttachments";
 
 const meta: Meta<typeof ComposerAttachments> = {
   component: ComposerAttachments,
