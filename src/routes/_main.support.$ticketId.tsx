@@ -239,7 +239,7 @@ function TicketThreadPage() {
 
   return (
     <main className="mx-auto flex h-dvh w-full max-w-7xl flex-col px-3 pb-20 pt-6 text-surface-warm-white sm:px-6 lg:px-8">
-      <div className="mx-auto flex h-full w-full max-w-3xl flex-col">
+      <div className="flex h-full w-full flex-col">
         {/* Header */}
         <div className="flex flex-col gap-spacing-2 border-b border-surface-warm-white/10 pb-spacing-4">
           <div className="flex items-center gap-spacing-3">
