@@ -43,32 +43,6 @@ type PaymentStatusResponse = {
   paymentMethod: string;
 };
 
-const PAKET_DETAILS: Record<
-  BoosterPackId,
-  { label: string; desc: string; detail: string }
-> = {
-  pocket: {
-    label: "Eceran Hemat",
-    desc: "Pas buat uji coba fitur",
-    detail: "Bisa buat buat sekitar 10-15 project uji coba.",
-  },
-  starter: {
-    label: "Usaha Rintisan",
-    desc: "Ideal untuk toko online pemula",
-    detail: "Mulai bangun kehadiran online tokomu dengan tenang.",
-  },
-  popular: {
-    label: "Laris Manis",
-    desc: "Paling Populer! Pendamping tumbuh cepat",
-    detail: "Energi tambahan untuk melanjutkan proyek tanpa takut kehabisan.",
-  },
-  max: {
-    label: "Juragan Besar",
-    desc: "Sangat hemat, energi tambahan melimpah",
-    detail: "Pilihan terbaik untuk bisnis yang sering update halaman.",
-  },
-};
-
 export function EnergyBoosterModal({
   open,
   onOpenChange,
@@ -192,11 +166,11 @@ export function EnergyBoosterModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton
-        className="max-w-md border border-black/10 bg-[#fcfbf8] text-[#1c1c1c] transition-colors duration-200 dark:border-white/[0.08] dark:bg-[#161614] dark:text-surface-warm-white p-6"
+        className="max-w-md border border-black/10 bg-[#fcfbf8] text-[#1c1c1c] transition-colors duration-200 dark:border-white/[0.08] dark:bg-[#161614] dark:text-surface-warm-white p-5 sm:p-6"
       >
         <DialogHeader className="gap-1 text-left">
           <DialogTitle className="flex items-center gap-2 text-xl font-bold text-[#1c1c1c] dark:text-surface-warm-white">
-            <ZapIcon className="size-5 fill-aurora-orange text-aurora-orange" />
+            <ZapIcon className="size-5 fill-accent-orange text-accent-orange" />
             <span>Booster Energi UMKM</span>
           </DialogTitle>
           <DialogDescription className="text-xs text-[#5f5f5d] dark:text-surface-warm-white/60">
@@ -229,7 +203,6 @@ export function EnergyBoosterModal({
               <div className="flex flex-col gap-2.5">
                 {packsQuery.data.packs.map((pack) => {
                   const key = pack.id;
-                  const local = PAKET_DETAILS[key];
                   const showDiscount = pack.discountPercent > 0;
                   const isSelected = selectedPack === key;
 
@@ -238,43 +211,43 @@ export function EnergyBoosterModal({
                       key={key}
                       type="button"
                       onClick={() => setSelectedPack(key)}
-                      className={`relative flex items-center justify-between rounded-radius-lg border p-4 text-left transition cursor-pointer ${
+                      className={`relative flex items-center justify-between rounded-xl border p-4 text-left transition-all cursor-pointer ${
                         isSelected
-                          ? "border-[#ff7a59] bg-[#ff7a59]/10 text-[#1c1c1c] dark:bg-[#ff7a59]/5 dark:text-white"
-                          : "border-black/10 bg-black/[0.02] hover:border-black/20 dark:border-white/[0.08] dark:bg-white/[0.01] dark:hover:border-white/15"
+                          ? "border-accent-orange bg-orange-500/[0.08] ring-1 ring-accent-orange/30 shadow-xs text-[#1c1c1c] dark:border-accent-orange dark:bg-accent-orange-subtle dark:text-surface-warm-white dark:ring-0"
+                          : "border-black/10 bg-black/[0.02] hover:border-black/20 hover:bg-black/[0.04] dark:border-white/[0.08] dark:bg-white/[0.02] dark:hover:border-white/15 dark:hover:bg-white/[0.04]"
                       }`}
                     >
-                      <div className="flex flex-col gap-0.5">
-                        <div className="flex items-center gap-1.5">
+                      <div className="min-w-0 flex-1 flex flex-col gap-0.5 pr-2 max-w-[58%]">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="text-sm font-bold text-[#1c1c1c] dark:text-surface-warm-white">
-                            {local.label}
+                            {pack.name}
                           </span>
-                          {key === "popular" && (
-                            <span className="rounded bg-[#ff7a59]/15 px-1.5 py-0.5 text-[8px] font-bold text-[#ff7a59] uppercase tracking-wider">
+                          {pack.isPopular ? (
+                            <span className="rounded-full bg-accent-orange-subtle border border-accent-orange-border px-2 py-0.5 text-[9px] font-semibold text-accent-orange uppercase tracking-wider shrink-0">
                               Terlaris
                             </span>
-                          )}
+                          ) : null}
                         </div>
-                        <span className="text-[10px] text-[#5f5f5d] dark:text-surface-warm-white/55">
-                          {local.desc}
+                        <span className="text-xs text-[#5f5f5d] dark:text-surface-warm-white/60 line-clamp-2 leading-relaxed">
+                          {pack.desc}
                         </span>
-                        <span className="text-xs font-semibold text-[#ff7a59] mt-0.5">
+                        <span className="text-xs font-semibold text-accent-orange mt-1">
                           +{formatEnergy(pack.energy)} Energi
                         </span>
                       </div>
 
-                      <div className="flex flex-col items-end gap-0.5">
+                      <div className="flex flex-col items-end gap-1 shrink-0">
                         {showDiscount ? (
-                          <div className="flex items-center gap-1">
-                            <span className="rounded bg-red-500 text-white font-semibold px-1.5 py-0.5 text-[8px] font-bold">
+                          <div className="flex items-center gap-1.5">
+                            <span className="whitespace-nowrap shrink-0 rounded-full bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 text-[9px] font-bold text-rose-600 dark:bg-rose-400/15 dark:border-rose-400/30 dark:text-rose-300">
                               Hemat {pack.discountPercent}%
                             </span>
-                            <span className="text-[10px] text-[#5f5f5d] dark:text-white/35 line-through">
+                            <span className="whitespace-nowrap text-xs text-[#5f5f5d]/70 dark:text-white/35 line-through">
                               {formatRupiah(pack.compareAtAmount)}
                             </span>
                           </div>
                         ) : null}
-                        <span className="text-sm font-extrabold text-[#f7a441]">
+                        <span className="whitespace-nowrap text-base font-extrabold text-[#1c1c1c] dark:text-surface-warm-white">
                           {formatRupiah(pack.amount)}
                         </span>
                       </div>

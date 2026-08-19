@@ -2,28 +2,36 @@ import { getSetting } from "@/lib/config/app-settings";
 
 export const BOOSTER_PACKS = {
   pocket: {
-    amount: 2900,
-    compareAtAmount: 15000,
+    amount: 4900,
+    compareAtAmount: 7900,
+    desc: "Pas buat uji coba fitur",
     energy: 50000,
-    name: "Pocket Booster",
+    isPopular: false,
+    name: "Eceran Hemat",
   },
   starter: {
-    amount: 8900,
-    compareAtAmount: 45000,
+    amount: 14900,
+    compareAtAmount: 24900,
+    desc: "Ideal untuk toko online pemula",
     energy: 200000,
-    name: "Starter Booster",
+    isPopular: true,
+    name: "Usaha Rintisan",
   },
   popular: {
-    amount: 24900,
-    compareAtAmount: 125000,
+    amount: 39900,
+    compareAtAmount: 69900,
+    desc: "Pendamping tumbuh cepat",
     energy: 600000,
-    name: "Popular Booster",
+    isPopular: false,
+    name: "Laris Manis",
   },
   max: {
-    amount: 59900,
-    compareAtAmount: 299000,
+    amount: 99900,
+    compareAtAmount: 179900,
+    desc: "Energi tambahan melimpah",
     energy: 1500000,
-    name: "Max Booster",
+    isPopular: false,
+    name: "Juragan Besar",
   },
 } as const;
 
@@ -32,25 +40,37 @@ export type BoosterPackId = keyof typeof BOOSTER_PACKS;
 // Resolves pack pricing from AppSetting (DB-first). `amount` is charged;
 // `compareAtAmount` is list price for discount display only (not billed).
 // Client UI must not read BOOSTER_PACKS amounts directly — use listBoosterPacks.
-export async function getBoosterPack(id: BoosterPackId) {
+export async function getBoosterPack(
+  id: BoosterPackId,
+  popularPackIdOverride?: string,
+) {
   const fallback = BOOSTER_PACKS[id];
-  const [amount, energy, compareAtAmount] = await Promise.all([
-    getSetting<number>(`booster.${id}.amount`, fallback.amount),
-    getSetting<number>(`booster.${id}.energy`, fallback.energy),
-    getSetting<number>(
-      `booster.${id}.compare_at_amount`,
-      fallback.compareAtAmount,
-    ),
-  ]);
-  return { amount, compareAtAmount, energy, name: fallback.name };
+  const [amount, energy, compareAtAmount, name, desc, popularPackId] =
+    await Promise.all([
+      getSetting<number>(`booster.${id}.amount`, fallback.amount),
+      getSetting<number>(`booster.${id}.energy`, fallback.energy),
+      getSetting<number>(
+        `booster.${id}.compare_at_amount`,
+        fallback.compareAtAmount,
+      ),
+      getSetting<string>(`booster.${id}.name`, fallback.name),
+      getSetting<string>(`booster.${id}.desc`, fallback.desc),
+      popularPackIdOverride !== undefined
+        ? Promise.resolve(popularPackIdOverride)
+        : getSetting<string>("booster.popular_pack_id", "starter"),
+    ]);
+  const isPopular = popularPackId === id;
+  return { amount, compareAtAmount, desc, energy, isPopular, name };
 }
 
 export type BoosterPackResolved = {
   id: BoosterPackId;
   amount: number;
   compareAtAmount: number;
+  desc: string;
   discountPercent: number;
   energy: number;
+  isPopular: boolean;
   name: string;
 };
 
@@ -71,18 +91,24 @@ export function discountPercentFromPrices(
 
 export async function listBoosterPacks(): Promise<BoosterPackResolved[]> {
   const ids = Object.keys(BOOSTER_PACKS) as BoosterPackId[];
+  const popularPackId = await getSetting<string>(
+    "booster.popular_pack_id",
+    "starter",
+  );
   return Promise.all(
     ids.map(async (id) => {
-      const pack = await getBoosterPack(id);
+      const pack = await getBoosterPack(id, popularPackId);
       return {
         id,
         amount: pack.amount,
         compareAtAmount: pack.compareAtAmount,
+        desc: pack.desc,
         discountPercent: discountPercentFromPrices(
           pack.amount,
           pack.compareAtAmount,
         ),
         energy: pack.energy,
+        isPopular: pack.isPopular,
         name: pack.name,
       };
     }),

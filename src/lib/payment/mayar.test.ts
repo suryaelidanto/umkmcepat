@@ -190,7 +190,9 @@ describe("getBoosterPack", () => {
     expect(result).toEqual({
       amount: BOOSTER_PACKS.starter.amount,
       compareAtAmount: BOOSTER_PACKS.starter.compareAtAmount,
+      desc: BOOSTER_PACKS.starter.desc,
       energy: BOOSTER_PACKS.starter.energy,
+      isPopular: BOOSTER_PACKS.starter.isPopular,
       name: BOOSTER_PACKS.starter.name,
     });
     vi.doUnmock("@/lib/config/app-settings");
