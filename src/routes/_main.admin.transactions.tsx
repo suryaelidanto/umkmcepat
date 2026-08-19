@@ -191,11 +191,13 @@ function TransactionsPage() {
               ) : null}
               {t.status === "PENDING" ? (
                 <button
-                  className="mt-spacing-2 rounded-radius-md border border-black/15 bg-black/[0.04] px-spacing-3 py-spacing-2 text-sm text-[#1c1c1c] transition hover:bg-black/[0.08] dark:border-surface-warm-white/15 dark:bg-transparent dark:text-surface-warm-white dark:hover:bg-surface-warm-white/10"
+                  className="mt-spacing-2 rounded-lg border border-accent-orange/30 bg-accent-orange/10 px-3 py-1.5 text-xs font-bold text-accent-orange transition hover:bg-accent-orange/20 shadow-2xs"
                   onClick={() => verify.mutate(t.orderId)}
                   type="button"
                 >
-                  Verifikasi
+                  {verify.isPending && verify.variables === t.orderId
+                    ? "Memverifikasi..."
+                    : "Verifikasi Pembayaran"}
                 </button>
               ) : null}
             </div>

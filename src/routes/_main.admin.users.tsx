@@ -215,19 +215,25 @@ function UsersPage() {
                 <span>{u.projectsCount} proyek</span>
                 {u.bannedAt ? (
                   <AdminStatusBadge tone="danger">Diblokir</AdminStatusBadge>
-                ) : null}
+                ) : (
+                  <AdminStatusBadge tone="neutral">Aktif</AdminStatusBadge>
+                )}
               </div>
             </div>
-            <div className="flex gap-spacing-2">
+            <div className="flex items-center gap-spacing-2">
               <button
-                className="rounded-radius-md border border-black/15 bg-black/[0.02] px-spacing-3 py-spacing-2 text-sm text-[#1c1c1c] hover:bg-black/5 dark:border-surface-warm-white/15 dark:bg-surface-warm-white/5 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/10"
+                className="rounded-lg border border-black/15 bg-white px-3 py-1.5 text-xs font-semibold text-[#1c1c1c] shadow-2xs hover:bg-black/5 dark:border-surface-warm-white/15 dark:bg-white/[0.04] dark:text-surface-warm-white dark:hover:bg-white/10 transition"
                 onClick={() => openGrant(u)}
                 type="button"
               >
-                Tambah energi
+                + Tambah Energi
               </button>
               <button
-                className="rounded-radius-md border border-black/15 bg-black/[0.02] px-spacing-3 py-spacing-2 text-sm text-[#1c1c1c] hover:bg-black/5 dark:border-surface-warm-white/15 dark:bg-surface-warm-white/5 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/10"
+                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition shadow-2xs ${
+                  u.bannedAt
+                    ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:border-emerald-400/30 dark:bg-emerald-400/15 dark:text-emerald-300"
+                    : "border border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20"
+                }`}
                 onClick={() =>
                   ban.mutate({
                     action: u.bannedAt ? "unban" : "ban",
@@ -236,7 +242,11 @@ function UsersPage() {
                 }
                 type="button"
               >
-                {u.bannedAt ? "Buka blokir" : "Blokir"}
+                {ban.isPending && ban.variables?.id === u.id
+                  ? "Memproses..."
+                  : u.bannedAt
+                    ? "Buka Blokir"
+                    : "Blokir User"}
               </button>
             </div>
           </div>
