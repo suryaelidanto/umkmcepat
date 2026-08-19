@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" fill="none">
+  <!-- Background -->
+  <rect width="1200" height="630" fill="#eceae4"/>
+  <rect x="24" y="24" width="1152" height="582" rx="24" fill="#fcfbf8" stroke="#1c1c1c" stroke-opacity="0.08" stroke-width="2"/>
+  
+  <!-- Subtle Grid Accent -->
+  <g opacity="0.04" stroke="#1c1c1c" stroke-width="1">
+    <line x1="120" y1="0" x2="120" y2="630" />
+    <line x1="240" y1="0" x2="240" y2="630" />
+    <line x1="360" y1="0" x2="360" y2="630" />
+    <line x1="480" y1="0" x2="480" y2="630" />
+    <line x1="600" y1="0" x2="600" y2="630" />
+    <line x1="720" y1="0" x2="720" y2="630" />
+    <line x1="840" y1="0" x2="840" y2="630" />
+    <line x1="960" y1="0" x2="960" y2="630" />
+    <line x1="1080" y1="0" x2="1080" y2="630" />
+  </g>
+
+  <!-- Logo Mark -->
+  <g transform="translate(100, 100)">
+    <rect width="72" height="72" rx="18" fill="#1c1c1c"/>
+    <path d="M18 20v22c0 11 7 19 18 19s18-8 18-19V20h-8v22c0 7-4 11-10 11s-10-4-10-11V20H18Z" fill="#fcfbf8"/>
+    <path d="M31 20h10v24c0 3-2 5-5 5s-5-2-5-5V20Z" fill="#1c1c1c"/>
+    <path d="M36 26v15" stroke="#d97706" stroke-width="4.5" stroke-linecap="round"/>
+    <path d="M29 33l7-7 7 7" fill="none" stroke="#d97706" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="190" y="148" font-family="system-ui, -apple-system, sans-serif" font-size="32" font-weight="700" fill="#1c1c1c" letter-spacing="-0.02em">UMKM Cepat</text>
+
+  <!-- Main Headline -->
+  <text x="100" y="270" font-family="system-ui, -apple-system, sans-serif" font-size="58" font-weight="800" fill="#1c1c1c" letter-spacing="-0.04em">
+    Bikin Website UMKM
+  </text>
+  <text x="100" y="340" font-family="system-ui, -apple-system, sans-serif" font-size="58" font-weight="800" fill="#1c1c1c" letter-spacing="-0.04em">
+    dalam 5 Menit.
+  </text>
+
+  <!-- Tagline / Subtitle -->
+  <text x="100" y="420" font-family="system-ui, -apple-system, sans-serif" font-size="26" font-weight="400" fill="#5f5f5d">
+    Website usaha, daftar produk, dan tombol pesan WhatsApp langsung jadi.
+  </text>
+
+  <!-- Badges / Bottom bar -->
+  <g transform="translate(100, 480)">
+    <rect width="180" height="46" rx="23" fill="#1c1c1c"/>
+    <text x="90" y="29" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="600" fill="#fcfbf8" text-anchor="middle">100% Gratis</text>
+  </g>
+  <g transform="translate(296, 480)">
+    <rect width="190" height="46" rx="23" fill="#eceae4"/>
+    <text x="95" y="29" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="600" fill="#1c1c1c" text-anchor="middle">Tanpa Koding</text>
+  </g>
+  <g transform="translate(502, 480)">
+    <rect width="210" height="46" rx="23" fill="#eceae4"/>
+    <text x="105" y="29" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="600" fill="#1c1c1c" text-anchor="middle">Order ke WhatsApp</text>
+  </g>
+</svg>

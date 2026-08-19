@@ -41,6 +41,9 @@ describe("sitemap", () => {
     const body = await res.text();
 
     expect(res.status).toBe(200);
+    expect(body).toContain("/waitlist");
+    expect(body).toContain("/terms");
+    expect(body).toContain("/privacy");
     expect(body).toContain("/p/kafe");
     expect(body).not.toContain("/p/warung");
   });

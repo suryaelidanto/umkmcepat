@@ -26,10 +26,9 @@ const loadRootConfig = createServerFn({ method: "GET" }).handler(async () => {
 });
 
 const siteUrl = "https://umkmcepat.com";
-const siteTitle =
-  "Website UMKM Gratis dalam 5 Menit - Tanpa Ngoding | UMKM Cepat";
+const siteTitle = "Bikin Website UMKM dalam 5 Menit | UMKM Cepat";
 const siteDescription =
-  "Bikin website UMKM gratis dalam 5 menit pakai AI. Tanpa ngoding, siap dibagikan ke WhatsApp, gampang dicari pembeli. Coba UMKM Cepat!";
+  "Tulis infomu, dapatkan website usaha rapi dengan daftar produk, promo, dan tombol pesan WhatsApp. 100% gratis, siap dipakai promosi hari ini.";
 
 const jsonLd = {
   "@context": "https://schema.org",
@@ -81,7 +80,7 @@ export const Route = createRootRoute({
       { property: "og:description", content: siteDescription },
       { property: "og:url", content: siteUrl },
       { property: "og:site_name", content: "UMKM Cepat" },
-      { property: "og:image", content: `${siteUrl}/logo.svg` },
+      { property: "og:image", content: `${siteUrl}/brand/og-preview.svg` },
       { property: "og:locale", content: "id_ID" },
       { property: "og:type", content: "website" },
     ],

@@ -22,8 +22,8 @@ export function Footer() {
               <span>UMKM Cepat</span>
             </Link>
             <p className="mt-2 max-w-md text-sm leading-6 text-[#5f5f5d] dark:text-surface-warm-white/50">
-              Bikin website UMKM instan tanpa ngoding, siap jualan dalam
-              hitungan menit.
+              Bikin website usaha dan promosi instan tanpa koding, siap jualan
+              dalam hitungan menit.
             </p>
           </div>
 
