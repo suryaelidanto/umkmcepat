@@ -68,11 +68,11 @@ function getProjectCreateIdempotencyKey(prompt: string) {
 }
 
 const PROMPT_PLACEHOLDERS = [
-  "Saya jual katering rumahan di Jogja, mau ada daftar menu harian sama tombol order WhatsApp...",
-  "Tolong buatkan website pangkas rambut pria, ada daftar harga potong sama jam buka...",
-  "Mau website laundry kiloan, butuh info harga per kilo, alamat outlet, dan kontak WhatsApp...",
-  "Tolong buatin website bengkel motor & ganti oli di Bandung, ada daftar servis, lokasi maps, jam operasional, dan nomor darurat...",
-  "Saya mau website kedai kopi susu & roti bakar, tolong tampilkan menu favorit, promo mingguan, alamat cabang, dan tombol pesan WhatsApp...",
+  "Saya punya kedai kopi, mau tampilkan menu minuman favorit, lokasi cabang, dan jam buka...",
+  "Tolong buatkan website barbershop saya, ada daftar paket potong rambut, harga, dan testimoni...",
+  "Saya jualan fashion hijab dan gamis, butuh katalog produk terbaru, pilihan warna, dan info promo...",
+  "Buatkan website jasa servis AC panggilan saya, ada daftar layanan, area jangkauan, dan info garansi...",
+  "Saya usaha katering harian dan nasi box, mau ada paket menu mingguan dan rincian harga...",
 ];
 
 export function HomePromptForm({
@@ -91,47 +91,47 @@ export function HomePromptForm({
   const hasAutoContinued = useRef(false);
   const isSubmittingRef = useRef(false);
 
-  // Typewriter placeholder animation
+  // Smooth clean typewriter placeholder
   const [placeholder, setPlaceholder] = useState("");
   const [phraseIndex, setPhraseIndex] = useState(0);
-  const [charIndex, setCharIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (prompt) {
+      if (placeholder) {
+        setPlaceholder("");
+      }
       return;
     }
 
     const currentPhrase = PROMPT_PLACEHOLDERS[phraseIndex];
-    let timer: ReturnType<typeof setTimeout>;
+    let delay = isDeleting ? 14 : 28;
 
-    if (!isDeleting && charIndex < currentPhrase.length) {
-      // Type forward
-      timer = setTimeout(() => {
-        setPlaceholder(currentPhrase.slice(0, charIndex + 1));
-        setCharIndex((prev) => prev + 1);
-      }, 25);
-    } else if (!isDeleting && charIndex >= currentPhrase.length) {
-      // Pause 3 seconds at full text
-      timer = setTimeout(() => {
-        setIsDeleting(true);
-      }, 3000);
-    } else if (isDeleting && charIndex > 0) {
-      // Untype backward fast
-      timer = setTimeout(() => {
-        setPlaceholder(currentPhrase.slice(0, charIndex - 1));
-        setCharIndex((prev) => prev - 1);
-      }, 12);
-    } else if (isDeleting && charIndex === 0) {
-      // 1-second pause when empty, then start next phrase (loops infinitely)
-      timer = setTimeout(() => {
-        setIsDeleting(false);
-        setPhraseIndex((prev) => (prev + 1) % PROMPT_PLACEHOLDERS.length);
-      }, 1000);
+    if (!isDeleting && placeholder === currentPhrase) {
+      delay = 2600;
+    } else if (isDeleting && placeholder === "") {
+      delay = 400;
     }
 
+    const timer = setTimeout(() => {
+      if (!isDeleting) {
+        if (placeholder === currentPhrase) {
+          setIsDeleting(true);
+        } else {
+          setPlaceholder(currentPhrase.slice(0, placeholder.length + 1));
+        }
+      } else {
+        if (placeholder === "") {
+          setIsDeleting(false);
+          setPhraseIndex((prev) => (prev + 1) % PROMPT_PLACEHOLDERS.length);
+        } else {
+          setPlaceholder(placeholder.slice(0, -1));
+        }
+      }
+    }, delay);
+
     return () => clearTimeout(timer);
-  }, [charIndex, isDeleting, phraseIndex, prompt]);
+  }, [placeholder, isDeleting, phraseIndex, prompt]);
 
   // Waitlist gate: never show the create form to signed-in users who have not
   // been approved. While the status query is still loading, keep the form

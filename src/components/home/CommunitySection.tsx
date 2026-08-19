@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { Plus, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
 
 import { ScrollReveal } from "@/components/home/ScrollReveal";
 import { SponsorTable } from "@/components/home/SponsorTable";
@@ -40,24 +39,6 @@ export function reserveContributorHeight(
   }
 
   return current === undefined ? measured : Math.max(current, measured);
-}
-
-function useReservedContributorHeight(state: "pending" | "loaded" | "empty") {
-  const ref = useRef<HTMLDivElement>(null);
-  const [height, setHeight] = useState<number>();
-
-  useEffect(() => {
-    const element = ref.current;
-    if (!element) {
-      return;
-    }
-
-    setHeight((current) =>
-      reserveContributorHeight(current, element.getBoundingClientRect().height),
-    );
-  }, [state]);
-
-  return { height, ref };
 }
 
 const sponsors = [
@@ -107,7 +88,7 @@ function MiniChart({
   maxCommits: number;
 }) {
   return (
-    <div className="mt-spacing-5 flex h-16 items-end gap-spacing-1.5">
+    <div className="mt-spacing-3 flex h-14 items-end gap-spacing-1.5">
       {weeks.map((week) => {
         const height = maxCommits
           ? Math.max((week.commits / maxCommits) * 100, week.commits ? 8 : 3)
@@ -172,14 +153,7 @@ export function CommunitySection() {
       (contributor.weeks ?? []).map((week) => week.commits),
     ),
   );
-  const contributorState = contributorsQuery.isPending
-    ? "pending"
-    : contributors.length > 0
-      ? "loaded"
-      : "empty";
-  const contributorLayout = useReservedContributorHeight(contributorState);
-  const showContributorList =
-    contributorState !== "empty" || contributorLayout.height !== undefined;
+  const isLoaded = contributors.length > 0;
 
   return (
     <section className="bg-[#eceae4] px-4 py-spacing-14 text-[#1c1c1c] transition-colors duration-200 dark:bg-[#151515] dark:text-surface-warm-white sm:px-spacing-9 lg:px-spacing-10">
@@ -216,70 +190,61 @@ export function CommunitySection() {
               </div>
             </div>
 
-            <div
-              ref={contributorLayout.ref}
-              style={
-                contributorLayout.height !== undefined
-                  ? { minHeight: `${contributorLayout.height}px` }
-                  : undefined
-              }
-            >
-              {showContributorList ? (
-                <div className="mt-spacing-8 divide-y divide-black/10 border-t border-black/10 dark:divide-white/[0.07] dark:border-white/[0.07]">
-                  {contributors.length === 0 ? (
-                    <ContributorSkeleton />
-                  ) : (
-                    contributors.map((contributor, index) => (
-                      <div
-                        key={contributor.login}
-                        className="flex flex-col gap-spacing-5 py-spacing-6 sm:flex-row sm:items-center sm:justify-between"
-                      >
-                        <div className="flex min-w-0 items-center gap-spacing-4">
-                          <span className="w-5 shrink-0 font-mono text-sm text-[#5f5f5d] dark:text-surface-warm-white/44">
-                            #{index + 1}
-                          </span>
+            <div>
+              <div className="mt-spacing-8 divide-y divide-black/10 border-t border-black/10 dark:divide-white/[0.07] dark:border-white/[0.07]">
+                {!isLoaded ? (
+                  <ContributorSkeleton />
+                ) : (
+                  contributors.map((contributor, index) => (
+                    <div
+                      key={contributor.login}
+                      className="flex flex-col gap-spacing-5 py-spacing-6 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="flex min-w-0 items-center gap-spacing-4">
+                        <span className="w-5 shrink-0 font-mono text-sm text-[#5f5f5d] dark:text-surface-warm-white/44">
+                          #{index + 1}
+                        </span>
+                        <a
+                          href={contributor.profileUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="shrink-0"
+                        >
+                          <Image
+                            src={contributor.avatarUrl}
+                            alt={contributor.login}
+                            width={40}
+                            height={40}
+                            className="size-10 rounded-full border border-black/10 bg-black/5 dark:border-white/10 dark:bg-white/10"
+                          />
+                        </a>
+                        <div className="min-w-0">
                           <a
                             href={contributor.profileUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="shrink-0"
+                            className="truncate text-base font-semibold text-[#1c1c1c] hover:underline dark:text-surface-warm-white"
                           >
-                            <Image
-                              src={contributor.avatarUrl}
-                              alt={contributor.login}
-                              width={40}
-                              height={40}
-                              className="size-10 rounded-full border border-black/10 bg-black/5 dark:border-white/10 dark:bg-white/10"
-                            />
+                            {contributor.login}
                           </a>
-                          <div className="min-w-0">
-                            <a
-                              href={contributor.profileUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="truncate text-base font-semibold text-[#1c1c1c] hover:underline dark:text-surface-warm-white"
-                            >
-                              {contributor.login}
-                            </a>
-                            <p className="text-xs text-[#5f5f5d] dark:text-surface-warm-white/58">
-                              {formatCompact(contributor.totalCommits)} commit
-                            </p>
-                          </div>
+                          <p className="text-xs text-[#5f5f5d] dark:text-surface-warm-white/58">
+                            {formatCompact(contributor.totalCommits)} commit
+                          </p>
                         </div>
-
-                        {contributor.weeks ? (
-                          <div className="mt-spacing-5 h-16 w-full sm:mt-0 sm:w-48">
-                            <MiniChart
-                              weeks={contributor.weeks}
-                              maxCommits={maxCommits}
-                            />
-                          </div>
-                        ) : null}
                       </div>
-                    ))
-                  )}
-                </div>
-              ) : null}
+
+                      {contributor.weeks ? (
+                        <div className="mt-spacing-5 h-16 w-full sm:mt-0 sm:w-48">
+                          <MiniChart
+                            weeks={contributor.weeks}
+                            maxCommits={maxCommits}
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           </div>
         </ScrollReveal>
