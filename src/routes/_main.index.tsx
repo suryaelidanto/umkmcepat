@@ -319,7 +319,7 @@ function HomePage() {
   return (
     <div className="cursor-default bg-[#eceae4] text-[#1c1c1c] transition-colors duration-200 dark:bg-[#151515] dark:text-surface-warm-white">
       <ResetCursorOnMount />
-      <section className="relative isolate overflow-hidden px-4 py-spacing-14 sm:px-spacing-9 lg:px-spacing-10">
+      <section className="relative isolate overflow-hidden px-4 pt-6 pb-12 sm:px-spacing-9 sm:py-spacing-14 lg:px-spacing-10">
         <HeroAuroraBackground />
 
         <HeroContentMotion>

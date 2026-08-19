@@ -331,22 +331,19 @@ describe("support service", () => {
   });
 
   describe("getUnreadCounts", () => {
-    it("returns open count for user", async () => {
+    it("returns open tickets with latest admin response for user", async () => {
       (
-        prisma.supportTicket.count as ReturnType<typeof vi.fn>
-      ).mockResolvedValue(5);
+        prisma.supportTicket.findMany as ReturnType<typeof vi.fn>
+      ).mockResolvedValue([
+        { id: "ticket-1", messages: [{ authorRole: "admin" }] },
+        { id: "ticket-2", messages: [{ authorRole: "user" }] },
+      ]);
 
       const result = await getUnreadCounts({
         userId: "user-1",
         isAdmin: false,
       });
-      expect(result.userUnreadCount).toBe(5);
-      expect(prisma.supportTicket.count).toHaveBeenCalledWith({
-        where: {
-          userId: "user-1",
-          status: SupportTicketStatus.OPEN,
-        },
-      });
+      expect(result.userUnreadCount).toBe(1);
     });
 
     it("returns open with latest user message count for admin", async () => {

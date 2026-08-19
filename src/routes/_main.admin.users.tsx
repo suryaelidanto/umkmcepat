@@ -9,6 +9,7 @@ import { AdminStatusBadge } from "@/components/admin/status/AdminStatusBadge";
 import { AdminStatusFilter } from "@/components/admin/status/AdminStatusFilter";
 import { SensitiveText } from "@/components/admin/streamer-mode/SensitiveText";
 import { useStreamerMode } from "@/components/admin/streamer-mode/streamer-mode-context";
+import { AvatarFrame } from "@/components/ui/avatar-frame";
 import {
   Dialog,
   DialogContent,
@@ -202,61 +203,68 @@ function UsersPage() {
           <div className="flex flex-col gap-spacing-2">
             {users.map((u) => (
               <div
-                className="flex items-center justify-between rounded-radius-md border border-black/10 bg-[#fcfbf8] p-spacing-3 text-sm text-[#1c1c1c] dark:border-surface-warm-white/12 dark:bg-surface-warm-white/5 dark:text-surface-warm-white"
+                className="flex items-center justify-between rounded-xl border border-black/10 bg-[#fcfbf8] p-3 sm:p-4 text-sm text-[#1c1c1c] dark:border-surface-warm-white/12 dark:bg-surface-warm-white/5 dark:text-surface-warm-white shadow-2xs"
                 key={u.id}
               >
-                <div>
-                  <p className="font-medium text-[#1c1c1c] dark:text-surface-warm-white">
-                    {streamerMode && u.name ? (
-                      <SensitiveText kind="name" value={u.name} />
-                    ) : (
-                      (u.name ?? "Tanpa nama")
-                    )}
-                  </p>
-                  <p className="text-[#5f5f5d] dark:text-surface-warm-white/70">
-                    {streamerMode && u.email ? (
-                      <SensitiveText kind="email" value={u.email} />
-                    ) : (
-                      u.email
-                    )}
-                  </p>
-                  <div className="mt-spacing-1 flex flex-wrap items-center gap-spacing-2 text-xs text-[#5f5f5d] dark:text-surface-warm-white/70">
-                    <span className="font-semibold text-[#1c1c1c] dark:text-surface-warm-white">
-                      {streamerMode ? (
-                        <SensitiveText
-                          kind="amount"
-                          value={`${formatGroupedNumber(u.energyRemaining)} Energi`}
-                        />
+                <div className="flex items-center gap-3.5 min-w-0 pr-2">
+                  <AvatarFrame
+                    seed={u.name || u.email || u.id}
+                    className="size-10 sm:size-11 shrink-0 rounded-full border border-black/10 bg-black/5 text-xs font-bold dark:border-white/10 dark:bg-white/10 shadow-2xs"
+                  />
+                  <div className="min-w-0">
+                    <p className="font-semibold text-[#1c1c1c] dark:text-surface-warm-white truncate">
+                      {streamerMode && u.name ? (
+                        <SensitiveText kind="name" value={u.name} />
                       ) : (
-                        `${formatGroupedNumber(u.energyRemaining)} Energi`
+                        (u.name ?? "Tanpa nama")
                       )}
-                    </span>
-                    <span>•</span>
-                    <span>{u.projectsCount} proyek</span>
-                    <span>•</span>
-                    <span>
-                      Terdaftar{" "}
-                      {new Date(u.createdAt).toLocaleDateString("id-ID")}
-                    </span>
-                    {u.bannedAt ? (
-                      <AdminStatusBadge tone="danger">
-                        Diblokir
-                      </AdminStatusBadge>
-                    ) : (
-                      <AdminStatusBadge tone="neutral">Aktif</AdminStatusBadge>
-                    )}
+                    </p>
+                    <p className="text-xs text-[#5f5f5d] dark:text-surface-warm-white/70 truncate">
+                      {streamerMode && u.email ? (
+                        <SensitiveText kind="email" value={u.email} />
+                      ) : (
+                        u.email
+                      )}
+                    </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-[#5f5f5d] dark:text-surface-warm-white/70">
+                      <span className="font-bold text-accent-orange">
+                        {streamerMode ? (
+                          <SensitiveText
+                            kind="amount"
+                            value={`${formatGroupedNumber(u.energyRemaining)} Energi`}
+                          />
+                        ) : (
+                          `${formatGroupedNumber(u.energyRemaining)} Energi`
+                        )}
+                      </span>
+                      <span>•</span>
+                      <span>{u.projectsCount} proyek</span>
+                      <span>•</span>
+                      <span>
+                        {new Date(u.createdAt).toLocaleDateString("id-ID")}
+                      </span>
+                      {u.bannedAt ? (
+                        <AdminStatusBadge tone="danger">
+                          Diblokir
+                        </AdminStatusBadge>
+                      ) : (
+                        <AdminStatusBadge tone="neutral">
+                          Aktif
+                        </AdminStatusBadge>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-spacing-2">
+                <div className="flex items-center gap-2 shrink-0">
                   <button
-                    className="rounded-lg border border-black/15 bg-white px-3 py-1.5 text-xs font-semibold text-[#1c1c1c] shadow-2xs hover:bg-black/5 dark:border-surface-warm-white/15 dark:bg-white/[0.04] dark:text-surface-warm-white dark:hover:bg-white/10 transition"
+                    className="rounded-lg border border-black/15 bg-white px-3 py-1.5 text-xs font-semibold text-[#1c1c1c] shadow-2xs hover:bg-black/5 dark:border-surface-warm-white/15 dark:bg-white/[0.04] dark:text-surface-warm-white dark:hover:bg-white/10 transition cursor-pointer"
                     onClick={() => openGrant(u)}
                     type="button"
                   >
                     + Tambah Energi
                   </button>
                   <button
-                    className={`rounded-lg px-3 py-1.5 text-xs font-bold transition shadow-2xs ${
+                    className={`rounded-lg px-3 py-1.5 text-xs font-bold transition shadow-2xs cursor-pointer ${
                       u.bannedAt
                         ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:border-emerald-400/30 dark:bg-emerald-400/15 dark:text-emerald-300"
                         : "border border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20"

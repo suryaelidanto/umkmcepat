@@ -323,13 +323,24 @@ export async function getUnreadCounts(actor: {
       (t) => t.messages.length > 0 && t.messages[0].authorRole === "user",
     ).length;
   } else {
-    // User unread count: count of own OPEN tickets
-    userUnreadCount = await prisma.supportTicket.count({
+    // User unread count: count of OPEN tickets where the latest message was written by 'admin'
+    const userOpenTickets = await prisma.supportTicket.findMany({
       where: {
         userId: actor.userId,
         status: SupportTicketStatus.OPEN,
       },
+      select: {
+        id: true,
+        messages: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { authorRole: true },
+        },
+      },
     });
+    userUnreadCount = userOpenTickets.filter(
+      (t) => t.messages.length > 0 && t.messages[0].authorRole === "admin",
+    ).length;
   }
 
   const counts = { userUnreadCount, adminUnreadCount };

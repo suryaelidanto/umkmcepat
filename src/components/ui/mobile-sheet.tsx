@@ -24,16 +24,8 @@ export function MobileSheet({
         <DialogPrimitive.Content asChild>
           <motion.div
             animate={{ y: 0 }}
-            drag="y"
-            dragConstraints={{ bottom: 0, top: 0 }}
-            dragElastic={{ bottom: 0.6, top: 0 }}
             exit={{ y: "100%" }}
             initial={{ y: "100%" }}
-            onDragEnd={(_, info) => {
-              if (info.offset.y > 100) {
-                onOpenChange(false);
-              }
-            }}
             className="fixed inset-x-0 bottom-0 z-50 max-h-[85dvh] overflow-y-auto rounded-t-2xl bg-[#eceae4] p-spacing-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] text-[#1c1c1c] shadow-2xl transition-colors duration-200 dark:bg-[#151515] dark:text-surface-warm-white md:hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom-full data-[state=open]:slide-in-from-bottom-full"
             transition={{ damping: 28, stiffness: 280, type: "spring" }}
           >

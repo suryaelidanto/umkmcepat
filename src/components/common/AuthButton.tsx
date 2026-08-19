@@ -230,7 +230,7 @@ export function AuthButton() {
                   <Link
                     href="/profile"
                     onClick={() => setOpen(false)}
-                    className="flex items-center gap-3 px-3 py-3 text-sm font-medium"
+                    className="flex items-center gap-3 px-3 py-3 text-sm font-medium hover:bg-black/5 active:bg-black/10 dark:hover:bg-white/5 dark:active:bg-white/10 rounded-lg transition"
                   >
                     <UserRound className="size-4 text-[#5f5f5d] dark:text-surface-warm-white/62" />
                     Profil
@@ -239,17 +239,30 @@ export function AuthButton() {
                     <Link
                       href="/admin"
                       onClick={() => setOpen(false)}
-                      className="flex items-center gap-3 px-3 py-3 text-sm font-medium"
+                      className="flex items-center gap-3 px-3 py-3 text-sm font-medium hover:bg-black/5 active:bg-black/10 dark:hover:bg-white/5 dark:active:bg-white/10 rounded-lg transition"
                     >
                       <Shield className="size-4 text-[#1c1c1c] dark:text-surface-warm-white" />
                       Admin
                     </Link>
                   ) : null}
+                  {isBlockedPage ? null : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOpen(false);
+                        setBoosterOpen(true);
+                      }}
+                      className="flex w-full items-center gap-3 px-3 py-3 text-left text-sm font-medium text-accent-orange hover:bg-accent-orange-subtle active:bg-accent-orange-subtle/80 rounded-lg transition cursor-pointer"
+                    >
+                      <Zap className="size-4 fill-accent-orange/10 text-accent-orange" />
+                      <span>Tambah Energi</span>
+                    </button>
+                  )}
                   {!isBlockedPage ? (
                     <Link
                       href="/support"
                       onClick={() => setOpen(false)}
-                      className="flex items-center justify-between px-3 py-3 text-sm font-medium"
+                      className="flex items-center justify-between px-3 py-3 text-sm font-medium hover:bg-black/5 active:bg-black/10 dark:hover:bg-white/5 dark:active:bg-white/10 rounded-lg transition"
                     >
                       <div className="flex items-center gap-3">
                         <LifeBuoy className="size-4 text-[#5f5f5d] dark:text-surface-warm-white/62" />
@@ -268,7 +281,7 @@ export function AuthButton() {
                       setOpen(false);
                       void signOut({ callbackUrl: "/" });
                     }}
-                    className="flex w-full items-center gap-3 px-3 py-3 text-left text-sm font-medium text-destructive"
+                    className="flex w-full items-center gap-3 px-3 py-3 text-left text-sm font-medium text-destructive hover:bg-destructive-subtle active:bg-destructive-subtle/80 rounded-lg transition cursor-pointer"
                   >
                     <LogOut className="size-4 text-destructive" />
                     Keluar
