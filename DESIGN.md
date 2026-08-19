@@ -291,4 +291,4 @@ Generated UMKM apps use a separate, locked design system from the platform contr
 - Do not use side-stripe borders, random badges, emoji-led builder cards, or decorative motion in product workflows.
 - Do not invent generated-business claims, prices, stock, addresses, awards, checkout, login, or persistence.
 - Do not add new visual language without updating this file and Storybook when reusable.
-- Do not commit local artifacts: `.env`, uploads, logs, `.next/`, `.pi/`, `.browser/`, `graphify-out/`, `storybook-static/`, coverage.
+- Do not commit local artifacts: `.env`, uploads, logs, `.next/`, `.pi/`, `.browser/`, `graphify-out/`, coverage.

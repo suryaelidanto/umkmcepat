@@ -45,10 +45,8 @@ Validate with the same gate the failing step runs:
 
 | Failing CI step | Local check |
 |---|---|
-| Storybook a11y / component tests | `bun run test:storybook` |
 | `bun run verify` (lint/type/test/knip) | `bun run check`; then `verify` if check passes |
 | `bun run build` | `bun run build` |
-| Chromatic | skip locally; rely on CI |
 
 Run `bun run check` before any push — mandatory. Never push a fix you have not seen green locally; a blind "push and see" burns a full CI cycle and is the guessing this skill forbids. If the step can't be reproduced locally (Chromatic, env-only), state that, push, and watch.
 

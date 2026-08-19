@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-
 import { describe, expect, it } from "vitest";
 
 import {
@@ -118,15 +116,38 @@ describe("professional calibration eligibility", () => {
 });
 
 describe("professional release manifest", () => {
-  it("strictly parses the tracked initial manifest", () => {
-    const value: unknown = JSON.parse(
-      readFileSync("config/professional-site-quality-release.json", "utf8"),
-    );
-    expect(parseProfessionalSiteReleaseManifest(value)).toMatchObject({
+  it("strictly parses the manifest fixture", () => {
+    const fixture = {
       schemaVersion: 1,
       approved: false,
       requestedModelId: "default-combo",
-      benchmark: { completedTreatmentTrials: 0 },
+      allowedWriterModelIds: ["default-combo", "served-writer"],
+      allowedCriticModelIds: ["served-critic"],
+      criticPromptVersion: "professional-static-review-v1",
+      kitVersion: 2,
+      evaluatorVersion: "4",
+      corpusVersion: "professional-static-v3",
+      calibration: {
+        samples: 50,
+        seededDefects: 30,
+        blockerPrecision: 0.95,
+        blockerRecall: 0.95,
+        falseReadyRate: 0.02,
+        p0FalseAccepts: 0,
+      },
+      benchmark: {
+        runId: "run-1",
+        completedTreatmentTrials: 24,
+        treatmentReadyRate: 0.95,
+        decisiveTreatmentPreference: 0.8,
+      },
+      ownerApprovedAt: null,
+    };
+    expect(parseProfessionalSiteReleaseManifest(fixture)).toMatchObject({
+      schemaVersion: 1,
+      approved: false,
+      requestedModelId: "default-combo",
+      benchmark: { completedTreatmentTrials: 24 },
     });
   });
 

@@ -747,34 +747,6 @@ export function EmptyPreviewState() {
   );
 }
 
-export function ModePill({
-  mode,
-  tone,
-}: {
-  mode: "Diskusi" | "Buat";
-  tone: "idle" | "busy";
-}) {
-  const accent = mode === "Buat" ? "#ffcb7a" : "#8ce99a";
-
-  return (
-    <span className="inline-flex items-center gap-spacing-2 text-xs font-medium text-surface-warm-white/48">
-      <span className="relative flex size-1.5 shrink-0 items-center justify-center">
-        {tone === "busy" ? (
-          <span
-            className="absolute inline-flex size-full animate-ping rounded-full opacity-40"
-            style={{ backgroundColor: accent }}
-          />
-        ) : null}
-        <span
-          className="relative inline-flex size-1.5 rounded-full"
-          style={{ backgroundColor: accent }}
-        />
-      </span>
-      Mode {mode}
-    </span>
-  );
-}
-
 export function WorkspaceCardView({
   canBuild = true,
   card,

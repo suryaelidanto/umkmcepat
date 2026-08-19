@@ -6,7 +6,7 @@ import {
   normalizeProviderModelId,
   resolveModelPricing,
 } from "./model-pricing";
-import modelPricing from "../../config/model-pricing.json";
+import modelPricing from "./model-pricing.json";
 
 describe("normalizeProviderModelId", () => {
   it("preserves qualified providers and treats bare legacy ids as OpenRouter", () => {

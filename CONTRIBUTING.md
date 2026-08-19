@@ -70,6 +70,6 @@ Open PRs into `dev` first unless maintainers say otherwise.
 
 ## Safety
 
-- Do not commit `.env`, secrets, OAuth credentials, provider keys, private data, local uploads, logs, screenshots, `.next/`, `.pi/`, `.browser/`, `graphify-out/`, `storybook-static/`, or coverage artifacts.
+- Do not commit `.env`, secrets, OAuth credentials, provider keys, private data, local uploads, logs, screenshots, `.next/`, `.pi/`, `.browser/`, `graphify-out/`, or coverage artifacts.
 - Ask before destructive local operations such as deleting Docker volumes, local uploads, or user files.
 - If Docker is missing or stopped, start Docker Desktop or Docker Engine before running infrastructure commands.

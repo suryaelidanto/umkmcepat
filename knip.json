@@ -9,31 +9,8 @@
     "scripts/capture-project-thumbnail.cjs"
   ],
   "project": ["src/**/*.{ts,tsx}"],
-  "ignoreBinaries": [
-    "chromatic",
-    "eslint",
-    "graphify",
-    "husky",
-    "knip",
-    "netstat",
-    "prettier",
-    "prisma",
-    "storybook",
-    "tsc",
-    "vite",
-    "vitest"
-  ],
-  "ignoreDependencies": [
-    "@commitlint/cli",
-    "@storybook/react",
-    "chromatic",
-    "eslint",
-    "husky",
-    "monaco-editor",
-    "prettier",
-    "prisma",
-    "tailwindcss"
-  ],
+  "ignoreBinaries": ["graphify", "netstat"],
+  "ignoreDependencies": ["tailwindcss"],
   "ignoreExportsUsedInFile": true,
   "ignoreIssues": {
     "src/components/ui/**": ["exports"],

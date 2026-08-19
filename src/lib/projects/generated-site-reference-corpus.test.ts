@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import corpusJson from "./__fixtures__/visual-reference-labels.json";
 import { parseGeneratedSiteVisualReferenceCorpus } from "./generated-site-reference-corpus";
-import corpusJson from "../../../fixtures/generation-evaluation/visual-reference-labels.json";
 
 describe("generated-site visual reference corpus", () => {
   it("freezes the product owner's five accepted gallery labels", () => {
