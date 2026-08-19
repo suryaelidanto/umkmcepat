@@ -37,6 +37,21 @@ export const Route = createFileRoute("/api/support/tickets/$ticketId")({
           return Response.json({ message: "Akses ditolak." }, { status: 403 });
         }
 
+        // Mark counterpart (admin) messages as read for this ticket in background
+        void prisma.supportMessage
+          .updateMany({
+            where: {
+              ticketId: params.ticketId,
+              authorRole: "admin",
+              isRead: false,
+            },
+            data: {
+              isRead: true,
+              readAt: new Date(),
+            },
+          })
+          .catch(() => {});
+
         return Response.json({ ticket });
       },
 

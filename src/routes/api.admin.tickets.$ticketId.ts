@@ -38,6 +38,21 @@ export const Route = createFileRoute("/api/admin/tickets/$ticketId")({
           );
         }
 
+        // Mark counterpart (user) messages as read for this ticket in background
+        void prisma.supportMessage
+          .updateMany({
+            where: {
+              ticketId: params.ticketId,
+              authorRole: "user",
+              isRead: false,
+            },
+            data: {
+              isRead: true,
+              readAt: new Date(),
+            },
+          })
+          .catch(() => {});
+
         return Response.json({ ticket });
       },
     },
