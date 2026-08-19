@@ -191,18 +191,15 @@ function AdminNav() {
 /** Dense wide admin chrome. */
 export function AdminShell({ children }: { children: ReactNode }) {
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-spacing-4 pb-24 pt-spacing-4 text-[#1c1c1c] transition-colors duration-200 dark:text-surface-warm-white">
-      <header className="mb-spacing-3 flex flex-wrap items-end justify-between gap-3">
+    <main className="mx-auto flex min-h-dvh w-full max-w-7xl flex-col px-3 pb-24 pt-6 text-[#1c1c1c] transition-colors duration-200 dark:text-surface-warm-white sm:px-6 lg:px-8">
+      <header className="mb-spacing-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-[10px] uppercase tracking-[0.14em] text-[#5f5f5d] dark:text-surface-warm-white/45">
-            Kontrol
-          </p>
-          <h1 className="text-2xl font-semibold">Admin</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Admin Panel</h1>
         </div>
         <StreamerPill />
       </header>
       <AdminNav />
-      <div className="mt-spacing-4">{children}</div>
+      <div className="mt-spacing-6">{children}</div>
     </main>
   );
 }

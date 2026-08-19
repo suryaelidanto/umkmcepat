@@ -238,178 +238,181 @@ function TicketThreadPage() {
   };
 
   return (
-    <div className="mx-auto flex h-dvh max-w-3xl flex-col px-spacing-4 pb-20 pt-spacing-4 text-surface-warm-white">
-      {/* Header */}
-      <div className="flex flex-col gap-spacing-2 border-b border-surface-warm-white/10 pb-spacing-4">
-        <div className="flex items-center gap-spacing-3">
-          <Link
-            href="/support"
-            className="text-surface-warm-white/60 hover:text-surface-warm-white"
-          >
-            <ArrowLeft className="size-5" />
-          </Link>
-          <div>
-            <h1 className="text-md font-semibold line-clamp-1">
-              {ticket.subject}
-            </h1>
-            <div className="flex items-center gap-spacing-2 mt-1">
-              <span className="text-xs font-mono text-surface-warm-white/40">
-                #{shortId}
-              </span>
-              <span className="text-xs text-surface-warm-white/60">•</span>
-              <span className="text-xs text-surface-warm-white/60">
-                {CATEGORY_LABELS[ticket.category]}
-              </span>
+    <main className="mx-auto flex h-dvh w-full max-w-7xl flex-col px-3 pb-20 pt-6 text-surface-warm-white sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-full w-full max-w-3xl flex-col">
+        {/* Header */}
+        <div className="flex flex-col gap-spacing-2 border-b border-surface-warm-white/10 pb-spacing-4">
+          <div className="flex items-center gap-spacing-3">
+            <Link
+              href="/support"
+              className="text-surface-warm-white/60 hover:text-surface-warm-white"
+            >
+              <ArrowLeft className="size-5" />
+            </Link>
+            <div>
+              <h1 className="text-md font-semibold line-clamp-1">
+                {ticket.subject}
+              </h1>
+              <div className="flex items-center gap-spacing-2 mt-1">
+                <span className="text-xs font-mono text-surface-warm-white/40">
+                  #{shortId}
+                </span>
+                <span className="text-xs text-surface-warm-white/60">•</span>
+                <span className="text-xs text-surface-warm-white/60">
+                  {CATEGORY_LABELS[ticket.category]}
+                </span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="flex items-center justify-between mt-spacing-2">
-          <div className="flex items-center gap-spacing-2">
-            <span
-              className={`rounded-radius-sm border px-2 py-0.5 text-[10px] font-bold ${
-                ticket.status === "OPEN"
-                  ? "bg-accent-orange-subtle border-accent-orange-border text-accent-orange"
-                  : "bg-surface-warm-white/10 text-surface-warm-white/50 border-transparent"
-              }`}
-            >
-              {ticket.status === "OPEN" ? "BUKA" : "SELESAI"}
-            </span>
-          </div>
-
-          {canResolve && (
-            <Button
-              onClick={() => resolveMutation.mutate()}
-              size="sm"
-              variant="outline"
-              className="text-xs"
-            >
-              Tandai Selesai
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* Message Area */}
-      <div className="flex-1 overflow-y-auto py-spacing-4 flex flex-col gap-spacing-4 scrollbar-thin">
-        {ticket.messages.map((msg) => {
-          const isUser = msg.authorRole === "user";
-          return (
-            <div
-              key={msg.id}
-              className={`flex flex-col max-w-[85%] ${isUser ? "self-end items-end" : "self-start items-start"}`}
-            >
-              {/* Message Bubble */}
-              <div
-                className={`rounded-radius-lg px-spacing-4 py-spacing-5 text-base ${
-                  isUser
-                    ? "bg-surface-warm-white/10 text-surface-warm-white rounded-tr-none"
-                    : "bg-[#1c1c1c] border border-surface-warm-white/10 text-surface-warm-white rounded-tl-none"
+          <div className="flex items-center justify-between mt-spacing-2">
+            <div className="flex items-center gap-spacing-2">
+              <span
+                className={`rounded-radius-sm border px-2 py-0.5 text-[10px] font-bold ${
+                  ticket.status === "OPEN"
+                    ? "bg-accent-orange-subtle border-accent-orange-border text-accent-orange"
+                    : "bg-surface-warm-white/10 text-surface-warm-white/50 border-transparent"
                 }`}
               >
-                <div className="whitespace-pre-wrap leading-relaxed">
-                  {msg.body}
-                </div>
-
-                {/* Attachments */}
-                {msg.assetIds && msg.assetIds.length > 0 && (
-                  <div className="flex flex-wrap gap-spacing-2 mt-spacing-3">
-                    {msg.assetIds.map((assetId) => (
-                      <a
-                        key={assetId}
-                        href={`/api/support/assets/${assetId}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block rounded-radius-md overflow-hidden border border-surface-warm-white/10"
-                      >
-                        <img
-                          src={`/api/support/assets/${assetId}`}
-                          alt="Attachment"
-                          className="h-16 w-16 object-cover hover:opacity-80 transition"
-                        />
-                      </a>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Timestamp */}
-              <span className="text-[10px] text-surface-warm-white/40 mt-spacing-1.5 px-1">
-                {isUser ? "Anda" : "Admin"} •{" "}
-                {new Date(msg.createdAt).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
+                {ticket.status === "OPEN" ? "BUKA" : "SELESAI"}
               </span>
             </div>
-          );
-        })}
-        <div ref={messagesEndRef} />
-      </div>
 
-      {/* Footer compose area */}
-      {ticket.status === "OPEN" ? (
-        <form
-          onSubmit={handleSend}
-          className="border-t border-surface-warm-white/10 bg-[#171715] pt-spacing-4 flex flex-col gap-spacing-3"
-        >
-          {/* Previews if any */}
-          {attachments.length > 0 && (
-            <div className="flex flex-wrap gap-spacing-2 px-1">
-              {attachments.map((item) => (
-                <ImageUploadThumb
-                  alt="Thumbnail preview"
-                  className="size-12"
-                  key={item.id}
-                  onRemove={() => removeAttachment(item.id)}
-                  src={item.url}
-                  uploading={item.uploading}
-                />
-              ))}
-            </div>
-          )}
+            {canResolve && (
+              <Button
+                onClick={() => resolveMutation.mutate()}
+                size="sm"
+                variant="outline"
+                className="text-xs"
+              >
+                Tandai Selesai
+              </Button>
+            )}
+          </div>
+        </div>
 
-          <div className="flex items-center gap-spacing-3">
-            {attachments.length < 3 && (
-              <label className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 text-surface-warm-white/60 hover:bg-surface-warm-white/10">
-                <ImagePlus className="size-5" />
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  multiple
-                  onChange={handleFileChange}
-                />
-              </label>
+        {/* Message Area */}
+        <div className="flex-1 overflow-y-auto py-spacing-4 flex flex-col gap-spacing-4 scrollbar-thin">
+          {ticket.messages.map((msg) => {
+            const isUser = msg.authorRole === "user";
+            return (
+              <div
+                key={msg.id}
+                className={`flex flex-col max-w-[85%] ${isUser ? "self-end items-end" : "self-start items-start"}`}
+              >
+                {/* Message Bubble */}
+                <div
+                  className={`rounded-radius-lg px-spacing-4 py-spacing-5 text-base ${
+                    isUser
+                      ? "bg-surface-warm-white/10 text-surface-warm-white rounded-tr-none"
+                      : "bg-[#1c1c1c] border border-surface-warm-white/10 text-surface-warm-white rounded-tl-none"
+                  }`}
+                >
+                  <div className="whitespace-pre-wrap leading-relaxed">
+                    {msg.body}
+                  </div>
+
+                  {/* Attachments */}
+                  {msg.assetIds && msg.assetIds.length > 0 && (
+                    <div className="flex flex-wrap gap-spacing-2 mt-spacing-3">
+                      {msg.assetIds.map((assetId) => (
+                        <a
+                          key={assetId}
+                          href={`/api/support/assets/${assetId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block rounded-radius-md overflow-hidden border border-surface-warm-white/10"
+                        >
+                          <img
+                            src={`/api/support/assets/${assetId}`}
+                            alt="Attachment"
+                            className="h-16 w-16 object-cover hover:opacity-80 transition"
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Timestamp */}
+                <span className="text-[10px] text-surface-warm-white/40 mt-spacing-1.5 px-1">
+                  {isUser ? "Anda" : "Admin"} •{" "}
+                  {new Date(msg.createdAt).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+              </div>
+            );
+          })}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Footer compose area */}
+        {ticket.status === "OPEN" ? (
+          <form
+            onSubmit={handleSend}
+            className="border-t border-surface-warm-white/10 bg-[#171715] pt-spacing-4 flex flex-col gap-spacing-3"
+          >
+            {/* Previews if any */}
+            {attachments.length > 0 && (
+              <div className="flex flex-wrap gap-spacing-2 px-1">
+                {attachments.map((item) => (
+                  <ImageUploadThumb
+                    alt="Thumbnail preview"
+                    className="size-12"
+                    key={item.id}
+                    onRemove={() => removeAttachment(item.id)}
+                    src={item.url}
+                    uploading={item.uploading}
+                  />
+                ))}
+              </div>
             )}
 
-            <input
-              type="text"
-              value={replyBody}
-              onChange={(e) => setReplyBody(e.target.value)}
-              placeholder="Tulis balasan..."
-              className="h-10 flex-1 rounded-radius-md border border-surface-warm-white/10 bg-transparent px-spacing-3 text-sm outline-none focus:border-accent-orange focus:ring-1 focus:ring-accent-orange"
-            />
+            <div className="flex items-center gap-spacing-3">
+              {attachments.length < 3 && (
+                <label className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-radius-md border border-surface-warm-white/10 bg-surface-warm-white/5 text-surface-warm-white/60 hover:bg-surface-warm-white/10">
+                  <ImagePlus className="size-5" />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    multiple
+                    onChange={handleFileChange}
+                  />
+                </label>
+              )}
 
-            <Button
-              type="submit"
-              size="sm"
-              className="h-10 shrink-0 flex items-center gap-2"
-              disabled={
-                !replyBody.trim() || attachments.some((item) => item.uploading)
-              }
-            >
-              <Send className="size-4" />
-              <span className="hidden sm:inline">Kirim</span>
-            </Button>
+              <input
+                type="text"
+                value={replyBody}
+                onChange={(e) => setReplyBody(e.target.value)}
+                placeholder="Tulis balasan..."
+                className="h-10 flex-1 rounded-radius-md border border-surface-warm-white/10 bg-transparent px-spacing-3 text-sm outline-none focus:border-accent-orange focus:ring-1 focus:ring-accent-orange"
+              />
+
+              <Button
+                type="submit"
+                size="sm"
+                className="h-10 shrink-0 flex items-center gap-2"
+                disabled={
+                  !replyBody.trim() ||
+                  attachments.some((item) => item.uploading)
+                }
+              >
+                <Send className="size-4" />
+                <span className="hidden sm:inline">Kirim</span>
+              </Button>
+            </div>
+          </form>
+        ) : (
+          <div className="border-t border-surface-warm-white/10 py-spacing-4 text-center text-xs text-surface-warm-white/40">
+            Tiket ini telah selesai ditangani. Buat tiket baru jika Anda
+            memiliki kendala lainnya.
           </div>
-        </form>
-      ) : (
-        <div className="border-t border-surface-warm-white/10 py-spacing-4 text-center text-xs text-surface-warm-white/40">
-          Tiket ini telah selesai ditangani. Buat tiket baru jika Anda memiliki
-          kendala lainnya.
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </main>
   );
 }

@@ -221,227 +221,232 @@ function SupportPage() {
   }
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-3xl flex-col px-spacing-4 pb-24 pt-spacing-4 text-[#1c1c1c] transition-colors duration-200 dark:text-surface-warm-white">
-      <div className="flex items-center justify-between border-b border-black/10 pb-spacing-4 dark:border-surface-warm-white/10">
-        <div>
-          <h1 className="text-heading-lg font-semibold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white">
-            Pusat Bantuan & Dukungan
-          </h1>
-          <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/60">
-            Kirim kendala teknis, pembayaran, atau pertanyaan umum Anda di sini.
-          </p>
-        </div>
-        {!formOpen && (
-          <Button
-            onClick={() => setFormOpen(true)}
-            className="flex items-center gap-spacing-2"
-          >
-            <Plus className="size-4" />
-            Buat Tiket
-          </Button>
-        )}
-      </div>
-
-      {formOpen && (
-        <div className="mt-spacing-4 rounded-radius-lg border border-black/10 bg-black/[0.02] p-spacing-5 dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5">
-          <div className="flex items-center justify-between border-b border-black/10 pb-spacing-3 dark:border-surface-warm-white/10">
-            <h2 className="text-lg font-medium text-[#1c1c1c] dark:text-surface-warm-white">
-              Buat Tiket Baru
-            </h2>
-            <button
-              onClick={() => setFormOpen(false)}
-              className="text-[#5f5f5d] hover:text-[#1c1c1c] dark:text-surface-warm-white/60 dark:hover:text-surface-warm-white"
-            >
-              <X className="size-5" />
-            </button>
-          </div>
-
-          <form
-            onSubmit={handleSubmit}
-            className="mt-spacing-4 flex flex-col gap-spacing-4"
-          >
-            <div className="flex flex-col gap-spacing-1">
-              <label
-                htmlFor="subject"
-                className="text-xs font-semibold text-[#1c1c1c] dark:text-surface-warm-white/80"
-              >
-                Subjek Kendala
-              </label>
-              <input
-                id="subject"
-                type="text"
-                required
-                maxLength={140}
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                placeholder="Contoh: Eror saat generate halaman kontak / Pembayaran energi belum masuk"
-                className="h-10 w-full rounded-radius-md border border-black/15 bg-transparent px-spacing-3 text-sm text-[#1c1c1c] outline-none placeholder:text-black/30 focus:border-accent-orange focus:ring-1 focus:ring-accent-orange dark:border-surface-warm-white/10 dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/30"
-              />
-            </div>
-
-            <div className="flex flex-col gap-spacing-1">
-              <label
-                htmlFor="category"
-                className="text-xs font-semibold text-[#1c1c1c] dark:text-surface-warm-white/80"
-              >
-                Kategori
-              </label>
-              <select
-                id="category"
-                value={category}
-                onChange={(e) => setCategory(e.target.value as SupportCategory)}
-                className="h-10 w-full rounded-radius-md border border-black/15 bg-[#fcfbf8] px-spacing-3 text-sm text-[#1c1c1c] outline-none focus:border-accent-orange focus:ring-1 focus:ring-accent-orange dark:border-surface-warm-white/10 dark:bg-[#171715] dark:text-surface-warm-white"
-              >
-                {Object.keys(CATEGORY_LABELS).map((cat) => (
-                  <option key={cat} value={cat}>
-                    {CATEGORY_LABELS[cat as SupportCategory]}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-spacing-1">
-              <label
-                htmlFor="body"
-                className="text-xs font-semibold text-[#1c1c1c] dark:text-surface-warm-white/80"
-              >
-                Detail Pesan
-              </label>
-              <textarea
-                id="body"
-                required
-                rows={4}
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                placeholder="Jelaskan secara rinci kendala Anda..."
-                className="w-full resize-y rounded-radius-md border border-black/15 bg-transparent p-spacing-3 text-sm text-[#1c1c1c] outline-none placeholder:text-black/30 focus:border-accent-orange focus:ring-1 focus:ring-accent-orange dark:border-surface-warm-white/10 dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/30"
-              />
-            </div>
-
-            <div className="flex flex-col gap-spacing-2">
-              <span className="text-xs font-semibold text-[#1c1c1c] dark:text-surface-warm-white/80">
-                Lampiran Gambar (Maks 3, Opsional)
-              </span>
-              <div className="flex flex-wrap gap-spacing-3">
-                {attachments.map((item) => (
-                  <ImageUploadThumb
-                    alt="Attachment preview"
-                    className="size-16"
-                    key={item.id}
-                    onRemove={() => removeAttachment(item.id)}
-                    src={item.url}
-                    uploading={item.uploading}
-                  />
-                ))}
-
-                {attachments.length < 3 && (
-                  <label className="flex size-16 cursor-pointer flex-col items-center justify-center rounded-radius-md border border-dashed border-black/20 bg-black/[0.03] hover:border-black/40 hover:bg-black/[0.06] dark:border-surface-warm-white/20 dark:bg-surface-warm-white/5 dark:hover:border-surface-warm-white/40 dark:hover:bg-surface-warm-white/10">
-                    <ImagePlus className="size-5 text-[#5f5f5d] dark:text-surface-warm-white/60" />
-                    <span className="mt-1 text-[9px] text-[#5f5f5d] dark:text-surface-warm-white/60">
-                      Upload
-                    </span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      className="hidden"
-                      onChange={handleFileChange}
-                    />
-                  </label>
-                )}
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-spacing-3 border-t border-black/10 pt-spacing-4 dark:border-surface-warm-white/10">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setFormOpen(false)}
-              >
-                Batal
-              </Button>
-              <Button
-                type="submit"
-                disabled={
-                  createMutation.isPending ||
-                  attachments.some((item) => item.uploading)
-                }
-              >
-                {createMutation.isPending ? "Mengirim..." : "Kirim Tiket"}
-              </Button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      <div className="mt-spacing-6 flex flex-col gap-spacing-3">
-        <h2 className="border-b border-black/5 pb-2 text-lg font-medium dark:border-surface-warm-white/5">
-          Tiket Anda
-        </h2>
-
-        {ticketsQuery.isLoading ? (
-          <div className="flex justify-center py-spacing-8">
-            <Loader2 className="size-6 animate-spin text-[#5f5f5d] dark:text-surface-warm-white/60" />
-          </div>
-        ) : ticketsQuery.data?.tickets.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-radius-lg border border-dashed border-black/10 py-spacing-10 text-center dark:border-surface-warm-white/10">
-            <MessageSquare className="size-8 text-black/30 dark:text-surface-warm-white/30" />
-            <p className="mt-spacing-3 text-sm text-[#5f5f5d] dark:text-surface-warm-white/60">
-              Belum ada tiket bantuan yang dibuat.
+    <main className="mx-auto flex min-h-dvh w-full max-w-7xl flex-col px-3 pb-24 pt-6 text-[#1c1c1c] transition-colors duration-200 dark:text-surface-warm-white sm:px-6 lg:px-8">
+      <div className="mx-auto flex w-full max-w-3xl flex-col">
+        <div className="flex items-center justify-between border-b border-black/10 pb-spacing-4 dark:border-surface-warm-white/10">
+          <div>
+            <h1 className="text-heading-lg font-semibold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white">
+              Pusat Bantuan & Dukungan
+            </h1>
+            <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/60">
+              Kirim kendala teknis, pembayaran, atau pertanyaan umum Anda di
+              sini.
             </p>
           </div>
-        ) : (
-          <div className="flex flex-col gap-spacing-3">
-            {ticketsQuery.data?.tickets.map((ticket) => {
-              const lastMsg = ticket.messages[0];
-              const shortId = ticket.id.slice(-8).toUpperCase();
-              return (
-                <Link
-                  key={ticket.id}
-                  href={`/support/${ticket.id}`}
-                  className="flex flex-col gap-spacing-2 rounded-radius-md border border-black/10 bg-black/[0.02] p-spacing-4 transition hover:border-black/20 hover:bg-black/[0.05] dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5 dark:hover:border-surface-warm-white/20 dark:hover:bg-surface-warm-white/8"
+          {!formOpen && (
+            <Button
+              onClick={() => setFormOpen(true)}
+              className="flex items-center gap-spacing-2"
+            >
+              <Plus className="size-4" />
+              Buat Tiket
+            </Button>
+          )}
+        </div>
+
+        {formOpen && (
+          <div className="mt-spacing-4 rounded-radius-lg border border-black/10 bg-black/[0.02] p-spacing-5 dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5">
+            <div className="flex items-center justify-between border-b border-black/10 pb-spacing-3 dark:border-surface-warm-white/10">
+              <h2 className="text-lg font-medium text-[#1c1c1c] dark:text-surface-warm-white">
+                Buat Tiket Baru
+              </h2>
+              <button
+                onClick={() => setFormOpen(false)}
+                className="text-[#5f5f5d] hover:text-[#1c1c1c] dark:text-surface-warm-white/60 dark:hover:text-surface-warm-white"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={handleSubmit}
+              className="mt-spacing-4 flex flex-col gap-spacing-4"
+            >
+              <div className="flex flex-col gap-spacing-1">
+                <label
+                  htmlFor="subject"
+                  className="text-xs font-semibold text-[#1c1c1c] dark:text-surface-warm-white/80"
                 >
-                  <div className="flex items-start justify-between gap-spacing-3">
-                    <div className="flex items-center gap-spacing-2">
-                      <span className="font-mono text-xs text-[#5f5f5d] dark:text-surface-warm-white/40">
-                        #{shortId}
-                      </span>
-                      <span
-                        className={`rounded-radius-sm border px-2 py-0.5 text-[10px] font-semibold ${CATEGORY_COLORS[ticket.category]}`}
-                      >
-                        {CATEGORY_LABELS[ticket.category]}
-                      </span>
-                    </div>
-                    <span
-                      className={`rounded-radius-sm border px-2 py-0.5 text-[10px] font-bold ${
-                        ticket.status === "OPEN"
-                          ? "bg-accent-orange-subtle border-accent-orange-border text-accent-orange"
-                          : "bg-black/10 text-black/60 border-transparent dark:bg-surface-warm-white/10 dark:text-surface-warm-white/50"
-                      }`}
-                    >
-                      {ticket.status === "OPEN" ? "BUKA" : "SELESAI"}
-                    </span>
-                  </div>
+                  Subjek Kendala
+                </label>
+                <input
+                  id="subject"
+                  type="text"
+                  required
+                  maxLength={140}
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  placeholder="Contoh: Eror saat generate halaman kontak / Pembayaran energi belum masuk"
+                  className="h-10 w-full rounded-radius-md border border-black/15 bg-transparent px-spacing-3 text-sm text-[#1c1c1c] outline-none placeholder:text-black/30 focus:border-accent-orange focus:ring-1 focus:ring-accent-orange dark:border-surface-warm-white/10 dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/30"
+                />
+              </div>
 
-                  <h3 className="line-clamp-1 font-semibold text-sm">
-                    {ticket.subject}
-                  </h3>
+              <div className="flex flex-col gap-spacing-1">
+                <label
+                  htmlFor="category"
+                  className="text-xs font-semibold text-[#1c1c1c] dark:text-surface-warm-white/80"
+                >
+                  Kategori
+                </label>
+                <select
+                  id="category"
+                  value={category}
+                  onChange={(e) =>
+                    setCategory(e.target.value as SupportCategory)
+                  }
+                  className="h-10 w-full rounded-radius-md border border-black/15 bg-[#fcfbf8] px-spacing-3 text-sm text-[#1c1c1c] outline-none focus:border-accent-orange focus:ring-1 focus:ring-accent-orange dark:border-surface-warm-white/10 dark:bg-[#171715] dark:text-surface-warm-white"
+                >
+                  {Object.keys(CATEGORY_LABELS).map((cat) => (
+                    <option key={cat} value={cat}>
+                      {CATEGORY_LABELS[cat as SupportCategory]}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-                  {lastMsg && (
-                    <p className="line-clamp-1 text-xs text-[#5f5f5d] dark:text-surface-warm-white/60">
-                      {lastMsg.body}
-                    </p>
+              <div className="flex flex-col gap-spacing-1">
+                <label
+                  htmlFor="body"
+                  className="text-xs font-semibold text-[#1c1c1c] dark:text-surface-warm-white/80"
+                >
+                  Detail Pesan
+                </label>
+                <textarea
+                  id="body"
+                  required
+                  rows={4}
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
+                  placeholder="Jelaskan secara rinci kendala Anda..."
+                  className="w-full resize-y rounded-radius-md border border-black/15 bg-transparent p-spacing-3 text-sm text-[#1c1c1c] outline-none placeholder:text-black/30 focus:border-accent-orange focus:ring-1 focus:ring-accent-orange dark:border-surface-warm-white/10 dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/30"
+                />
+              </div>
+
+              <div className="flex flex-col gap-spacing-2">
+                <span className="text-xs font-semibold text-[#1c1c1c] dark:text-surface-warm-white/80">
+                  Lampiran Gambar (Maks 3, Opsional)
+                </span>
+                <div className="flex flex-wrap gap-spacing-3">
+                  {attachments.map((item) => (
+                    <ImageUploadThumb
+                      alt="Attachment preview"
+                      className="size-16"
+                      key={item.id}
+                      onRemove={() => removeAttachment(item.id)}
+                      src={item.url}
+                      uploading={item.uploading}
+                    />
+                  ))}
+
+                  {attachments.length < 3 && (
+                    <label className="flex size-16 cursor-pointer flex-col items-center justify-center rounded-radius-md border border-dashed border-black/20 bg-black/[0.03] hover:border-black/40 hover:bg-black/[0.06] dark:border-surface-warm-white/20 dark:bg-surface-warm-white/5 dark:hover:border-surface-warm-white/40 dark:hover:bg-surface-warm-white/10">
+                      <ImagePlus className="size-5 text-[#5f5f5d] dark:text-surface-warm-white/60" />
+                      <span className="mt-1 text-[9px] text-[#5f5f5d] dark:text-surface-warm-white/60">
+                        Upload
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        onChange={handleFileChange}
+                      />
+                    </label>
                   )}
+                </div>
+              </div>
 
-                  <div className="mt-spacing-1 flex justify-end border-t border-black/5 pt-spacing-2 text-[10px] text-[#5f5f5d] dark:border-surface-warm-white/5 dark:text-surface-warm-white/40">
-                    Aktif {formatTimeAgo(ticket.updatedAt)}
-                  </div>
-                </Link>
-              );
-            })}
+              <div className="flex justify-end gap-spacing-3 border-t border-black/10 pt-spacing-4 dark:border-surface-warm-white/10">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setFormOpen(false)}
+                >
+                  Batal
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={
+                    createMutation.isPending ||
+                    attachments.some((item) => item.uploading)
+                  }
+                >
+                  {createMutation.isPending ? "Mengirim..." : "Kirim Tiket"}
+                </Button>
+              </div>
+            </form>
           </div>
         )}
+
+        <div className="mt-spacing-6 flex flex-col gap-spacing-3">
+          <h2 className="border-b border-black/5 pb-2 text-lg font-medium dark:border-surface-warm-white/5">
+            Tiket Anda
+          </h2>
+
+          {ticketsQuery.isLoading ? (
+            <div className="flex justify-center py-spacing-8">
+              <Loader2 className="size-6 animate-spin text-[#5f5f5d] dark:text-surface-warm-white/60" />
+            </div>
+          ) : ticketsQuery.data?.tickets.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-radius-lg border border-dashed border-black/10 py-spacing-10 text-center dark:border-surface-warm-white/10">
+              <MessageSquare className="size-8 text-black/30 dark:text-surface-warm-white/30" />
+              <p className="mt-spacing-3 text-sm text-[#5f5f5d] dark:text-surface-warm-white/60">
+                Belum ada tiket bantuan yang dibuat.
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-spacing-3">
+              {ticketsQuery.data?.tickets.map((ticket) => {
+                const lastMsg = ticket.messages[0];
+                const shortId = ticket.id.slice(-8).toUpperCase();
+                return (
+                  <Link
+                    key={ticket.id}
+                    href={`/support/${ticket.id}`}
+                    className="flex flex-col gap-spacing-2 rounded-radius-md border border-black/10 bg-black/[0.02] p-spacing-4 transition hover:border-black/20 hover:bg-black/[0.05] dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5 dark:hover:border-surface-warm-white/20 dark:hover:bg-surface-warm-white/8"
+                  >
+                    <div className="flex items-start justify-between gap-spacing-3">
+                      <div className="flex items-center gap-spacing-2">
+                        <span className="font-mono text-xs text-[#5f5f5d] dark:text-surface-warm-white/40">
+                          #{shortId}
+                        </span>
+                        <span
+                          className={`rounded-radius-sm border px-2 py-0.5 text-[10px] font-semibold ${CATEGORY_COLORS[ticket.category]}`}
+                        >
+                          {CATEGORY_LABELS[ticket.category]}
+                        </span>
+                      </div>
+                      <span
+                        className={`rounded-radius-sm border px-2 py-0.5 text-[10px] font-bold ${
+                          ticket.status === "OPEN"
+                            ? "bg-accent-orange-subtle border-accent-orange-border text-accent-orange"
+                            : "bg-black/10 text-black/60 border-transparent dark:bg-surface-warm-white/10 dark:text-surface-warm-white/50"
+                        }`}
+                      >
+                        {ticket.status === "OPEN" ? "BUKA" : "SELESAI"}
+                      </span>
+                    </div>
+
+                    <h3 className="line-clamp-1 font-semibold text-sm">
+                      {ticket.subject}
+                    </h3>
+
+                    {lastMsg && (
+                      <p className="line-clamp-1 text-xs text-[#5f5f5d] dark:text-surface-warm-white/60">
+                        {lastMsg.body}
+                      </p>
+                    )}
+
+                    <div className="mt-spacing-1 flex justify-end border-t border-black/5 pt-spacing-2 text-[10px] text-[#5f5f5d] dark:border-surface-warm-white/5 dark:text-surface-warm-white/40">
+                      Aktif {formatTimeAgo(ticket.updatedAt)}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </main>
   );
 }
