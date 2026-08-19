@@ -3287,17 +3287,21 @@ export function WorkspaceShell({
             />
           ) : null}
 
-          {isPreparingNextQuestion ? (
+          {isResponding ? (
+            <p className="text-sm text-surface-warm-white/46">
+              AI sedang menulis balasan...
+            </p>
+          ) : isPreparingNextQuestion ? (
             <p className="text-sm text-surface-warm-white/46">
               Menyiapkan pertanyaan berikutnya...
             </p>
+          ) : firstTurnPending ? (
+            <p className="text-sm text-surface-warm-white/46">
+              AI sedang merancang website...
+            </p>
           ) : isRetrying ? (
             <p className="text-sm text-surface-warm-white/46">
-              Memproses ulang...
-            </p>
-          ) : isResponding ? (
-            <p className="text-sm text-surface-warm-white/46">
-              AI sedang menulis balasan...
+              Mencoba menghubungkan kembali...
             </p>
           ) : rateLimitError ? (
             <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
@@ -3415,13 +3419,15 @@ export function WorkspaceShell({
                   currentStep={resolveCurrentBuildProgressStep(buildProgress)}
                   mode={isBuilding ? "Buat" : "Diskusi"}
                   discussPhase={
-                    isPreparingNextQuestion
-                      ? "preparing_card"
-                      : isRetrying
-                        ? "retrying"
-                        : isResponding
-                          ? "streaming"
-                          : "processing"
+                    isResponding
+                      ? "streaming"
+                      : isPreparingNextQuestion
+                        ? "preparing_card"
+                        : firstTurnPending
+                          ? "processing"
+                          : isRetrying
+                            ? "retrying"
+                            : "processing"
                   }
                   onStop={stopCurrentJob}
                 />

@@ -271,7 +271,7 @@ export function ProcessingControl({
   const discussTitles: Record<NonNullable<typeof discussPhase>, string> = {
     streaming: "AI sedang menulis balasan...",
     preparing_card: "Menyiapkan pertanyaan berikutnya...",
-    retrying: "Memproses ulang...",
+    retrying: "Mencoba menghubungkan kembali...",
     processing: "AI sedang memproses...",
   };
   const discussDetails: Record<NonNullable<typeof discussPhase>, string> = {
