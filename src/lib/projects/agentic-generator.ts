@@ -290,11 +290,6 @@ export async function runAgenticGenerate(input: {
         if (onFileStaged) {
           onFileStaged({ path, content });
         }
-        if (stepCharger) {
-          void stepCharger.onStepFinish({
-            usage: { inputTokens: 100, outputTokens: 200 },
-          });
-        }
         await renewProjectOperation({
           projectId,
           token: input.operationToken ?? "",
