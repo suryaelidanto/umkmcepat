@@ -863,23 +863,58 @@ export function normalizeGeneratedInteractiveContent(content: string): string {
   return ensureButtonTouchTargets(ensureActionTouchTargets(content));
 }
 
+function deduplicateJsxAttributes(content: string): string {
+  return replaceJsxOpeningTags(
+    content,
+    ["a", "button", "Button", "div", "span", "p", "section", "article"],
+    (tagSource, _tagName) => {
+      const classMatches = [
+        ...tagSource.matchAll(/\bclassName=(?:\{[\s\S]*?\}|"[^"]*"|'[^']*')/g),
+      ];
+      if (classMatches.length <= 1) {
+        return tagSource;
+      }
+      const lastClassAttr = classMatches[classMatches.length - 1][0];
+      const cleaned = tagSource.replace(
+        /\bclassName=(?:\{[\s\S]*?\}|"[^"]*"|'[^']*')/g,
+        "",
+      );
+      if (cleaned.endsWith("/>")) {
+        return `${cleaned.slice(0, -2).trim()} ${lastClassAttr} />`;
+      }
+      if (cleaned.endsWith(">")) {
+        return `${cleaned.slice(0, -1).trim()} ${lastClassAttr}>`;
+      }
+      return tagSource;
+    },
+  );
+}
+
 export function normalizeGeneratedSiteContent(content: string): string {
   const withoutRemoteFonts = content.replace(
     /@import\s+url\(\s*["']https:\/\/fonts\.googleapis\.com\/[^)]*["']\s*\)\s*;?/gi,
     "",
   );
-  return normalizeGeneratedContrastSurfaces(
-    normalizeGeneratedInteractiveContent(withoutRemoteFonts),
+  return deduplicateJsxAttributes(
+    normalizeGeneratedContrastSurfaces(
+      normalizeGeneratedInteractiveContent(withoutRemoteFonts),
+    ),
   );
 }
 
 function normalizeGeneratedContrastSurfaces(content: string): string {
-  const classNamePattern = /className=["']([^"']*)["']/g;
-  return content.replace(
-    classNamePattern,
-    (_match, classes: string) =>
-      `className="${normalizeGeneratedSurfaceClasses(classes)}"`,
-  );
+  // Normalize className="..." and string literals inside className={...}
+  const literalPattern =
+    /(?:className=["']([\s\S]*?)["']|className=\{[\s\S]*?\})/g;
+  return content.replace(literalPattern, (match) => {
+    return match.replace(
+      /(["'`])([^"'`]+)\1/g,
+      (innerMatch, quote, innerClasses) => {
+        const normalized = normalizeGeneratedSurfaceClasses(innerClasses);
+        return `${quote}${normalized}${quote}`;
+      },
+    );
+  });
 }
 
 function normalizeGeneratedSurfaceClasses(classes: string): string {
@@ -892,14 +927,12 @@ function normalizeGeneratedSurfaceClasses(classes: string): string {
 
   if (hasOrangeSurface) {
     normalized = normalized.replace(
-      /\btext-(?:white|accent(?!-)|forest-foreground)(\/\d{1,3})?\b/g,
+      /\btext-(?:white|accent(?:-foreground)?|forest-foreground)(\/\d{1,3})?\b/g,
       (_match, opacity: string | undefined) =>
         `text-foreground${opacity ?? ""}`,
     );
     if (
-      !/\btext-(?:foreground|background|accent-foreground|primary-foreground)\b/.test(
-        normalized,
-      )
+      !/\btext-(?:foreground|background|primary-foreground)\b/.test(normalized)
     ) {
       normalized = `${normalized} text-foreground`;
     }
@@ -1218,18 +1251,78 @@ function ensureGeneratedRoutePrimaryCta(
   return `${content.slice(0, closingMain)}${action}\n${content.slice(closingMain)}`;
 }
 
+function replaceJsxOpeningTags(
+  content: string,
+  tagNames: string[],
+  replacer: (tagSource: string, tagName: string) => string,
+): string {
+  const nameSet = new Set(tagNames);
+  let result = "";
+  let i = 0;
+  const len = content.length;
+
+  while (i < len) {
+    if (content[i] === "<") {
+      const match = content.slice(i).match(/^<([a-zA-Z0-9_]+)\b/);
+      if (match && nameSet.has(match[1] ?? "")) {
+        const tagName = match[1] ?? "";
+        let j = i + tagName.length + 1;
+        let braceDepth = 0;
+        let inQuote: '"' | "'" | "`" | null = null;
+        let tagEnd = -1;
+
+        while (j < len) {
+          const char = content[j];
+          if (inQuote) {
+            if (char === "\\" && j + 1 < len) {
+              j += 2;
+              continue;
+            }
+            if (char === inQuote) {
+              inQuote = null;
+            }
+          } else if (char === '"' || char === "'" || char === "`") {
+            inQuote = char;
+          } else if (char === "{") {
+            braceDepth++;
+          } else if (char === "}") {
+            if (braceDepth > 0) {
+              braceDepth--;
+            }
+          } else if (char === ">" && braceDepth === 0) {
+            tagEnd = j + 1;
+            break;
+          }
+          j++;
+        }
+
+        if (tagEnd !== -1) {
+          const tagSource = content.slice(i, tagEnd);
+          result += replacer(tagSource, tagName);
+          i = tagEnd;
+          continue;
+        }
+      }
+    }
+    result += content[i];
+    i++;
+  }
+
+  return result;
+}
+
 function ensureActionTouchTargets(content: string): string {
-  const anchorPattern =
-    /<a\b(?=[\s\S]*?\bhref\s*=\s*(?:"[^"]*"|'[^']*'|\{[^>]*\}))[^>]*>/gis;
-  return content.replace(anchorPattern, (match: string) =>
-    makeTouchSafeAnchor(match),
-  );
+  return replaceJsxOpeningTags(content, ["a"], (tagSource) => {
+    if (!/\bhref\s*=\s*/.test(tagSource)) {
+      return tagSource;
+    }
+    return makeTouchSafeAnchor(tagSource);
+  });
 }
 
 function ensureButtonTouchTargets(content: string): string {
-  const buttonPattern = /<(?:Button|button)\b[^>]*>/gs;
-  return content.replace(buttonPattern, (match: string) =>
-    makeTouchSafeInteractiveElement(match),
+  return replaceJsxOpeningTags(content, ["Button", "button"], (tagSource) =>
+    makeTouchSafeInteractiveElement(tagSource),
   );
 }
 

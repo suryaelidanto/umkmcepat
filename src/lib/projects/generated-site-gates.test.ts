@@ -634,13 +634,24 @@ describe("normalizeGeneratedInteractiveTargets", () => {
           {link.label}
         </a>
       ))}
-    </nav>`;
+    </nav>
+    <button
+      type="button"
+      onClick={() => setOpen((v) => !v)}
+      className="flex size-11 items-center justify-center rounded-md text-foreground transition-colors hover:bg-secondary lg:hidden"
+      aria-label={open ? "Tutup menu" : "Buka menu"}
+      aria-expanded={open}
+    >
+      Menu
+    </button>`;
     const normalized = normalizeGeneratedSiteContent(input);
-    const anchorMatches = normalized.match(/<a\b[^>]*>/gs) || [];
-    for (const a of anchorMatches) {
-      const classCount = (a.match(/\bclassName=/g) || []).length;
-      expect(classCount).toBe(1);
-    }
+    expect(normalized).not.toContain("min-h-11 min-w-11 min-h-11");
+    expect(normalized).not.toMatch(
+      /<button[^>]*className="[^"]*"\s+[^>]*className="/,
+    );
+    expect(normalized).not.toMatch(
+      /<a[^>]*className="[^"]*"\s+[^>]*className="/,
+    );
   });
 });
 
@@ -714,7 +725,7 @@ describe("normalizeBatchedSiteAnchors", () => {
     ]);
 
     expect(file?.content).toContain(
-      '<a className="bg-accent px-6 text-accent-foreground">Chat</a>',
+      '<a className="bg-accent px-6 text-foreground">Chat</a>',
     );
     expect(file?.content).toContain(
       '<a className="bg-primary px-6 text-primary-foreground/80">Lihat</a>',
