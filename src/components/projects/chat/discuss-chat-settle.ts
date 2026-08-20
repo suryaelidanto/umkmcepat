@@ -5,10 +5,6 @@ export type DiscussSettleToolCard = {
   projectTitle?: string;
 };
 
-/**
- * Decide UI settle actions when useChat status returns to ready/error after a
- * discuss turn. Keeps text-only turns from endless "preparing" polling.
- */
 export function settleDiscussAfterChatReady(input: {
   toolCard: DiscussSettleToolCard | null;
   lastAssistantHasText: boolean;

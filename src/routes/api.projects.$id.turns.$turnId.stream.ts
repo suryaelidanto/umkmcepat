@@ -91,7 +91,7 @@ function createDiscussReadStream(
         try {
           controller.enqueue(encoder.encode(encodeSseEvent(event.type, event)));
         } catch {
-          /* client gone */
+          // ignore closed stream
         }
       };
       void runDiscussProgressTail({
@@ -101,7 +101,7 @@ function createDiscussReadStream(
           try {
             controller.enqueue(encoder.encode(`: ${comment}\n\n`));
           } catch {
-            /* client gone */
+            // ignore closed stream
           }
         },
         afterSequence,
@@ -147,7 +147,7 @@ function createDiscussReadStream(
         try {
           controller.close();
         } catch {
-          /* closed */
+          // ignore already closed controller
         }
       });
     },

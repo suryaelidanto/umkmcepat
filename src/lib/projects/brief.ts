@@ -53,9 +53,7 @@ export type ProjectBrief = {
   contactOrCta: string;
   stylePreference: string;
   notes: string[];
-  /** AI-owned readiness confidence, 0-100. Defaults to 0 (must keep discussing). */
   confidence?: number;
-  /** Material decisions the AI still wants to resolve before recommending build. */
   openQuestions?: string[];
   productOrService: ProductOrServiceItem[] | null;
   contact: ContactValue | null;
@@ -76,14 +74,11 @@ export type ProjectBrief = {
   readyForBuild: boolean;
   umkmType?: UmkmType | null;
   fieldState?: FieldStateMap;
-  /** Owner-uploaded image refs (from image_upload cards), used by the build
-   * agent for real image placement. */
   businessImages?: BusinessImageRef[];
 };
 
 export type BriefQuestion = {
   // Free-form slug the AI chooses per question (e.g. "opening_hours",
-  // "delivery_area", "product_count"). Legacy brief-field ids remain valid.
   id: string;
   question: string;
   recommendedOptionLabel?: string;
@@ -92,15 +87,11 @@ export type BriefQuestion = {
   placeholder?: string;
   whyThisQuestionMatters?: string;
   // ponytail: when true, user must answer before advancing. AI marks mandatory
-  // fields (businessName, businessType, offer, targetCustomer) as required.
-  // Default false → user can skip with "Lewati" button.
   required?: boolean;
   options: Array<{ label: string; description: string }>;
 };
 
 // One question per turn. The AI asks a single question, the user answers, the
-// next turn asks the next question. Legacy `type: "questions"` payloads stored
-// in the DB are collapsed to their first question by the normalizer.
 export type ImageUploadPurpose = "business-image" | "logo" | "reference";
 
 export type ImageUploadQuestion = {
@@ -109,7 +100,6 @@ export type ImageUploadQuestion = {
   hint?: string;
   selectionMode: "single" | "multiple";
   purpose: ImageUploadPurpose;
-  /** Default false → user can skip with the existing skip affordance. */
   required?: boolean;
 };
 
@@ -427,8 +417,6 @@ export function mergeProjectBriefPatch(
   );
 
   // Typed rich fields. The validator scrubs hallucinated values downstream; we
-  // only copy non-null scalars and arrays here. Empty arrays become explicit
-  // null so the readiness gate has a stable signal.
   if (Array.isArray(patch.productOrService)) {
     next.productOrService = patch.productOrService.length
       ? patch.productOrService
@@ -501,7 +489,6 @@ export function getMissingBriefFields(brief: ProjectBrief) {
   return REQUIRED_FIELDS.filter((field) => !brief[field]);
 }
 
-/** Legacy helper kept for compatibility; question ids are now free-form strings. */
 export function isBriefQuestionId(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }

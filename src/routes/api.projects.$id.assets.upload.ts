@@ -21,8 +21,6 @@ export const Route = createFileRoute("/api/projects/$id/assets/upload")({
   server: {
     handlers: {
       // Upload one owner-scoped project asset (business image / reference / logo).
-      // Multipart form: field `file` (required) or `assetId` (pre-uploaded via
-      // temp image upload), `purpose` (required, allowlisted).
       POST: async ({ request, params }) => {
         const session = await auth();
         if (!session?.user?.id) {

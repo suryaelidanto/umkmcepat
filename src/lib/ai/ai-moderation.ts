@@ -25,7 +25,6 @@ export type ModerationResult =
 
 export type ModerationImage = { bytes: Buffer; mediaType: string };
 
-/** AiCallRecord correlation ids the caller already has. */
 export type ModerationLedgerCorrelation = {
   projectId?: string;
   turnId?: string;
@@ -79,7 +78,6 @@ export async function moderateProjectRequest(
 
   const requestedModel = getModerationModel();
   // Non-streaming generateText: ttftMs = requestMs on success (buffered
-  // response has no first-token moment).
   const stopTimer = startAiCallTimer({ withTtft: true });
   let attemptedRetry = false;
   let result;
@@ -160,8 +158,6 @@ export async function moderateProjectRequest(
       : { allowed: true, modelId, usage };
   if (!moderationResult.allowed) {
     // A refused send creates no turn, so without this the message simply
-    // vanishes from every log and the owner looks stuck. Label only — never
-    // the message itself.
     devLog("moderation", "refused", { label, model: modelId });
   }
 

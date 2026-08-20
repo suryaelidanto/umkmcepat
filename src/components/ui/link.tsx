@@ -5,9 +5,6 @@ import type { ComponentProps } from "react";
 type RouterLinkProps = ComponentProps<typeof RouterLink>;
 
 // Compatibility wrapper so components can keep the familiar `<Link href="...">`
-// API. Maps `href` to TanStack Router's `to`. External/hash/mailto links fall
-// back to a plain anchor, as do internal links rendered outside a
-// RouterProvider (e.g. Storybook, isolated tests).
 export type LinkProps = Omit<RouterLinkProps, "to"> & {
   href: string;
 };

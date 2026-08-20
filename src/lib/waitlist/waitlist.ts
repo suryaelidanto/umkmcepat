@@ -45,8 +45,6 @@ export type WaitlistStoryAnswers = {
 };
 
 // Build a single story string from the 3 guided micro-answers the user fills
-// in on the waitlist wizard. The combined text feeds validateWaitlistStory so
-// the same 80-char minimum applies without making the user write an essay.
 export function buildWaitlistStory(
   answers: WaitlistStoryAnswers,
 ): { ok: true; story: string } | { ok: false; reason: string } {
@@ -148,7 +146,6 @@ export async function isWaitlistApproved(
   return entry.status as WaitlistStatus;
 }
 
-/** Parse waitlist imageRef JSON (array of object refs). Empty on bad/missing. */
 export function parseWaitlistImageRefs(imageRef: string | null): string[] {
   if (!imageRef) {
     return [];
@@ -188,7 +185,6 @@ export type AdminWaitlistEntry = {
 export type AdminWaitlistStatusFilter =
   "pending" | "approved" | "rejected" | "all";
 
-/** All waitlist rows for admin review (newest first). Includes imageCount and search. */
 export async function listPendingWaitlist(
   status: AdminWaitlistStatusFilter = "all",
   searchQuery?: string,
@@ -291,8 +287,6 @@ export async function approveWaitlistEntry(
 }
 
 // Dev-mode convenience: pretend the signed-in user is approved so the
-// MainChrome waitlist gate lets them straight through. Real production
-// onboarding still has to go through submit + approve.
 export async function devApproveOwnWaitlistEntry(email: string): Promise<void> {
   const normalized = normalizeEmail(email);
   if (!normalized) {
@@ -321,7 +315,6 @@ export async function devApproveOwnWaitlistEntry(email: string): Promise<void> {
 }
 
 // Dev-mode reset: clear the signed-in user's approved entry so the gate can
-// be re-tested end-to-end without nuking the database.
 export async function devResetOwnWaitlistEntry(email: string): Promise<void> {
   const normalized = normalizeEmail(email);
   if (!normalized) {
@@ -348,10 +341,6 @@ export async function rejectWaitlistEntry(
   devLog("waitlist", "reject", { entryId, reviewerId });
 }
 
-/**
- * When a user signs up, link their account to an approved waitlist entry whose
- * email matches. This is what lets an approved applicant through the gate.
- */
 export async function linkApprovedWaitlistOnSignup(
   userId: string,
   email: string,

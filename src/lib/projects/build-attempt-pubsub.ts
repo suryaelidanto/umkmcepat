@@ -24,8 +24,6 @@ export function publishBuildProgress(
   }
 
   // `attemptId` + monotonic `seq` let a client that reads the same channel
-  // twice (POST body reader + late EventSource replay) drop events it already
-  // rendered, without needing to know which reader delivered them.
   const stamped: BuildProgressEvent = {
     ...event,
     attemptId,
@@ -38,7 +36,7 @@ export function publishBuildProgress(
     try {
       subscriber(stamped);
     } catch {
-      /* ignore subscriber errors */
+      // ignore subscriber error
     }
   }
 
@@ -61,7 +59,7 @@ export function subscribeBuildProgress(
     try {
       onEvent(event);
     } catch {
-      /* ignore subscriber errors */
+      // ignore handler error
     }
   }
   channel.subscribers.add(onEvent);
@@ -112,7 +110,7 @@ export function createReadStreamFromChannel(attemptId: string): Response {
         try {
           controller.close();
         } catch {
-          /* already closed */
+          // ignore stream already closed
         }
       });
     },

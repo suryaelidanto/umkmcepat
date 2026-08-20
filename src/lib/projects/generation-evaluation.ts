@@ -1,6 +1,4 @@
 // src/lib/projects/generation-evaluation.ts
-// Frozen scoring contract for generation evaluation. Phase 0 freezes a
-// baseline/corpus/evaluator version before any treatment code is enabled.
 
 import type { GeneratedSiteCallBudgetSnapshot } from "./generated-site-call-budget";
 import type { GeneratedSiteDesignKitId } from "./generated-site-design-kits/types";
@@ -47,9 +45,6 @@ function scheduledKey(t: { briefId: string; trial: 1 | 2 }): string {
   return `${t.briefId}:${t.trial}`;
 }
 
-/** Freeze the evaluation contract. Missing scheduled trials are errors, never
- * silently dropped; infra errors stay in the denominator and are reported
- * separately from model-quality failures. */
 export function buildEvaluationReport(
   manifest: EvaluationManifestV1,
   results: EvaluationTrialResultV1[],
@@ -1005,12 +1000,6 @@ function duplicateKeys(
   return [...duplicates];
 }
 
-/**
- * Per-trial diagnostics for the private run directory. A benchmark that fails
- * the same way on every trial must say so while it runs, but the reason may
- * quote generated route source — so the message is truncated and kept out of
- * the shared telemetry surfaces entirely.
- */
 export const GENERATION_TRIAL_DIAGNOSTIC_MESSAGE_LIMIT = 200;
 
 export type GenerationTrialDiagnostic = {

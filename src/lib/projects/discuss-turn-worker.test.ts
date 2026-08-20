@@ -190,7 +190,6 @@ describe("runDiscussTurn worker", () => {
 
   it("persists the assistant reply + finalizes succeeded + publishes finish on happy path", async () => {
     // normalizeWorkspaceTurn returns a non-none card → primaryToolFailed=false
-    // → no repair → straight to persist + charge + finalize.
     normalizeWorkspaceTurnMock.mockReturnValueOnce({
       brief: baseBrief,
       projectTitle: "T",

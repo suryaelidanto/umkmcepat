@@ -138,7 +138,6 @@ describe("runBatchedGenerate — truncated <file> stream retry (hardening)", () 
 
   it("retries a truncated <file> block with staged-file preservation and succeeds (cmspc6zv failure)", async () => {
     // Simulate cmspc6zv300084lm3n3gqoq8g: writer streamed ProductSection.tsx but truncated mid-block, then format-repair also truncated.
-    // Hardened engine must preserve already-staged files (index.tsx, katalog) and resume the truncated file instead of failing outright.
     const writerPartial =
       `<file path="src/routes/index.tsx">\n${HOME_TSX}</file>\n` +
       `<file path="src/components/sections/ProductSection.tsx">\n${PRODUCT_TSX.slice(0, 200)}`;

@@ -266,10 +266,6 @@ describe("reference-calibrated generated site source gates", () => {
       "uncompiled-theme-utility",
     ],
     // --color-card, --color-background, --color-popover, and --color-secondary
-    // are all registered Tailwind tokens (compileShadcnTheme needs them for
-    // bg-*), so text-card/text-background/etc. are syntactically valid but
-    // read a surface colour as text — invisible on that surface (ratio 1.00).
-    // Reproduced live: a real build failed computed-contrast at exactly 1.00.
     [
       "uses the card surface token as text",
       '<p className="text-card">A</p>',
@@ -291,14 +287,6 @@ describe("reference-calibrated generated site source gates", () => {
       "uncompiled-theme-utility",
     ],
     // --muted-foreground/--card-foreground/--popover-foreground/--foreground
-    // all resolve to the theme's raw foreground hex whenever it already reads
-    // on the light background — which is the common case, since that's what
-    // makes body text readable in the first place. SiteSection surface=
-    // "contrast" compiles to bg-foreground text-background, so a child that
-    // overrides with one of those tokens paints text the same colour as the
-    // background. Reproduced live: a real build failed computed-contrast at
-    // 1.00 this way on a text-muted-foreground paragraph inside surface=
-    // "contrast".
     [
       "uses a light-surface foreground token as text inside a contrast surface section",
       '<SiteSection surface="contrast"><p className="text-muted-foreground">A</p></SiteSection>',
@@ -310,11 +298,6 @@ describe("reference-calibrated generated site source gates", () => {
       "uncompiled-theme-utility",
     ],
     // text-foreground is calibrated for the page's light background, not for
-    // bg-accent/bg-primary — compileShadcnTheme derives those independently
-    // and they are often a different-luminance hue. Reproduced live: a real
-    // build's CTA button paired bg-accent with bare text-foreground at
-    // 2.68:1, needing 4.5. Only *-foreground (accent-foreground/primary-
-    // foreground) is contrast-guaranteed there.
     [
       "uses a light-surface foreground token as text on its own bg-accent element",
       '<a className="bg-accent text-foreground">A</a>',
@@ -347,10 +330,6 @@ describe("reference-calibrated generated site source gates", () => {
   });
 
   // Reproduced live: {hour.open}–{hour.close} renders as a compact time
-  // range like "08.00–21.00". The llm-dash-tell check exists to catch the
-  // AI phrasing tic of a spaced dash as a sentence-level aside ("word — word"),
-  // not a tight en dash used as a numeric/day range separator — a normal,
-  // non-AI-specific typographic convention.
   it("accepts an en dash used as a compact range separator", () => {
     expect(
       inspectGeneratedSiteTasteSource({
@@ -361,11 +340,6 @@ describe("reference-calibrated generated site source gates", () => {
   });
 
   // Reproduced live: a real build's writer correctly emitted text-background
-  // inside SiteSection surface="contrast" (which compiles to bg-foreground
-  // text-background) and the source gate rejected it anyway, because the
-  // pre-existing bare-text-background check has no notion of scope — it was
-  // written back when text-background was wrong everywhere. text-background
-  // is the one surface token that IS a valid text colour, but only there.
   it("accepts text-background inside a contrast surface section", () => {
     expect(
       inspectGeneratedSiteTasteSource({
@@ -391,13 +365,6 @@ describe("reference-calibrated generated site source gates", () => {
   });
 
   // Reproduced live: a bg-foreground illustration div sat near the top of a
-  // surface="base" section (no contrast surface at all). Its own tag has no
-  // fixed marker like </SiteSection> to bound a scan by — div nesting is
-  // arbitrary — so a scan bounded by "the next SiteSection" swallowed the
-  // rest of the section: a real build's product description and usp list,
-  // both well after the div's own </div>, were wrongly read as inside its
-  // scope and left with an invisible text-background. Only the div's own
-  // true matching close is a correct bound.
   it("still flags text-background far outside a bg-foreground element's own tag", () => {
     const source =
       '<SiteSection surface="base"><div className="flex bg-foreground p-8"><svg /></div><p className="text-background">Elsewhere</p></SiteSection>';
@@ -417,10 +384,6 @@ describe("reference-calibrated generated site source gates", () => {
   });
 
   // Reproduced live: a real build's contact block correctly paired
-  // bg-foreground text-background on its own div, then a heading and
-  // paragraph *inside* it overrode with bare text-foreground — invisible
-  // against that same bg-foreground. The tag's own attribute string is not
-  // enough; descendants inside its true matching close must be scanned too.
   it("still flags text-foreground inside a bg-foreground element's descendants", () => {
     const source =
       '<div className="mt-20 bg-foreground p-6 text-background"><h2 className="text-foreground">Pesan atau datang langsung.</h2></div>';
@@ -497,10 +460,6 @@ describe("reference-calibrated generated site source gates", () => {
 
   it("rejects a route that references a site.* field the schema does not have", () => {
     // Reproduced live: the writer referenced site.usp when the schema's usp
-    // was empty (JSON.stringify drops the undefined-valued key entirely), and
-    // the failure only surfaced as a TS compile error at the expensive build
-    // step because this gate had no unknown-site-field check — unlike
-    // inspectGeneratedSiteSource, which already has one.
     const result = inspectReferenceCalibratedSiteSource({
       contract: v2Contract(),
       kit: v2Kit(),
@@ -509,8 +468,6 @@ describe("reference-calibrated generated site source gates", () => {
         {
           path: "src/content/site.ts",
           // Matches production emission: JSON.stringify always quotes keys.
-          // parseSiteValue uses JSON.parse, so unquoted JS-literal keys would
-          // silently fail to parse and skip this check entirely.
           content:
             'export const site = {"headline": "Pilih iPhone dengan kondisi jelas", "subheadline": "Bandingkan unit.", "primaryCta": "Chat WhatsApp"} as const;',
         },
@@ -654,22 +611,12 @@ describe("normalizeBatchedSiteAnchors", () => {
     expect(file?.content).not.toContain('text-muted"');
     expect(file?.content).not.toContain("border-l-2");
     // Reproduced live: text-muted-foreground inside SiteSection surface=
-    // "contrast" (which compiles to bg-foreground text-background) read at
-    // contrast ratio 1.00. Self-heal both a raw bg-foreground element's own
-    // mismatched text colour and a contrast section's descendant text colour
-    // to text-background, keeping any opacity suffix.
     expect(file?.content).toContain("text-background/75");
     expect(file?.content).not.toContain("text-foreground/75");
     expect(file?.content).toContain('<p className="text-background">Info</p>');
   });
 
   // Reproduced live: a real build's CTA button paired bg-accent with bare
-  // text-foreground at 2.68:1, needing 4.5 — text-foreground is calibrated
-  // for the page's light background, not for bg-accent/bg-primary, which
-  // compileShadcnTheme derives independently. Heals to each element's own
-  // -foreground pairing (text-accent-foreground / text-primary-foreground),
-  // not a single hardcoded token, even though both resolve to the same
-  // colour today (primary reuses accent's value).
   it("heals a light-surface text colour on its own bg-accent or bg-primary element", () => {
     const [file] = normalizeBatchedSiteAnchors([
       {
@@ -688,12 +635,6 @@ describe("normalizeBatchedSiteAnchors", () => {
   });
 
   // Reproduced live: a real writer response correctly emitted text-background
-  // inside SiteSection surface="contrast". The pre-existing bare-text-
-  // background self-heal step predates that scope and blindly rewrote every
-  // bare text-background to text-foreground, which would have broken an
-  // already-correct contrast pairing had the later contrast-aware step not
-  // existed to round-trip it back — fragile. Healing must recognise the
-  // token is already correct in scope and leave it untouched outright.
   it("leaves text-background untouched inside a contrast surface section", () => {
     const [file] = normalizeBatchedSiteAnchors([
       {

@@ -800,8 +800,6 @@ describe("normalizeWorkspaceTurn", () => {
 
   it("downgrades build_recommendation even at confidence 95 when typed brief fields are empty (regression: slow legacy loop)", () => {
     // The model stamped confidence 95 + empty openQuestions with a fact-only
-    // brief; readiness alone must NOT unlock the build card — the typed fields
-    // are what the batched admission gate reads.
     const brief = parseProjectBrief(
       {
         businessType: "fnb",
@@ -830,8 +828,6 @@ describe("normalizeWorkspaceTurn", () => {
 
   it("promotes snake_case fact answers into typed brief fields (regression: batched admission blocked)", () => {
     // The discuss model answers questions by appending facts only; the typed
-    // fields must be promoted deterministically so a complete interview yields
-    // a buildable brief.
     const brief = parseBuildReadyBrief(
       {
         businessType: "fnb",
@@ -1171,10 +1167,6 @@ describe("normalizeWorkspaceTurn", () => {
   });
 
   // Regression: the combo model sometimes double-encodes briefPatch and
-  // workspaceCard as JSON strings (e.g. briefPatch: "{\"businessType\":\"retail\"}")
-  // instead of nested objects. The tool schema must tolerate this and the server
-  // must un-stringify before applying, or the SDK rejects the call (AI_TypeValidationError)
-  // and every repair attempt churns on the same shape. See brief-flow.ts design note.
   it("un-stringifies a JSON-string briefPatch and workspaceCard from the combo model", () => {
     const brief = createInitialBrief("jual baju thrifting");
     const turn = normalizeWorkspaceTurn(

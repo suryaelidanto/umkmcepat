@@ -5,17 +5,6 @@ import { getSettingSync } from "@/lib/config/app-settings";
 import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
 
-/**
- * Cost-based energy system with one-time pilot grant.
- *
- * "Energy" = USD cost × 1,000,000 (micro-USD), computed from the actual
- * provider-qualified model that served each generation (see model-pricing.ts) —
- * not a flat multiplier. This is fair across mixed-provider combos, since each
- * model has a different prompt:completion price ratio.
- *
- * Signup grant: configured per-user at approval time (default 500k ≈ $0.50).
- * No automatic refill; paid booster remains non-expiring.
- */
 const DEFAULT_MICRO_USD_PER_ENERGY = 1_000_000;
 const DEFAULT_SIGNUP_GRANT = 500_000;
 const DEFAULT_MIN_ENERGY_DISCUSS = 5_000;
@@ -29,8 +18,6 @@ type CreditDatabase = Pick<Prisma.TransactionClient, "$executeRaw">;
 export const PROJECT_LIMIT_DEFAULT = 5;
 
 // Read as a function, not module-scope constants: the AppSetting snapshot is
-// primed per-request in middleware, so a module-evaluation-time read would
-// capture the fallback before priming ever runs.
 export function getEnergyConfig() {
   return {
     microUsdPerEnergy: getSettingSync(
@@ -105,7 +92,6 @@ export async function checkEnergy(
   return { allowed: remaining >= resolvedCost, remaining };
 }
 
-/** Deduct energy from the user's non-expiring balance. */
 export async function addEnergyUsage(
   userId: string,
   modelId: string,
@@ -201,10 +187,6 @@ export async function grantAdminEnergy(
   return grantEnergy(userId, amount, "grant:admin");
 }
 
-/**
- * Route-facing debit after an AI call. Charges on success **or** failure when
- * usage > 0. Never throws into the request path (logs and returns null).
- */
 export async function chargeEnergyForAiUsage(opts: {
   userId: string;
   modelId?: string | null;
@@ -242,11 +224,6 @@ export async function chargeEnergyForAiUsage(opts: {
   }
 }
 
-/**
- * Per-step debit. Same accounting as `chargeEnergyForAiUsage`, but also
- * reports the post-charge balance so agent loops can halt at zero.
- * Never throws into the request path.
- */
 export async function chargeEnergyForStep(opts: {
   userId: string;
   modelId?: string | null;
@@ -321,12 +298,6 @@ export async function getProjectCount(userId: string): Promise<number> {
   return prisma.project.count({ where: { userId } });
 }
 
-/**
- * True once the user is at the configured ceiling (count >= limit), not just
- * over it. Use this in the UI so the prompt form / banner swap activates
- * the moment the user has as many projects as the limit allows — matching
- * the strict gate in assertUnderProjectLimit.
- */
 export function isAtOrOverProjectLimit(count: number, limit: number): boolean {
   return count >= limit;
 }
@@ -345,12 +316,6 @@ export class ProjectLimitExceededError extends Error {
   }
 }
 
-/**
- * Throws ProjectLimitExceededError if the user already has `limit` or more
- * projects. MUST be called inside a prisma.$transaction (or with an explicit
- * Prisma TransactionClient) so the COUNT(*) and the subsequent INSERT are
- * atomic — otherwise concurrent requests can race past the check.
- */
 export async function assertUnderProjectLimit(
   tx: Pick<Prisma.TransactionClient, "$queryRaw">,
   userId: string,
@@ -368,10 +333,6 @@ export async function assertUnderProjectLimit(
   return { count, limit };
 }
 
-/**
- * Helper to log credit transactions (debits and top-ups) to devLog/trace.
- * Standardizes format ensuring userId, amount, reason, and timestamp are present.
- */
 export function logCreditTransaction(opts: {
   type: "debit" | "credit";
   userId: string;

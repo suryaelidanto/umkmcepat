@@ -100,13 +100,6 @@ function fallbackOptionsForRichness(
   ];
 }
 
-/**
- * Backfill a default placeholder on a text question card that lacks one.
- * Cheap models (glm/minimax) often omit `placeholder`, leaving the UI
- * with the bare literal fallback. This guarantees every text card carries a
- * hint. Also repairs choice cards that slipped through with <2 options
- * (e.g., ["","",""] after filtering) by injecting fallback choices.
- */
 export function ensureQuestionCardRichness(card: WorkspaceCard): WorkspaceCard {
   if (card.type !== "question") {
     return card;
@@ -147,7 +140,6 @@ export function ensureQuestionCardRichness(card: WorkspaceCard): WorkspaceCard {
       };
     }
     // Generic Opsi A/B/C for unknown ids (delivery_area, hours) is not real —
-    // only synthesize for known choice intents; otherwise keep as text.
     if (!isChoiceQuestionRichness(q.id, q.question)) {
       const placeholder = FALLBACK_PLACEHOLDER;
       return {
@@ -170,9 +162,6 @@ export function ensureQuestionCardRichness(card: WorkspaceCard): WorkspaceCard {
     };
   }
   // Also cover the case where a choice-intended card was incorrectly
-  // downgraded to text with empty options elsewhere; if the text card has
-  // empty options but the question looks like a style choice, promote it.
-  // This handles legacy-normalized cards that reached here as text.
   if (
     q.answerMode === "text" &&
     q.options.length === 0 &&

@@ -1,7 +1,4 @@
 // src/lib/projects/contract-readiness.ts
-// Deterministic readiness evaluation for a contract-v1 draft. The server, not
-// model confidence, authorizes planning. Blocked decisions must be answered,
-// safely skipped, unknown-safe, or not-applicable per the registry policy.
 import {
   BUILD_DECISIONS,
   selectNextBuildDecision,
@@ -36,7 +33,6 @@ const CTA_KINDS_REQUIRING_TARGET: ReadonlySet<string> = new Set([
   "order",
 ]);
 
-/** Core facts every contract must carry before planning. */
 function coreBlockers(contract: BuildContractV1): ContractBlocker[] {
   const blockers: ContractBlocker[] = [];
   if (!contract.identity.businessName) {
@@ -106,7 +102,6 @@ function applicableDecisions(contract: BuildContractV1): DecisionId[] {
   }).map((d) => d.id);
 }
 
-/** Server-authoritative readiness: never trusts model confidence. */
 export function evaluateContractReadiness(
   contract: BuildContractV1,
 ): ContractReadiness {

@@ -214,11 +214,6 @@ export async function buildGeneratedProject(
 }
 
 // node:child_process.spawn on Windows requires an absolute path or an
-// explicit .exe suffix; the bare name "bun" resolves to ENOENT once the
-// child's CWD is anything other than the lookup directory (e.g. a brand-new
-// generated workspace). Resolve once at module init and reuse the absolute
-// path for every spawn so this works on Windows + POSIX and is independent
-// of the calling process's CWD.
 export function resolveBundledRunner(): string {
   const explicit = process.env.PROJECT_BUILD_BUN_PATH?.trim();
   if (explicit) {
@@ -247,16 +242,11 @@ export function resolveBundledRunner(): string {
   }
 
   // If this process is itself running under bun (the normal `bun run dev`
-  // case), execPath is already an absolute path to the bun binary.
   if (path.basename(process.execPath).toLowerCase().startsWith("bun")) {
     return process.execPath;
   }
 
   // This code can also run inside a plain node subprocess spawned by the
-  // dev/SSR toolchain (e.g. Nitro), which may not inherit the shell's PATH.
-  // bun always installs to ~/.bun/bin regardless of OS or install method
-  // (official install script, Windows installer, Homebrew symlink target),
-  // so check that fixed location before falling back to PATH search.
   const fromHome = firstExisting([path.join(homedir(), ".bun", "bin")]);
   if (fromHome) {
     return fromHome;
@@ -317,8 +307,6 @@ async function buildGeneratedProjectInWorkspace(
     await syncGeneratedProjectFiles(workspace, files);
 
     // Link the shared golden node_modules (read-only) before the install check.
-    // On repeat builds the link keeps node_modules present so shouldInstall
-    // stays false; a broken golden falls through to the normal install path.
     let goldenLinked = false;
     try {
       const packageJsonContent = files.find(
@@ -345,11 +333,6 @@ async function buildGeneratedProjectInWorkspace(
     }
 
     // A successful golden link is authoritative: ensureSharedNodeModules
-    // provisions the golden for EXACTLY dependencySignature (re-provisioning
-    // on sig mismatch), so the linked node_modules matches the sig by
-    // construction. Skip the workspace install, and write cache metadata so
-    // the next repeat build also skips via the sig-match path. A broken link
-    // falls through to the normal install path below.
     const shouldInstall =
       !goldenLinked &&
       (resetBeforeBuild ||
@@ -387,7 +370,6 @@ async function buildGeneratedProjectInWorkspace(
     }
 
     // tsc gates vite (same failure semantics as `tsc -b && vite build` in a
-    // single npm script), but as two invocations so each step is timed.
     const tscStartedAt = Date.now();
     const tsc = await commandRunner(
       [BUNDLED_RUNNER, "x", "tsc", "-b"],
@@ -564,7 +546,6 @@ async function removeStaleWorkspaceFiles(
     const relative = path.relative(root, absolute).replace(/\\/g, "/");
 
     // Per-workspace caches (tsbuildinfo, vite cacheDir, build metadata)
-    // survive syncs; stale cleanup never treats them as deletable files.
     if (relative.startsWith(".cache/generated-app/")) {
       continue;
     }

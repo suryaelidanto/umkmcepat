@@ -1,7 +1,4 @@
 // Shared helpers for the discuss-turn flow. Used by both the detached worker
-// (`discuss-turn-worker.ts`) and the POST route (`api.projects.preview.ts`).
-// ponytail: Task 4 duplicated these into the worker; Task 5 extracted them here
-// to kill the drift risk. Do not re-inline without removing both call sites.
 
 import {
   convertToModelMessages,
@@ -117,7 +114,6 @@ export async function repairDiscussCardWithTool({
   userId: string;
 }) {
   // Post-build discuss only allows workspaceCard none / clarification;
-  // interview repair is impossible under hasBuiltSite and must not spend energy.
   if (hasBuiltSite) {
     return null;
   }
@@ -225,12 +221,6 @@ Prefer 2-5 options per choice question and set recommendedOptionLabel.`,
 }
 
 // In-turn repair layer: when the primary streamText emits a tool call with
-// malformed args, the AI SDK invokes `repairToolCall`. We re-prompt once with
-// the forced card tool and return a `LanguageModelV4ToolCall`-shaped value
-// (input as stringified JSON, since the SDK re-parses it via safeParseJSON).
-// Returning null leaves the call unrepaired → the stream emits no tool-call
-// part → toolInput stays null → existing Layer-3 `repairDiscussCardWithTool`
-// fires as the backstop. No new branch needed.
 export async function repairToolCallInTurn({
   error,
   messages,

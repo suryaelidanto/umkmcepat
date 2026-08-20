@@ -12,9 +12,6 @@ export function getEnv(name: string, fallback = ""): string {
   return process.env[name] || fallback;
 }
 
-/** Emergency override for generated build execution.
- *  In dev defaults true; in prod defaults false for safety.
- *  Not configurable via admin UI — use .env for emergency only. */
 export function isGeneratedBuildExecutionEnabled() {
   const raw =
     process.env.GENERATED_BUILD_EXECUTION_ENABLED?.trim().toLowerCase();
@@ -27,9 +24,6 @@ export function isGeneratedBuildExecutionEnabled() {
   return process.env.NODE_ENV !== "production";
 }
 
-/** Emergency override for generated public execution.
- *  In dev defaults true; in prod defaults false for safety.
- *  Not configurable via admin UI — use .env for emergency only. */
 export function isGeneratedPublicExecutionEnabled() {
   const raw =
     process.env.GENERATED_PUBLIC_EXECUTION_ENABLED?.trim().toLowerCase();

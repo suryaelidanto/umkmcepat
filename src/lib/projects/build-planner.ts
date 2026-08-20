@@ -1,7 +1,4 @@
 // src/lib/projects/build-planner.ts
-// Pre-build planning: turn a review-ready brief into a validated, hashed
-// BuildContractV1 draft. Planning runs before the build-recommendation card
-// for contract-v1 projects. The model proposes; the server validates.
 import {
   parseBuildContract,
   type BuildContractV1,
@@ -32,8 +29,6 @@ export type PlannerDeps = {
 export type ContractDraftResult =
   { ok: true; value: BuildContractV1 } | { ok: false; reason: string };
 
-/** Map a rich, review-ready brief into a contract-v1 draft. Server-owned
- * normalization; the AI never writes facts directly. */
 export function buildContractFromBrief(
   brief: ProjectBrief,
   deps: PlannerDeps,
@@ -219,7 +214,6 @@ function buildCtaIntents(brief: ProjectBrief): BuildContractV1["ctaIntents"] {
   return [{ id: "cta-primary", kind: "browse", label: "Lihat" }];
 }
 
-/** Deterministic route plan derived only from accepted visitor jobs. */
 export function buildPlanFromContract(contract: BuildContractV1): BuildPlanV1 {
   const factIds = contract.facts.map((f) => f.id);
   const parsedVisitorJobs = parseVisitorJobs(contract.visitorJobs);
@@ -450,11 +444,6 @@ export type PrepareHandoffResult =
     }
   | { state: "failed"; reason: string };
 
-/**
- * Build an immutable draft handoff from a review-ready brief. Combines
- * contract + plan + review items, hashes them, and persists (or reuses) the
- * handoff row. Engine-guarded: only called for contract-v1 projects.
- */
 export async function prepareBuildHandoff(input: {
   projectId: string;
   userId: string;
@@ -485,7 +474,6 @@ export async function prepareBuildHandoff(input: {
   const reviewItems = deriveReviewItems(contract, validatedPlan);
   const reviewHashValue = hashReviewItems(reviewItems);
   // Written once from the discussion and frozen with the rest of the handoff,
-  // so a retry executes the same direction instead of re-imagining it.
   const creative = input.messages?.length
     ? await generateBuildCreativeDirection({
         businessName: briefSnapshot.business.name,

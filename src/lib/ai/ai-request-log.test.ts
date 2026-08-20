@@ -19,7 +19,7 @@ function reset() {
     try {
       rmSync(f);
     } catch {
-      /* ignore */
+      // ignore if missing
     }
   }
 }
@@ -45,7 +45,6 @@ describe("writeAiRequestLog", () => {
     const orig = process.env.NODE_ENV;
     const origLogFile = process.env.DEV_LOG_FILE;
     // Point the log at a private path so concurrent parallel tests writing to
-    // the shared dev.log can't recreate it between our rmSync and assertion.
     const isolated = path.join(
       process.cwd(),
       `.data/tmp/ai-debug/test-prod-noop-${process.pid}.log`,
@@ -60,7 +59,6 @@ describe("writeAiRequestLog", () => {
     await writeAiRequestLog({ event: "prod-evt" });
 
     // In production, the log file should not be created.
-    // (If it was created, readFileSync succeeds and the test fails).
     expect(() => readFileSync(isolated, "utf8")).toThrow();
 
     if (existsSync(isolated)) {

@@ -1,5 +1,4 @@
 // Tolerate the combo model double-encoding a nested object field as a JSON
-// string (e.g. briefPatch: "{\"businessType\":\"retail\"}").
 export function unstringifyJsonObject<T>(value: T): T {
   if (typeof value !== "string") {
     return value;

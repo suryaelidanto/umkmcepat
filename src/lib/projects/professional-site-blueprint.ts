@@ -291,7 +291,6 @@ export function createProfessionalRouteBinding(input: {
     );
     sections.unshift({
       // Two sections sharing an id would make data-section-id ambiguous for
-      // both the DOM contract and the plan's per-section treatment.
       id: unusedSectionId("hero", sections),
       purpose: "Accepted identity, offer, and primary action",
       role: "identity",

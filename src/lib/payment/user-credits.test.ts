@@ -83,7 +83,6 @@ describe("user-credits energy cost formula", () => {
 
   it("prices input and output with real model rates", async () => {
     // 1000 input * 0.0000003 + 500 output * 0.0000012 = 0.0003 + 0.0006 = 0.0009 USD
-    // * 1_000_000 = 900 energy
     await expect(
       calculateEnergyCost("minimax/minimax-m3", 1000, 500),
     ).resolves.toBe(900);

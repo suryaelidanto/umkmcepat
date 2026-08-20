@@ -1422,10 +1422,6 @@ function hasSitePath(source: string, path: string): boolean {
   return new RegExp(`\\b${escapeRegExp(path)}\\b`).test(source);
 }
 
-/**
- * The writer prompt lists exactly these paths, so a field the gate demands is
- * always a field the writer was told to render.
- */
 export function professionalPopulatedContentPaths(
   content: GeneratedSiteWriterContractV3["content"],
 ): string[] {
@@ -1578,7 +1574,6 @@ function containsCustomerString(
   let found = false;
   const visit = (child: ts.Node): void => {
     // className, key, href, and data-* carry no customer prose. Counting them
-    // would make any styled list over accepted data unwritable.
     if (
       ts.isJsxAttribute(child) &&
       !CUSTOMER_FACING_JSX_ATTRIBUTES.has(

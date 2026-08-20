@@ -392,7 +392,6 @@ describe("shadcn seed allowlist (vite-react-tanstack-v1)", () => {
       }
     }
     // Every imported dep must appear in the scaffold's package.json —
-    // if not, the build-policy gate rejects the generated project.
     const { pkg } = scaffoldPkg();
     for (const dep of imported) {
       expect(pkg.dependencies).toHaveProperty(dep);
@@ -400,11 +399,6 @@ describe("shadcn seed allowlist (vite-react-tanstack-v1)", () => {
   });
 
   // Regression: the AI emitted `import { motion } from "motion/react"` into generated
-  // components but never added `motion` to package.json. Vite hoisted `motion` from the
-  // platform's own node_modules, bundling a second React copy (framer-motion's internal
-  // React ≠ the app's React) → `Cannot read properties of null (reading 'useContext')` at
-  // runtime → the app crashed before usePreviewReady fired → the preview iframe spun forever.
-  // The policy must reject source that imports a package not declared in package.json.
   function filesWith(
     packageJson: unknown,
     routes: Array<{ path: string; content: string }>,

@@ -179,12 +179,6 @@ describe("generated-site theme v2", () => {
 
   it("keeps site.ts normalized when the theme injects the writer's palette", () => {
     // The starter's own site.ts is correctly normalized
-    // (normalizeSiteSchemaForEmit fills missing product/paymentMethod keys
-    // with ""), but applyGeneratedSiteThemeV2 re-serialises src/content/site.ts
-    // from the RAW schema to inject site.theme, silently undoing that
-    // normalization. Reproduced live: a real build's writer referenced
-    // product.description and it genuinely did not exist on the re-emitted
-    // file's first product, a real TS union-narrowing error.
     const rawSchema: ProjectSiteSchema = {
       version: 1,
       businessName: "Seblak Surya",

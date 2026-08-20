@@ -68,7 +68,6 @@ const {
 }));
 
 // -- Prisma: single stub object; every call lands on vi.fn so we can assert
-// -- what the worker wrote without standing up a real DB.
 const prismaMock = vi.hoisted(() => {
   const brief = {
     version: 1,
@@ -210,7 +209,6 @@ vi.mock("ai", async (importOriginal) => {
   return {
     ...actual,
     // Spec generation succeeds immediately with a minimal valid spec so the
-    // attempt always reaches the source-write branch.
     generateText: generateTextMock,
   };
 });

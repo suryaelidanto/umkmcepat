@@ -27,7 +27,6 @@ import {
 
 export function MainChrome({ children }: { children: React.ReactNode }) {
   // Layout must follow the *committed* page (Outlet), not the in-flight target.
-  // Otherwise project → home briefly shows home chrome around project chat.
   const pathname = usePathname();
   const targetPathname = useTargetPathname();
   const isRoutePending = useIsRoutePending();
@@ -44,8 +43,6 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
   const isNavigatingToWaitlist = targetPathname === "/waitlist";
 
   // Waitlist gate: only meaningful for signed-in users. Anonymous users get
-  // status null and are left alone (landing + /waitlist are reachable). A
-  // signed-in, non-approved user is redirected to /waitlist.
   const waitlistQuery = useQuery({
     queryKey: queryKeys.waitlistStatus,
     queryFn: fetchWaitlistStatus,
@@ -55,7 +52,6 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
   });
 
   // Tracks the previous auth status so we can detect a fresh login (any
-  // transition into "authenticated"), not just the first one ever.
   const previousAuthStatus = useRef(sessionStatus);
 
   useEffect(() => {
@@ -69,12 +65,6 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
     previousAuthStatus.current = sessionStatus;
 
     // Waitlist gate. Two cases:
-    // 1. Right after login (auth transition): send the user to /waitlist so
-    //    they know what to do — even from marketing pages like "/". They can
-    //    still browse away afterwards.
-    // 2. Product routes (non-bypass): keep redirecting while unapproved;
-    //    marketing + /admin stay open (/admin still enforced by requireAdmin
-    //    on the server).
     if (
       sessionStatus === "authenticated" &&
       waitlistQuery.isSuccess &&
@@ -120,7 +110,6 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
   }
 
   // During a pending transition keep the previous chrome so header/footer
-  // don't jump ahead of the still-mounted previous page content.
   if (isWorkspace || (isRoutePending && pathname.startsWith("/projects/"))) {
     return <main className="min-h-dvh bg-[#1b1b19]">{children}</main>;
   }

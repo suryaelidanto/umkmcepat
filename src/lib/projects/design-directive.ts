@@ -1,5 +1,4 @@
 // Design taste rules injected into the batched writer prompt. Shared verbatim
-// so generated apps follow one consistent visual language.
 export const DESIGN_DIRECTIVE = `DESIGN STANDARDS (non-negotiable — output must look designed, not templated):
 
 TASTE READ (decide before writing CSS): infer vibe from business (warung=friendly/warm, bengkel=industrial/bold, kopi=editorial/calm, laundry=clean/trust). Set 3 dials: DESIGN_VARIANCE (1 symmetrical→10 artsy, default 8), MOTION_INTENSITY (1 static→10 cinematic, default 6), VISUAL_DENSITY (1 airy→10 packed, default 4).

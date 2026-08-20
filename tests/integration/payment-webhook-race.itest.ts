@@ -2,11 +2,6 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
 import { createTestUser, prisma, resetDatabase } from "./setup";
 
-/**
- * Mirrors the claim-and-grant sequence in api.payment.webhook.ts. The route
- * handler itself needs a live Pakasir verification call, so this exercises the
- * database-level concurrency contract the handler depends on.
- */
 async function claimAndGrant(orderId: string) {
   return prisma.$transaction(async (tx) => {
     const claimed = await tx.payment.updateMany({

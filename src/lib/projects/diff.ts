@@ -1,6 +1,5 @@
 export type DiffLine = { text: string; type: "add" | "delete" | "normal" };
 
-/** Line-level LCS diff. Pure JS, no deps — fine for typical file sizes here. */
 export function generateDiff(oldStr: string, newStr: string): DiffLine[] {
   const oldLines = oldStr.split("\n");
   const newLines = newStr.split("\n");

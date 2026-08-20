@@ -1,9 +1,4 @@
 // src/lib/projects/generated-write-policy.ts
-// Dispatchable write policy for AI-owned generated source. For contract-v1,
-// the AI may only write paths on the topology-compiler allow-list and must not
-// embed raw high-risk literals. For legacy-v1, keep the current broad src/**
-// path policy (no allow-list, no claim scan on writes — post-build claim gates
-// are a separate concern).
 import { scanSourceClaims } from "./high-risk-claims";
 import { buildAllowList } from "./topology-compiler";
 
@@ -18,7 +13,6 @@ export type WritePolicyInput = {
 
 export type WritePolicyResult = { ok: true } | { ok: false; reasons: string[] };
 
-/** Enforce the generated write policy for a single file write. */
 export function enforceGeneratedWritePolicy(
   input: WritePolicyInput,
 ): WritePolicyResult {

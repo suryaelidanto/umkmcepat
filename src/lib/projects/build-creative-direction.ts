@@ -14,14 +14,6 @@ import { getGenerationModel } from "@/lib/ai/ai-models";
 import { getAiTimeoutMs } from "@/lib/ai/ai-timeouts";
 import { devLog } from "@/lib/dev-log";
 
-/**
- * The contract carries accepted facts; nothing carried the reason behind them.
- * An owner saying "kenyang murah, mahasiswa suka" became `audience: "..."` and
- * the writer never learned what mattered about the business. This pass reads
- * the discussion once, at handoff time, and freezes a short expert direction
- * for the writer to execute. It states taste, never facts — the contract stays
- * the only source of anything a customer can read.
- */
 export const BUILD_CREATIVE_DIRECTION_MAX_CHARS = 1_200;
 
 const TRANSCRIPT_MAX_CHARS = 8_000;
@@ -62,11 +54,6 @@ ${formatTranscript(input.messages)}`;
   return { system, user };
 }
 
-/**
- * The owner usually has no photos, and the writer is forbidden from inventing
- * media. Directing "close-up food photography" at a typographic site sends it
- * chasing images that do not exist.
- */
 function mediaRule(mode: BuildCreativeDirectionMediaMode | undefined): string {
   return mode === "owner_assets"
     ? "- The owner supplied photos. Direct how to use them."
@@ -81,8 +68,6 @@ export function normalizeBuildCreativeDirection(
     return null;
   }
   // End on a whole sentence so the last instruction is one the writer can
-  // follow. Both a hard slice and a model that simply ran out mid-clause have
-  // handed it dangling fragments.
   return endOnWholeSentence(
     collapsed.slice(0, BUILD_CREATIVE_DIRECTION_MAX_CHARS),
   );
@@ -105,10 +90,6 @@ export function hashBuildCreativeDirection(direction: string): string {
   return createHash("sha256").update(direction, "utf8").digest("hex");
 }
 
-/**
- * Fail-open: a build must never be lost because the direction pass failed.
- * The writer keeps its deterministic contract and blueprint either way.
- */
 export async function generateBuildCreativeDirection(input: {
   businessName: string;
   businessType: string;

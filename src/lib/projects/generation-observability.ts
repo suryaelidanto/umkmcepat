@@ -1,8 +1,4 @@
 // src/lib/projects/generation-observability.ts
-// Sanitized telemetry for contract-v1 generation. Never records full private
-// user content: contract text, prompts, screenshot URLs, or business values.
-// Only ids, counts, categories, booleans, timings, and sanitized failure
-// classes (spec: Observability / E6).
 
 export type SanitizedGenerationEvent = {
   projectId: string;

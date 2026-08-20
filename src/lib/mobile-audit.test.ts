@@ -7,7 +7,6 @@ import {
 } from "@/lib/mobile-audit";
 
 // Minimal jsdom-ish stub: the auditors read getBoundingClientRect +
-// getComputedStyle off elements. Provide a tiny fake document.
 function fakeEl(opts: {
   height?: number;
   width?: number;

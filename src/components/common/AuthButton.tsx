@@ -229,7 +229,6 @@ export function AuthButton() {
               </button>
             </div>
           ) : (
-            /* Mobile bottom sheet */
             <MobileSheet open={open} onOpenChange={setOpen}>
               <div className="flex flex-col gap-4 text-[#1c1c1c] dark:text-surface-warm-white">
                 <div className="flex items-center justify-between rounded-xl border border-black/10 bg-black/5 p-3 dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5">

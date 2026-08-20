@@ -1,12 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
-/**
- * Root-level canonical docs only. docs/superpowers/{specs,plans} are an
- * intentional decision trail and may reference removed files by design
- * (see docs/superpowers/plans/2026-07-25-final-docs-sync.md) — checking
- * them here would fight that policy instead of catching real drift.
- */
 const repoRoot = process.cwd();
 const mdFiles = readdirSync(repoRoot).filter((file) => file.endsWith(".md"));
 

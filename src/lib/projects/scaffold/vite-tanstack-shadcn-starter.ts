@@ -14,18 +14,6 @@ import {
 } from "@/lib/projects/placeholders";
 import { type ProjectSiteSchema } from "@/lib/projects/site-schema";
 
-/**
- * shadcn-seeded locked-stack scaffold for generated UMKM apps.
- *
- * Stack: Vite + React 19 + TanStack Router (hash history, static,
- * multi-page) + Tailwind CSS v4 (@tailwindcss/vite, CSS-first, no
- * tailwind.config.js) + shadcn/ui ("new-york", source-copied components).
- *
- * The AI composes known-good shadcn components instead of inventing
- * structure from a blank canvas — the reliability lever behind broken-CSS
- * and stale-placeholder output. Step 9 downstream tests (Task 2) repoint
- * src/styles.css references to src/index.css where needed.
- */
 export function createViteTanStackShadcnStarterFiles(
   _projectId: string,
   schema: ProjectSiteSchema,
@@ -159,9 +147,6 @@ export function createViteTanStackShadcnStarterFiles(
             erasableSyntaxOnly: true,
             noFallthroughCasesInSwitch: true,
             // TS 6.x emits a hard TS5101 error for `baseUrl`, which would
-            // fail every generated project's `tsc -b && vite build`. Keep
-            // `baseUrl` (the scaffold test asserts it; the @/ path alias
-            // relies on it) but silence the deprecation per TS guidance.
             paths: {
               "@/*": ["./src/*"],
             },
@@ -255,15 +240,6 @@ export function toPackageName(value: string) {
   );
 }
 
-/**
- * Normalize a site schema before emitting `as const` so TS sees uniform
- * object shapes per array. `as const` narrows each array element to its
- * literal type, so arrays of objects with optional keys (e.g. paymentMethods
- * where only some entries carry `detail`) become a union where accessing the
- * optional key errors on members that lack it. Filling the missing keys with
- * empty strings makes every element share the same shape, so the generated
- * index route can safely read e.g. `pm.detail` without a TS error.
- */
 export function normalizeSiteSchemaForEmit(schema: ProjectSiteSchema): object {
   const normalized = structuredClone(schema);
   if (Array.isArray(normalized.paymentMethods)) {

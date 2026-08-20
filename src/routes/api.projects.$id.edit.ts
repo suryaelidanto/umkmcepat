@@ -158,8 +158,6 @@ async function handleEditPost(request: Request, routeId: string) {
   }
 
   // contract-v1: structural edits (page/route/CTA/capability) require a new
-  // reviewed handoff; only non-structural content/style edits reuse the
-  // active handoff. legacy-v1 keeps free-form route edits.
   if (project.generationEngine === "contract-v1") {
     const structure = classifyEditStructure(instruction);
     if (structure.kind === "structural") {

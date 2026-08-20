@@ -49,8 +49,6 @@ describe("checkRouteGates", () => {
   });
 
   // Regression: ERR_TOO_MANY_REDIRECTS. The gate must NOT redirect banned users
-  // to /blocked when they are already on /blocked, otherwise the gate's
-  // redirect loops with itself.
   it("does not redirect banned users when already on /blocked", async () => {
     getAuthStateMock.mockResolvedValue({
       session: { user: { id: "u-1" } },
@@ -62,7 +60,6 @@ describe("checkRouteGates", () => {
   });
 
   // Regression: a banned user on /blocked must short-circuit for banned
-  // users and not run the waitlist checks against their session user id.
   it("does not run waitlist checks for banned users on /blocked", async () => {
     getAuthStateMock.mockResolvedValue({
       session: { user: { id: "ghost" } },

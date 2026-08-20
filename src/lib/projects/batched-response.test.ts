@@ -29,8 +29,6 @@ describe("isAllowedBatchedPath", () => {
 
   it("flags protected scaffold files (semantic gate; parser still accepts syntactically)", () => {
     // The parser's allow-list is syntactic — protected paths are dropped by
-    // the runners' merge gate, not by isAllowedBatchedPath. See
-    // scaffold/protected-paths.ts header.
     for (const path of PROTECTED_SCAFFOLD_PATHS) {
       expect(isProtectedScaffoldPath(path)).toBe(true);
       expect(isAllowedBatchedPath(path)).toBe(true);

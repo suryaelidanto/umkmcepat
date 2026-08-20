@@ -297,7 +297,6 @@ describe("generated project source", () => {
       false,
     );
     // Agent-facing files (PRODUCT.md, DESIGN.md, .agents/) are now internal
-    // and not included in generated project files.
   });
 
   it("creates snapshot metadata with manifest, origin, and summary", () => {
@@ -591,7 +590,6 @@ describe("generated project source", () => {
     expect(build.ok).toBe(true);
 
     // The per-workspace node_modules must be the linked golden (junction or
-    // symlink), not a directory the install mock would have created.
     const workspace = path.join(
       tempDir,
       "shared-link",
@@ -600,8 +598,6 @@ describe("generated project source", () => {
     const nmStat = await lstat(path.join(workspace, "node_modules"));
     expect(nmStat.isSymbolicLink() || nmStat.isDirectory()).toBe(true);
     // Golden provisioning ran once (pre-provision); buildGeneratedProject
-    // must NOT invoke bun install on the workspace itself — the golden link
-    // short-circuits shouldInstall on a true first build.
     expect(goldenInstall).toHaveBeenCalledTimes(1);
     expect(commands).toEqual(["<bun> x tsc -b", "<bun> x vite build"]);
   });
@@ -674,7 +670,6 @@ describe("generated project source", () => {
     });
 
     // Second build: AI regenerates with a different slug "slug-b"; workspaceKey
-    // keeps the workspace stable so install is skipped.
     const second = await buildGeneratedProject(buildableFiles("slug-b"), {
       commandRunner,
       workspaceRoot: tempDir,
@@ -946,7 +941,6 @@ async function writeDist(cwd: string, content: string) {
 }
 
 // Replace the resolved runner path (which is environment-dependent) with a
-// stable token so assertions stay focused on the command structure.
 function normalizeCommand(command: string[]) {
   return command.map((part, index) => (index === 0 ? "<bun>" : part)).join(" ");
 }

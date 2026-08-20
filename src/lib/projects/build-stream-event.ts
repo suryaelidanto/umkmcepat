@@ -25,23 +25,6 @@ export type BuildStreamEventResult =
 
 const MAX_TRACKED_ATTEMPTS = 3;
 
-/**
- * Tracks which channel `seq` values a client already rendered, per attempt.
- *
- * The POST /generate body reader and the late-joining EventSource both read the
- * same attempt channel, and `subscribeBuildProgress` replays the buffer from
- * index 0 on subscribe. Without this, every event published before the
- * EventSource connects is appended twice (one stale `done` row plus one live
- * `active` row with the same label).
- *
- * Keyed by `attemptId` rather than reset by the caller: a new attempt can start
- * without `startBuild` running at all (queue retry, unstuck path, reattach after
- * refresh), and those attempts restart `seq` at 0.
- *
- * Events without a `seq` pass through — the DB replay in
- * `api.projects.$id.attempts.$attemptId.stream.ts` never went through the
- * channel and is only ever served when the channel is already gone.
- */
 export function createBuildStreamDeduper(): (
   event: BuildStreamEvent,
 ) => boolean {
@@ -59,7 +42,6 @@ export function createBuildStreamDeduper(): (
       seen = new Set<number>();
       seenByAttempt.set(attemptId, seen);
       // Map iterates in insertion order, so this drops the oldest attempts
-      // first and keeps a long session from growing the map without bound.
       for (const oldest of seenByAttempt.keys()) {
         if (seenByAttempt.size <= MAX_TRACKED_ATTEMPTS) {
           break;

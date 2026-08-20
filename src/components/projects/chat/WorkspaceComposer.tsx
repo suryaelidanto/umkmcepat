@@ -58,8 +58,6 @@ export function QuestionComposer({
   const customAnswerSelected = source === "custom";
   const [isSubmitting, setIsSubmitting] = useState(false);
   // ponytail: synchronous lock against double-submit within the same tick.
-  // `isSubmitting` state lags by one render; a ref flips instantly so a second
-  // click on the same event loop pass is dropped before `onSubmit` fires twice.
   const submitLockRef = useRef(false);
   useEffect(() => {
     setIsSubmitting(false);

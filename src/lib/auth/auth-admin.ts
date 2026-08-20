@@ -10,11 +10,6 @@ export type AdminCheck =
   | { ok: true; admin: AuthedAdmin }
   | { ok: false; status: number; message: string };
 
-/**
- * Require an authenticated admin session. Admin is an env-driven email
- * allowlist (ADMIN_EMAILS) — no Role model, no migration. Returns a 401 for
- * anonymous users, 403 for authenticated-but-not-admin users.
- */
 export async function requireAdmin(): Promise<AdminCheck> {
   const session = await auth();
   if (!session?.user?.id || !session.user.email) {

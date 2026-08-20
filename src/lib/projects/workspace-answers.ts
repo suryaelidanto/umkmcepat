@@ -11,7 +11,6 @@ export type WorkspaceAnswerPayload = {
   question?: string;
   questionId: BriefQuestion["id"];
   source?: "custom" | "option";
-  /** Owner-uploaded image asset ids (from image_upload cards). */
   assetIds?: string[];
 };
 
@@ -120,14 +119,6 @@ export function buildBriefPatchFromWorkspaceAnswers({
   return patch;
 }
 
-/**
- * Deterministic mapping from the discuss model's question ids (snake_case,
- * e.g. business_name, primary_offer, contact) to the typed brief fields the
- * batched build admission + MIN_BRIEF_FIELDS gate read. The model generates
- * fresh question ids each interview and stores answers as facts; without this
- * promotion a fully answered interview still yields a "thin" brief and every
- * build falls back to the slow legacy agent loop.
- */
 const QUESTION_ID_TO_BRIEF_FIELD: Record<string, string> = {
   business_name: "businessName",
   business_type: "businessType",

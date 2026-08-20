@@ -234,7 +234,6 @@ describe("requireNotBanned()", () => {
       expect.fail("expected requireNotBanned to throw");
     } catch (thrown) {
       // TanStack Router's redirect() packages the destination into a Response
-      // that the framework intercepts; the Response itself is the marker.
       expect(thrown).toBeInstanceOf(Response);
       expect((thrown as Response).status).toBe(307);
     }

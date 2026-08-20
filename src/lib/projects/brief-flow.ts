@@ -60,9 +60,6 @@ export type WorkspaceTurnToolInput = {
 };
 
 // The tool input is a best-effort side channel. The schema stays intentionally
-// permissive (no strict mode, no length/enum/required constraints) so a slightly
-// malformed model output never fails the whole turn. The server is the single
-// authority that validates, normalizes, and falls back. See normalizeWorkspaceTurn.
 export function applyBriefPatch(
   brief: ProjectBrief,
   patch: WorkspaceTurnToolInput["briefPatch"],
@@ -90,12 +87,6 @@ export function applyBriefPatch(
   if (Array.isArray(patch.facts)) {
     next.facts = mergeBriefFacts(next.facts ?? [], patch.facts);
     // The discuss model frequently answers questions by only appending facts
-    // (keys like business_name, primary_offer, contact) without mirroring them
-    // into the typed brief fields (businessName, offer, contactOrCta). The
-    // batched build admission + MIN_BRIEF_FIELDS gate depend on the typed
-    // fields, so promote recognized fact keys deterministically — otherwise a
-    // complete interview leaves the brief "thin" and every build falls back to
-    // the slow legacy loop.
     for (const fact of patch.facts) {
       const key = cleanSlug(fact.key);
       const field = FACT_KEY_TO_BRIEF_FIELD[key] as
@@ -133,8 +124,6 @@ export function applyBriefPatch(
   }
 
   // Typed rich fields. Mirrors mergeProjectBriefPatch: non-empty arrays copy
-  // through, empty arrays become explicit null. The validator scrubs bad data
-  // downstream.
   if (Array.isArray(patch.productOrService)) {
     next.productOrService = patch.productOrService.length
       ? patch.productOrService
@@ -196,9 +185,7 @@ export function applyBriefPatch(
 
 export type NormalizeWorkspaceTurnOptions = {
   hasBuiltSite?: boolean;
-  /** Last user message text this turn (affirm detection). */
   lastUserText?: string;
-  /** Prior workspace card from project state, if any. */
   previousWorkspaceCard?: WorkspaceCard;
 };
 
@@ -211,13 +198,6 @@ const USER_AFFIRM_START_RE =
 const USER_AFFIRM_BUILD_RE =
   /langsung\s*bangun|bangun\s*aja|mulai\s*build|mulai\s*bangun|build\s*sekarang|udah\s*dulu|cukup(\s*sudah)?/i;
 
-/**
- * Deterministic mapping from the discuss model's fact keys (snake_case) to the
- * typed brief fields the batched build admission + MIN_BRIEF_FIELDS gate read.
- * The model stores answers as facts under these keys; without this promotion a
- * fully answered interview still yields a "thin" brief and every build falls
- * back to the slow legacy agent loop.
- */
 const FACT_KEY_TO_BRIEF_FIELD: Record<string, string> = {
   business_name: "businessName",
   business_type: "businessType",
@@ -272,7 +252,6 @@ function isBuildConfirmCard(card: WorkspaceCard | undefined): boolean {
 
 function withHandoffReadiness(brief: ProjectBrief): ProjectBrief {
   // Auto-derive businessType when missing so the 5-field gate is sufficient
-  // and the build prompt never has an empty "Bidang usaha".
   let businessType = brief.businessType;
   if (!businessType || !businessType.trim()) {
     const offer = brief.offer?.toLowerCase() ?? "";
@@ -301,8 +280,6 @@ function withHandoffReadiness(brief: ProjectBrief): ProjectBrief {
 }
 
 // Single authority for turning best-effort model output into a valid turn.
-// Never throws: malformed input becomes an explicit missing-card state so the
-// caller can retry or surface recovery instead of inventing user-facing data.
 export function normalizeWorkspaceTurn(
   input: unknown,
   fallbackBrief: ProjectBrief,
@@ -311,9 +288,6 @@ export function normalizeWorkspaceTurn(
   const value =
     input && typeof input === "object" ? (input as WorkspaceTurnToolInput) : {};
   // The combo model sometimes double-encodes briefPatch/workspaceCard as JSON
-  // strings instead of nested objects. Un-stringify before applying so the
-  // patch data isn't silently dropped (the tool schema also tolerates this shape,
-  // but the server is the authority — see the design note above applyBriefPatch).
   let brief = applyBriefPatch(
     fallbackBrief,
     unstringifyJsonObject(value.briefPatch),
@@ -339,7 +313,6 @@ export function normalizeWorkspaceTurn(
     }
   } else if (!options.hasBuiltSite) {
     // Reliable handoff: promote to build_recommendation when build-time is
-    // clear so Mulai build appears. No force-build UI; no auto-generate.
     const briefIsReady =
       evaluateBuildReadiness(parseCanonicalBrief(brief)).state === "ready";
     const modelTitle =
@@ -383,14 +356,9 @@ export function normalizeWorkspaceTurn(
         (brief.decisions ?? []).some((d) => d.id === dupId);
       if (hasAnsweredFact) {
         // For any already-answered id, treat as stall. Promotion to build
-        // only when the brief is already build-ready; otherwise just block the
-        // duplicate (the caller will downgrade to none).
         return true;
       }
       // Fallback: check typed brief field for MIN_BRIEF + soft fields.
-      // Only stall if the duplicated question's underlying field is already
-      // filled — re-asking the same field when it is already known is a loop
-      // (e.g., style_preference asked twice after stylePreference="gak tau...").
       const fieldMap: Record<string, keyof ProjectBrief> = {
         business_name: "businessName",
         businessname: "businessName",
@@ -510,7 +478,6 @@ export function normalizeWorkspaceTurn(
       workspaceCard = buildRecommendationCard(brief, modelTitle, modelSummary);
     } else if (isDuplicateStall) {
       // Duplicate id already answered but brief not yet build-ready — block the
-      // repeat by returning none instead of re-asking the same question.
       workspaceCard = createFallbackWorkspaceCard(brief);
     } else if (briefIsReady && workspaceCard.type === "build_recommendation") {
       // Model sent build card (or min-brief accepted it) — lock confidence for UI.
@@ -523,16 +490,11 @@ export function normalizeWorkspaceTurn(
           (value.workspaceCard as { type?: string }).type === "none"))
     ) {
       // Brief not yet buildable and the model returned no card — surface a
-      // fallback question so the UI is never empty. With the 2-field minimum
-      // (businessName + offer) this branch rarely fires, but guards against a
-      // model none + missing core field.
       workspaceCard = createFallbackWorkspaceCard(brief);
     }
   }
 
   // Card type is the single source of truth for buildability: derive
-  // readyForBuild from it instead of trusting a separate AI-set flag that
-  // can drift out of sync (build_recommendation shown, readyForBuild false).
   const readyForBuild = workspaceCard.type === "build_recommendation";
 
   return {
@@ -550,8 +512,6 @@ export function createFallbackWorkspaceCard(
 }
 
 // ponytail: required brief fields (AI must collect before build).
-// Precompute rule engine enforces this; soft fields (stylePreference, etc.)
-// are optional. The AI can mark additional fields required via tool-call.
 export const REQUIRED_BRIEF_FIELD_IDS: ReadonlySet<string> = new Set([
   "businessType",
   "offer",
@@ -614,7 +574,6 @@ export function parseWorkspaceCard(
 }
 
 // Legacy tolerance: older stored cards used a `type: "questions"` array.
-// Collapse to the first valid question (single-question-per-turn model).
 function normalizeQuestionsArray(
   raw: unknown,
   brief: ProjectBrief,
@@ -660,7 +619,6 @@ function normalizeWorkspaceCard(
   }
 
   // type is kept loose (string) so legacy `type: "questions"` payloads from
-  // the DB still match the runtime compare below for tolerance collapsing.
   const value = card as {
     type?: string;
     question?: unknown;
@@ -692,9 +650,6 @@ function normalizeWorkspaceCard(
   }
 
   // Contract-v1 recommendation cards carry server-owned handoff proof. Pass
-  // them through unchanged — rebuilding would strip handoffId/reviewHash and
-  // break canStartBuild + the generate route's handoff gate. Still re-check
-  // readiness so a drifted brief never shows a buildable recommendation.
   if (
     value.type === "build_recommendation" &&
     value.engine === "contract-v1" &&
@@ -863,8 +818,6 @@ function isChoiceQuestion(id: string, question: string): boolean {
   const lowerId = id.toLowerCase();
   const q = question.toLowerCase();
   // Only these intents should ever be rendered as choice chips.
-  // Everything else (delivery_area, hours, business_location, price via isPrice guard)
-  // is safer as text with a placeholder — generic Opsi A/B/C is not real.
   return (
     lowerId.includes("style") ||
     lowerId.includes("visual") ||
@@ -946,13 +899,6 @@ function normalizeQuestion(raw: unknown): BriefQuestion | null {
     : [];
 
   // AI-declared "choice" with every option filtered out by coerceQuestionOption
-  // (malformed shape, empty labels, string arrays) must fall back to "text" —
-  // otherwise the card renders with zero real choices, only the always-on
-  // "Sebutkan sendiri" custom-answer row.
-  // Reliability fix: when the model clearly attempted a choice (answerMode==="choice"
-  // or it sent >=2 raw options but all filtered), synthesize fallback choices
-  // instead of degrading to a generic text box. This cures the "no choices" reports
-  // for cheap models that emit ["","",""].
   let answerMode: "text" | "choice" =
     candidate.answerMode === "text"
       ? "text"
@@ -960,9 +906,6 @@ function normalizeQuestion(raw: unknown): BriefQuestion | null {
         ? "choice"
         : "text";
   // Price questions are numeric text inputs — never synthesize generic Opsi A/B/C.
-  // Cheap models send ["","",""] for price; keep as text with a proper placeholder.
-  // Generic Opsi A/B/C for unknown ids (e.g., delivery_area, hours) is also not real —
-  // only synthesize when the question is known to be a choice intent.
   const isPrice = question ? isPriceQuestion(coercedId, question) : false;
   const isChoice = question ? isChoiceQuestion(coercedId, question) : false;
   if (answerMode === "text" && options.length === 0 && !isPrice && isChoice) {

@@ -14,13 +14,10 @@ export const ATTEMPT_QUEUE_NAME = "project-attempt";
 export const DISCUSS_QUEUE_NAME = "project-discuss";
 export const COMPACTION_QUEUE_NAME = "project-compaction";
 
-/** Default when setting/env unset — raised for ~100 concurrent product users. */
 export const DEFAULT_BUILD_CONCURRENCY = 3;
 
-/** Discuss turns are short; keep separate from build concurrency. */
 export const DEFAULT_DISCUSS_CONCURRENCY = 5;
 
-/** BullMQ lock must outlive a long AI pass while lease renew keeps the op alive. */
 const JOB_LOCK_DURATION_MS = 15 * 60_000;
 
 export type GenerateAttemptJob = {
@@ -46,7 +43,6 @@ export type EditBuildAttemptJob = {
   userId: string;
 };
 
-/** Full edit: agent + compile. Job carries ids; worker reloads context from DB. */
 export type EditAttemptJob = {
   kind: "edit";
   attemptId: string;
@@ -55,10 +51,6 @@ export type EditAttemptJob = {
   userId: string;
 };
 
-/**
- * Discuss turn on the queue. Large message payloads stay in chat DB;
- * worker reloads via turnId + projectId.
- */
 export type DiscussAttemptJob = {
   kind: "discuss";
   turnId: string;
@@ -196,10 +188,6 @@ export async function enqueueAndWaitEditBuild(
 ): Promise<EditBuildJobResult> {
   const q = getQueue();
   // Use a jobId DISTINCT from the parent edit attempt (which is enqueued with
-  // jobId=attemptId). Reusing attemptId collides: BullMQ treats the sub-job as
-  // a duplicate of the still-running parent, so getJob(attemptId) returns the
-  // parent and waitUntilFinished waits on it forever -> the edit-build never
-  // runs -> build sits queued and goes stale. Derive from buildId instead.
   const subJobId = job.buildId;
   const existing = await q.getJob(subJobId);
   if (existing) {
@@ -245,7 +233,6 @@ export function abortAttemptJob(jobId: string): boolean {
   return abortJob(jobId);
 }
 
-/** User-facing (Indonesian). Technical cause goes to devLog only. */
 const USER_JOB_FAILED = {
   discuss: "Obrolan belum berhasil diproses. Coba kirim ulang ya.",
   edit: "Perubahan website belum berhasil diproses. Coba lagi sebentar.",

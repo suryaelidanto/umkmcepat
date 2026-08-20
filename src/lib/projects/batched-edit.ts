@@ -27,12 +27,6 @@ function pathStem(path: string): string {
   );
 }
 
-/**
- * Tokens that name the edit's surface, not the file. Indonesian / English
- * markup + meta words, strip from the corpus before matching so "halaman
- * katalog" still matches "katalog.tsx" but "ubah halaman katalog" doesn't
- * also match every other page via "halaman".
- */
 const STOP_TOKENS = new Set([
   // Indonesian markup
   "halaman",
@@ -112,8 +106,6 @@ export function selectBatchedEditTargets(input: {
   for (const path of candidates) {
     const stemParts = stemTokens(pathStem(path).toLowerCase());
     // A file is a target when any corpus token appears in (or contains) a
-    // stem part. No substring match against the whole stem — "katalog-page"
-    // still matches "katalog", but "two" or "pop" never match anything.
     const matched = stemParts.some((part) =>
       [...tokens].some((token) => part.includes(token) || token.includes(part)),
     );
@@ -277,8 +269,6 @@ export async function runBatchedEdit(input: {
     input.sourceFiles.find((file) => file.path === "src/index.css")?.content ??
     "";
   // The role-based required-file gate from Phase 1 ("must emit index.tsx")
-  // doesn't apply — an edit legitimately never touches the home route. The
-  // per-file parse/import gates plus design lint still run.
   const baseByPath = new Map(
     input.sourceFiles.map((file) => [file.path, file]),
   );
@@ -308,8 +298,6 @@ export async function runBatchedEdit(input: {
     user: prompt.user,
   });
   // Complete blocks staged before a hard parser error survive the retry —
-  // format-repair re-emits the same paths and the duplicate-file diagnostic
-  // resolves last-wins.
   const partialFromParseError = new Map<
     string,
     { content: string; path: string }
@@ -378,8 +366,6 @@ Re-emit the COMPLETE response for the SAME edit — every changed <file> block, 
     staged,
   });
   // Fast-fail mid-stream left the broken block out of the stage (parser
-  // last-wins only on complete close tags) — still surface it so the repair
-  // loop re-emits that path.
   if (
     writerCall.syntaxIssue &&
     !lastDiagnostics.includes(writerCall.syntaxIssue)
@@ -439,7 +425,6 @@ ${currentBlocks}`,
         repairRounds,
       });
       // Keep the fast-fail diagnostic alive so the next round re-asks for
-      // the same broken path instead of exiting with a clean stage.
       lastDiagnostics = [
         repairCall.syntaxIssue ??
           "Repair response was malformed and returned no files.",
@@ -448,9 +433,6 @@ ${currentBlocks}`,
       continue;
     }
     // Scope enforcement: a repair response may ONLY rewrite files inside
-    // the current edit surface (implicated, already-staged, or selected
-    // targets). Anything else drops + becomes a diagnostic so the next
-    // round re-prompts; it never silently merges.
     const repairScope = new Set<string>([
       ...implicatedPaths,
       ...staged.keys(),
@@ -537,8 +519,6 @@ function gateEditStage(input: {
     );
   }
   // Design-lint + required-shape gates run ONLY over the merged project so a
-  // missing-index on an untouched home route doesn't fail a katalog edit.
-  // We synthesize the merged view just for the gate.
   const merged = new Map<string, GeneratedProjectFile>(input.baseByPath);
   for (const [path, file] of input.staged) {
     merged.set(path, { content: file.content, path });
@@ -560,7 +540,6 @@ function extractImplikatedPathsForEdit(
     const match = line.match(/^(src\/[^\s:]+|public\/[^\s:]+):/);
     if (match) {
       // Include even when never staged (a fast-failed block): the repair
-      // must re-emit it from scratch — staged or not.
       implicated.add(match[1]);
     }
   }

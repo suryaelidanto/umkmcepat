@@ -67,7 +67,6 @@ export const Route = createFileRoute("/api/payment/webhook")({
 
         try {
           // 1. Fetch payment record from database, correlated via providerTxnId
-          // (the invoice transactionId stored at payment-creation time).
           const payment = await prisma.payment.findUnique({
             where: { providerTxnId: transactionId },
           });
@@ -91,8 +90,6 @@ export const Route = createFileRoute("/api/payment/webhook")({
           }
 
           // 2. Direct Verification API call (essential security verification).
-          // We call Mayar directly to check the actual transaction details —
-          // the webhook payload itself is never trusted for status or amount.
           const verifiedTransaction = await getMayarTransaction(transactionId);
 
           if (verifiedTransaction.status !== "paid") {
@@ -119,8 +116,6 @@ export const Route = createFileRoute("/api/payment/webhook")({
           // 3. Process completed payment inside transaction to guarantee consistency and prevent duplicates.
           const result = await prisma.$transaction(async (tx) => {
             // Atomic claim: exactly one concurrent transaction can transition
-            // PENDING -> COMPLETED, so exactly one grants energy. A prior
-            // findUnique + update took no lock and could double-grant.
             const claimed = await tx.payment.updateMany({
               where: { providerTxnId: transactionId, status: "PENDING" },
               data: {

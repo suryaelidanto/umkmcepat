@@ -12,8 +12,6 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { devLog, isDevLoggingActive } from "./dev-log";
 
 // Use a process-unique log file so concurrent fire-and-forget devLog writes
-// from OTHER test files (which target the default ./dev.log) can never race
-// this file's assertions. DEV_LOG_FILE is read lazily by dev-log.ts.
 const LOG_FILE = path.join(process.cwd(), `dev.test-${process.pid}.log`);
 const ROTATED = `${LOG_FILE}.1`;
 
@@ -93,13 +91,10 @@ describe("devLog", () => {
     const orig = process.env.NODE_ENV;
     process.env.NODE_ENV = "production";
     // Unique marker so a concurrent async write from another test file (devLog
-    // is fire-and-forget) can't be mistaken for this call's output.
     const marker = `prod-no-write-${Math.random().toString(36).slice(2)}`;
     devLog("test-scope", marker, { projectId: "p2" });
     await new Promise((r) => setTimeout(r, 50));
     // In production, devLog returns before writeToFile, so the marker must
-    // never reach the file — regardless of whether the file exists from other
-    // tests' pending writes.
     let contents = "";
     try {
       contents = readFileSync(LOG_FILE, "utf8");

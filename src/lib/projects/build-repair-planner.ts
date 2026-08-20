@@ -3,9 +3,7 @@ import type { BuildFailureReason } from "@/lib/projects/build-logs";
 export type RepairAction =
   | {
       kind: "repair";
-      /** Reasoning shown to the operator / devLog. */
       rationale: string;
-      /** 1-indexed attempt this will be within the outer repair budget. */
       attempt: number;
     }
   | {
@@ -24,7 +22,6 @@ export type RepairAction =
 export const DEFAULT_OUTER_REPAIR_BUDGET = 3;
 
 // Reasons where re-prompting the edit/repair agent is likely to help: the
-// failure is in the generated code itself, so a focused patch can fix it.
 const REPAIRABLE_REASONS: ReadonlySet<BuildFailureReason> = new Set([
   "compile_error",
   "manifest_failure",
@@ -32,7 +29,6 @@ const REPAIRABLE_REASONS: ReadonlySet<BuildFailureReason> = new Set([
 ]);
 
 // Reasons where the package/build policy rejected the output: repair might
-// remove the offending package, but a fresh spec is often cleaner.
 const SPEC_REASONS: ReadonlySet<BuildFailureReason> = new Set([
   "blocked_package",
 ]);

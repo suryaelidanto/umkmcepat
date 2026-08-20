@@ -38,8 +38,6 @@ export async function checkRouteGates(pathname: string) {
   }
 
   // Admin UI is gated by requireAdmin() (ADMIN_EMAILS allowlist), not
-  // waitlist. Waitlisted real admins must still open /admin; product routes
-  // stay waitlist-blocked so they experience the product as a normal user.
   if (!waitlistBypass) {
     try {
       const email = session.user.email ?? null;

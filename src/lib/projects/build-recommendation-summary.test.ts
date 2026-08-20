@@ -135,7 +135,6 @@ describe("describeBuildRecommendation", () => {
 
   it("names the channel rather than the model's CTA wording", () => {
     // The stored intent label can be as vague as "Chat", which tells a shop
-    // owner nothing about where their customers land.
     const vague = contract({
       ctaIntents: [
         {

@@ -130,7 +130,6 @@ describe("normalizeBuildCreativeDirection", () => {
 
   it("drops a dangling sentence even when the model stopped early", () => {
     // Observed live at 817 chars, well under the cap: the model simply ran out
-    // mid-clause and the writer received "three oversized menu cards and".
     const direction = normalizeBuildCreativeDirection(
       "Lead with the ceker and keep ordering one tap away. A made-for-them idea: build the hero like a canteen order board with three oversized menu cards and",
     );

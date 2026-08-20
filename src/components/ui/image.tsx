@@ -1,9 +1,6 @@
 import type { ImgHTMLAttributes } from "react";
 
 // Compatibility wrapper for the previous next/image usage. Generated apps and
-// the control-plane UI only need a plain, lazy <img>; the Next image optimizer
-// is intentionally dropped. Accepts the subset of next/image props actually
-// used in this codebase (src, alt, width, height, className, priority, fill).
 export type ImageProps = Omit<
   ImgHTMLAttributes<HTMLImageElement>,
   "height" | "width"

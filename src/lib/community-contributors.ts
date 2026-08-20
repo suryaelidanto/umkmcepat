@@ -98,9 +98,6 @@ function isBotContributor(login: string, type?: string) {
 async function getTopContributors(): Promise<ContributorCard[]> {
   try {
     // GitHub computes /stats/contributors lazily and often returns 202 with an
-    // empty body. Do not sleep/retry here — this endpoint is consumed
-    // client-side after first paint and multi-second waits only delay the
-    // contributor cards. Fall through to /contributors.
     const response = await fetch(STATS_URL, {
       headers: getGithubHeaders(),
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
@@ -166,8 +163,6 @@ async function getTopContributors(): Promise<ContributorCard[]> {
 }
 
 // Fallback when /stats/contributors is stuck on GitHub's lazy 202: the plain
-// /contributors endpoint returns immediately but has no weekly breakdown, so
-// the card renders without the mini-chart (just avatar + login + total).
 async function getContributorsFallback(): Promise<ContributorCard[]> {
   try {
     const response = await fetch(CONTRIBUTORS_URL, {
@@ -207,9 +202,6 @@ export async function getCommunityContributors(): Promise<ContributorCard[]> {
 }
 
 // TTL cache with single-flight: concurrent callers share one GitHub fetch and
-// later callers hit the cache for CONTRIBUTORS_CACHE_TTL_MS. Failed fetches
-// are never cached (getCommunityContributors resolves [] on failure), so the
-// next call retries.
 export function getCommunityContributorsCached(): Promise<ContributorCard[]> {
   const now = Date.now();
   if (

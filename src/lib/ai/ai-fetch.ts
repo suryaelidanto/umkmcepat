@@ -1,22 +1,9 @@
 // AI SDK's `FetchFunction` is `typeof globalThis.fetch` (see
-// @ai-sdk/provider-utils). Inlined to avoid adding a direct dependency on
-// @ai-sdk/provider-utils.
 type FetchFunction = typeof globalThis.fetch;
 
 // 9Router (decolua/9router) is a self-hosted OpenAI-compatible proxy that
-// fronts a combo of upstream models. For non-streaming chat completions it
-// returns HTTP 200 with `Content-Type: text/event-stream` and a body that is
-// a single valid JSON object (possibly with leading whitespace) followed by
-// a trailing SSE `data: [DONE]` sentinel, e.g. `<whitespace>{...}\ndata: [DONE]`.
-// The Vercel AI SDK rejects this shape with `Invalid JSON response` because
-// it sees the trailing non-JSON bytes. This wrapper detects the specific
-// shape via balanced-brace parsing, strips the trailing sentinel, and
-// rewrites Content-Type to `application/json`. All other responses pass
-// through unchanged so genuine SSE streams, valid JSON, and error responses
-// stay byte-identical.
 
 // Find the end of the first balanced JSON object starting at `start`.
-// Returns the index just past the matching `}`, or -1 if unbalanced.
 function findBalancedJsonObjectEnd(text: string, start: number): number {
   if (text[start] !== "{") {
     return -1;
@@ -51,8 +38,6 @@ function findBalancedJsonObjectEnd(text: string, start: number): number {
 }
 
 // Detects a single JSON object followed by optional stray `}`, whitespace,
-// `data:[DONE]`, and optional trailing whitespace. Returns the index where
-// the JSON object ends (just past the matching `}`), or -1 if not matched.
 function detectNineRouterDefect(body: string): number {
   // Skip leading whitespace.
   const start = body.search(/\S/);
@@ -266,8 +251,6 @@ export const nineRouterFetch: FetchFunction = async (input, init) => {
   }
 
   // Streaming requests return the live body untouched so tokens reach the
-  // caller as they arrive. The defect repair below only applies to
-  // non-streaming calls that 9Router mislabels as `text/event-stream`.
   if (isRequestStreaming(init)) {
     return response;
   }
@@ -287,7 +270,6 @@ export const nineRouterFetch: FetchFunction = async (input, init) => {
       });
     }
     // Genuine SSE stream or otherwise non-matching body — return a fresh
-    // Response so the caller can still read the buffered text.
     return new Response(body, {
       status: response.status,
       statusText: response.statusText,

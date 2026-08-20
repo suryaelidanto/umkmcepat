@@ -5,12 +5,6 @@ interface MascotProps {
   className?: string;
 }
 
-/**
- * Pocket Mascot: The Eager Scarf Otter
- * - idle: Cute friendly face with orange scarf.
- * - selected: Cheerful "^ ^" eyes, cute blushing cheeks, thumbs up with sparkling star.
- * - launching: Sprint Dash pose with wind trails and flying scarf!
- */
 export function PocketMascot({
   state = "idle",
   className = "size-12",
@@ -232,12 +226,6 @@ export function PocketMascot({
   );
 }
 
-/**
- * Starter Mascot: The Hardworking Shopkeeper Otter
- * - idle: Waving with apron.
- * - selected: Jumping excitement, energy spark badge in hand.
- * - launching: Energy Overdrive charging leap with twin lightning bolts!
- */
 export function StarterMascot({
   state = "idle",
   className = "size-12",
@@ -414,12 +402,6 @@ export function StarterMascot({
   );
 }
 
-/**
- * Popular Mascot: The Superhero / High-Flyer Otter (Best Seller)
- * - idle: Confident superhero cape pose.
- * - selected: Hero cape billowing, glowing chest badge, golden sparks.
- * - launching: Super Sonic flight pose with thruster flames & superhero takeoff!
- */
 export function PopularMascot({
   state = "idle",
   className = "size-12",
@@ -551,12 +533,6 @@ export function PopularMascot({
   );
 }
 
-/**
- * Max Mascot: The Sultan / Juragan Besar Otter (Max Tier)
- * - idle: Royal crown, relaxed billionaire smile.
- * - selected: Sparkling golden crown, gold coin shower.
- * - launching: Sultan Hyperdrive flying on golden throne cloud with diamond flashes!
- */
 export function MaxMascot({
   state = "idle",
   className = "size-12",
@@ -717,10 +693,6 @@ export function MaxMascot({
   );
 }
 
-/**
- * Waiting / Pending Mascot: The Polite Cashier Otter (Plea / Begging with Cute Invoice Card)
- * - Holds payment card, sparkles in eyes, politely nodding and waiting for user payment!
- */
 export function WaitingPaymentMascot({
   className = "size-20",
 }: {
@@ -812,10 +784,6 @@ export function WaitingPaymentMascot({
   );
 }
 
-/**
- * Success Mascot: Party Champion Otter (Victory Celebration)
- * - Jumping joy, party hat, confetti & star sparks!
- */
 export function SuccessMascot({
   className = "size-20",
 }: {

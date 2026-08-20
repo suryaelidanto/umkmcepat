@@ -466,7 +466,6 @@ function parseV2(
       name: cleaned.businessName ?? "",
       type: cleanText(business.type),
       // A type of "fnb" already names the category; leaving it null made an
-      // fnb warung fall back to the generic "other" branch downstream.
       category:
         parseUmkmType(business.category) ?? parseUmkmType(business.type),
     },

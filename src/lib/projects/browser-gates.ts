@@ -1,10 +1,4 @@
 // src/lib/projects/browser-gates.ts
-// Browser qualification report for contract-v1 candidates. A bare artifact
-// server is never sufficient evidence: gates run against the same preview
-// routing base, CSP, asset path, and hash history the user receives. Browser
-// execution is bounded (routes, viewports, concurrency, timeouts, one infra
-// retry). Results are exactly pass | fail | infrastructure_error; a timeout,
-// launch failure, or malformed output is never treated as zero issues.
 
 export type BrowserGateStatus = "pass" | "fail" | "infrastructure_error";
 
@@ -126,7 +120,6 @@ export const REQUIRED_PROFESSIONAL_BROWSER_ASSERTIONS = [
   "signature-presence",
 ] as const satisfies readonly ProfessionalBrowserAssertionName[];
 
-/** Infrastructure or missing evidence never passes the gate. */
 export function classifyBrowserReport(
   report: BrowserGateReport,
 ): "pass" | "fail" {

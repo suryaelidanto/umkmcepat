@@ -20,9 +20,6 @@ export const Route = createFileRoute("/api/waitlist")({
   server: {
     handlers: {
       // Submit a pilot waitlist entry. Multipart form fields: businessName,
-      // businessType, storyAnswers (offers/since/goal combined into the
-      // single story string), turnstile token, email (attached to user session
-      // on the client), and photo asset ids.
       POST: async ({ request }) => {
         const rateLimitResponse = await checkRateLimit(request, "global");
         if (rateLimitResponse) {
@@ -111,8 +108,6 @@ export const Route = createFileRoute("/api/waitlist")({
               const bytes = Buffer.from(await file.arrayBuffer());
               const format = detectImageFormat(bytes);
               // GIF and unknown formats are rejected; only PNG/JPEG/WEBP are
-              // accepted. Magic-byte check ignores the client-supplied
-              // file.type, which can be spoofed.
               if (!format || format === "gif") {
                 return Response.json(
                   { message: "File bukan gambar (PNG/JPEG/WEBP)." },

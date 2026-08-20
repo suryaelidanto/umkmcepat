@@ -240,10 +240,6 @@ mkdirSync(evidenceDir, { recursive: true });
                     );
                   });
                   // The primary CTA is the most prominent action — the largest
-                  // visible matching anchor by area. Picking the first match
-                  // would flag a compact nav "Chat" button (size="sm") instead of
-                  // the hero CTA it represents, producing a false touch-target
-                  // failure. Largest-area wins; ties fall back to DOM order.
                   let primaryCta = ctaCandidates[0];
                   if (ctaCandidates.length > 1) {
                     let bestArea = -1;

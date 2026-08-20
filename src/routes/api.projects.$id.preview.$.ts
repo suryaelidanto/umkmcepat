@@ -197,9 +197,6 @@ function scheduleThumbnailRecovery({
   }
 
   // Fire-and-forget post-response work: refresh the thumbnail without blocking
-  // the preview response. The Bun/Node server keeps the event loop alive until
-  // this settles; errors are swallowed so a thumbnail failure never affects the
-  // served preview (mirrors the previous next/server `after()` behavior).
   void refreshProjectThumbnail({
     artifactRef,
     buildId,

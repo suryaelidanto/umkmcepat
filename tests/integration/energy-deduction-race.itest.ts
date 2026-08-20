@@ -4,10 +4,6 @@ import { createTestUser, prisma, resetDatabase } from "./setup";
 
 const DAILY_LIMIT = 100;
 
-/**
- * Mirrors the SUM-then-INSERT shape of chargeEnergy in src/lib/user-credits.ts,
- * including the advisory lock that makes it safe.
- */
 async function deduct(userId: string, amount: number, withLock: boolean) {
   return prisma.$transaction(async (tx) => {
     if (withLock) {

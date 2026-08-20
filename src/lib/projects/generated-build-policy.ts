@@ -17,7 +17,6 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   base: './',
   // Per-workspace cache (default node_modules/.vite lives on the shared
-  // read-only golden link, which concurrent builds would fight over).
   cacheDir: '.cache/generated-app/vite',
   plugins: [tailwindcss(), react()],
   resolve: {

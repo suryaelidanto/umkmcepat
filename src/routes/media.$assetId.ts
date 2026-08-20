@@ -17,8 +17,6 @@ export const Route = createFileRoute("/media/$assetId")({
   server: {
     handlers: {
       // Public media serve: owner-uploaded display media embedded in
-      // published/generated sites. No auth — the assetId (cuid) is the gate;
-      // the image is meant to be public (it appears on a live site).
       GET: async ({ params }) => {
         const asset = await prisma.projectAsset.findUnique({
           select: { id: true, publicUrl: true },

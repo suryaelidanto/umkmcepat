@@ -9,18 +9,12 @@ import { buildChatSystemPrompt } from "@/routes/api.projects.preview";
 export const PRESENT_WORKSPACE_CARD_TOOL_NAME = "presentWorkspaceCard";
 
 // The combo model sometimes double-encodes briefPatch/workspaceCard as JSON
-// strings instead of nested objects, which fails strict z.object() validation
-// (AI_TypeValidationError) and churns the repair layers on the same bad shape.
-// Accept either an object or a JSON string; the server (normalizeWorkspaceTurn)
-// re-applies the same un-stringify as the single authority.
 function jsonObjectOrString<T extends z.ZodTypeAny>(shape: T) {
   return z.preprocess(unstringifyJsonObject, shape);
 }
 
 export const presentWorkspaceCardInputSchema = z.object({
   // Models sometimes emit assistantText as part of tool input, but on final
-  // recommendation cards may omit it (or emit free text). Default to "" so
-  // strict tool validation never fails with AI_TypeValidationError.
   assistantText: z.string().trim().default(""),
   projectTitle: z.string().optional(),
   readyForBuild: z.boolean().default(false),
@@ -199,7 +193,6 @@ export function extractAssistantTextFromToolInput(toolInput: unknown): string {
   return raw.trim();
 }
 
-/** Prefix-safe partial assistantText from incomplete tool JSON (no trailing trim). */
 export function extractPartialAssistantTextFromToolInput(
   toolInput: unknown,
 ): string {
@@ -210,10 +203,6 @@ export function extractPartialAssistantTextFromToolInput(
   return typeof raw === "string" ? raw : "";
 }
 
-/**
- * Diff newly-parsed assistantText against what was already streamed.
- * Callers accumulate tool-input-delta JSON, then feed the buffer here.
- */
 let parsePartialJsonFn:
   | ((jsonText: string | undefined) => Promise<{
       value: unknown;
@@ -245,12 +234,6 @@ export async function nextAssistantTextDeltaFromPartialToolJson(
   };
 }
 
-/**
- * Best-effort partial workspaceCard from incomplete tool JSON. Returns the
- * raw nested object when it is parseable and non-empty; otherwise null. The
- * final normalized card is still produced by `normalizeWorkspaceTurn` on the
- * complete tool input — this only enables earlier skeleton rendering.
- */
 export async function nextPartialWorkspaceCardFromToolJson(
   partialToolJson: string,
 ): Promise<Record<string, unknown> | null> {
@@ -366,13 +349,6 @@ Output valid JSON only. Put the user-visible reply in assistantText, not as free
 ${DISCUSS_SYSTEM_PROMPT}`;
 }
 
-/**
- * The tool returns the chat sentence and the card in one object, and nothing
- * made them agree: a turn shipped a message asking about visual style while
- * the card asked about price, so the owner answered a question they were never
- * shown. The card is what the owner actually answers, so it wins — the model's
- * acknowledgement is kept and its diverging question is replaced.
- */
 export function alignAssistantTextWithCard(
   assistantText: string,
   card: Record<string, unknown> | null | undefined,
@@ -392,7 +368,6 @@ export function alignAssistantTextWithCard(
       : cardQuestion;
   }
   // No card question to answer — a trailing question would send the owner
-  // looking for an input that does not exist.
   if (!text.includes("?")) {
     return text;
   }
@@ -414,11 +389,6 @@ function cardQuestionOf(
   return typeof question === "string" ? question.trim() : "";
 }
 
-/**
- * Verbatim match, or enough shared content words that the owner is being asked
- * the same thing. The model often rephrases the card's question more warmly or
- * with concrete options, and that wording is worth keeping.
- */
 function asksTheSameQuestion(text: string, cardQuestion: string): boolean {
   const normalized = normalizeForCompare(text);
   if (normalized.includes(normalizeForCompare(cardQuestion))) {
@@ -464,7 +434,6 @@ function normalizeForCompare(value: string): string {
   return value.toLowerCase().replaceAll(/\s+/gu, " ").trim();
 }
 
-/** Everything before the message's final question, normalised to end in a stop. */
 function acknowledgementOf(text: string): string {
   const lastQuestionMark = text.lastIndexOf("?");
   const head = lastQuestionMark >= 0 ? text.slice(0, lastQuestionMark) : text;

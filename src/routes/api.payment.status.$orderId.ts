@@ -6,10 +6,6 @@ import { logCreditTransaction } from "@/lib/payment/user-credits";
 import { prisma } from "@/lib/prisma";
 
 // If a payment has been PENDING longer than this, the client is still
-// polling but a webhook may never arrive (undocumented retry policy on
-// Mayar's side) — reconcile directly against Mayar's API instead of waiting
-// forever. Kept well above typical webhook latency to avoid burning through
-// Mayar's 50 req/min rate limit on every poll tick.
 const RECONCILE_AFTER_MS = 2 * 60 * 1000;
 
 async function reconcilePendingPayment(payment: {
@@ -151,7 +147,6 @@ export const Route = createFileRoute("/api/payment/status/$orderId")({
               }
             } catch (error) {
               // Reconciliation failure shouldn't break status polling —
-              // log and fall through to the last-known DB status.
               console.warn(
                 `[payment-status] Reconciliation failed for ${orderId}:`,
                 error,

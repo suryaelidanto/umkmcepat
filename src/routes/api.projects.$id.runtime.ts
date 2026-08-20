@@ -244,7 +244,6 @@ async function getRuntimeState({
     canPreview: Boolean(deployment),
     canPublish: Boolean(latestSuccessfulBuild),
     // Retry whenever the latest attempt failed/stale/canceled, or project has
-    // no success artifact (covers agent-phase fails that used to leave zero builds).
     canRetry:
       latestAttempt?.status === "failed" ||
       latestAttempt?.status === "stale" ||
@@ -359,7 +358,6 @@ function getUserFacingRuntimeState({
   projectStatus?: string | null;
 }) {
   // Edit/visual_comment can leave Project.status=building with no new
-  // ProjectBuild yet — still treat as in-progress for observers.
   if (
     latestAttemptStatus === "queued" ||
     latestAttemptStatus === "running" ||

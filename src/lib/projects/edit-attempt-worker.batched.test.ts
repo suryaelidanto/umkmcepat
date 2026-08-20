@@ -6,7 +6,6 @@ const { runBatchedEditMock, recordAiCallMock } = vi.hoisted(() => ({
 }));
 
 // -- Prisma: stubbed so the worker runs without a DB. Minimal surface for the
-// -- happy path: attempt + project + active deployment + snapshot writes.
 const prismaMock = vi.hoisted(() => ({
   $transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn(prismaMock)),
   projectEditAttempt: {

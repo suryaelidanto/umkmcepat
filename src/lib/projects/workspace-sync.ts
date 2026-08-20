@@ -17,14 +17,6 @@ export function shouldRefreshWorkspaceAfterChatStatus(
 }
 
 // Render-equivalence for two chat message arrays. `reloadLatestChat` does a
-// full `setMessages(serverMessages)` replace after a successful turn; if the
-// server copy is already what the client rendered from the stream, the
-// replace just re-keys the thread + resets scroll (the "chat reorders /
-// flickers every turn" symptom). This gate lets the reload skip the no-op
-// replace. Compares by length, per-index id+role, per-message part count, and
-// the last text + last workspace-card tool output of each message — enough to
-// detect the only differences that matter for rendering, without a deep JSON
-// walk of every part.
 export function messagesEqualForRender(
   current: UIMessage[],
   incoming: UIMessage[],
@@ -171,8 +163,6 @@ export function getWorkspaceComposerState({
   }
 
   // A build_recommendation signature that has already been used to start a
-  // build must never resurface — even if the build subsequently failed or
-  // succeeded. Retry uses the dedicated "Buat ulang website" CTA, not this card.
   const cardConsumed = isBuildRecommendationConsumed(card, consumedSignatures);
   const heldEffective = held && !cardConsumed;
 
@@ -182,8 +172,6 @@ export function getWorkspaceComposerState({
     }
 
     // After a successful build, "Chat dengan AI" opens discuss first.
-    // A held build_recommendation stays out of the way until the user
-    // re-opens it or discuss produces a fresh recommendation signature.
     if (postBuildChatOpen) {
       if (card.type === "build_recommendation" && heldEffective) {
         return "held_build_recommendation";
@@ -250,8 +238,6 @@ export function hasAnsweredWorkspaceQuestion({
   }
 
   // A submitted answer invalidates its card immediately. Waiting for an
-  // assistant response here reopens the already-answered stale card whenever
-  // the provider or repair call fails.
   return true;
 }
 
@@ -321,12 +307,6 @@ export type WorkspacePreviewIssue = {
 };
 
 // Bounded number of silent iframe reloads the preview loader tolerates before
-// escalating to a terminal "stuck" state. The generated app signals readiness via a
-// `generated-app-preview-ready` postMessage once React renders. When that signal
-// never arrives — e.g. the runtime supervisor is `noop` in production and the preview
-// route returns a 503 error page, or the generated app never calls `usePreviewReady()` —
-// the old loader reloaded the iframe every 12s forever and showed an endless spinner.
-// A bounded budget turns that into an actionable error instead of an infinite hang.
 export const PREVIEW_STUCK_MAX_ATTEMPTS = 3;
 
 export function previewReadyState({
@@ -369,7 +349,6 @@ export function getWorkspacePreviewIssue({
 
   if (runtimeUserFacingState === "building") {
     // The server retains the last successful preview during active builds.
-    // Show the old iframe + a non-blocking progress banner instead of blanking.
     const hasLastGoodPreview = [runtimeBuildStatus, sourceStatus].some(
       (status) => ["passed", "ready", "succeeded"].includes(status ?? ""),
     );
@@ -401,7 +380,6 @@ export function getWorkspacePreviewIssue({
       runtimeUserFacingState === "not_built")
   ) {
     // not_built with local/source failed (or empty builds after agent fail)
-    // still needs an explicit rebuild CTA — runtime canRetry used to be false.
     if (
       buildStatus === "failed" ||
       sourceStatus === "failed" ||
@@ -416,7 +394,6 @@ export function getWorkspacePreviewIssue({
   }
 
   // A successful artifact can cold-start again through the preview route.
-  // Keep the iframe loading instead of making users recover a transient runtime.
   if (
     (runtimeUserFacingState === "preview_failed" ||
       deploymentStatus === "failed") &&
@@ -454,10 +431,6 @@ function getSafePreviewIssueDetail(value: string, fallback: string) {
 
 export const PREPARING_POLL_INTERVAL_MS = 2000;
 // Must exceed the server's own worst-case deadline for producing the next
-// card (DISCUSS_CARD_SERVER_DEADLINE_MS — repair attempts included), plus
-// headroom for network latency. Giving up sooner than the server can
-// legitimately still be working shows a false "belum berhasil" error while
-// a real answer is still on its way.
 export const PREPARING_TIMEOUT_MS = DISCUSS_CARD_SERVER_DEADLINE_MS + 15_000;
 
 export function isFreshWorkspaceCard(
@@ -541,7 +514,6 @@ export function getWorkspaceCardFromMessages(messages: UIMessage[]): {
         continue;
       }
       // Terminal clear: do not resurrect older build_recommendation / question
-      // cards from earlier turns once a later presentWorkspaceCard emitted none.
       if (card.type === "none") {
         return null;
       }

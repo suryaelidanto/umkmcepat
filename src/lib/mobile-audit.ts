@@ -1,6 +1,4 @@
 // Tier-1 mobile heuristics: objective checks a Playwright DOM-audit (tier-2)
-// calls over each route at device viewports. A failing assertion = a real
-// mobile regression (touch target too small, input zoom-on-focus, overflow).
 
 const MIN_TOUCH_PX = 44;
 const MIN_INPUT_FONT_PX = 16;

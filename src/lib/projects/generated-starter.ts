@@ -29,8 +29,6 @@ export function createGeneratedProjectFiles(
 }
 
 // Emits ONE stylesheet contract (src/index.css) matching the starter: the
-// shadcn theme (shadcnThemeCss) prepended to the variant's custom classes.
-// main.tsx imports ./index.css. The legacy src/styles.css is retired.
 export function createGeneratedViteTanStackProjectFiles(
   projectId: string,
   schema: ProjectSiteSchema,

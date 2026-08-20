@@ -152,10 +152,6 @@ describe("compileShadcnTheme", () => {
   });
 
   // Reproduced live: a real build's writer used text-accent for an eyebrow
-  // label ("Pilihan menu"). resolveReadableSurface only validated accent as
-  // a background (admits readable black or white text on it) — this exact
-  // accent read at 2.15:1 as bare text against the page's own background,
-  // well under the 4.5 the browser gate required for that label.
   it("keeps accent readable as bare text against the page background", () => {
     const result = compileShadcnTheme(
       schema({

@@ -187,7 +187,6 @@ describe("chatBubbleClass mobile", () => {
     const className = chatBubbleClass("user");
     expect(className).not.toMatch(/\[overflow-wrap:anywhere\]/);
     // Defensive: the substring 'anywhere' alone must not appear in a className context.
-    // Catches both 'anywhere' and 'break-anywhere' forms if reintroduced.
     expect(className).not.toMatch(/\banywhere\b/);
   });
 
@@ -278,7 +277,6 @@ describe("workspace panel split", () => {
     expect(navHtml).toContain("Diskusi");
     expect(navHtml).toContain("Tampilan");
     // Kode is no longer in the bottom nav — it lives in the sheet (which is
-    // closed in static render, so its markup is not in the output).
     expect(navHtml).not.toContain(">Kode<");
   });
 });

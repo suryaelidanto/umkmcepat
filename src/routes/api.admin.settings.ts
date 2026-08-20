@@ -15,8 +15,6 @@ import {
 import { prisma } from "@/lib/prisma";
 
 // Returns an error message, or null when the value is acceptable.
-// Bounds come from the registry, so a value that reaches the DB is already
-// in-range — the consumer's read-side clamp is a second net for legacy values.
 export function validateSettingValue(
   key: string,
   value: unknown,

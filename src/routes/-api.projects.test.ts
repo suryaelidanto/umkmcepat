@@ -108,9 +108,6 @@ describe("POST /api/projects — project limit enforcement", () => {
     prismaExecuteRawMock.mockResolvedValue(1);
 
     // Default: $transaction just calls back with a fake tx that exposes
-    // $queryRaw / $executeRaw / project.create. Individual tests override
-    // prismaQueryRawMock / prismaProjectCreateMock to control the in-tx
-    // behaviour.
     prismaTransactionMock.mockImplementation(async (callback) =>
       callback({
         $executeRaw: prismaExecuteRawMock,
@@ -174,9 +171,6 @@ describe("POST /api/projects — project limit enforcement", () => {
 
     await callPost();
     // The non-transactional prisma.project.count is only used by the
-    // post-create info read (projectCount in the response body). If the
-    // create succeeded, it should be called exactly once — and only after
-    // the in-transaction $queryRaw gate, never before it.
     const txQueryOrder = prismaQueryRawMock.mock.invocationCallOrder[0] ?? 0;
     const countOrder = prismaProjectCountMock.mock.invocationCallOrder[0] ?? 0;
     expect(prismaProjectCountMock).toHaveBeenCalledTimes(1);

@@ -5,7 +5,6 @@ export type AdminFilterOption = {
   label: string;
 };
 
-/** Shared status chip row — matches /admin/transactions look. */
 export function AdminStatusFilter({
   options,
   value,

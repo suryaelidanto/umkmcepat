@@ -64,11 +64,27 @@ function checkCommentsAndTypes(filePath: string, content: string) {
   }
 
   const lines = content.split("\n");
+  let consecutiveComments = 0;
 
   for (let i = 0; i < lines.length; i++) {
     const lineNum = i + 1;
     const line = lines[i] ?? "";
     const trimmed = line.trim();
+
+    if (trimmed.startsWith("//") && !trimmed.startsWith("///")) {
+      consecutiveComments++;
+      if (consecutiveComments > 1) {
+        violations.push({
+          file: relPath,
+          line: lineNum,
+          rule: "no-multiline-comments",
+          detail:
+            "Multi-line comments are forbidden. Keep comments to a single concise line.",
+        });
+      }
+    } else {
+      consecutiveComments = 0;
+    }
 
     if (
       relPath.startsWith("src/routes/") &&

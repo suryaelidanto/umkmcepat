@@ -14,11 +14,6 @@ export type SnapshotSummary = {
 
 export type SnapshotKind = "initial" | "edit" | "repair" | "restore";
 
-/**
- * List a project's snapshots newest-first with build status + a restorability
- * flag. A snapshot is restorable when its `files` JSON or `sourceRef` artifact
- * is present. Owner-scoped: callers must have verified ownership of the project.
- */
 export async function listSnapshots(
   projectId: string,
 ): Promise<SnapshotSummary[]> {
@@ -79,7 +74,6 @@ export function kindOf(sourceType: string, metadata: unknown): SnapshotKind {
     }
   }
   // SourceType "generated" with no parent is the initial generate; with a
-  // parent it's a follow-up. Fall back to "initial" when undecidable.
   if (sourceType === "edit") {
     return "edit";
   }
@@ -89,11 +83,6 @@ export function kindOf(sourceType: string, metadata: unknown): SnapshotKind {
   return "initial";
 }
 
-/**
- * Read a single file's content from a specific snapshot. Resolves via the
- * snapshot's `files` JSON first, then the `sourceRef` artifact. Returns null
- * if the file or snapshot isn't found.
- */
 export async function readSnapshotFile(
   snapshotId: string,
   filePath: string,
@@ -142,12 +131,6 @@ export function findFileInSnapshot(
   return entry ? String(entry.content ?? "") : null;
 }
 
-/**
- * Restore a snapshot by branching from it: create a NEW ProjectSnapshot whose
- * `parentSnapshotId` points at the target, copying its `files` + `sourceRef`.
- * Append-only — the target and all newer snapshots remain. Returns the new
- * snapshot id. The caller may then kick a build off the new snapshot.
- */
 export async function restoreSnapshot(snapshotId: string): Promise<{
   newSnapshotId: string;
   projectId: string;

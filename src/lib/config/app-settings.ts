@@ -7,21 +7,12 @@ const TTL_MS = 5_000;
 const cache = new Map<string, CacheEntry>();
 
 // ponytail: prisma is imported lazily inside getSetting so this module's
-// evaluation stays browser-safe. app-settings is imported by client-reachable
-// modules (mayar → EnergyBoosterModal; config → ai-timeouts → WorkspacePrimitives);
-// a static `import { prisma } from "@/lib/prisma"` would drag the Node-only
-// `global` reference into the browser bundle and break Storybook. The prisma
-// singleton is only needed for the async DB read. When a sync client-side read
-// of DB config is needed, add a client-safe resolver instead of widening this.
 async function getDb(): Promise<PrismaClient["appSetting"]> {
   const { prisma } = await import("@/lib/prisma");
   return prisma.appSetting;
 }
 
 // No-TTL snapshot of every AppSetting row, replaced wholesale by
-// primeSettingCache(). The TTL cache above expires after 5s; if priming wrote
-// only there, getSettingSync would silently resume returning fallbacks five
-// seconds after boot. The snapshot is what makes sync reads trustworthy.
 let snapshot = new Map<string, unknown>();
 let primePromise: Promise<void> | null = null;
 
@@ -62,7 +53,6 @@ export function primeSettingCache(
       snapshot = next;
     } catch {
       // Never let a config read take the app down. Leaves the previous
-      // snapshot (empty on first boot); reads degrade to env → fallback.
     }
   })();
   return primePromise;
@@ -154,9 +144,6 @@ export async function getSetting<T extends boolean | number | string>(
 }
 
 // Cache-only read for sync call-sites (module scope, capability checks that
-// can't await). Returns fallback when cache cold — DB overrides apply within
-// TTL of the next async read. ponytail: ceiling = sync call-sites read stale
-// until primed; upgrade path = prime the cache at server boot.
 export function getSettingSync<T extends boolean | number | string>(
   key: string,
   fallback: T,

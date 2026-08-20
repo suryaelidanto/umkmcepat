@@ -1,8 +1,4 @@
 // src/lib/projects/critic-calibration.ts
-// Per-category calibration gate for the visual critic. Automatic repair is
-// allowed only after a category meets precision/recall/sample thresholds with
-// zero observed P0 hard-gate regressions. Until then the critic stays in
-// shadow mode (findings recorded, never blocking or repairing).
 export type CalibrationInput = {
   precision: number;
   recall: number;

@@ -58,10 +58,6 @@ import { createProjectSiteSchemaFromBrief } from "./site-schema";
 import type { ProjectBrief } from "./brief";
 import type { ImplementationSpec } from "./implementation-spec";
 
-/** Minimal scaffold base the gate resolves @/ imports against. Production
- * seeds staged with the full starter set; unit tests pass only AI files, so
- * include the modules HOME_TSX references to avoid false "Cannot find
- * module" issues. */
 const SCAFFOLD_BASE_FILES: GeneratedProjectFile[] = [
   {
     path: "src/components/ui/button.tsx",
@@ -257,11 +253,6 @@ describe("runReferenceCalibratedGenerate", () => {
 
   it("rejects a writer response that overwrites the protected site.ts", async () => {
     // src/content/site.ts is always a starter path, so the old check
-    // (isProtectedScaffoldPath(path) && !starterPaths.has(path)) was always
-    // false for it and could never fire — the writer could silently replace
-    // the platform's normalized data file with its own fabricated copy.
-    // Otherwise identical to the passing "uses one streamed writer..." case
-    // below, so the only variable under test is the forged site.ts file.
     const schema = createProjectSiteSchemaFromBrief(makeBrief());
     const kit = selectGeneratedSiteDesignKit({
       archetype: "generic",
@@ -275,8 +266,6 @@ describe("runReferenceCalibratedGenerate", () => {
 export default site;
 `;
     // Placed before the required route: the parser's stopAfterFilePath cuts
-    // the stream the instant src/routes/index.tsx closes, so anything after
-    // it is never even parsed — a forged file has to arrive first to matter.
     streamTextMock.mockReturnValueOnce(
       writerStream(
         `<file path="src/content/site.ts">${forgedSiteFile}</file><file path="src/routes/index.tsx">${route}</file><done summary="Selesai" />`,
@@ -723,9 +712,6 @@ describe("runBatchedGenerate — admission + failure paths", () => {
 
   it("accepts a repair that renames a JSX-bearing .ts content file to .tsx", async () => {
     // The writer emits JSX into a data-only .ts file (src/content/menu.ts);
-    // the gate flags it. The natural repair renames the file to .tsx — the
-    // renamed sibling must be in scope, otherwise the fix is dropped and the
-    // whole build falls back to the slow legacy loop.
     streamTextMock
       .mockReturnValueOnce(
         writerStream(
@@ -832,7 +818,6 @@ describe("runBatchedGenerate — admission + failure paths", () => {
     streamTextMock
       .mockReturnValueOnce(writerStream(broken))
       // Targeted repair re-receives the same broken stream so the writer-phase
-      // assertions below stay deterministic (the run still ends needsFallback).
       .mockReturnValueOnce(writerStream(broken))
       .mockReturnValueOnce(writerStream(broken));
 
@@ -842,11 +827,8 @@ describe("runBatchedGenerate — admission + failure paths", () => {
     });
 
     // Fast-fail short-circuits the writer; the caller falls back. Either way
-    // the attempt cannot succeed from a structurally-broken stream.
     expect(result.ok).toBe(false);
     // Energy was consumed generating tokens up to the broken block — the same
-    // per-step ledger used on success must charge them (writer + 2 repairs all
-    // fast-fail the same way here, so each leg produces exactly one debit).
     expect(chargeEnergyForStepMock).toHaveBeenCalledTimes(3);
     expect(chargeEnergyForStepMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -857,7 +839,6 @@ describe("runBatchedGenerate — admission + failure paths", () => {
       }),
     );
     // The writer leg's AiCall row is tagged status=error (not "ok"), with the
-    // partial usage attached so telemetry matches the energy debit.
     const writerErrorRows = recordAiCallMock.mock.calls.filter(
       ([entry]) => entry.phase === "writer" && entry.status === "error",
     );
@@ -913,8 +894,6 @@ describe("collectBatchedGateIssues", () => {
 
   it("flags createFileRoute in route files (regression: tsc build gate)", () => {
     // The scaffold routes manually via createRoute in src/router.tsx; the
-    // file-route API (createFileRoute('/')) fails tsc and never reaches the
-    // router tree, failing the whole build after the AI pass.
     const issues = collectBatchedGateIssues(
       [
         {
@@ -1102,7 +1081,6 @@ describe("collectBatchedGateIssues", () => {
 
   it("flags populated site.ts fields not rendered in index.tsx (completeness gate)", () => {
     // site.ts has products + testimonials + faq, but index.tsx only renders
-    // headline. The gate must catch each unrendered populated field.
     const siteTs =
       'export const site = { businessName: "Toko A", headline: "Selamat datang", subheadline: "", primaryCta: "Pesan", offer: "Barang", trustPoints: [], sections: [], products: [{ name: "A" }], testimonials: [{ quote: "q", author: "a" }], faq: [{ q: "q", a: "a" }], currentPromo: "", socialLinks: [] } as const;\nexport default site;';
     const indexTsx =
@@ -1128,8 +1106,6 @@ describe("collectBatchedGateIssues", () => {
 
   it("does not flag empty site.ts fields (data-driven — minimal brief not penalized)", () => {
     // Only businessName + headline populated; everything else empty. The gate
-    // must only enforce rendering of populated fields, so a minimal brief is
-    // not penalized for skipping products/testimonials/faq.
     const siteTs =
       'export const site = { businessName: "Toko A", headline: "Selamat datang", subheadline: "", primaryCta: "", offer: "", trustPoints: [], sections: [], products: [], testimonials: [], faq: [], currentPromo: "", socialLinks: [] } as const;\nexport default site;';
     const indexTsx =

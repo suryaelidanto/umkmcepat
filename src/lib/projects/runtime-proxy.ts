@@ -151,13 +151,6 @@ export async function proxyDeploymentRequest(
 }
 
 // The preview iframe is sandboxed WITHOUT allow-same-origin (opaque origin),
-// so any subresource fetch() the generated app makes is a cross-origin
-// request that requires Access-Control-Allow-Origin. "*" is deliberate and
-// safe here: the iframe sends no credentials (no Allow-Credentials is ever
-// set), and opaque-origin requests carry no cookies. applySecurityHeaders
-// does NOT manage CORS headers — do not assume this is overwritten later.
-// The Content-Security-Policy set here IS overwritten by the global
-// securityMiddleware's applySecurityHeaders.
 export function applyPreviewSandboxHeaders(
   headers: Headers,
   { noindex = true }: { noindex?: boolean } = {},
@@ -234,12 +227,6 @@ export function rewritePreviewAssetUrls(
   );
 }
 
-/**
- * Rewrite generated HTML's relative `./assets/...` URLs to absolute public
- * paths (`/p/<slug>/assets/...`). The public route's splat handler proxies
- * each asset back to the same runtime, so the site renders end-to-end on the
- * published URL.
- */
 export function rewritePublicAssetUrls(html: string, slug: string) {
   return html.replace(
     /\b(src|href)="\.\/assets\/([^"]+)"/g,
@@ -255,8 +242,6 @@ export function rewritePublicAssetUrls(html: string, slug: string) {
 }
 
 // Inject a per-page <title>/meta/og/canonical/LocalBusiness JSON-LD into the
-// published site's <head> so each published UMKM site is an indexable landing
-// page (long-tail organic surface). No-op if <head> is absent.
 export function injectPublishedHead(
   html: string,
   {
@@ -293,10 +278,6 @@ export function injectPublishedHead(
     .filter(Boolean)
     .join("\n    ");
   // The image-fallback script must always be present. Real Vite build output
-  // (generated-source.ts / vite-tanstack-shadcn-starter.ts) is bare HTML with
-  // no <head> tag, so a head-only replace would drop the fallback and leave
-  // broken images broken on the published URL. Append to the document end when
-  // there is no <head>; browsers hoist <title>/<meta> into the head either way.
   return html.match(/<head>/i)
     ? html.replace(
         /<head>/i,
@@ -356,8 +337,6 @@ const PREVIEW_ANNOTATION_BRIDGE = String.raw`
   window.__umkmAnnotationBridge = true;
 
   // The control-plane origin (set by the parent via data-umkm-origin).
-  // postMessage targets this instead of '*' so annotation payloads stay
-  // scoped to the UMKM Cepat parent, not any listener.
   const bridgeScript = document.currentScript || document.querySelector('script[data-umkm-annotation-bridge]');
   const PARENT_ORIGIN = bridgeScript ? bridgeScript.getAttribute('data-umkm-origin') || '*' : '*';
 

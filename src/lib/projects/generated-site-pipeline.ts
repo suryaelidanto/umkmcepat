@@ -139,7 +139,6 @@ export type RunGeneratedSitePipelineResult =
       safeMessage: string;
       proof: GeneratedSiteQualityProofV2;
       stagedFiles: GeneratedProjectFile[];
-      /** Assertion ids that failed, so a rejection names itself in the log. */
       failedAssertions?: string[];
     };
 
@@ -493,8 +492,6 @@ export async function runGeneratedSitePipeline(
     (finding) => finding.severity === "critical" || finding.severity === "high",
   );
   // If findings are subjective/human-only and all deterministic browser gates
-  // already passed (100% clean), downgrade/accept rather than hard failing the
-  // whole generation run.
   if (blocking.length > 0) {
     const allowed = new Set([
       "computed-contrast",
@@ -724,7 +721,6 @@ function hashPlan(plan: WriterDesignPlanV2): string {
     .digest("hex");
 }
 
-/** Assertion ids that did not pass, as "route/viewport:id" — names only. */
 function failedBrowserAssertions(report: BrowserGateReport): string[] {
   return report.routes.flatMap((route) =>
     route.assertions

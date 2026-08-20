@@ -72,10 +72,6 @@ export function GeneratedPreviewFrame({
   const [selectedTarget, setSelectedTarget] =
     useState<PreviewEditTarget | null>(null);
   // Consecutive 12s silent-recovery timeouts that fired without the generated app
-  // ever posting its preview-ready signal. Capped so a preview that can never
-  // start (e.g. `noop` runtime supervisor in production, or the generated app
-  // never calls usePreviewReady()) escalates to an actionable error instead of
-  // reloading the iframe forever and showing an endless spinner.
   const [silentRecoveries, setSilentRecoveries] = useState(0);
 
   useEffect(() => {
@@ -83,8 +79,6 @@ export function GeneratedPreviewFrame({
     setSilentRecoveries(0);
 
     // Cold starts can exceed a single frame load. Retry quietly up to the
-    // bounded budget; once exhausted, stop reloading and let the stuck state
-    // surface (it would just reload into the same un-servable preview again).
     const recovery = window.setTimeout(() => {
       setSilentRecoveries((current) => {
         const next = current + 1;
@@ -97,9 +91,6 @@ export function GeneratedPreviewFrame({
 
     function handleMessage(event: MessageEvent) {
       // Sandboxed WITHOUT allow-same-origin (deliberate — see security
-      // hardening spec): the iframe is an opaque origin, so event.source is
-      // null/window proxy and a strict equality check always fails. Validate
-      // by message type so the preview-ready signal actually reaches us.
       const readyTypes = new Set([
         "umkmcepat-preview-ready",
         "generated-app-preview-ready",
@@ -159,7 +150,6 @@ export function GeneratedPreviewFrame({
   });
 
   // Surface the terminal stuck state so the parent can refresh runtime state;
-  // the frame renders its own actionable retry/rebuild panel while stuck.
   useEffect(() => {
     if (previewState === "stuck") {
       onStuck?.();
@@ -207,12 +197,6 @@ export function GeneratedPreviewFrame({
           src={`/api/projects/${projectId}/preview/?v=${reloadKey ?? 0}`}
           onLoad={() => {
             // iframe load fires after subresources finish. By then the bundle
-            // has executed and React has likely mounted — but a microtask
-            // delay gives useEffect-based postMessage signals a chance to win
-            // first when they arrive on time. This is a fallback for the
-            // cases where the generated app's usePreviewReady() postMessage
-            // never reaches the parent (timing, sandbox quirks, signal lost
-            // on listener reattach), so the spinner doesn't sit forever.
             onLoad?.();
             window.setTimeout(() => setReady(true), 0);
           }}

@@ -52,7 +52,6 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { mapToUserFacingError } from "@/lib/user-facing-error";
 
 // Re-export so external importers (e.g. the preview test) keep resolving after
-// the discuss tool/prompt builders moved to the pure module.
 export { buildOneCallSystemPrompt } from "@/lib/projects/discuss-tool";
 
 type PreviewRequest = {
@@ -321,10 +320,6 @@ async function handlePreviewPost(request: Request) {
   }
 
   // Dedupe concurrent discuss turns for the same project. A second in-flight
-  // turn (client double-fire) gets a 409 instead of burning a second LLM call
-  // and flickering the workspace card between two answers. The DB turn lease
-  // (`claimDiscussTurn` inside `handleDiscussTurnOneCall`) is the single source
-  // of truth for "one turn at a time" and survives restarts.
   await persistProjectBrief({
     brief: effectiveBrief,
     projectId: project.id,
@@ -417,7 +412,6 @@ async function handleDiscussTurnOneCall({
   userId: string;
 }) {
   // Server-side discuss: persist user message, claim turn, enqueue BullMQ job,
-  // return SSE tail of discuss-turn-pubsub. Worker reloads chat from DB.
 
   const userMessage = messages[messages.length - 1];
   if (!userMessage) {
@@ -425,8 +419,6 @@ async function handleDiscussTurnOneCall({
   }
 
   // Role guard: reject a discuss turn whose last message claims assistant role.
-  // Without this check, a forged/client-side role override could trick the
-  // model into treating its own output as user input.
   if (userMessage.role !== "user") {
     return Response.json(
       {
@@ -438,7 +430,6 @@ async function handleDiscussTurnOneCall({
   }
 
   // 1. Persist the user message immediately â€” the reply is never lost even
-  //    if the worker never starts (server crash mid-dispatch, etc.).
   await persistProjectChatTurn({
     messages,
     projectId: project.id,
@@ -463,13 +454,9 @@ async function handleDiscussTurnOneCall({
   }
 
   // 3. Open the progress channel before enqueue so the SSE tail can attach
-  //    before the worker's first publish (avoids sync buffer dump on late join).
   ensureProgressChannel(turnId);
 
   // 4. Fire the detached worker. NOT awaited — the POST returns the tail
-  //    stream immediately. The worker publishes progress to the pub/sub
-  //    channel; this route subscribes below. If the worker rejects, log +
-  //    let the client's reconnect-after-restart path surface the error.
   try {
     await enqueueAttemptJob({
       kind: "discuss",
@@ -502,10 +489,6 @@ async function handleDiscussTurnOneCall({
   }
 
   // 5. Tail stream: relay the worker's pub/sub events to the client. The
-  //    worker publishes a terminal `finish`/`error` in every path. Channel
-  //    is pre-opened above so subscribe attaches before first publish.
-  //    Restart recovery (a `running` row left dangling by a crash) is
-  //    handled by the client's GET /chat/turn poll path, not this SSE tail.
   return createUIMessageStreamResponse({
     stream: createUIMessageStream({
       execute: async ({ writer }) => {
@@ -514,7 +497,6 @@ async function handleDiscussTurnOneCall({
             writer.write(event as never);
           } catch {
             // Client disconnected mid-tail. The worker keeps running
-            // detached + persists; the client's reload auto-resumes.
           }
         };
 

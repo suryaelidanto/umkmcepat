@@ -12,48 +12,12 @@ import type { WriterDesignPlanV2 } from "./generated-site-design-plan";
 import type { GeneratedProjectFile } from "./generated-types";
 import type { ThemeContrastCheck } from "./scaffold/shadcn-theme";
 
-/**
- * compileShadcnTheme registers --color-card, --color-popover,
- * --color-secondary, and --color-muted as real Tailwind tokens — bg-* needs
- * them. That makes text-card, text-muted, etc. syntactically valid but
- * semantically wrong: they read a surface colour as text, so text-card on
- * bg-card renders invisible (contrast ratio exactly 1.00). Only the
- * -foreground-paired token is contrast-guaranteed as text. text-background
- * is deliberately not in this list — see FOREGROUND_FAMILY_TEXT_TOKEN below,
- * it is the one surface token that IS a valid text colour, but only inside
- * a contrast-surface scope. Reproduced live: a real build failed computed-
- * contrast at 1.00 this way.
- */
 const SURFACE_TOKEN_AS_TEXT = /\btext-(?:muted|card|popover|secondary)\b(?!-)/;
 
-/**
- * --muted-foreground/--card-foreground/--popover-foreground resolve to the
- * theme's raw --foreground hex whenever it already reads on the light
- * background/muted/card/popover surfaces — the common case, since that's
- * what makes body text readable in the first place. SiteSection surface=
- * "contrast" (and any element a writer hardcodes bg-foreground on) compiles
- * to bg-foreground text-background, so a descendant that overrides with one
- * of the light-surface foreground tokens paints text the same colour as the
- * background. text-background is the mirror image: correct only inside that
- * scope, invisible everywhere else (bg-background is the default surface).
- * Reproduced live: a real build failed computed-contrast at 1.00 with a
- * light-surface foreground token inside a contrast scope, and a separate
- * real build's source gate rejected a correct text-background inside a
- * contrast scope because this check used to be scope-blind.
- */
 const LIGHT_SURFACE_TEXT_TOKEN =
   "foreground|muted-foreground|card-foreground|popover-foreground|secondary-foreground";
 const FOREGROUND_FAMILY_TEXT_TOKEN = `text-(?:${LIGHT_SURFACE_TEXT_TOKEN})`;
 
-/**
- * Finds tagName's real matching close by tracking open/close depth from
- * searchFrom, so a span can be bounded correctly regardless of arbitrary
- * nesting in between. A fixed marker ("next SiteSection", "own tag only")
- * is either too wide (swallows unrelated later siblings once there's
- * nothing nearer to stop at) or too narrow (misses real descendants) —
- * both were tried and both broke on real generated output. Only true tag
- * balance bounds a span correctly in general.
- */
 function findMatchingClose(
   source: string,
   searchFrom: number,
@@ -161,15 +125,6 @@ function healContrastSurfaceText(content: string): string {
   );
 }
 
-/**
- * text-foreground and the other light-surface tokens are calibrated for the
- * page's background/muted/card/popover surfaces, not for bg-accent or
- * bg-primary — compileShadcnTheme derives those independently and they are
- * often a different-luminance hue. compileShadcnTheme guarantees only
- * accent-foreground/primary-foreground are readable there. Reproduced live:
- * a real build's CTA button paired bg-accent with bare text-foreground at
- * 2.68:1, needing 4.5.
- */
 function accentSurfaceSpans(
   source: string,
 ): Array<{ start: number; end: number; token: "accent" | "primary" }> {
@@ -411,10 +366,6 @@ export function inspectGeneratedSiteTasteSource(input: {
     );
   }
   // A spaced dash ("word — word") is the AI phrasing tic this exists to
-  // catch. A tight dash directly between two tokens is the ordinary
-  // typographic range separator ({hour.open}–{hour.close} renders as
-  // "08.00–21.00"), not an AI tell — reproduced live: a real build's
-  // legitimate time-range copy was rejected by the unconditional check.
   if (/\s[—–]|[—–]\s/.test(input.source)) {
     add(
       findings,
@@ -748,9 +699,6 @@ export function inspectReferenceCalibratedSiteSource(input: {
     );
   }
   // A field JSON.stringify dropped (empty optional arrays become undefined)
-  // still type-checks as a template-literal read, so this can pass source
-  // review and fail only at the expensive tsc build step. Reproduced live:
-  // the writer referenced site.usp when the schema's usp was empty.
   const siteValue = parseSiteValue(input.files);
   if (siteValue) {
     for (const file of input.files.filter((candidate) =>
@@ -1522,17 +1470,6 @@ export function inspectGeneratedSiteSource(input: {
   };
 }
 
-/**
- * Exported so the writer prompt can name these fields explicitly. "Render every
- * populated contract fact" left the model guessing, and a real build failed
- * because site.usp never made it into the route.
- */
-/**
- * The reference-calibrated gate's own list, exported so its writer prompt can
- * name the fields. It differs from requiredContentFields: this path also
- * demands trustPoints, and a build failed because the prompt was generated
- * from the other list.
- */
 export function referenceCalibratedRequiredContentFields(contract: {
   content: GeneratedSiteContractV1["content"];
 }): string[] {
@@ -1697,8 +1634,6 @@ function invalidSiteReferences(
       const chain = propertyChain(node);
       if (chain?.[0] === "site" && !pathExists(site, chain.slice(1))) {
         // Array or string method calls on matching data fields are legitimate.
-        // pathExists fails them because the method name is not a data key.
-        // Skip when the parent chain resolves to an array or string.
         const method = chain[chain.length - 1];
         const parent = chain.slice(0, -1);
         const parentValue =

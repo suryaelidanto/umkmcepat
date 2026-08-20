@@ -134,7 +134,6 @@ export function HomePromptForm({
   }, [placeholder, isDeleting, phraseIndex, prompt]);
 
   // Waitlist gate: never show the create form to signed-in users who have not
-  // been approved. Shares the cache with MainChrome and the homepage.
   const waitlistQuery = useQuery({
     queryKey: queryKeys.waitlistStatus,
     queryFn: fetchWaitlistStatus,
@@ -232,7 +231,6 @@ export function HomePromptForm({
     invalidateKeys: [queryKeys.projects, queryKeys.energy],
     onSuccess: async (data) => {
       // Server persisted files (if any) and returned the project. Clear
-      // attachments client-side and navigate to the new project.
       revokeAll(attachments);
       setAttachments([]);
       window.localStorage.removeItem(PROJECT_DRAFT_STORAGE_KEY);

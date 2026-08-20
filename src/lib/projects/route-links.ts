@@ -1,6 +1,4 @@
 // src/lib/projects/route-links.ts
-// Deterministic heal for retry builds: rewrite unregistered <Link to="/x"> to
-// hash anchors so TanStack's typed Link does not fail the TS build on retry.
 import type { GeneratedProjectFile } from "@/lib/projects/generated-types";
 
 export function ensureRegisteredRouteLinks(

@@ -91,7 +91,6 @@ describe("deriveScaffoldManifest", () => {
     () => {
       const manifest = deriveScaffoldManifest(sampleStarterFiles());
       // Structural digest; drift here = prompt drift risk. Fix the scaffold
-      // or the manifest derivation, then consciously update.
       expect({
         fileCount: manifest.fileTree.length,
         preSeeded: manifest.preSeededComponents,

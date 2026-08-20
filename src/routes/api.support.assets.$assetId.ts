@@ -9,7 +9,6 @@ export const Route = createFileRoute("/api/support/assets/$assetId")({
   server: {
     handlers: {
       // GET /api/support/assets/$assetId: Retrieve and stream a support ticket image attachment.
-      // Accessible by ticket creator (user) and admin emails.
       GET: async ({ params }) => {
         const session = await auth();
         if (!session?.user?.id || !session.user.email) {

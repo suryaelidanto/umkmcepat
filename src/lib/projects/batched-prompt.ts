@@ -104,11 +104,6 @@ ${REFERENCE_CALIBRATED_TASTE_RULES} Use no tools, no markdown, no prose. Read ow
   };
 }
 
-/**
- * Direction written from the owner's own conversation. It shapes taste only —
- * every customer-facing value still comes from the accepted contract, and the
- * source gates reject anything else.
- */
 function creativeDirectionBlock(direction: string | null | undefined): string {
   return direction?.trim()
     ? `
@@ -118,13 +113,11 @@ ${direction.trim()}
     : "";
 }
 
-/** Mirrors the CTA gate, which greps the source for these digits. */
 function canonicalCtaDigits(contract: GeneratedSiteWriterContractV2): string {
   const digits = contract.business.primaryCta.target.replace(/\D/gu, "");
   return digits.startsWith("0") ? `62${digits.slice(1)}` : digits;
 }
 
-/** Mirrors the taste gate: at most ceil(sections / 3), never fewer than one. */
 function referenceCalibratedEyebrowBudget(
   contract: GeneratedSiteWriterContractV2,
 ): number {
@@ -233,11 +226,6 @@ export function referenceCalibratedWritablePaths(
 export const PROFESSIONAL_WRITER_PLAN_SKELETON_LABEL =
   "DESIGN PLAN (exact JSON; every key shown is required and no other key is accepted):";
 
-/**
- * Built from the parser's own key and enum lists so the writer is always told
- * the plan shape the strict V3 parser will demand. Creative fields stay as
- * `<placeholder>` values: the shape is fixed, the taste is not.
- */
 function professionalPlanSkeleton(input: {
   blueprint: ProfessionalSiteBlueprintV1;
   kit: GeneratedSiteDesignKitV2;
@@ -289,11 +277,6 @@ function professionalPlanSkeleton(input: {
   );
 }
 
-/**
- * The concrete module, hook, and content facts a route file must satisfy.
- * The correction runs precisely when one of these gates failed, so it needs
- * the same facts as the writer — stating them once keeps the two in step.
- */
 function professionalSourceRules(input: {
   contract: GeneratedSiteWriterContractV3;
   blueprint: ProfessionalSiteBlueprintV1;
@@ -827,9 +810,6 @@ export function buildTargetedRepairPrompt(input: {
     })
     .join("\n\n");
   // The render-completeness gate names site.<field> fields that must appear in
-  // index.tsx. Without the actual site.ts data the model invents local arrays
-  // and abandons the schema, so every repair diverges further. Provide the
-  // staged site.ts as a READ-ONLY reference — it is never in the re-emit list.
   const siteFile = input.staged.get("src/content/site.ts");
   const siteReference = siteFile
     ? `\n\nReference — src/content/site.ts (READ-ONLY data source; render these fields, do NOT re-emit site.ts):\n\n<file path="src/content/site.ts">\n${siteFile.content}\n</file>`

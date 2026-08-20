@@ -1,10 +1,7 @@
 // Pure discuss-turn resume logic, split out of WorkspaceShell so it is
-// unit-testable without a DOM. See the caller for the poll loop wiring.
 
-/** Poll interval for a running discuss turn while the client waits. */
 export const RESUME_POLL_INTERVAL_MS = 1_500;
 
-/** Server-side state of one discuss turn, returned by /chat/turn. */
 export type TurnState = {
   turnId: string;
   status: "running" | "succeeded" | "failed" | "cancelled" | "expired";
@@ -12,7 +9,6 @@ export type TurnState = {
   errorMessage?: string;
 };
 
-/** What the client should do given the server-side turn state. */
 export type DiscussResume =
   | { kind: "idle" }
   | { kind: "reload" }
@@ -36,7 +32,6 @@ export function resolveDiscussResume(turn: TurnState | null): DiscussResume {
   };
 }
 
-/** Map stored turn errors to friendly Indonesian (never leak English internals). */
 export function toUserFacingDiscussError(
   errorMessage: string | undefined | null,
 ): string {

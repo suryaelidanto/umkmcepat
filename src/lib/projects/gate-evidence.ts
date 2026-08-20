@@ -1,7 +1,4 @@
 // src/lib/projects/gate-evidence.ts
-// Private gate-screenshot evidence for contract-v1 qualification. Evidence is
-// owner/project/candidate-scoped, never telemetry and never a public URL.
-// Non-selected candidate evidence expires after 30 days.
 import { getS3Object, putS3Object, S3_PREFIXES } from "@/lib/storage/s3-client";
 
 export const GATE_EVIDENCE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -18,7 +15,6 @@ export type GateEvidenceMeta = {
   createdAt: string;
 };
 
-/** Return the object ref (`object:s3:objects/...`) for a candidate's evidence. */
 export function evidenceRefForCandidate(input: {
   projectId: string;
   candidateId: string;
@@ -43,7 +39,6 @@ export function isExpiredGateEvidence(createdAt: Date): boolean {
   return Date.now() - createdAt.getTime() > GATE_EVIDENCE_TTL_MS;
 }
 
-/** Store private gate evidence under the candidate scope. */
 export async function storeGateEvidence(input: {
   projectId: string;
   candidateId: string;
@@ -90,7 +85,6 @@ export async function storeGateScreenshotEvidence(input: {
   return ref;
 }
 
-/** Read private gate evidence by object ref. */
 export async function readGateEvidence<T>(ref: string): Promise<T | null> {
   try {
     const body = await getS3Object("private", s3KeyFromRef(ref));

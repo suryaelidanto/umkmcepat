@@ -184,9 +184,6 @@ export async function runShadowCritic(input: {
     });
     let findings = parseFindings(result.text);
     // Vision models occasionally return an empty stream on the first attempt
-    // (upstream hiccup, not a quality signal). Retry exactly once before
-    // declaring the critic unavailable so a transient blank does not fail an
-    // otherwise-clean build.
     if (!findings && result.text.trim().length === 0) {
       result = await generateText({
         model: getAiModel(requestedModel),
@@ -202,12 +199,6 @@ export async function runShadowCritic(input: {
     }
     if (!findings) {
       // Distinguish a model that cannot process images (returns 0 tokens —
-      // no vision capability, or the upstream vision route is broken) from a
-      // model that returned unparseable output. A 0-token response is a
-      // vision-infrastructure gap, not a quality verdict: surface it as
-      // `unknown` so the qualification can accept a clean browser-gated build
-      // instead of fail-closing every risky build when the vision model is
-      // unavailable.
       if (result.text.trim().length === 0) {
         return { status: "unknown", mode: "shadow", findings: [] };
       }
@@ -272,10 +263,6 @@ function extractScreenshotParts(values: unknown[]): Uint8Array[] {
       continue;
     }
     // The browser runner stores both a report (with the base64 screenshot
-    // embedded) and a standalone screenshot evidence object, so every image
-    // arrives twice. Dedupe by the base64 string and cap at two (mobile +
-    // desktop) — sending four large JPEGs to the vision model returns 0
-    // tokens.
     if (seen.has(screenshot)) {
       continue;
     }
@@ -382,7 +369,6 @@ function parseGeneratedSiteFindings(
 
 function parseFindings(text: string): VisualFinding[] | null {
   // Models often wrap JSON in markdown fences or prose; extract the first
-  // balanced object so a stray prefix/suffix does not discard a valid report.
   const jsonText = extractJsonObject(text) ?? text;
   let value: unknown;
   try {

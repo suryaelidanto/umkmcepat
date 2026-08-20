@@ -2,9 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { resolveGenerateMode } from "./resolve-generate-mode";
 
-/**
- * Edge matrix (B3–B5): client/API mode resolution without network.
- */
 describe("generate mode edge matrix", () => {
   it("B3: fail with no source → first_generate on retry request", () => {
     expect(

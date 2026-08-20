@@ -22,7 +22,6 @@ const PUBLIC_READ_POLICY = JSON.stringify({
 
 export async function ensureS3Buckets(): Promise<void> {
   // Only auto-create under the local (MinIO) provider — R2 buckets are
-  // created manually in the Cloudflare dashboard (managed infra).
   if (getStorageProvider() !== "local") {
     return;
   }

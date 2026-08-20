@@ -173,8 +173,6 @@ describe("POST /api/projects/preview (discuss) — server-side turn flow", () =>
     );
     validateUIMessagesMock.mockImplementation(async ({ messages }) => messages);
     // Live channel by default; the worker publishes to it async.
-    // Default subscriber: immediately replay a text delta + finish so the tail
-    // stream resolves without hanging.
     subscribeProgressMock.mockImplementation(
       (
         _turnId: string,
@@ -275,14 +273,6 @@ describe("POST /api/projects/preview (discuss) — server-side turn flow", () =>
   });
 
   // Regression: on a fresh POST the worker is dispatched detached and has
-  // not created the pub/sub channel yet (it is created lazily on its first
-  // `publishProgress`, after convertToModelMessages + writeAiRequestLog +
-  // streamText). At tail-start the channel is absent for EVERY normal turn —
-  // the normal startup state, not a "lost to restart" state. The old
-  // `readTurnState === "gone"` DB-replay fallback misread that as a stall and
-  // emitted a spurious `turn_stalled` error while the worker was about to
-  // succeed (the user's symptom: "it's actually working, just shows error;
-  // refresh fixes it"). The tail must relay the worker's real terminal event.
   it("does NOT emit turn_stalled when the worker is still starting — relays the worker's events instead", async () => {
     claimDiscussTurnMock.mockResolvedValue({
       claimed: true,

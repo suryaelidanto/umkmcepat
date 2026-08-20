@@ -90,8 +90,6 @@ describe("evaluateBuildReadiness", () => {
 
   it("stays buildable when structural detail was never asked", () => {
     // Nothing schedules the address/hours/photo questions, so blocking on them
-    // deadlocked the build with no way for the owner to resolve it. The
-    // blueprint already omits sections it has no facts for.
     const result = evaluateBuildReadiness(
       readyBrief({
         business: { name: "Warung", type: "Kuliner", category: "fnb" },

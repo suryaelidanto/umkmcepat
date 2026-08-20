@@ -1,14 +1,5 @@
 import { spawnSync } from "node:child_process";
 
-/**
- * High-confidence secret shapes only — structural patterns that have no
- * legitimate reason to appear in this codebase's docs, fixtures, or example
- * env values. Deliberately excludes generic KEY=/SECRET= assignment
- * matching: this repo's own .env.example ships real-looking local-dev
- * defaults (e.g. minioadmin, postgres:postgres@localhost) that are
- * intentionally not secrets, and a broader pattern would false-positive on
- * them.
- */
 const SECRET_PATTERNS: Array<{ name: string; pattern: RegExp }> = [
   { name: "AWS access key ID", pattern: /AKIA[0-9A-Z]{16}/ },
   {

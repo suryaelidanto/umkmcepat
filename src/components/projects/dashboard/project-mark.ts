@@ -14,7 +14,6 @@ const MARK_BASES = ["#201f1d", "#23221f", "#1d1e1c"];
 const AURORA = ["#ff7a59", "#ee4f9b", "#7867ff", "#2f8cff", "#f7a441"];
 
 // Deterministic branded mesh-gradient mark. Continuous angle + glow position
-// give each project a unique, memorable composition without random slop.
 export function createProjectMark(seed: string): ProjectMark {
   const hash = hashSeed(seed);
   const base = MARK_BASES[hash % MARK_BASES.length];

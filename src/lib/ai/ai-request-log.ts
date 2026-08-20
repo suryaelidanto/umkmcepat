@@ -17,7 +17,6 @@ export async function writeAiRequestLog(event: Record<string, unknown>) {
   };
   const scope = String(event.event ?? "event");
   // devLog handles the rotating dev.log mirror; no direct console.warn so the
-  // terminal stays quiet during `bun run dev`.
   devLog("ai", scope, entry);
 
   await mkdir(LOG_DIR, { recursive: true });

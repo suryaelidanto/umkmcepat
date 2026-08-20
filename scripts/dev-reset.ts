@@ -122,7 +122,7 @@ function stopProcess(pid: number, force: boolean) {
 
     process.kill(pid, force ? "SIGKILL" : "SIGTERM");
   } catch {
-    // The process may already be gone.
+    // ignore if process exited
   }
 }
 

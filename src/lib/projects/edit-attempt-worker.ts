@@ -193,7 +193,6 @@ export async function runEditAttempt({
   let sendProgress: (label: string, detail?: string) => void = () => {};
 
   // Durable per-tool-call progress so refresh can rehydrate the edit
-  // observer UI with real step-by-step detail, not just one static label.
   function persistEditProgress(operation: {
     detail: string;
     diff?: DiffLine[];
@@ -266,11 +265,6 @@ export async function runEditAttempt({
     };
 
     // Contract-v1 batched writer: the ONLY edit path. It tries the edit as ONE
-    // response. On needsFallback/throw the attempt fails — no legacy fallback.
-    // Durable write-through while the batched writer streams: overlay the
-    // batched-staged paths onto the LIVE base so interrupted edits still land.
-    // Semantic gate mirrors the merge-time filter (protected / TSX-broken
-    // blocks never persist mid-stream; targeted repair re-emits them later).
     const batchedStageFiles = new Map<string, GeneratedProjectFile>();
     const persistBatchedStage = (file: GeneratedProjectFile) => {
       if (!isBatchedFilePersistable(file)) {
@@ -625,7 +619,6 @@ export async function runEditAttempt({
           projectId: project.id,
         }),
         // Best-effort prettier sweep over the edited source so the code tab
-        // shows polished code. Fire-and-forget; never fails the turn.
         ...(sourceDir ? [formatGeneratedSource(sourceDir)] : []),
       ]);
     }

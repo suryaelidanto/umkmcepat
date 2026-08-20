@@ -29,7 +29,6 @@ export const queryKeys = {
   boosterPacks: ["booster-packs"] as const,
 };
 
-/** Gate-status client cache: short stale, refresh when tab focused. */
 export const GATE_QUERY_OPTIONS = {
   staleTime: 10_000,
   refetchOnWindowFocus: true,
@@ -58,7 +57,6 @@ export type WaitlistStatusResponse = {
   own?: WaitlistOwnStatus | null;
 };
 
-/** Poll while user is verified-but-not-approved and has a pending entry. */
 export function waitlistPendingPollInterval(
   data: WaitlistStatusResponse | undefined,
 ): number | false {
@@ -155,10 +153,6 @@ export async function fetchJson<T>(
 
   if (response.status === 401) {
     // Await so the signOut + redirect completes before `parseApiResponse`
-    // throws below. Fire-and-forget (`void ...`) races the throw: the error
-    // propagates (and the request unwinds) before the dynamic import +
-    // signOut land, so a 401 could fail to sign the user out. The test
-    // "triggers signOut when a request returns 401" depends on this ordering.
     await handleUnauthorizedError(input);
   }
 

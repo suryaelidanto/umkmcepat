@@ -1,5 +1,4 @@
 // Discuss progress bus: local buffer + Redis pub/sub for multi-process tails.
-// Publish is fire-and-forget; DB poll on SSE covers Redis misses (see discuss-turn-sse-tail).
 
 import { randomUUID } from "node:crypto";
 
@@ -54,7 +53,6 @@ function resetRedisSub(): void {
   redisInitFailed = false;
 }
 
-/** Test-only: inject a backend; null restores default Redis+local. */
 export function __setDiscussProgressBackendForTests(
   backend: DiscussProgressBackend | null,
 ): void {
@@ -80,7 +78,6 @@ export function publishProgress(
   });
 }
 
-/** Open channel early so the SSE tail can subscribe before the first event. */
 export function ensureProgressChannel(turnId: string): void {
   if (testBackend) {
     return;
@@ -116,7 +113,7 @@ export function subscribeProgress(
       try {
         onEvent(e);
       } catch {
-        /* swallow */
+        // ignore handler error
       }
     }
   }
@@ -165,7 +162,7 @@ function deliverLocal(
       try {
         sub(stamped);
       } catch {
-        /* swallow subscriber errors */
+        // ignore subscriber error
       }
     }
   }
@@ -227,7 +224,7 @@ function ensureRedisSub(): void {
             notifyLocal: true,
           });
         } catch {
-          /* ignore bad payloads */
+          // ignore malformed redis payload
         }
       });
     }

@@ -40,8 +40,6 @@ async function readSession(): Promise<SessionRead> {
   }
 
   // Do not log users out because the auth endpoint or tunnel is temporarily
-  // unavailable. An empty 200 response (or a 401) is the authoritative
-  // expired/invalid-session signal.
   if (!response.ok) {
     return {
       definitive: response.status === 401,
@@ -73,7 +71,6 @@ async function fetchSession(): Promise<Session | null> {
 }
 
 // Drop-in replacement for next-auth/react SessionProvider. Fetches the session
-// from Auth.js Core's /api/auth/session endpoint and exposes it to useSession.
 export function SessionProvider({
   children,
   session,
@@ -130,8 +127,6 @@ export function SessionProvider({
   }, []);
 
   // Mirrors next-auth/react useSession().update: POSTs the patch to Auth.js
-  // Core's session endpoint (which re-runs the jwt callback with
-  // trigger:"update"), then reflects the refreshed session locally.
   const update = useCallback(async (patch?: Record<string, unknown>) => {
     const csrfToken = await getCsrfToken();
     const body = new URLSearchParams({ csrfToken });
@@ -236,8 +231,6 @@ async function getCsrfToken(): Promise<string> {
 }
 
 // Mirrors next-auth/react signIn("google", { callbackUrl }). Auth.js Core's
-// sign-in endpoint expects a POST with a CSRF token and redirects the browser
-// through the OAuth flow.
 export async function signIn(
   provider: string,
   options?: { callbackUrl?: string },

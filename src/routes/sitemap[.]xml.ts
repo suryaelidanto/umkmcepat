@@ -5,7 +5,6 @@ import { prisma } from "@/lib/prisma";
 const siteUrl = "https://umkmcepat.com";
 
 // Enumerates the homepage + every published /p/<slug> deployment so Google
-// indexes each published UMKM site (long-tail organic surface).
 export const Route = createFileRoute("/sitemap.xml")({
   server: {
     handlers: {

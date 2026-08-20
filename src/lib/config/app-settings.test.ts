@@ -44,10 +44,6 @@ describe("getSetting", () => {
   });
 
   // ponytail: brief imported afterEach but left the body empty; the mock's
-  // upsert writes to a closure Map that persists across tests, so test 1's row
-  // leaked into test 3 (hardcoded-default case) and returned false instead of
-  // true. Clear the only key the suite sets so each case starts from an empty
-  // store — the slate the brief's beforeEach env-deletes already assumed.
   afterEach(async () => {
     const { prisma } = await import("@/lib/prisma");
     await prisma.appSetting.delete({

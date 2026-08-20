@@ -12,8 +12,6 @@ export const Route = createFileRoute(
   server: {
     handlers: {
       // Restore a snapshot by branching from it (append-only). The target and
-      // all newer snapshots remain; a new ProjectSnapshot is created whose
-      // parent points at the target. The caller may rebuild off the new snapshot.
       POST: async ({ params }) => {
         const session = await auth();
         if (!session?.user?.id) {
@@ -47,8 +45,6 @@ export const Route = createFileRoute(
         }
 
         // contract-v1: a snapshot may only be restored directly when its
-        // contract/plan hashes match the active handoff; otherwise it is a
-        // structural change needing a new reviewed handoff (E2).
         if (project.generationEngine === "contract-v1") {
           const restorableAgainstActive =
             await isSnapshotRestorableAgainstActiveHandoff({

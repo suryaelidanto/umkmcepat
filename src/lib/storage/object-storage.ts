@@ -18,7 +18,6 @@ export type UploadObjectInput = {
 const OBJECT_REF_PREFIX = "object:";
 const S3_REF_PREFIX = `${OBJECT_REF_PREFIX}s3:`;
 // Pre-S3-unification local refs still live in some waitlist rows; same private
-// bucket + key layout as object:s3:.
 const LOCAL_REF_PREFIX = `${OBJECT_REF_PREFIX}local:`;
 
 export async function getStoredObject(
@@ -36,9 +35,6 @@ export async function getStoredObject(
     const key = normalizeObjectKey(rawKey);
     const body = await getS3Object("private", prefixedKey(key));
     // Derive Content-Type from the actual bytes, not the key extension:
-    // older uploads hardcode .png in the key regardless of real format, so
-    // trusting the extension serves JPEG bytes as image/png. With nosniff
-    // set on the response, the browser then refuses to render the <img>.
     const format = detectImageFormat(body);
     return {
       body,

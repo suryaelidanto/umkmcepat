@@ -19,8 +19,6 @@ afterEach(async () => {
 });
 
 // A successful install runner leaves a node_modules directory behind, same as
-// a real `bun install` would. The mock mirrors that contract so the reuse and
-// link paths have a real target to inspect.
 function mockInstallRunner() {
   return vi.fn(async (cwd: string) => {
     await mkdir(path.join(cwd, "node_modules"), { recursive: true });

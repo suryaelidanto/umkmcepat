@@ -1,13 +1,6 @@
 import type { BriefQuestion } from "./brief";
 import type { ProjectBriefV2 } from "./canonical-brief";
 
-/**
- * Only fields without which an honest site cannot be built. Structural detail
- * (address, hours, delivery area, photos) enriches a site when the owner
- * supplies it, but never blocks: nothing schedules those questions, so gating
- * on them deadlocked the build with no way for the owner to clear it, and the
- * blueprint already omits sections it has no facts for.
- */
 export type BuildReadinessField =
   | "business.name"
   | "offers"

@@ -7,10 +7,6 @@ export type SourceSnapshotLike = {
   sourceRef?: string | null;
 };
 
-/**
- * Prefer latest attempt (success or fail), then any snapshot with files,
- * then project-level sourceFiles. Preview-active deployment is NOT required.
- */
 export function resolveProjectSourceFiles({
   latestAttemptSnapshot,
   latestProjectSnapshot,

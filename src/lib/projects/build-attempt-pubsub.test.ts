@@ -17,8 +17,6 @@ describe("build-attempt-pubsub", () => {
 
   it("keeps channel type as operation when tool payload also has type", () => {
     // Worker used to publish { type: "operation", ...op } where op.type is
-    // write_file — spread clobbered the SSE event name so the client ignored
-    // live ops (and never attached expandable diffs).
     const received: Array<Record<string, unknown>> = [];
     const unsub = subscribeBuildProgress("build_op_type", (event) => {
       received.push(event as Record<string, unknown>);

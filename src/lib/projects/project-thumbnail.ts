@@ -63,8 +63,6 @@ export async function readProjectThumbnail(
     throw new Error("Invalid project thumbnail ref.");
   }
   // Copy into a fresh ArrayBuffer-backed Uint8Array so the route's
-  // `new Response(bytes)` picks the ArrayBufferView BodyInit branch
-  // (TS lib otherwise widens Buffer<ArrayBufferLike> into URLSearchParams).
   const bytes = await getS3Object(
     "private",
     `${S3_PREFIXES.thumbnail}/${projectId}.jpg`,

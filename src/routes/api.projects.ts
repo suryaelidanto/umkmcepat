@@ -419,8 +419,6 @@ async function createProjectOnce({
   workspaceCard: unknown;
 }) {
   // Atomic: the COUNT(*) inside assertUnderProjectLimit and the project
-  // insert run in the same transaction, so two concurrent POSTs can't
-  // both observe count=limit and both create a 4th row.
   try {
     return await prisma.$transaction(async (tx) => {
       await assertUnderProjectLimit(tx, sessionUserId);
@@ -462,7 +460,6 @@ async function createProjectOnce({
     });
   } catch (error) {
     // P2002: another request won the idempotency race → return the
-    // existing project, same as before.
     if (isUniqueConstraintError(error) && idempotencyKey) {
       const project = await findIdempotentProject(
         sessionUserId,
@@ -504,8 +501,6 @@ function createProjectData({
     userId: sessionUserId,
   };
 }
-
-/** Resolve the sticky engine at project creation. Contract-v1 only. */
 
 function isUniqueConstraintError(error: unknown) {
   return (

@@ -60,7 +60,6 @@ export function ProjectList({
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     // Seed cache once from the route loader. Always refetch page 0 from API
-    // afterwards so deletes/creates don't get overwritten by stale loader data.
     initialData: {
       pages: [
         {

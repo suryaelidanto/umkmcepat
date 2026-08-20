@@ -38,8 +38,6 @@ export const BOOSTER_PACKS = {
 export type BoosterPackId = keyof typeof BOOSTER_PACKS;
 
 // Resolves pack pricing from AppSetting (DB-first). `amount` is charged;
-// `compareAtAmount` is list price for discount display only (not billed).
-// Client UI must not read BOOSTER_PACKS amounts directly — use listBoosterPacks.
 export async function getBoosterPack(
   id: BoosterPackId,
   popularPackIdOverride?: string,
@@ -144,15 +142,6 @@ function getCredentials() {
   return { apiKey, baseUrl };
 }
 
-/**
- * Creates a single-use invoice in Mayar. Returns the hosted checkout link
- * and the transactionId (available at create time for invoices — used to
- * correlate the webhook that Mayar fires after payment).
- *
- * Uses /invoices/create (not /payments/create): invoices carry transactionId
- * at creation time and include it in the webhook payload, making reliable
- * order correlation possible.
- */
 export async function createMayarPayment(opts: {
   orderId: string;
   amount: number;
@@ -200,11 +189,6 @@ export async function createMayarPayment(opts: {
   return data.data;
 }
 
-/**
- * Fetches a transaction's authoritative status directly from Mayar.
- * Used both by the webhook handler (never trust the webhook payload alone)
- * and by the admin manual-verify route.
- */
 export async function getMayarTransaction(
   transactionId: string,
 ): Promise<MayarTransactionDetail> {
@@ -235,13 +219,6 @@ export async function getMayarTransaction(
   return data.data;
 }
 
-/**
- * Verifies an incoming webhook request actually came from Mayar, using the
- * Webhook Token configured in the account dashboard (Integrasi -> API Keys
- * & Token). Mayar appends the token as a ?token= query parameter on the
- * webhook URL — confirmed against the sandbox account; see
- * docs/superpowers/plans/2026-07-29-mayar-spike-findings.md.
- */
 export function verifyMayarWebhookRequest(request: Request): boolean {
   const expected = process.env.MAYAR_WEBHOOK_TOKEN;
   if (!expected) {
@@ -253,8 +230,5 @@ export function verifyMayarWebhookRequest(request: Request): boolean {
     return false;
   }
   // Plain comparison is sufficient: the query-param token is delivered over
-  // HTTPS with network jitter that dwarfs any timing signal. timingSafeEqual
-  // would require node:crypto which is browser-incompatible (this module is
-  // also imported by client-side code for BOOSTER_PACKS).
   return token === expected;
 }

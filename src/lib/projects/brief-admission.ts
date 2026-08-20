@@ -7,8 +7,6 @@ export type BatchedBriefAdmissionResult =
   | { ok: true; blockers: []; reason: null }
   | { ok: false; blockers: string[]; reason: string };
 
-/** Thrown by the batched generator when the admission gate blocks. Never an
- * AI-call failure — the worker surfaces `reason` to the user uncharged. */
 export class BatchedAdmissionBlockedError extends Error {
   readonly blockers: string[];
   readonly reason: string;
@@ -35,11 +33,6 @@ const FIELD_LABELS: Record<string, string> = {
   "content.deliveryArea": "area layanan",
 };
 
-/**
- * Validate a parsed ProjectBrief against what the batched writer needs.
- * Never throws; always returns structured blockers + a single Indonesian
- * user-facing sentence for the UI error path.
- */
 export function checkContractGenerateAdmission(input: {
   briefSnapshot: ProjectBriefV2;
   contractHash: string;

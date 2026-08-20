@@ -10,7 +10,6 @@ export type SettingCategory =
   | "limits";
 
 // Render order on /admin/settings. Basic categories render expanded; advanced
-// collapse behind a single disclosure.
 export const CATEGORY_ORDER = [
   "feature_flag",
   "economics",
@@ -39,28 +38,20 @@ export type ConfigEntry = {
   fallback: boolean | number | string;
   tier: SettingTier;
   // Canonical env var name. Omitted when the setting has no env equivalent.
-  // This is the single source of truth for key→env mapping; nothing derives
-  // an env name by string transformation.
   env?: string;
   // Inclusive bounds, numbers only. Enforced on write by the admin PUT handler
-  // and mirrored by the consumer's own read-side clamp.
   min?: number;
   max?: number;
   // True when the value is read once at process start, so a change needs a
-  // restart to take effect. Surfaced as a badge in the admin UI.
   requiresRestart?: boolean;
   // When set, /admin/settings renders a select populated from this source
-  // instead of a free-text input. Values remain plain strings in DB.
   optionsSource?: "nine_router_models";
   // When set, /admin/settings renders a fixed-option select (enum). Mutually
-  // exclusive with optionsSource.
   enumOptions?: readonly string[];
   display?: "percentage";
 };
 
 // Source of truth for DB-overridable, non-secret config. Adding a setting
-// later = one entry here; it auto-appears in the admin Settings UI. Secrets
-// (API keys, credentials) NEVER appear here — they stay in .env.
 export const APP_SETTINGS: ConfigEntry[] = [
   // feature_flag
   {
@@ -198,7 +189,6 @@ export const APP_SETTINGS: ConfigEntry[] = [
     max: 100000000,
   },
   // booster (fallbacks mirror BOOSTER_PACKS in mayar.ts)
-  // amount = charged price; compare_at_amount = list price for discount UI only
   {
     key: "booster.popular_pack_id",
     category: "booster",
