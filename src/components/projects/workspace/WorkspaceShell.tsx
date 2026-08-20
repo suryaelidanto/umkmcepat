@@ -1836,7 +1836,6 @@ export function WorkspaceShell({
 
     return () => window.clearTimeout(watchdog);
   }, [clearError, messages.length, projectId, reloadLatestChat, status]);
-
   // Auto-resume on cold start: if the server is actively running a turn or last local message is an unanswered user turn
   useEffect(() => {
     if (status === "submitted" || status === "streaming") {
