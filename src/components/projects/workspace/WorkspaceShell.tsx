@@ -170,6 +170,7 @@ type WorkspaceShellProps = {
   initialBrief?: ProjectBrief;
   readOnly?: boolean;
   autoRetryAttempts?: number;
+  autoRetryDelayMs?: number;
 };
 
 type RuntimeWorkspaceState = {
@@ -292,6 +293,7 @@ export function WorkspaceShell({
   initialBrief,
   readOnly = false,
   autoRetryAttempts: _autoRetryAttempts = 2,
+  autoRetryDelayMs = 4000,
 }: WorkspaceShellProps) {
   const [mode, setMode] = useState<"build" | "discuss">("discuss");
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
@@ -3032,9 +3034,23 @@ export function WorkspaceShell({
     }
     lastAutoRetriedErrorRef.current = error;
     retryAttemptRef.current = next;
-    setIsRetrying("response");
-    void retryChat();
-  }, [error, isRetrying, status, readOnly, _autoRetryAttempts, retryChat]);
+    const timer = window.setTimeout(() => {
+      setIsRetrying("response");
+      void retryChat();
+    }, autoRetryDelayMs);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [
+    error,
+    isRetrying,
+    status,
+    readOnly,
+    _autoRetryAttempts,
+    autoRetryDelayMs,
+    retryChat,
+  ]);
 
   // Reset retry counter on a successful turn completion.
   useEffect(() => {

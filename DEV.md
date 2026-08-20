@@ -203,6 +203,14 @@ bun run build:trigger
 
 `BUILD_MODE` accepts `first_generate` or `retry_build`; `BUILD_STREAM_TIMEOUT_MS` is bounded to 30,000–1,800,000 ms. The harness prints only safe SSE progress and terminal status. If its observer disconnects or times out, the server-side bounded worker remains responsible for terminal cleanup and the dashboard can reattach to persisted progress; the harness never bypasses the queue.
 
+To test real discussion stream turns from the terminal, use:
+
+```bash
+PROJECT_ID=<project-id> MESSAGE="Halo apa kabar" bun run discuss:trigger
+```
+
+Discussion auto-retry uses `discuss.chat.auto_retry_delay_ms` (env `DISCUSS_CHAT_AUTO_RETRY_DELAY_MS`), default 4,000 ms (bounded to 1,000–15,000 ms), providing time for natural stream completion before executing automatic recovery.
+
 Generated command builds use `runtime.generated_build_timeout_ms` (env `PROJECT_GENERATED_BUILD_TIMEOUT_MS`), default 90,000 ms, bounded from 30,000 to 180,000 ms. The default was chosen from the requested project's seven completed builds (19,222 ms succeeded mean, 21,846 ms succeeded p95, 22,138 ms completed maximum) with cold-workspace margin. A command that exceeds the deadline is still a failed build, classified as `timeout`, with no dist artifact; it never replaces a last-known-good Preview or Production pointer.
 
 ### Professional static-site V4 benchmark and calibration

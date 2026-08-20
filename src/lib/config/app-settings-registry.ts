@@ -654,6 +654,17 @@ export const APP_SETTINGS: ConfigEntry[] = [
     env: "DISCUSS_CHAT_AUTO_RETRY_ATTEMPTS",
   },
   {
+    key: "discuss.chat.auto_retry_delay_ms",
+    category: "ai",
+    tier: "advanced",
+    type: "number",
+    label: "AI — discuss auto-retry delay (ms)",
+    fallback: 4000,
+    min: 1000,
+    max: 15000,
+    env: "DISCUSS_CHAT_AUTO_RETRY_DELAY_MS",
+  },
+  {
     key: "ai.timeout.moderation_ms",
     category: "ai",
     tier: "advanced",

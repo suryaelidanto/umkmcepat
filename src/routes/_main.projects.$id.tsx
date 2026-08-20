@@ -32,11 +32,16 @@ const loadProject = createServerFn({ method: "GET" })
       "discuss.chat.auto_retry_attempts",
       2,
     );
+    const autoRetryDelayMs = getSettingSync(
+      "discuss.chat.auto_retry_delay_ms",
+      4000,
+    );
 
     return {
       mode: result.mode,
       projectJson: JSON.stringify(result.project),
       autoRetryAttempts,
+      autoRetryDelayMs,
     };
   });
 
@@ -51,6 +56,7 @@ function ProjectPage() {
 
   const readOnly = data.mode === "observer";
   const autoRetryAttempts = data.autoRetryAttempts ?? 2;
+  const autoRetryDelayMs = data.autoRetryDelayMs ?? 4000;
   const initialMessages = project.initialChatPage.messages as UIMessage[];
   const initialWorkspaceCard = project.initialWorkspaceCard as WorkspaceCard;
   const initialBrief = project.initialBrief as ProjectBrief;
@@ -70,6 +76,7 @@ function ProjectPage() {
         initialBrief={initialBrief}
         readOnly={readOnly}
         autoRetryAttempts={autoRetryAttempts}
+        autoRetryDelayMs={autoRetryDelayMs}
       />
     </>
   );
