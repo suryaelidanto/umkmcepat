@@ -16,23 +16,23 @@ export function HeldBuildRecommendationNotice({
   onOpen: () => void;
 }) {
   return (
-    <div className="relative rounded-[22px] border border-border bg-card px-spacing-5 py-spacing-4 shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-spacing-4 pr-spacing-6">
+    <div className="relative rounded-[22px] border border-border bg-card p-4 shadow-sm sm:p-5">
+      <div className="flex flex-col gap-3 pr-8 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:pr-8">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-foreground">
             Rancangan website disimpan
           </p>
-          <p className="mt-spacing-1 text-xs leading-5 text-muted-foreground">
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
             Lanjutkan diskusi dulu, atau buka rancangan saat siap membuat
             website.
           </p>
         </div>
-        <div className="flex shrink-0 flex-wrap gap-spacing-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
           <Button
             type="button"
             variant="outline"
             onClick={onOpen}
-            className="h-9 rounded-[12px] border-border bg-transparent px-spacing-4 text-xs text-foreground hover:bg-muted"
+            className="h-9 rounded-[12px] border-border bg-transparent px-3 text-xs text-foreground hover:bg-muted"
           >
             Buka rancangan
           </Button>
@@ -40,7 +40,7 @@ export function HeldBuildRecommendationNotice({
             type="button"
             disabled={!canBuild}
             onClick={onBuild}
-            className="h-9 rounded-[12px] bg-[#1c1c1c] text-white px-spacing-4 text-xs hover:bg-black disabled:opacity-50 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white"
+            className="h-9 rounded-[12px] bg-[#1c1c1c] text-white px-3 text-xs hover:bg-black disabled:opacity-50 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white"
           >
             Mulai buat website
           </Button>
@@ -51,7 +51,7 @@ export function HeldBuildRecommendationNotice({
           type="button"
           onClick={onDismiss}
           aria-label="Tutup pemberitahuan rancangan"
-          className="absolute right-spacing-3 top-spacing-3 inline-flex size-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="absolute right-3 top-3 inline-flex size-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <X className="size-4" />
         </button>
