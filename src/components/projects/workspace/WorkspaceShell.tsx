@@ -3804,7 +3804,7 @@ export function WorkspaceShell({
                 ) : null}
                 <form
                   onSubmit={handleMessageSubmit}
-                  className="mt-spacing-3 min-w-0 rounded-[28px] border border-border bg-card p-spacing-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-sm"
+                  className="mt-spacing-3 min-w-0 rounded-[28px] border border-black/10 bg-[#fcfbf8] p-spacing-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-sm dark:border-surface-warm-white/12 dark:bg-[#262622] dark:shadow-[0_18px_48px_rgba(0,0,0,0.22)]"
                 >
                   <label htmlFor="workspace-message" className="sr-only">
                     Pesan untuk AI
