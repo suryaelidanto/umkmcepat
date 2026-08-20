@@ -46,6 +46,8 @@ describe("createViteTanStackShadcnStarterFiles", () => {
     expect(isProtectedScaffoldPath("src/components/site/layout.tsx")).toBe(
       true,
     );
+    expect(isProtectedScaffoldPath("src/components/ui/button.tsx")).toBe(true);
+    expect(isProtectedScaffoldPath("src/components/ui/card.tsx")).toBe(true);
   });
 
   it("includes selected generated-site primitives when requested", () => {

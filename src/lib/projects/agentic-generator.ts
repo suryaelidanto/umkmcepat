@@ -4,24 +4,37 @@ import { z } from "zod";
 import type { StepCharger } from "@/lib/projects/energy-step-charger";
 import type { GeneratedProjectFile } from "@/lib/projects/generated-types";
 import type { ProjectSiteSchema } from "@/lib/projects/site-schema";
+import type { ProjectSkillName } from "@/lib/projects/skills/skill-registry";
 
 import {
   getAiModel,
   getAiTelemetry,
   getNoReasoningCallOptions,
 } from "@/lib/ai/ai";
+import { getAgentMaxSteps } from "@/lib/ai/ai-agent-steps";
 import { getGenerationModel } from "@/lib/ai/ai-models";
-import { getSettingSync } from "@/lib/config/app-settings";
 import { devLog } from "@/lib/dev-log";
+import { classifyBuildFailure } from "@/lib/projects/build-logs";
 import { generateDiff, type DiffLine } from "@/lib/projects/diff";
-import { normalizeGeneratedSiteContent } from "@/lib/projects/generated-site-gates";
+import {
+  findGeneratedInternalLinkIssues,
+  findGeneratedPrimaryActionIssues,
+  normalizeGeneratedInternalLinks,
+  normalizeGeneratedSiteContent,
+} from "@/lib/projects/generated-site-gates";
 import {
   buildGeneratedProject,
   createGeneratedViteTanStackStarterFiles,
 } from "@/lib/projects/generated-source";
 import { renewProjectOperation } from "@/lib/projects/project-operation";
 import { getFormattedShadcnRegistryPrompt } from "@/lib/projects/scaffold/component-catalog";
+import { isProtectedScaffoldPath } from "@/lib/projects/scaffold/protected-paths";
 import { SHADCN_COMPONENT_BY_NAME } from "@/lib/projects/scaffold/shadcn-components";
+import {
+  PROJECT_CORE_SKILL_NAMES,
+  PROJECT_SKILL_NAMES,
+  readProjectSkill,
+} from "@/lib/projects/skills/skill-registry";
 
 export type AgenticGeneratedSourceResult = {
   files: GeneratedProjectFile[];
@@ -38,7 +51,37 @@ export type AgenticGeneratedSourceResult = {
     path?: string;
     state: "succeeded" | "failed";
   }>;
+  skillsRead: ProjectSkillName[];
 };
+
+const MAX_PROMPT_VALUE_LENGTH = 12_000;
+const ARBITRARY_TAILWIND_COLOR_PATTERN =
+  /\b(?:bg|text|border|ring|fill|stroke|from|to|via|shadow|outline|divide)-\[#[0-9a-fA-F]{3,8}\]/;
+
+function formatPromptValue(value: unknown): string {
+  if (value == null) {
+    return "NOT PROVIDED";
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed || "NOT PROVIDED";
+  }
+  if (Array.isArray(value) && value.length === 0) {
+    return "NOT PROVIDED";
+  }
+
+  let serialized: string;
+  try {
+    serialized = JSON.stringify(value) ?? "NOT PROVIDED";
+  } catch {
+    return "NOT PROVIDED";
+  }
+
+  if (serialized.length <= MAX_PROMPT_VALUE_LENGTH) {
+    return serialized;
+  }
+  return `${serialized.slice(0, MAX_PROMPT_VALUE_LENGTH - 1)}…`;
+}
 
 export async function runAgenticGenerate(input: {
   abortSignal?: AbortSignal;
@@ -53,6 +96,7 @@ export async function runAgenticGenerate(input: {
     priceRange?: string | null;
   };
   buildId?: string | null;
+  creativeDirection?: string | null;
   onEvent?: (
     type:
       | "error"
@@ -100,9 +144,64 @@ export async function runAgenticGenerate(input: {
 
   const touched = new Set<string>();
   const operationTrace: AgenticGeneratedSourceResult["operationTrace"] = [];
+  const skillsRead = new Set<ProjectSkillName>();
+  let checkAppCalls = 0;
+  let lastCheckOk: boolean | null = null;
   let opSeq = 0;
 
+  function missingCoreSkills() {
+    return PROJECT_CORE_SKILL_NAMES.filter((name) => !skillsRead.has(name));
+  }
+
   const tools = {
+    read_skill: tool({
+      description:
+        "Read one of the bundled UMKM Cepat design and copy skills before writing generated source.",
+      inputSchema: z.object({
+        name: z.enum(PROJECT_SKILL_NAMES),
+        label: z
+          .string()
+          .optional()
+          .describe(
+            "User-facing Indonesian progress title for reading a skill.",
+          ),
+        detail: z
+          .string()
+          .optional()
+          .describe(
+            "User-facing Indonesian progress detail for reading a skill.",
+          ),
+      }),
+      execute: async ({
+        name,
+        label,
+        detail,
+      }: {
+        name: ProjectSkillName;
+        label?: string;
+        detail?: string;
+      }) => {
+        const skill = readProjectSkill(name);
+        if (!skillsRead.has(name)) {
+          skillsRead.add(name);
+          opSeq++;
+          const operation = {
+            detail:
+              detail?.trim() ||
+              `Membaca panduan ${name} sebelum menulis website`,
+            id: `op-${opSeq}`,
+            path: `.agents/skills/${name}/SKILL.md`,
+            state: "succeeded" as const,
+            title: label?.trim() || `Membaca skill ${name}`,
+            type: "read_skill",
+          };
+          operationTrace.push(operation);
+          onEvent?.("operation", operation);
+        }
+        return skill;
+      },
+    }),
+
     list_files: tool({
       description:
         "List all files currently in the project scaffold or available shadcn components.",
@@ -253,6 +352,20 @@ export async function runAgenticGenerate(input: {
         label?: string;
         detail?: string;
       }) => {
+        const missing = missingCoreSkills();
+        if (missing.length) {
+          return {
+            error: `Security restriction: Read the required skills before writing: ${missing.join(", ")}.`,
+          };
+        }
+        if (
+          isProtectedScaffoldPath(path) ||
+          path === "src/routes/not-found.tsx"
+        ) {
+          return {
+            error: `Security restriction: Protected scaffold file cannot be written: ${path}.`,
+          };
+        }
         if (!path.startsWith("src/") && !path.startsWith("public/")) {
           return {
             error:
@@ -264,6 +377,12 @@ export async function runAgenticGenerate(input: {
           path.endsWith(".tsx") || path.endsWith(".css")
             ? normalizeGeneratedSiteContent(content)
             : content;
+        if (ARBITRARY_TAILWIND_COLOR_PATTERN.test(normalizedContent)) {
+          return {
+            error:
+              "Design safety restriction: use semantic theme tokens such as bg-accent, text-foreground, and border-border instead of arbitrary color values.",
+          };
+        }
         const diff = generateDiff(oldContent, normalizedContent);
         fileMap.set(path, normalizedContent);
         touched.add(path);
@@ -332,16 +451,44 @@ export async function runAgenticGenerate(input: {
         label?: string;
         detail?: string;
       }) => {
+        const missing = missingCoreSkills();
+        if (missing.length) {
+          return {
+            errors: [
+              `Security restriction: Read the required skills before checking: ${missing.join(", ")}.`,
+            ],
+            failureReason: "skill_read_required",
+            ok: false,
+          };
+        }
         const currentFiles: GeneratedProjectFile[] = Array.from(
           fileMap.entries(),
         ).map(([path, content]) => ({
           path,
           content,
         }));
+        const normalizedFiles = normalizeGeneratedInternalLinks(currentFiles);
+        for (const file of normalizedFiles) {
+          fileMap.set(file.path, file.content);
+        }
+        const preflightIssues = [
+          ...findGeneratedInternalLinkIssues(normalizedFiles),
+          ...findGeneratedPrimaryActionIssues(normalizedFiles),
+        ];
+        checkAppCalls += 1;
         opSeq++;
-        const buildResult = await buildGeneratedProject(currentFiles, {
-          workspaceKey: `${projectId}-agentic-check`,
-        });
+        const buildResult = preflightIssues.length
+          ? {
+              log: `Generated source preflight failed:\n${preflightIssues
+                .slice(0, 20)
+                .map((issue) => `- ${issue}`)
+                .join("\n")}`,
+              ok: false,
+            }
+          : await buildGeneratedProject(normalizedFiles, {
+              workspaceKey: `${projectId}-agentic-check`,
+            });
+        lastCheckOk = buildResult.ok;
         const op = {
           id: `op-${opSeq}`,
           type: "check_app",
@@ -360,6 +507,9 @@ export async function runAgenticGenerate(input: {
         }
         return {
           ok: buildResult.ok,
+          failureReason: buildResult.ok
+            ? null
+            : classifyBuildFailure(buildResult.log ?? ""),
           errors: buildResult.ok
             ? []
             : [buildResult.log?.slice(0, 1000) ?? "Compile error"],
@@ -368,55 +518,64 @@ export async function runAgenticGenerate(input: {
     }),
   };
 
-  const systemPrompt = `You are a world-class Indonesian website designer and senior React frontend developer.
-Your goal is to build an extraordinary, high-converting, creative landing page (rating 9.5+/10) for an Indonesian UMKM business.
+  const systemPrompt = `You are the implementation agent for a portable static Vite + React + TanStack Router website.
+
+Your job is to turn the accepted business data into a credible, editable customer-facing site. You are not building a backend, SaaS dashboard, checkout, login, payment flow, persistence layer, or fake interactive demo.
+
+CREATIVE AUTHORITY:
+- Read impeccable-craft first. It owns visual direction, hierarchy, anti-slop, and the final taste decision.
+- Read vercel-web-design for semantic HTML, responsive behavior, accessibility, and applicable client-side React quality.
+- Read indonesian-umkm for factual Indonesian copy and local visitor actions.
+- Read shadcn-ui for source-copied component composition and semantic Tailwind v4 tokens.
+- Read emil-motion only when the chosen interface contains or requests motion. Delete motion that has no user benefit.
+- These skills are guidance, not facts. The accepted src/content/site.ts snapshot and protected scaffold always outrank a design suggestion.
+
+REQUIRED WORKFLOW:
+1. Call read_skill for all four core skills before calling write_file or check_app. Call emil-motion when motion is needed.
+2. Call list_files, then read_file for the relevant starter files and any bundled shadcn component source before importing it.
+3. Compose one clear business-specific direction around the visitor's real job. Do not use a generic hero/card/testimonial skeleton.
+4. Write the real home route in src/routes/index.tsx and modular components under src/components/. The router is protected, so do not create unregistered extra routes. Use site.* for every customer-facing value. Omitted facts stay omitted.
+5. Call check_app. If it fails, fix the actual source with write_file and call check_app again. Finish only after the last check_app returns ok: true.
+
+FACT AND SAFETY RULES:
+- src/content/site.ts is read-only and is the sole customer-facing fact source.
+- Do not invent phone numbers, addresses, hours, prices, discounts, testimonials, ratings, awards, certifications, metrics, stock, guarantees, delivery, payment methods, or customer results.
+- Do not turn NOT PROVIDED into a confident claim, decorative badge, empty placeholder, or fake state.
+- Use only hash links and routes that exist in the scaffold or that you write and register safely.
+- Keep the primary action obvious and use the accepted contact value for WhatsApp only when one exists.
+- Do not add remote images, placeholder media, external URLs, packages, config files, API calls, or platform metadata.
+- Keep interactive parent controls at least 44px without enlarging their inner SVG icons. Preserve focus-visible states and reduced motion.
+- Avoid nested cards, equal-card soup, gradient-tech styling, technical headings, starter residue, fake progress, and decorative interaction.
+
+PROTECTED FILES:
+The platform owns src/content/site.ts, src/index.css, src/main.tsx, src/router.tsx, src/routes/__root.tsx, src/routes/not-found.tsx, src/lib/preview-ready.ts, src/lib/utils.ts, src/components/ui/button.tsx, and src/components/ui/card.tsx. Never write them. Write src/routes/index.tsx, modular components under src/components/, supported data modules under src/content/ when needed, and approved public assets only.
 
 ${getFormattedShadcnRegistryPrompt()}
 
-DESIGN DIRECTIVES & EXAMPLES (GREAT VS BAD):
+Every tool call must include a clear natural Indonesian label and detail. Keep the operation trace honest: describe the file or skill you actually inspected or wrote. Do not claim a browser, remote design detector, CLI, MCP, or visual service ran.`;
 
-1. VISUAL HIERARCHY & LAYOUT:
-   - BAD (AI Slop): Repetitive 3 identical cards in a row with purple-blue gradients, generic placeholder text, centered text everywhere.
-   - GREAT: Asymmetrical Bento Grids (<BentoGrid>, <BentoCard colSpan={2}> for flagship items), contrasting section surfaces (bg-background vs bg-muted/40 vs surface="contrast"), varied visual density, authentic trust badges (<BadgePill>), and crisp typography.
+  const userPrompt = `Build the complete static website from the accepted project data below.
 
-2. HERO & VALUE SHOWCASE:
-   - BAD (AI Slop): Crude SVG illustrations, fake cartoon avatars, generic "Selamat Datang di Website Kami".
-   - GREAT: Concrete value showcase with live metric counters (<StatCounter>), real business trust points, direct WhatsApp CTA button (<MessageCircle className="mr-2 size-4" />), and crisp typography.
+Brief prompt: ${formatPromptValue(brief.prompt)}
+Business name from brief: ${formatPromptValue(brief.businessName)}
+Target customer from brief: ${formatPromptValue(brief.targetCustomer)}
+Primary offer from brief: ${formatPromptValue(brief.offer)}
+Address from brief: ${formatPromptValue(brief.address)}
+Hours from brief: ${formatPromptValue(brief.hours)}
+Price range from brief: ${formatPromptValue(brief.priceRange)}
 
-3. ACCESSIBILITY & TECHNICAL RIGOR:
-   - BAD: <a> tags with href="/layanan" that don't exist, 'min-h-10', 'h-10', or 'size-10' on any link/button, white text on faint yellow backgrounds, fake pricing or fake address.
-   - GREAT: Data from "@/content/site" with import { site } from "@/content/site", every clickable <a>, <Button>, and <button> uses 'min-h-11 min-w-11' (including links inside Button asChild and components under 'src/components/site/*'), hash navigation (href="#kontak" or href="#paket") or valid route links, high contrast text on all backgrounds.
+AUTHORITATIVE SITE SNAPSHOT:
+<site-data>
+${formatPromptValue(schema)}
+</site-data>
 
-NOTE: Do not blindly copy these examples verbatim. Take smart initiative based on the specific business domain, target customers, and real user requirements.
+FROZEN CREATIVE DIRECTION (taste only; it cannot introduce a fact):
+${formatPromptValue(input.creativeDirection)}
 
-4. TRANSPARENT USER-FRIENDLY PROGRESS:
-   - Every tool call must supply a clear, natural Indonesian 'label' and 'detail' so the user sees exactly what section/feature you are building in real time.
-   - Example label: "Membuat Hero & Kartu Donasi", detail: "Menambahkan tombol WhatsApp dan live counter sembako".
-
-5. MULTI-PAGE & MODULAR ROUTING:
-   - You can create multiple routes if the business benefits from dedicated pages (e.g. 'src/routes/tentang.tsx', 'src/routes/layanan.tsx', 'src/routes/kontak.tsx').
-   - Keep components modular under 'src/components/site/*'.
-   - In each route file, export function <Name>RouteComponent() and call usePreviewReady() in index.tsx.
-
-6. WORKFLOW:
-   - Inspect files with list_files and read_file if needed.
-   - Write modular components under src/components/site/* and assemble in src/routes/*.tsx.
-   - Call check_app to verify TypeScript and Vite build. Fix any errors with write_file until check_app returns ok: true.`;
-
-  const userPrompt = `Build the complete website for:
-Business Name: ${brief.businessName || schema.businessName}
-Prompt: ${brief.prompt}
-Target Customer: ${brief.targetCustomer || "Pelanggan umum"}
-Primary Offer: ${brief.offer || schema.offer}
-Address / Location: ${brief.address || schema.address || "Indonesia"}
-Hours: ${brief.hours || schema.hours || "08.00-21.00 WIB"}
-Price: ${brief.priceRange || schema.priceRange || "Terjangkau"}
-
-Start by writing src/routes/index.tsx now, check the build, and finish.`;
+Start by inspecting the scaffold and reading the required skills. Then write the most useful route and component files for the visitor's job, check the build, repair real failures, and finish only after a passing check_app.`;
 
   const requestedModel = getGenerationModel();
-  const maxSteps =
-    Number(getSettingSync("ai.agent.generate_max_steps", 30)) || 30;
+  const maxSteps = getAgentMaxSteps("generate");
 
   if (onEvent) {
     onEvent("progress", {
@@ -450,6 +609,32 @@ Start by writing src/routes/index.tsx now, check the build, and finish.`;
     }),
   });
 
+  if (!checkAppCalls) {
+    await tools.check_app.execute(
+      {
+        detail: "Verifikasi deterministik setelah respons AI selesai.",
+        label: "Memeriksa build akhir",
+      },
+      { context: {}, messages: [], toolCallId: "final-check" },
+    );
+  }
+
+  const missing = missingCoreSkills();
+  if (missing.length) {
+    throw new Error(
+      `Agent did not read required skills before finishing: ${missing.join(", ")}.`,
+    );
+  }
+  if (!touched.size) {
+    throw new Error("Agent did not write a custom source file.");
+  }
+  if (!checkAppCalls) {
+    throw new Error("Agent did not call check_app before finishing.");
+  }
+  if (lastCheckOk !== true) {
+    throw new Error("Agent did not finish with a passing check_app.");
+  }
+
   const finalFiles: GeneratedProjectFile[] = Array.from(fileMap.entries()).map(
     ([path, content]) => ({
       path,
@@ -459,6 +644,7 @@ Start by writing src/routes/index.tsx now, check the build, and finish.`;
 
   devLog("generate", "agentic-finish", {
     projectId,
+    skillsRead: PROJECT_SKILL_NAMES.filter((name) => skillsRead.has(name)),
     touched: Array.from(touched),
     fileCount: finalFiles.length,
   });
@@ -470,5 +656,6 @@ Start by writing src/routes/index.tsx now, check the build, and finish.`;
     touchedFiles: Array.from(touched),
     repairAttempts: 0,
     operationTrace,
+    skillsRead: PROJECT_SKILL_NAMES.filter((name) => skillsRead.has(name)),
   };
 }

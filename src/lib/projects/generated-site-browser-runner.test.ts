@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   createProfessionalBrowserPolicy,
   parseBrowserRunnerOutput,
+  resolveGeneratedBrowserExecutable,
+  resolveGeneratedBrowserRunner,
   parseProfessionalBrowserRunnerOutput,
   runGeneratedSiteBrowserGates,
   runProfessionalSiteBrowserGates,
@@ -240,6 +242,23 @@ function professionalOutput() {
     })),
   });
 }
+
+describe("browser executable resolution", () => {
+  it("falls back to the installed Playwright executable", () => {
+    expect(resolveGeneratedBrowserExecutable(undefined, process.execPath)).toBe(
+      process.execPath,
+    );
+  });
+
+  it("uses Bun to execute the TypeScript runner when the app uses Node", () => {
+    expect(resolveGeneratedBrowserRunner("/usr/bin/node", undefined)).toBe(
+      "bun",
+    );
+    expect(resolveGeneratedBrowserRunner("/usr/bin/bun", "1.3.9")).toBe(
+      "/usr/bin/bun",
+    );
+  });
+});
 
 describe("parseBrowserRunnerOutput", () => {
   it("parses bounded mobile and desktop reports", () => {

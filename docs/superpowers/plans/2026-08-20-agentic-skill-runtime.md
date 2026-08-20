@@ -295,6 +295,8 @@ Expected: PASS.
 - Modify: `src/lib/projects/agentic-generator.ts`
 - Modify: `src/lib/projects/agentic-generator.test.ts`
 - Modify: `src/lib/projects/build-attempt-worker.ts`
+- Modify: `src/lib/projects/scaffold/protected-paths.ts`
+- Modify: `src/lib/projects/scaffold/scaffold.test.ts`
 
 **Interfaces:**
 - `runAgenticGenerate()` returns the existing result plus `skillsRead: ProjectSkillName[]`.
@@ -366,7 +368,7 @@ Import `PROJECT_SKILL_NAMES`, `PROJECT_CORE_SKILL_NAMES`, `ProjectSkillName`, an
 
 Before writing or checking, compute missing core names. Return a bounded error object until the set is complete. Reject `isProtectedScaffoldPath(path)` before mutating `fileMap`. Keep the existing `src/` and `public/` path restriction and content normalization.
 
-`check_app` increments `checkAppCalls`, stores `lastCheckOk`, classifies failed logs with `classifyBuildFailure`, and returns `{ ok, failureReason, errors }` without throwing for an ordinary compile failure.
+`check_app` increments `checkAppCalls`, normalizes cross-file anchor aliases, preflights unknown static anchors and primary-action structure, stores `lastCheckOk`, classifies failed logs with `classifyBuildFailure`, and returns `{ ok, failureReason, errors }` without throwing for an ordinary compile failure.
 
 - [ ] **Step 5: Replace the system prompt and user prompt**
 
@@ -383,7 +385,7 @@ Include `schema` as the authoritative data snapshot and `creativeDirection` unde
 
 - [ ] **Step 6: Enforce the completion contract**
 
-After `generateText` resolves, throw a specific English error if core reads, custom writes, or a passing final `check_app` are missing. Return `skillsRead` sorted in the stable registry order. Preserve existing operation trace and energy charging behavior.
+After `generateText` resolves, run one deterministic final `check_app` when the model omitted it, then throw a specific English error if core reads, custom writes, or a passing final check are missing. Return `skillsRead` sorted in the stable registry order. Preserve existing operation trace and energy charging behavior. Use the shared bounded generation-step setting (default 40, range 15–60) rather than a second hardcoded step fallback.
 
 - [ ] **Step 7: Pass frozen creative direction from the worker**
 
@@ -503,12 +505,13 @@ Expected: PASS.
 ### Task 7: Run full local verification and test the three outcomes on the requested project
 
 **Files:**
-- Test: requested project `cmt0psnpm000d4l6g17qd4gfs` through local DB/runtime only
+- Test: requested project `cmt0psnpm000d4l6g17qd4gfs` through the authenticated HTTP route, BullMQ worker, and local DB/runtime
+- Harness: `scripts/trigger-project-build.ts`, `scripts/trigger-project-build.test.ts`, and the `build:trigger` package command
 - Evidence: private `/tmp` or `.data` output, never tracked
 
 **Interfaces:**
-- Use the real project's existing owner and accepted source/handoff; keep all generated candidates in Preview.
-- Do not publish, mutate Production, expose secrets, or commit private evidence.
+- Use the real project's existing owner and accepted source/handoff; keep all generated candidates in Preview and capture the WorkspaceShell-compatible SSE stream.
+- Do not publish, mutate Production, expose credentials, or commit private evidence.
 
 - [ ] **Step 1: Establish the baseline project evidence**
 
@@ -516,42 +519,43 @@ Run a Bun/Prisma query that prints only the project id, public title, status, bu
 
 - [ ] **Step 2: Exercise a genuine failed build**
 
-Create a private candidate from the project's accepted source or a fresh generated candidate, introduce one controlled TypeScript error in a non-protected route file, and run it through `buildGeneratedProject`/the local build worker. Record:
+Trigger a fresh build through `POST /api/projects/:id/generate` and let the queue/worker terminate it with a controlled agent or browser-gate failure. Record the raw SSE terminal event and DB evidence:
 
-- `ok: false`;
-- `ProjectBuild.status: failed` if persisted through the worker;
-- `failureReason: compile_error` or `manifest_failure`;
+- terminal `ProjectBuild.status: failed`;
 - no dist artifact;
-- the existing successful preview remains selected.
+- a finalized operation token and retryable project state;
+- the existing successful Preview/Production pointers remain selected.
 
-Use only a temporary workspace and delete it after evidence capture.
+Use only private runtime evidence and delete temporary debug harnesses after capture.
 
 - [ ] **Step 3: Exercise a genuine succeeded build**
 
-Run the current accepted source for the project through the real generated build path with a fresh workspace. Record:
+Run the configurable harness with `PROJECT_ID=<project-id>` so it calls the real authenticated route, BullMQ worker, and SSE channel. Record:
 
-- `ok: true`;
-- non-empty dist files and artifact write;
+- core skill-read and write/check operation events;
+- terminal `done` SSE event;
 - `ProjectBuild.status: succeeded`;
-- preview resolution still points to this successful candidate;
-- no Production pointer change.
+- non-empty dist files and artifact write;
+- Preview deployment created and resolution points to this candidate;
+- no Production pointer change and no active operation remains.
 
 - [ ] **Step 4: Exercise the timeout path**
 
-Set the bounded timeout override only for the temporary test process or use the test command runner with a child that exceeds `25ms`; never lower the persistent production setting. Record:
+Use the real child-process timeout boundary through `runCommand`/the local build worker with a child that exceeds `25ms`; never lower the persistent production setting. Record:
 
 - `ok: false`;
 - log contains `Build timed out.`;
 - `classifyBuildFailure(log) === "timeout"`;
 - no dist files or artifact;
-- persisted status remains `failed`, not a fabricated success or new unsupported status.
+- persisted status remains `failed`, not a fabricated success or new unsupported status;
+- any persisted operation/build attempt is terminal and retryable.
 
 - [ ] **Step 5: Run focused project/build tests**
 
 Run:
 
 ```bash
-bunx vitest run --project unit src/lib/projects/skills/skill-registry.test.ts src/lib/projects/scaffold/component-catalog.test.ts src/lib/projects/agentic-generator.test.ts src/lib/projects/build-attempt-worker.test.ts src/lib/projects/generated-source.test.ts src/lib/projects/stale-builds.test.ts
+bunx vitest run --project unit scripts/trigger-project-build.test.ts src/lib/projects/skills/skill-registry.test.ts src/lib/projects/scaffold/component-catalog.test.ts src/lib/projects/agentic-generator.test.ts src/lib/projects/generated-site-browser-runner.test.ts src/lib/projects/generated-site-gates.test.ts src/lib/projects/generated-site-qualification.test.ts src/lib/projects/build-attempt-worker.test.ts src/lib/projects/generated-source.test.ts src/lib/projects/stale-builds.test.ts
 ```
 
 Expected: PASS.
@@ -596,6 +600,10 @@ Check each explicit request against evidence:
 - failed build;
 - successful build;
 - timeout boundary based on historical project timings;
+- real route/queue/SSE trigger harness without hardcoded project or credentials;
+- browser runner resolves Bun/Node correctly and reports browser errors without secrets;
+- deterministic anchor/SVG/token normalization preserves browser assertions;
+- shadow critic remains advisory after bounded correction while hard browser gates stay blocking;
 - last-known-good behavior;
 - TDD red/green focused tests;
 - `bun run check`, `bun run verify`, and `bun run build` output.
@@ -618,7 +626,7 @@ Confirm no `.env`, `.data`, screenshots, logs, `.firecrawl`, private evidence, o
 - [ ] **Step 3: Commit the implementation**
 
 ```bash
-git add DEV.md docs/superpowers/specs/2026-08-20-agentic-skill-runtime-design.md docs/superpowers/plans/2026-08-20-agentic-skill-runtime.md src/lib/projects/skills src/lib/projects/scaffold/component-catalog.ts src/lib/projects/scaffold/component-catalog.test.ts src/lib/projects/agentic-generator.ts src/lib/projects/agentic-generator.test.ts src/lib/projects/build-attempt-worker.ts src/lib/config/app-settings-registry.ts src/lib/config/app-settings-registry.test.ts src/lib/projects/generated-source.ts src/lib/projects/generated-source.test.ts src/lib/projects/build-logs.test.ts
+git add DEV.md package.json docs/superpowers/specs/2026-08-20-agentic-skill-runtime-design.md docs/superpowers/plans/2026-08-20-agentic-skill-runtime.md scripts/trigger-project-build.ts scripts/trigger-project-build.test.ts src/lib/projects/skills src/lib/projects/scaffold src/lib/projects/agentic-generator.ts src/lib/projects/agentic-generator.test.ts src/lib/projects/build-attempt-worker.ts src/lib/projects/build-attempt-worker.test.ts src/lib/projects/generated-source.ts src/lib/projects/generated-source.test.ts src/lib/projects/generated-site-browser-runner.ts src/lib/projects/generated-site-browser-runner.test.ts src/lib/projects/generated-site-gates.ts src/lib/projects/generated-site-gates.test.ts src/lib/projects/generated-site-qualification.ts src/lib/projects/generated-site-qualification.test.ts src/lib/config/app-settings-registry.ts src/lib/config/app-settings-registry.test.ts src/lib/projects/build-logs.test.ts
 git commit -m "feat(agentic): enforce grounded skill workflow"
 ```
 

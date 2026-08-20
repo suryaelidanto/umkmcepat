@@ -64,6 +64,10 @@ The registry has no user-provided path resolution, no network access, and no fal
 
 The tool has no write side effect. It may be called repeatedly; the trace records the first read for each name and does not duplicate the skill content in progress persistence.
 
+### Real build harness
+
+`scripts/trigger-project-build.ts` is the open-source operator path for live verification. `PROJECT_ID` is required; `BASE_URL`, `BUILD_MODE`, handoff/review proof, optional `BUILD_AUTH_COOKIE`, idempotency key, and the bounded SSE wait are environment-configurable. Local use resolves the project owner and active handoff from Prisma and signs a short-lived Auth.js JWT in memory; remote use supplies explicit auth/proof values. The harness calls the authenticated generate route, consumes the same SSE stream as `WorkspaceShell`, prints only safe progress/status data, and never prints credentials or hardcodes project data.
+
 ### Protected writes
 
 The agentic `write_file` tool rejects platform-owned scaffold paths, including `src/content/site.ts`, `src/index.css`, `src/main.tsx`, `src/router.tsx`, `src/routes/__root.tsx`, `src/lib/preview-ready.ts`, `src/lib/utils.ts`, and the seeded component paths. It also rejects writes until the four core skills have been read.
@@ -77,7 +81,10 @@ A successful `runAgenticGenerate` result requires all of the following:
 1. all four core skills were read;
 2. at least one non-protected source file was written;
 3. `check_app` was called at least once;
-4. the last `check_app` result was successful.
+4. the last `check_app` result was successful;
+5. static internal anchors and primary-action structure pass deterministic preflight before the compile check.
+
+The shared generation step setting defaults to 40 and remains bounded to 15–60, leaving room for one repair without permitting an unbounded loop.
 
 A missing requirement throws a developer-facing error. The surrounding build worker already converts that error into a failed attempt, preserves any progressive source, and avoids a false success state.
 
@@ -122,7 +129,7 @@ Set the default generated build execution timeout to **90,000 ms**. This is abov
 
 - Missing or invalid skill names fail at the tool boundary.
 - Missing core skill reads fail before source can be written.
-- Failed `check_app` results remain visible in the operation trace and return bounded logs to the model.
+- Failed `check_app` results remain visible in the operation trace and return bounded logs to the model, including missing static anchor and primary-action preflight findings.
 - A timed-out build kills the child command, resolves once with a sanitized timeout log, and never produces dist artifacts.
 - The outer worker keeps existing last-known-good preview/release behavior. A failed candidate never replaces a selected successful snapshot or Production pointer.
 - User-facing copy stays Indonesian; prompts, logs, error identifiers, and tests stay English.
@@ -149,5 +156,6 @@ The implementation is complete only when fresh evidence shows:
 - No skill download/install/update service.
 - No MCP or remote registry calls during generation.
 - No new persisted `timed_out` status.
-- No changes to the professional V2 writer protocol or its calibrated visual critic loop beyond sharing the corrected component guidance if required by tests.
+- No changes to the professional V2 writer protocol or its calibrated visual critic loop.
+- The agentic shadow critic remains advisory after one bounded correction; deterministic browser assertions remain blocking.
 - No new browser provider or heavy QA framework.

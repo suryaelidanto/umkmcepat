@@ -9,6 +9,8 @@ export const PROTECTED_SCAFFOLD_PATHS: readonly string[] = [
   "src/lib/preview-ready.ts",
   "src/lib/utils.ts",
   "src/components/site/layout.tsx",
+  "src/components/ui/button.tsx",
+  "src/components/ui/card.tsx",
 ];
 
 export function isProtectedScaffoldPath(path: string): boolean {

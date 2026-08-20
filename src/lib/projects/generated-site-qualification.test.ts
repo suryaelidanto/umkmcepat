@@ -207,6 +207,22 @@ describe("qualifyGeneratedSite", () => {
     expect(runBrowser).toHaveBeenCalledTimes(2);
   });
 
+  it("keeps the shadow critic advisory after one hard-gate-verified correction", async () => {
+    const runBrowser = vi.fn(async () => browser);
+    const classifyRisk = vi.fn(() => risky);
+    const runCritic = vi.fn(async () => criticFail);
+    const result = await qualifyGeneratedSite(files, {
+      runBrowser,
+      classifyRisk,
+      runCritic,
+      repair: vi.fn(async () => files),
+    });
+
+    expect(result).toMatchObject({ ok: true, visualRepairCount: 1 });
+    expect(runBrowser).toHaveBeenCalledTimes(2);
+    expect(runCritic).toHaveBeenCalledTimes(2);
+  });
+
   it("fails honestly when evidence is unavailable", async () => {
     const result = await qualifyGeneratedSite(files, {
       runBrowser: async () => browser,

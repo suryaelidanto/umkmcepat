@@ -6,6 +6,9 @@ import {
   inspectReferenceCalibratedSiteSource,
   normalizeBatchedSiteAnchors,
   normalizeGeneratedInteractiveTargets,
+  findGeneratedInternalLinkIssues,
+  findGeneratedPrimaryActionIssues,
+  normalizeGeneratedInternalLinks,
   normalizeGeneratedSiteContent,
 } from "./generated-site-gates";
 
@@ -559,6 +562,61 @@ describe("reference-calibrated generated site source gates", () => {
   });
 });
 
+describe("generated internal link gates", () => {
+  it("reports unknown static hash targets without mutating them", () => {
+    expect(
+      findGeneratedInternalLinkIssues([
+        {
+          path: "src/routes/index.tsx",
+          content:
+            '<a href="#missing">X</a> const links = [{ href: "#also-missing" }];',
+        },
+      ]),
+    ).toEqual([
+      "src/routes/index.tsx: missing #missing",
+      "src/routes/index.tsx: missing #also-missing",
+    ]);
+  });
+
+  it("requires a customer-facing primary action anchor when site data is rendered", () => {
+    expect(
+      findGeneratedPrimaryActionIssues([
+        {
+          path: "src/routes/index.tsx",
+          content: "<button>{site.primaryCta}</button>",
+        },
+      ]),
+    ).toEqual(["src/routes/index.tsx: primary CTA must be an anchor action"]);
+  });
+
+  it("resolves common generated anchor aliases against IDs across files", () => {
+    const [suffixRoute] = normalizeGeneratedInternalLinks([
+      {
+        path: "src/routes/index.tsx",
+        content: '<a href="#chat-box">Chat</a><a href="#missing">Missing</a>',
+      },
+      {
+        path: "src/components/site/Contact.tsx",
+        content: '<section id="chat">Kontak</section>',
+      },
+    ]);
+    const [tokenRoute] = normalizeGeneratedInternalLinks([
+      {
+        path: "src/routes/index.tsx",
+        content: '<a href="#chat-langsung">Langsung</a>',
+      },
+      {
+        path: "src/components/site/Contact.tsx",
+        content: '<section id="kontak-chat">Chat</section>',
+      },
+    ]);
+
+    expect(suffixRoute?.content).toContain('href="#chat"');
+    expect(suffixRoute?.content).toContain('href="#missing"');
+    expect(tokenRoute?.content).toContain('href="#kontak-chat"');
+  });
+});
+
 describe("normalizeGeneratedInteractiveTargets", () => {
   it("upgrades interactive elements in generated component files", () => {
     const [file] = normalizeGeneratedInteractiveTargets([
@@ -600,6 +658,39 @@ describe("normalizeGeneratedInteractiveTargets", () => {
     expect(normalized).toContain("bg-accent p-8 text-foreground");
     expect(normalized).toContain("bg-white text-foreground");
     expect(normalized).toContain("bg-[#25D366] text-foreground");
+  });
+
+  it("adds visible focus styles and repairs invalid text token usage", () => {
+    const normalized = normalizeGeneratedSiteContent(
+      '<a href="#chat" className="inline-flex min-h-11 min-w-11 text-border">Chat</a>',
+    );
+
+    expect(normalized).toContain("focus-visible:ring-2");
+    expect(normalized).toContain("text-muted-foreground");
+    expect(normalized).not.toContain("text-border");
+  });
+
+  it("repairs invalid SVG preserveAspectRatio values", () => {
+    const normalized = normalizeGeneratedSiteContent(
+      '<svg preserveAspectRatio="repeat"><pattern /></svg><svg preserveAspectRatio="repeat-x" /><svg preserveAspectRatio="repeat-y" />',
+    );
+
+    expect(normalized).toContain('preserveAspectRatio="none"');
+    expect(normalized).not.toMatch(/preserveAspectRatio="repeat(?:-[xy])?"/);
+  });
+
+  it("keeps secondary badge text paired with the secondary surface", () => {
+    const normalized = normalizeGeneratedSiteContent(
+      '<Badge variant="secondary" className="text-primary">Penyaluran Warga</Badge>',
+    );
+
+    expect(normalized).toContain("text-secondary-foreground");
+    expect(normalized).not.toContain("text-primary");
+    expect(
+      normalizeGeneratedSiteContent(
+        '<Badge variant="secondary" className="text-primary-foreground">Label</Badge>',
+      ),
+    ).toContain("text-primary-foreground");
   });
 
   it("removes remote font imports from generated CSS", () => {
@@ -820,8 +911,8 @@ export default function IndexRoute() {
       { primaryCtaTarget: "08123456789" },
     );
 
-    expect(file?.content).toContain(
-      '<a className="inline-flex min-h-11 min-w-11 items-center justify-center cta-primary" href="https://wa.me/628123456789?text=Halo"',
+    expect(file?.content).toMatch(
+      /<a className="[^"]*inline-flex[^"]*min-h-11[^"]*min-w-11[^"]*cta-primary[^"]*" href="https:\/\/wa\.me\/628123456789\?text=Halo"/,
     );
     expect(file?.content).toContain("cta-primary");
   });

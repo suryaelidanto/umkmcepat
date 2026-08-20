@@ -1,3 +1,5 @@
+import { SHADCN_COMPONENT_BY_NAME } from "./shadcn-components";
+
 export interface ComponentDocumentation {
   name: string;
   module: string;
@@ -5,190 +7,90 @@ export interface ComponentDocumentation {
   importExample: string;
 }
 
-export const COMPLETE_COMPONENT_REGISTRY: ComponentDocumentation[] = [
-  // Creative Layout Primitives
-  {
-    name: "BentoGrid",
-    module: "@/components/site/layout",
-    description:
-      "Multi-column asymmetric container for modern, scannable Bento layouts.",
-    importExample:
-      'import { BentoGrid, BentoCard } from "@/components/site/layout";',
-  },
-  {
-    name: "BentoCard",
-    module: "@/components/site/layout",
-    description:
-      "Responsive Bento card container with colSpan (1|2|3) and rowSpan (1|2) for visual hierarchy.",
-    importExample: 'import { BentoCard } from "@/components/site/layout";',
-  },
-  {
-    name: "StatCounter",
-    module: "@/components/site/layout",
-    description:
-      "High-impact numerical highlight card (value: string, label: string).",
-    importExample: 'import { StatCounter } from "@/components/site/layout";',
-  },
-  {
-    name: "BadgePill",
-    module: "@/components/site/layout",
-    description:
-      "Soft glassmorphism pill badge for category tags, guarantees, and chips.",
-    importExample: 'import { BadgePill } from "@/components/site/layout";',
-  },
-  {
-    name: "TestimonialCard",
-    module: "@/components/site/layout",
-    description:
-      "Social proof quote card with star rating and author avatar badge.",
-    importExample:
-      'import { TestimonialCard } from "@/components/site/layout";',
-  },
-  {
-    name: "SiteSection",
-    module: "@/components/site/layout",
-    description:
-      "Section wrapper (density: 'compact'|'regular'|'airy', surface: 'base'|'muted'|'contrast'|'card'|'accent', width: 'reading'|'content'|'wide').",
-    importExample: 'import { SiteSection } from "@/components/site/layout";',
-  },
-  {
-    name: "SiteSplit",
-    module: "@/components/site/layout",
-    description:
-      "2-column split grid (emphasis: 'equal'|'leading'|'trailing').",
-    importExample: 'import { SiteSplit } from "@/components/site/layout";',
-  },
-  {
-    name: "SiteCluster",
-    module: "@/components/site/layout",
-    description:
-      "Flex wrap cluster (justify: 'start'|'center'|'between'|'end').",
-    importExample: 'import { SiteCluster } from "@/components/site/layout";',
-  },
-  {
-    name: "SiteStack",
-    module: "@/components/site/layout",
-    description: "Vertical flex stack (gap: 'xs'|'sm'|'md'|'lg'|'xl').",
-    importExample: 'import { SiteStack } from "@/components/site/layout";',
-  },
+const COMPONENT_DESCRIPTIONS: Record<string, string> = {
+  accordion: "Collapsible content with AccordionItem, Trigger, and Content.",
+  alert: "Inline status and error surface.",
+  "alert-dialog": "Destructive confirmation dialog with an accessible title.",
+  "aspect-ratio": "Media or content wrapper with a fixed aspect ratio.",
+  avatar: "Image or initials identity surface.",
+  badge: "Small semantic status or category label.",
+  breadcrumb: "Hierarchical navigation trail.",
+  button: "Action control with semantic variants and Slot composition.",
+  calendar: "Date selection primitive when the brief supports a real date.",
+  card: "Surface composition with header, title, content, and footer parts.",
+  carousel: "Keyboard-accessible slide collection for real grouped content.",
+  checkbox: "A binary choice control with a visible label.",
+  collapsible: "Disclosure surface for optional content.",
+  command: "Searchable command list with grouped items.",
+  "context-menu": "Pointer and keyboard context menu.",
+  dialog: "Modal surface with labelled content and focus management.",
+  drawer: "Mobile-friendly side or bottom surface.",
+  "dropdown-menu": "Grouped action menu anchored to a control.",
+  form: "Field primitives for labelled validation and descriptions.",
+  "hover-card":
+    "Supplemental pointer content that is not the only access path.",
+  input: "Text input with a visible label and accepted type.",
+  "input-otp": "Short code input only when the accepted flow needs it.",
+  label: "Accessible label primitive.",
+  menubar: "Grouped top-level menu controls.",
+  "navigation-menu": "Structured site navigation.",
+  pagination: "Bounded navigation for an actual multi-page collection.",
+  popover: "Anchored supplemental content with keyboard access.",
+  progress: "Honest progress for a real bounded operation.",
+  "radio-group": "One choice from a labelled set.",
+  resizable: "User-resizable panels when the job requires it.",
+  "scroll-area": "Contained scrolling for content that cannot naturally wrap.",
+  select: "Native-like selection from a bounded set.",
+  separator: "Semantic or visual content division.",
+  sheet: "Accessible side panel for navigation or a focused task.",
+  skeleton: "Loading placeholder for a real pending state only.",
+  slider: "Continuous value control only when the brief supports real state.",
+  sonner: "Toast surface for an actual transient result.",
+  spinner: "Loading indicator for an actual pending operation.",
+  switch: "A labelled on/off preference.",
+  table: "Structured rows and columns for real comparison data.",
+  tabs: "Peer content panels with a labelled tab list.",
+  textarea: "Multi-line text input with a visible label.",
+  toggle: "A labelled pressed/unpressed action.",
+  "toggle-group": "A grouped set of related toggles.",
+  tooltip: "Supplemental pointer or keyboard hint, never essential content.",
+};
 
-  // Core Shadcn/UI Components
-  {
-    name: "Button",
-    module: "@/components/ui/button",
+export const COMPLETE_COMPONENT_REGISTRY: ComponentDocumentation[] = Array.from(
+  SHADCN_COMPONENT_BY_NAME.keys(),
+)
+  .sort()
+  .map((name) => ({
     description:
-      "Primary action button (variant: 'default'|'outline'|'secondary'|'ghost'|'destructive', size: 'default'|'sm'|'lg'|'icon', asChild).",
-    importExample: 'import { Button } from "@/components/ui/button";',
-  },
-  {
-    name: "Card",
-    module: "@/components/ui/card",
-    description:
-      "Standard card surface with CardHeader, CardTitle, CardDescription, CardContent, CardFooter.",
-    importExample:
-      'import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";',
-  },
-  {
-    name: "Accordion",
-    module: "@/components/ui/accordion",
-    description:
-      "Collapsible FAQ/accordion list (Accordion, AccordionItem, AccordionTrigger, AccordionContent).",
-    importExample:
-      'import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";',
-  },
-  {
-    name: "Badge",
-    module: "@/components/ui/badge",
-    description:
-      "Status badge tag (variant: 'default'|'secondary'|'outline'|'destructive').",
-    importExample: 'import { Badge } from "@/components/ui/badge";',
-  },
-  {
-    name: "Tabs",
-    module: "@/components/ui/tabs",
-    description:
-      "Interactive category tabs (Tabs, TabsList, TabsTrigger, TabsContent).",
-    importExample:
-      'import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";',
-  },
-  {
-    name: "Carousel",
-    module: "@/components/ui/carousel",
-    description:
-      "Interactive carousel/slider (Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext).",
-    importExample:
-      'import { Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext } from "@/components/ui/carousel";',
-  },
-  {
-    name: "Avatar",
-    module: "@/components/ui/avatar",
-    description:
-      "User/customer avatar with fallback initials (Avatar, AvatarImage, AvatarFallback).",
-    importExample:
-      'import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";',
-  },
-  {
-    name: "Dialog",
-    module: "@/components/ui/dialog",
-    description:
-      "Modal popup dialog (Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription).",
-    importExample:
-      'import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle } from "@/components/ui/dialog";',
-  },
-  {
-    name: "Sheet",
-    module: "@/components/ui/sheet",
-    description:
-      "Slide-over drawer panel (Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle).",
-    importExample:
-      'import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";',
-  },
-  {
-    name: "Popover",
-    module: "@/components/ui/popover",
-    description:
-      "Floating popover card (Popover, PopoverTrigger, PopoverContent).",
-    importExample:
-      'import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";',
-  },
-  {
-    name: "Separator",
-    module: "@/components/ui/separator",
-    description: "Visual dividing line (orientation: 'horizontal'|'vertical').",
-    importExample: 'import { Separator } from "@/components/ui/separator";',
-  },
-  {
-    name: "Table",
-    module: "@/components/ui/table",
-    description:
-      "Data/pricing comparison table (Table, TableHeader, TableBody, TableRow, TableHead, TableCell).",
-    importExample:
-      'import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";',
-  },
-  {
-    name: "Tooltip",
-    module: "@/components/ui/tooltip",
-    description:
-      "Hover tooltip label (TooltipProvider, Tooltip, TooltipTrigger, TooltipContent).",
-    importExample:
-      'import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";',
-  },
-  {
-    name: "Lucide Icons",
-    module: "lucide-react",
-    description:
-      "1,400+ domain icons (Check, Star, Sparkles, ShieldCheck, Clock, Phone, MapPin, ArrowRight, Zap, Award, Flame, Heart, etc.).",
-    importExample:
-      'import { Sparkles, ShieldCheck, Clock, Star, Check, Phone, MapPin, ArrowRight } from "lucide-react";',
-  },
-];
+      COMPONENT_DESCRIPTIONS[name] ??
+      "Bundled shadcn source component; inspect it before composing.",
+    importExample: `import { ${toPascalCase(name)} } from "@/components/ui/${name}";`,
+    module: `@/components/ui/${name}`,
+    name,
+  }));
 
 export function getFormattedShadcnRegistryPrompt(): string {
-  const categories = COMPLETE_COMPONENT_REGISTRY.slice(0, 15)
-    .map((c) => `- ${c.name} (${c.module}): ${c.description}`)
+  const entries = COMPLETE_COMPONENT_REGISTRY.slice(0, 18)
+    .map(
+      (component) =>
+        `- src/components/ui/${component.name}.tsx (${component.module}): ${component.description}`,
+    )
     .join("\n");
 
-  return `PRE-INSTALLED SHADCN/UI & CREATIVE REGISTRY:
-All 45+ components and layout primitives are pre-installed in the scaffold (Button, Card, Accordion, Badge, Tabs, Carousel, Avatar, Dialog, Sheet, BentoGrid, BentoCard, StatCounter, BadgePill, TestimonialCard, Lucide icons, etc.). Import and compose them directly.
-${categories}`;
+  return `LOCAL SHADCN/UI SOURCE REGISTRY:
+The generated scaffold pre-seeds src/components/ui/button.tsx and src/components/ui/card.tsx. The remaining entries below are bundled source files, not installed runtime modules. In the agentic tool loop, use read_file for a source and write_file to copy a needed component before importing it. In a batched response, use only the components present in the supplied manifest or emit the required source through the existing response contract.
+
+components.json and src/index.css define the local aliases and semantic Tailwind v4 tokens. Use cn() from src/lib/utils. Use the existing source before writing a new primitive. Never run a CLI, call MCP, fetch a registry, add a dependency, or assume a component exists without reading its source or receiving it in the supplied scaffold.
+
+AVAILABLE BUNDLED COMPONENTS:
+${entries}
+
+The agentic read_file and write_file tools are the only component discovery/composition path in that tool loop; the batched writer must stay within its supplied source contract.`;
+}
+
+function toPascalCase(value: string) {
+  return value
+    .split("-")
+    .map((part) => `${part[0].toUpperCase()}${part.slice(1)}`)
+    .join("");
 }

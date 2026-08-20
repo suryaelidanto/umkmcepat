@@ -182,6 +182,29 @@ Empty task value → default → hardcode `default-combo`. Admin dropdown loads 
 
 Generated project runtime artifacts are local by default. `.data/` is ignored by Git; keep canonical `.data/project-artifacts` mounted/persistent for review sessions that must survive restart. Home project thumbnails are derived JPEGs under `.data/project-thumbnails`; keep that directory persistent when thumbnail continuity matters, or let missing images fall back to the deterministic gradient until the next successful build or first preview recovery. Capture and generated-site qualification run in isolated Playwright subprocesses. Install Chromium/Chrome locally; set `PROJECT_THUMBNAIL_BROWSER_PATH` only to override browser discovery. Qualification blocks external requests, checks mobile and desktop, and stores DOM/report JSON plus JPEG evidence privately under S3 `gate-evidence/<projectId>/<candidateId>/`; non-selected evidence expires after 30 days. Evidence refs and owner copy never enter telemetry.
 
+The agentic generator bundles the five project skills through `src/lib/projects/skills/skill-registry.ts` and exposes them through the bounded `read_skill` tool. The four core skills must be read before generated writes or checks; motion guidance is conditional. The tool loop cannot edit protected scaffold files, install packages, call MCP, or fetch a registry. Its final result requires a custom source write and a passing `check_app`; the shared generation-step setting defaults to 40 and stays bounded to 15–60, so a model has room for one repair without an unbounded loop. `check_app` also preflights static anchors and primary-action structure before Vite. Deterministic browser assertions remain blocking; the shadow visual critic may request one bounded correction, but residual subjective findings stay advisory and cannot override facts, routes, or the accepted contract.
+
+To launch a real dashboard-visible build from a terminal, use the route and BullMQ harness rather than calling a worker directly:
+
+```bash
+PROJECT_ID=<project-id> bun run build:trigger
+```
+
+With a local database, the harness resolves the project owner, active handoff, and review proof, then creates a short-lived local Auth.js JWT without printing it. For a remote app or an explicit session, provide values through a secure environment manager, never tracked files or command history:
+
+```bash
+PROJECT_ID=<project-id> \
+BUILD_BASE_URL=<app-origin> \
+BUILD_AUTH_COOKIE=<auth-cookie> \
+BUILD_HANDOFF_ID=<handoff-id> \
+BUILD_REVIEW_HASH=<64-char-review-hash> \
+bun run build:trigger
+```
+
+`BUILD_MODE` accepts `first_generate` or `retry_build`; `BUILD_STREAM_TIMEOUT_MS` is bounded to 30,000–1,800,000 ms. The harness prints only safe SSE progress and terminal status. If its observer disconnects or times out, the server-side bounded worker remains responsible for terminal cleanup and the dashboard can reattach to persisted progress; the harness never bypasses the queue.
+
+Generated command builds use `runtime.generated_build_timeout_ms` (env `PROJECT_GENERATED_BUILD_TIMEOUT_MS`), default 90,000 ms, bounded from 30,000 to 180,000 ms. The default was chosen from the requested project's seven completed builds (19,222 ms succeeded mean, 21,846 ms succeeded p95, 22,138 ms completed maximum) with cold-workspace margin. A command that exceeds the deadline is still a failed build, classified as `timeout`, with no dist artifact; it never replaces a last-known-good Preview or Production pointer.
+
 ### Professional static-site V4 benchmark and calibration
 
 Runtime evidence is private and ignored under `.data/generation-evaluation/<run-id>/`; never write it into tracked fixtures. The tracked release manifest is intentionally blocked until private calibration, benchmark evidence, CI, and owner approval exist. Prerequisites are Bun, a configured AI route, a working Vite build, and Chromium/Chrome for browser gates:

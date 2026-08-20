@@ -733,6 +733,7 @@ export async function runBuildAttempt({
       attemptId,
       brief,
       buildId: runtimeBuildId,
+      creativeDirection: acceptedHandoff?.creativeDirection ?? null,
       onEvent: (type, data) => send(type, data),
       onFileStaged: persistBatchedStage,
       operationToken,

@@ -845,6 +845,102 @@ export function inspectReferenceCalibratedSiteSource(input: {
   };
 }
 
+export function findGeneratedInternalLinkIssues(
+  files: GeneratedProjectFile[],
+): string[] {
+  const ids = collectGeneratedStaticIds(files);
+  const issues: string[] = [];
+  for (const file of files) {
+    if (!file.path.endsWith(".tsx")) {
+      continue;
+    }
+    for (const match of file.content.matchAll(
+      /(href\s*(?:=|:)\s*)(["'])#([a-z0-9-]+)\2/gi,
+    )) {
+      const target = match[3];
+      if (target && !ids.has(target)) {
+        issues.push(`${file.path}: missing #${target}`);
+      }
+    }
+  }
+  return issues;
+}
+
+export function findGeneratedPrimaryActionIssues(
+  files: GeneratedProjectFile[],
+): string[] {
+  const source = files
+    .filter((file) => file.path.endsWith(".tsx"))
+    .map((file) => file.content)
+    .join("\n");
+  if (!source.includes("site.primaryCta")) {
+    return [];
+  }
+  const actionAnchor =
+    /<a\b[\s\S]{0,400}?\b(?:site\.primaryCta|pesan|chat|hubungi|sedekah|konsultasi)[\s\S]{0,200}<\/a>/i;
+  return actionAnchor.test(source)
+    ? []
+    : ["src/routes/index.tsx: primary CTA must be an anchor action"];
+}
+
+function collectGeneratedStaticIds(files: GeneratedProjectFile[]): Set<string> {
+  const ids = new Set<string>();
+  for (const file of files) {
+    for (const match of file.content.matchAll(/\bid=["']([a-z0-9-]+)["']/gi)) {
+      if (match[1]) {
+        ids.add(match[1]);
+      }
+    }
+  }
+  return ids;
+}
+
+export function normalizeGeneratedInternalLinks(
+  files: GeneratedProjectFile[],
+): GeneratedProjectFile[] {
+  const ids = collectGeneratedStaticIds(files);
+  const aliases = [
+    "-section",
+    "-anchor",
+    "-target",
+    "-content",
+    "-link",
+    "-box",
+  ];
+  return files.map((file) => {
+    if (!file.path.endsWith(".tsx")) {
+      return file;
+    }
+    const content = file.content.replace(
+      /(href\s*(?:=|:)\s*)(["'])#([a-z0-9-]+)\2/gi,
+      (match: string, prefix: string, quote: string, target: string) => {
+        if (ids.has(target)) {
+          return match;
+        }
+        const suffixAlias = aliases.find(
+          (suffix) =>
+            target.endsWith(suffix) && ids.has(target.slice(0, -suffix.length)),
+        );
+        if (suffixAlias) {
+          return `${prefix}${quote}#${target.slice(0, -suffixAlias.length)}${quote}`;
+        }
+        const targetTokens = new Set(
+          target.split("-").filter((token) => token.length > 2),
+        );
+        const tokenAliases = [...ids].filter((id) =>
+          id
+            .split("-")
+            .some((token) => token.length > 2 && targetTokens.has(token)),
+        );
+        return tokenAliases.length === 1
+          ? `${prefix}${quote}#${tokenAliases[0]}${quote}`
+          : match;
+      },
+    );
+    return content === file.content ? file : { ...file, content };
+  });
+}
+
 export function normalizeGeneratedInteractiveTargets(
   files: GeneratedProjectFile[],
 ): GeneratedProjectFile[] {
@@ -895,11 +991,32 @@ export function normalizeGeneratedSiteContent(content: string): string {
     /@import\s+url\(\s*["']https:\/\/fonts\.googleapis\.com\/[^)]*["']\s*\)\s*;?/gi,
     "",
   );
+  const normalizedSvgAttributes = withoutRemoteFonts.replace(
+    /preserveAspectRatio=(["'])repeat(?:-[xy])?\1/gi,
+    (_match: string, quote: string) =>
+      `preserveAspectRatio=${quote}none${quote}`,
+  );
+  const normalizedComponentTokens = normalizeGeneratedComponentTokens(
+    normalizedSvgAttributes,
+  );
   return deduplicateJsxAttributes(
     normalizeGeneratedContrastSurfaces(
-      normalizeGeneratedInteractiveContent(withoutRemoteFonts),
+      normalizeGeneratedInteractiveContent(normalizedComponentTokens),
     ),
   );
+}
+
+function normalizeGeneratedComponentTokens(content: string): string {
+  const normalized = replaceJsxOpeningTags(content, ["Badge"], (tagSource) => {
+    if (!/\bvariant=["']secondary["']/.test(tagSource)) {
+      return tagSource;
+    }
+    return tagSource.replace(
+      /\btext-primary\b(?!-)/g,
+      "text-secondary-foreground",
+    );
+  });
+  return normalized.replace(/\btext-border\b(?!-)/g, "text-muted-foreground");
 }
 
 function normalizeGeneratedContrastSurfaces(content: string): string {
@@ -1341,14 +1458,20 @@ function makeTouchSafeAnchor(match: string): string {
     const hasMinH = /\bmin-h-11\b/.test(classes);
     const hasMinW = /\bmin-w-11\b/.test(classes);
     const hasFlex = /\b(?:inline-flex|flex)\b/.test(classes);
+    const hasFocusStyle =
+      /\b(?:focus|focus-visible):(?:ring|outline-(?!none)|border)/.test(
+        classes,
+      );
 
-    if (hasMinH && hasMinW && hasFlex) {
+    if (hasMinH && hasMinW && hasFlex && hasFocusStyle) {
       return normalized;
     }
     const needed = [
       !hasFlex && "inline-flex min-h-11 min-w-11 items-center justify-center",
       hasFlex && !hasMinH && "min-h-11",
       hasFlex && !hasMinW && "min-w-11",
+      !hasFocusStyle &&
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
     ]
       .filter(Boolean)
       .join(" ");
