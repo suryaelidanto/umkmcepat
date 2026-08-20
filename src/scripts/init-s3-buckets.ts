@@ -7,7 +7,7 @@ import {
 import { getEnv } from "@/lib/config/config";
 import { getStorageProvider } from "@/lib/storage/storage-provider";
 
-// why: public bucket hosts public display media; private bucket requires signed requests
+// Public bucket hosts public display media; private bucket requires signed requests
 const PUBLIC_READ_POLICY = JSON.stringify({
   Statement: [
     {

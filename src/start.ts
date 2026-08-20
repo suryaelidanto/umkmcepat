@@ -82,7 +82,7 @@ const securityMiddleware = createMiddleware().server(async ({ next }) => {
       return await next();
     });
   });
-  // why: handle immutable headers from auth runtime safely
+  // Handle immutable headers from auth runtime safely
   let responseHeaders: Headers;
   try {
     result.response.headers.set("x-immutability-probe", "1");

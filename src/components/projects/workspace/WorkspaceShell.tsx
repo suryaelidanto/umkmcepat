@@ -249,7 +249,7 @@ type WorkspaceStateResponse = {
   workspaceCard: WorkspaceCard;
 };
 
-// why: module-scope guard survives React.StrictMode remount in dev to avoid duplicate auto-send
+// Module-scope guard survives React.StrictMode remount in dev to avoid duplicate auto-send
 const autoSentProjectIds = new Set<string>();
 
 export { chatBubbleClass } from "@/components/projects/chat/ChatMessage";
