@@ -76,9 +76,37 @@ export const Route = createFileRoute(
           );
         }
 
+        const build = await prisma.projectBuild.findFirst({
+          where: {
+            artifactRef: { not: null },
+            snapshotId,
+            status: "succeeded",
+          },
+          orderBy: { createdAt: "desc" },
+          select: { id: true },
+        });
+        if (!build) {
+          return Response.json(
+            { message: "Versi ini belum berhasil dibuat untuk Preview." },
+            { status: 409 },
+          );
+        }
+
         try {
           const { newSnapshotId } = await restoreSnapshot(snapshotId);
+          await prisma.projectDeployment.create({
+            data: {
+              buildId: build.id,
+              kind: "preview",
+              projectId: project.id,
+              publicPath: `/api/projects/${project.id}/preview`,
+              snapshotId: newSnapshotId,
+              status: "created",
+            },
+            select: { id: true },
+          });
           devLog("snapshots", "restore", {
+            buildId: build.id,
             fromSnapshotId: snapshotId,
             newSnapshotId,
             projectId: project.id,

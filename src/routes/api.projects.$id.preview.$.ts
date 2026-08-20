@@ -7,6 +7,7 @@ import { selectActivePreviewDeployment } from "@/lib/projects/deployment-resolut
 import { parseGeneratedDistFiles } from "@/lib/projects/generated-source";
 import { createPreviewIssueHtml } from "@/lib/projects/preview-error-html";
 import { refreshProjectThumbnail } from "@/lib/projects/project-thumbnail";
+import { readProjectDistArtifact } from "@/lib/projects/runtime-artifacts";
 import {
   applyPreviewSandboxHeaders,
   injectPreviewAnnotationBridge,
@@ -142,6 +143,7 @@ async function getPreviewResponse({
     }
 
     const staticResponse = await getStoredPreviewResponse({
+      artifactRef: deployment.build.artifactRef,
       projectId: project.id,
       path,
     });
@@ -174,16 +176,17 @@ async function getPreviewResponse({
 }
 
 async function getStoredPreviewResponse({
+  artifactRef,
   projectId,
   path,
 }: {
+  artifactRef?: string | null;
   path: string[];
   projectId: string;
 }) {
-  const [row] = await prisma.$queryRaw<[{ distFiles: unknown }]>`
-    SELECT "distFiles" FROM "Project" WHERE id = ${projectId}
-  `;
-  const distFiles = parseGeneratedDistFiles(row?.distFiles);
+  const distFiles = artifactRef
+    ? await readProjectDistArtifact(artifactRef).catch(() => [])
+    : await readStoredProjectDistFiles(projectId);
   const requestedPath = path.join("/") || "index.html";
   const file =
     distFiles.find((item) => item.path === requestedPath) ||
@@ -203,6 +206,13 @@ async function getStoredPreviewResponse({
       ),
     },
   );
+}
+
+async function readStoredProjectDistFiles(projectId: string) {
+  const [row] = await prisma.$queryRaw<[{ distFiles: unknown }]>`
+    SELECT "distFiles" FROM "Project" WHERE id = ${projectId}
+  `;
+  return parseGeneratedDistFiles(row?.distFiles);
 }
 
 function scheduleThumbnailRecovery({

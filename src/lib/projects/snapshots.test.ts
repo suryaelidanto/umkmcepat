@@ -1,9 +1,28 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const {
+  projectBuildFindManyMock,
+  projectDeploymentFindManyMock,
+  projectSnapshotFindManyMock,
+} = vi.hoisted(() => ({
+  projectBuildFindManyMock: vi.fn(),
+  projectDeploymentFindManyMock: vi.fn(),
+  projectSnapshotFindManyMock: vi.fn(),
+}));
+
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    projectBuild: { findMany: projectBuildFindManyMock },
+    projectDeployment: { findMany: projectDeploymentFindManyMock },
+    projectSnapshot: { findMany: projectSnapshotFindManyMock },
+  },
+}));
 
 import {
   countFiles,
   findFileInSnapshot,
   kindOf,
+  listSnapshots,
   type SnapshotKind,
 } from "@/lib/projects/snapshots";
 
@@ -87,6 +106,56 @@ describe("snapshots — pure helpers", () => {
     it("ignores non-object metadata", () => {
       expect(kindOf("generated", "string")).toBe<SnapshotKind>("initial");
       expect(kindOf("generated", 42)).toBe<SnapshotKind>("initial");
+    });
+  });
+});
+
+describe("project snapshots", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    projectSnapshotFindManyMock.mockResolvedValue([
+      {
+        createdAt: new Date("2026-08-20T12:00:00Z"),
+        files: [{ content: "source", path: "src/main.tsx" }],
+        id: "snapshot_restore",
+        metadata: { kind: "restore" },
+        parentSnapshotId: "snapshot_old",
+        sourceRef: null,
+        sourceType: "restore",
+      },
+    ]);
+    projectBuildFindManyMock.mockResolvedValue([
+      {
+        id: "build_old",
+        snapshotId: "snapshot_old",
+        status: "succeeded",
+      },
+    ]);
+    projectDeploymentFindManyMock.mockImplementation(async (input: unknown) => {
+      const kind = (input as { where?: { kind?: string } }).where?.kind;
+      if (kind === "published") {
+        return [{ snapshotId: "snapshot_restore" }];
+      }
+      return [
+        {
+          build: {
+            id: "build_old",
+            status: "succeeded",
+          },
+          snapshotId: "snapshot_restore",
+        },
+      ];
+    });
+  });
+
+  it("marks checked-out preview versions as successful and production versions", async () => {
+    const [snapshot] = await listSnapshots("project_1");
+
+    expect(snapshot).toMatchObject({
+      buildId: "build_old",
+      buildStatus: "succeeded",
+      id: "snapshot_restore",
+      published: true,
     });
   });
 });

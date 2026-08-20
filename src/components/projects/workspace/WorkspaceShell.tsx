@@ -127,6 +127,7 @@ import {
   createVisualAnnotationSummary,
   type VisualAnnotationDraft,
 } from "@/lib/projects/visual-annotations";
+import { getWorkspaceReleaseState } from "@/lib/projects/workspace-release";
 import {
   RESUME_POLL_INTERVAL_MS,
   resolveDiscussResume,
@@ -190,9 +191,15 @@ type RuntimeWorkspaceState = {
     updatedAt?: string;
   } | null;
   activePreviewDeployment?: {
+    build?: {
+      id: string;
+      status: string;
+    } | null;
+    buildId?: string | null;
     id: string;
     lastRequestAt?: string | null;
     publicPath?: string | null;
+    snapshotId?: string | null;
     status: string;
   } | null;
   build: {
@@ -204,9 +211,15 @@ type RuntimeWorkspaceState = {
     status: string;
   } | null;
   deployment: {
+    build?: {
+      id: string;
+      status: string;
+    } | null;
+    buildId?: string | null;
     id: string;
     lastRequestAt?: string | null;
     publicPath?: string | null;
+    snapshotId?: string | null;
     status: string;
   } | null;
   events: Array<{
@@ -215,8 +228,15 @@ type RuntimeWorkspaceState = {
     type: string;
   }>;
   publishedDeployment: {
+    build?: {
+      id: string;
+      status: string;
+    } | null;
+    buildId?: string | null;
     id: string;
     publicPath: string | null;
+    publicState?: "live" | "not_live";
+    snapshotId?: string | null;
     slug: string | null;
     status: string;
   } | null;
@@ -4233,6 +4253,8 @@ function createRuntimeControl({
   sourceStatus: string;
 }): WorkspaceRuntimeControl {
   const runtimeBuildStatus =
+    runtimeState?.activePreviewDeployment?.build?.status ||
+    runtimeState?.deployment?.build?.status ||
     runtimeState?.build?.status ||
     (sourceStatus === "passed"
       ? "succeeded"
@@ -4243,10 +4265,23 @@ function createRuntimeControl({
           : buildStatus);
   const runtimePublishedPath =
     publishedPath || runtimeState?.publishedDeployment?.publicPath || null;
+  const release = getWorkspaceReleaseState({
+    ownerBlocked: runtimeState?.publishedDeployment?.publicState === "not_live",
+    previewBuildId:
+      runtimeState?.activePreviewDeployment?.buildId ??
+      runtimeState?.activePreviewDeployment?.build?.id ??
+      runtimeState?.deployment?.buildId ??
+      runtimeState?.deployment?.build?.id,
+    previewBuildStatus: runtimeBuildStatus,
+    publishedBuildId:
+      runtimeState?.publishedDeployment?.buildId ??
+      runtimeState?.publishedDeployment?.build?.id,
+    publishedPath: runtimePublishedPath,
+    publishedStatus: runtimeState?.publishedDeployment?.status,
+  });
 
   return {
-    canPublish:
-      runtimeBuildStatus === "succeeded" || runtimeBuildStatus === "passed",
+    ...release,
     isPublishing,
     onPublish,
     publishedPath: runtimePublishedPath,

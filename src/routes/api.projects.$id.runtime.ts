@@ -87,7 +87,13 @@ async function getRuntimeState({
 }) {
   const project = await prisma.project.findFirst({
     where: { id, ...(admin ? {} : { userId }) },
-    select: { buildStatus: true, id: true, status: true, userId: true },
+    select: {
+      buildStatus: true,
+      id: true,
+      status: true,
+      user: { select: { bannedAt: true } },
+      userId: true,
+    },
   });
 
   if (!project) {
@@ -204,6 +210,15 @@ async function getRuntimeState({
   const deployment = selectActivePreviewDeployment(previewDeployments);
   const publishedDeployment =
     selectActivePublishedDeployment(publishedDeployments);
+  const publishedDeploymentState = publishedDeployment
+    ? {
+        ...publishedDeployment,
+        publicState:
+          project.user?.bannedAt || publishedDeployment.status === "failed"
+            ? "not_live"
+            : "live",
+      }
+    : null;
   const liveDeploymentStatus =
     deployment?.status === "running" || deployment?.status === "starting"
       ? await getRuntimeSupervisor().getDeploymentStatus(deployment.id)
@@ -239,10 +254,10 @@ async function getRuntimeState({
           status: liveDeploymentStatus,
         }
       : null,
-    activePublishedDeployment: publishedDeployment,
+    activePublishedDeployment: publishedDeploymentState,
     build: latestSuccessfulBuild,
     canPreview: Boolean(deployment),
-    canPublish: Boolean(latestSuccessfulBuild),
+    canPublish: Boolean(deployment?.build),
     // Retry whenever the latest attempt failed/stale/canceled, or project has
     canRetry:
       latestAttempt?.status === "failed" ||
@@ -265,7 +280,7 @@ async function getRuntimeState({
     latestFailedAttempt,
     latestSuccessfulBuild,
     message: getUserFacingRuntimeMessage(userFacingState),
-    publishedDeployment,
+    publishedDeployment: publishedDeploymentState,
     userFacingState,
   };
 
