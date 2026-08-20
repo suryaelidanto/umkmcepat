@@ -20,19 +20,23 @@ const catalog = modelPricing as Record<string, CatalogEntry>;
 const unresolvedWarnings = new Set<string>();
 
 export const CONSERVATIVE_DEFAULT_PRICE: ModelPrice = {
-  promptPrice: 0.0000004,
-  completionPrice: 0.0000015,
+  promptPrice: 0.0000003,
+  completionPrice: 0.000001,
 };
 
 export function normalizeProviderModelId(modelId: string): string {
-  const id = modelId.trim();
+  let id = modelId.trim().toLowerCase();
   if (!id) {
     return "unknown";
   }
+  // Strip proxy provider prefixes (e.g. "ag/", "antigravity/")
+  if (id.startsWith("ag/")) {
+    id = id.slice(3);
+  } else if (id.startsWith("antigravity/")) {
+    id = id.slice(12);
+  }
   const parts = id.split("/");
-  return parts.length >= 3
-    ? id.toLowerCase()
-    : `openrouter/${id.toLowerCase()}`;
+  return parts.length >= 3 ? id : `openrouter/${id}`;
 }
 
 function warnUnresolvedModel(rawModelId: string): void {
@@ -46,10 +50,17 @@ function warnUnresolvedModel(rawModelId: string): void {
 }
 
 export function findCatalogEntry(rawModelId: string): CatalogEntry | null {
-  const trimmed = rawModelId.trim().toLowerCase();
+  let trimmed = rawModelId.trim().toLowerCase();
   if (!trimmed) {
     return null;
   }
+  // Strip ag/ or antigravity/ prefixes
+  if (trimmed.startsWith("ag/")) {
+    trimmed = trimmed.slice(3);
+  } else if (trimmed.startsWith("antigravity/")) {
+    trimmed = trimmed.slice(12);
+  }
+
   // Exact key match
   if (catalog[trimmed]) {
     return catalog[trimmed];
@@ -68,6 +79,13 @@ export function findCatalogEntry(rawModelId: string): CatalogEntry | null {
   // Try matching with common suffixes stripped (e.g. "-tiered", "-latest", "-preview")
   const baseTrimmed = trimmed.replace(/-(?:tiered|latest|preview|free)$/, "");
   if (baseTrimmed !== trimmed) {
+    if (catalog[baseTrimmed]) {
+      return catalog[baseTrimmed];
+    }
+    const baseNormalized = normalizeProviderModelId(baseTrimmed);
+    if (catalog[baseNormalized]) {
+      return catalog[baseNormalized];
+    }
     for (const [key, entry] of Object.entries(catalog)) {
       if (key.endsWith(`/${baseTrimmed}`) || key === baseTrimmed) {
         return entry;
