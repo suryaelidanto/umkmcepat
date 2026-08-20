@@ -53,8 +53,10 @@ export function toUserFacingDiscussError(
   }
   const legacy: Record<string, string> = {
     expired: "Sesi obrolan habis waktu. Coba kirim ulang pesanmu ya.",
-    stream_error_no_text: "AI lagi gangguan. Coba lagi sebentar.",
-    repair_failed: "AI lagi gangguan. Coba lagi sebentar.",
+    stream_error_no_text:
+      "AI lagi ada kendala sebentar. Tunggu sebentar lalu coba lagi ya.",
+    repair_failed:
+      "AI lagi ada kendala sebentar. Tunggu sebentar lalu coba lagi ya.",
     "discuss turn failed":
       "Obrolan belum berhasil diproses. Coba kirim ulang ya.",
   };
@@ -62,11 +64,11 @@ export function toUserFacingDiscussError(
     return legacy[raw];
   }
   if (
-    /cannot find module|error:|exception|undefined|null|worker |queue |failed to|ECONN|timeout/i.test(
+    /cannot find module|error:|exception|undefined|null|worker |queue |failed to|ECONN|timeout|overloaded|unavailable|rate.?limit|429|503/i.test(
       raw,
     )
   ) {
-    return "Obrolan belum berhasil diproses. Coba kirim ulang ya.";
+    return "AI lagi ada kendala sebentar. Tunggu sebentar lalu coba lagi ya.";
   }
   if (!/\s/.test(raw) && /^[a-z0-9_.:-]+$/i.test(raw)) {
     return "Putaran AI sebelumnya gagal. Coba kirim ulang ya.";

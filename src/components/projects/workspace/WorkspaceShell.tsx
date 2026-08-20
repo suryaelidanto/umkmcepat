@@ -369,7 +369,9 @@ export function WorkspaceShell({
   const previousScrollHeight = useRef<number | null>(null);
   const shouldStickToBottomRef = useRef(true);
   const ignoreNextScrollRef = useRef(false);
-  const [isRetrying, setIsRetrying] = useState(false);
+  const [isRetrying, setIsRetrying] = useState<false | "response" | "card">(
+    false,
+  );
   const retryAttemptRef = useRef(0);
   const [workspaceCardError, setWorkspaceCardError] = useState(false);
   const [isPreparingNextQuestion, setIsPreparingNextQuestion] = useState(false);
@@ -1262,11 +1264,36 @@ export function WorkspaceShell({
   // card is on screen. Escape hatch: if the turn settles (ready/error) without
   // a card — e.g. a text-only reply or a failed turn — release so we never
   // deadlock on an endless spinner.
-  const hasFirstAssistantReply =
-    olderMessages.some((m) => m.role === "assistant") ||
-    messages.some((m) => m.role === "assistant");
+  const allMessages = useMemo(
+    () => dedupeUiMessages([...olderMessages, ...messages]),
+    [messages, olderMessages],
+  );
+  const allMessagesRef = useRef(allMessages);
+  useEffect(() => {
+    allMessagesRef.current = allMessages;
+  }, [allMessages]);
+
+  const hasActiveTurnAssistantText = useMemo(() => {
+    for (let i = allMessages.length - 1; i >= 0; i--) {
+      const msg = allMessages[i];
+      if (msg.role === "assistant") {
+        return msg.parts.some(
+          (part) =>
+            part.type === "text" &&
+            typeof part.text === "string" &&
+            isUserVisibleAssistantText(part.text),
+        );
+      }
+      if (msg.role === "user") {
+        return false;
+      }
+    }
+    return false;
+  }, [allMessages]);
   const firstTurnSettled =
-    (status === "ready" || status === "error") && hasFirstAssistantReply;
+    (status === "ready" || status === "error") &&
+    (olderMessages.some((m) => m.role === "assistant") ||
+      messages.some((m) => m.role === "assistant"));
   const firstTurnPending =
     !readOnly &&
     Boolean(prompt) &&
@@ -1285,14 +1312,6 @@ export function WorkspaceShell({
     isEditingPreview ||
     isRetrying ||
     isPreparingNextQuestion;
-  const allMessages = useMemo(
-    () => dedupeUiMessages([...olderMessages, ...messages]),
-    [messages, olderMessages],
-  );
-  const allMessagesRef = useRef(allMessages);
-  useEffect(() => {
-    allMessagesRef.current = allMessages;
-  }, [allMessages]);
 
   // Drive the workspace card from the streamed assistant tool output as it
   // arrives, not only on the `status` → `ready` transition. This makes the
@@ -2779,7 +2798,7 @@ export function WorkspaceShell({
       return;
     }
 
-    setIsRetrying(true);
+    setIsRetrying("response");
     clearError();
 
     try {
@@ -2994,7 +3013,7 @@ export function WorkspaceShell({
     }
     lastAutoRetriedErrorRef.current = error;
     retryAttemptRef.current = next;
-    setIsRetrying(true);
+    setIsRetrying("response");
     void retryChat();
   }, [error, isRetrying, status, readOnly, _autoRetryAttempts, retryChat]);
 
@@ -3011,7 +3030,7 @@ export function WorkspaceShell({
       return;
     }
 
-    setIsRetrying(true);
+    setIsRetrying("card");
     clearError();
 
     // When a prior user turn exists, re-stream it via the normal chat path so
@@ -3287,21 +3306,33 @@ export function WorkspaceShell({
             />
           ) : null}
 
-          {isResponding ? (
-            <p className="text-sm text-surface-warm-white/46">
+          {isRetrying === "card" ? (
+            <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/46">
+              Menata ulang pilihan jawaban...
+            </p>
+          ) : (isResponding ||
+              isPreparingNextQuestion ||
+              isRetrying === "response") &&
+            hasActiveTurnAssistantText &&
+            workspaceCard.type === "none" ? (
+            <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/46">
+              Sedang menyiapkan pilihan...
+            </p>
+          ) : isRetrying === "response" ? (
+            <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/46">
+              Menyempurnakan balasan...
+            </p>
+          ) : isResponding ? (
+            <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/46">
               AI sedang menulis balasan...
             </p>
           ) : isPreparingNextQuestion ? (
-            <p className="text-sm text-surface-warm-white/46">
+            <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/46">
               Menyiapkan pertanyaan berikutnya...
             </p>
           ) : firstTurnPending ? (
-            <p className="text-sm text-surface-warm-white/46">
+            <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/46">
               AI sedang merancang website...
-            </p>
-          ) : isRetrying ? (
-            <p className="text-sm text-surface-warm-white/46">
-              Mencoba menghubungkan kembali...
             </p>
           ) : rateLimitError ? (
             <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
@@ -3419,15 +3450,23 @@ export function WorkspaceShell({
                   currentStep={resolveCurrentBuildProgressStep(buildProgress)}
                   mode={isBuilding ? "Buat" : "Diskusi"}
                   discussPhase={
-                    isResponding
-                      ? "streaming"
-                      : isPreparingNextQuestion
-                        ? "preparing_card"
-                        : firstTurnPending
-                          ? "processing"
-                          : isRetrying
-                            ? "retrying"
-                            : "processing"
+                    isRetrying === "card"
+                      ? "retrying_card"
+                      : (isResponding ||
+                            isPreparingNextQuestion ||
+                            isRetrying === "response") &&
+                          hasActiveTurnAssistantText &&
+                          workspaceCard.type === "none"
+                        ? "preparing_options"
+                        : isRetrying === "response"
+                          ? "retrying_response"
+                          : isResponding
+                            ? "streaming"
+                            : isPreparingNextQuestion
+                              ? "preparing_card"
+                              : firstTurnPending
+                                ? "processing"
+                                : "processing"
                   }
                   onStop={stopCurrentJob}
                 />
