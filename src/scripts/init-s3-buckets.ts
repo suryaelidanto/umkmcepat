@@ -1,4 +1,3 @@
-/* eslint-disable no-console -- why: standalone CLI initialization script */
 import {
   CreateBucketCommand,
   PutBucketPolicyCommand,
@@ -8,8 +7,7 @@ import {
 import { getEnv } from "@/lib/config/config";
 import { getStorageProvider } from "@/lib/storage/storage-provider";
 
-// Anonymous-read policy for the PUBLIC bucket only (display media is public by
-// design). Private bucket gets no policy → only signed requests read it.
+// why: public bucket hosts public display media; private bucket requires signed requests
 const PUBLIC_READ_POLICY = JSON.stringify({
   Statement: [
     {

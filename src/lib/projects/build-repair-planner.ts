@@ -1,15 +1,3 @@
-// Self-debug planner: pure decision logic for the autonomous iteration loop.
-//
-// Given a build failure (the typed BuildFailureReason from classifyBuildFailure
-// + the sanitized build log), this returns the NEXT action the driver should
-// take — repair, re-spec, give up, or re-run. It makes NO AI calls and touches
-// NO live app; it is a deterministic, unit-testable core. The caller (the
-// iteration driver / a CLI) executes the chosen action via the generate route.
-//
-// This composes with — never replaces — the build retry handling. This
-// planner governs the OUTER loop across multiple generate attempts when a
-// build stays red.
-
 import type { BuildFailureReason } from "@/lib/projects/build-logs";
 
 export type RepairAction =

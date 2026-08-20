@@ -1,9 +1,3 @@
-// One-shot sweep: walk .data/project-* and delete any project resource whose
-// ID is no longer in the database. Idempotent. Safe to re-run. Removes orphans
-// left behind by projects deleted before cleanup was wired up, or by any code
-// path that didn't go through the homepage's createServerFn delete handler.
-
-/* eslint-disable no-console */
 import { realpathSync } from "node:fs";
 import { readdir, rm } from "node:fs/promises";
 import path from "node:path";
@@ -12,8 +6,6 @@ import { prisma } from "../src/lib/prisma";
 
 const REPO_ROOT = realpathSync(process.cwd());
 
-// Thumbnails + artifacts live in S3 now; the orphan sweep only touches the
-// local runtime + workspace dirs that still hold on-disk project state.
 const RUNTIME_ROOT = path.resolve(
   process.env.PROJECT_RUNTIME_DIR || ".data/project-runtimes",
 );

@@ -1,14 +1,3 @@
-// src/lib/projects/batched-generator.ts
-// Batched-generation writer: ONE streamed response emits all project files as
-// parseable blocks (see batched-response.ts for the contract). The parser
-// stages + validates; failures get up to 2 targeted repair rounds; budget
-// exhausted → `needsFallback` and the caller (build-attempt-worker) runs the
-// legacy ToolLoopAgent unchanged.
-//
-// Guarantees match the legacy path: path allow-list, TSX parse check,
-// import allow-list (platform package policy), required file coverage, and
-// a deterministic design lint. No tools — the model emits plain structured
-// text; every byte is validated before landing.
 import { streamText } from "ai";
 import ts from "typescript";
 
@@ -99,10 +88,6 @@ import { SHADCN_COMPONENT_BY_NAME } from "@/lib/projects/scaffold/shadcn-compone
 import { compileShadcnTheme } from "@/lib/projects/scaffold/shadcn-theme";
 import { createViteTanStackShadcnStarterFiles } from "@/lib/projects/scaffold/vite-tanstack-shadcn-starter";
 
-// ---------------------------------------------------------------------------
-// Constants shared with gates
-
-/** Dependency allow-list source of truth: the scaffold's own package.json. */
 function allowedPackageNamesFrom(
   starterFiles: GeneratedProjectFile[],
 ): Set<string> {
@@ -264,9 +249,6 @@ function isInsideJsx(node: ts.Node): boolean {
   return false;
 }
 
-// ---------------------------------------------------------------------------
-// Public types
-
 export type BatchedGenerateResult =
   | {
       ok: true;
@@ -289,12 +271,6 @@ export type BatchedGenerateEventSink = (
   type: "progress" | "operation",
   data: Record<string, unknown>,
 ) => void;
-
-// ---------------------------------------------------------------------------
-// Prompt builder
-
-// ---------------------------------------------------------------------------
-// Validation gates
 
 export function collectBatchedPerFileIssues(input: {
   allowedPackages: ReadonlySet<string>;
@@ -627,14 +603,6 @@ export function collectBatchedGateIssues(
   return issues;
 }
 
-// ---------------------------------------------------------------------------
-// Runner
-
-/**
- * Normalized result of one streamed response (writer / format-repair /
- * targeted repair). Exported so the batched edit runner (Phase 2) shares the
- * same call chassis — parser, per-file events, telemetry, write-through.
- */
 export type BatchedStreamModelEvidence = {
   modelRequested: string;
   modelServed: string | null;

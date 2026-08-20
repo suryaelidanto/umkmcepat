@@ -95,8 +95,8 @@ Local quality gates are automated:
 
 - Domain before file type — organize by feature/domain first; no generic catch-all folders (`hooks`, `utils`, `helpers`, `misc`). Local hooks/context/types/helpers stay beside their feature.
 - Colocated tests by default — unit/component/route tests sit directly beside the module they verify (`foo.ts` + `foo.test.ts`). Top-level `tests/` is strictly for cross-domain (`tests/unit`), real DB/Redis infra (`tests/integration/*.itest.ts`), browser/mobile audits (`tests/browser/*.browser.test.ts`), and fixtures/helpers (`tests/support`).
-- No any — any is lying to the compiler. Use unknown + narrowing, define the shape. No any, no as any, no ts-ignore / eslint-disable without one-liner why.
-- Comments — code must be self-explanatory. No // loop over items. Authored comments delete by default; only one-liner `why:` or `ponytail:` when code looks wrong but is right. Delete the rest.
+- No any — any is lying to the compiler. Use unknown + narrowing, define the shape. No any, no as any, no ts-ignore, no eslint-disable. Fix actual root causes.
+- Comments — code must be self-explanatory. Never restate code. No multi-line block comments, no ASCII banner dividers (`// ---`). Authored comments delete by default; only strictly necessary single-line `why:` or `ponytail:` when code looks wrong but is right. Keep it short, focused, and one-liner.
 - Solid as hell — nothing ships without typecheck + lint + affected tests green together. CI is not your safety net. Broken = rejected, no excuses.
 - Small, surgical — one concern per change. 50-line fix beats 500-line refactor. If description says also, split it.
 - No dead weight — no commented-out code, no dead exports, no TODO without ticket. Knip + typecheck must stay green.

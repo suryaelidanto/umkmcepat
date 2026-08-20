@@ -488,11 +488,6 @@ export function buildGeneratedAppBuildSpec(
     .join("\n");
 }
 
-// ---------------------------------------------------------------------------
-// Constants shared with gates
-
-/** Dependency allow-list source of truth: the scaffold's own package.json. */
-
 export function buildBatchedWriterPrompt(input: {
   brief: ProjectBrief;
   implementationSpec?: ImplementationSpec;

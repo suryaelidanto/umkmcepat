@@ -1,4 +1,3 @@
-/* eslint-disable no-console -- why: standalone CLI check script */
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
@@ -64,7 +63,6 @@ function checkCommentsAndTypes(filePath: string, content: string) {
     return;
   }
 
-  const isScript = relPath.startsWith("scripts/");
   const lines = content.split("\n");
 
   for (let i = 0; i < lines.length; i++) {
@@ -106,18 +104,28 @@ function checkCommentsAndTypes(filePath: string, content: string) {
     }
 
     if (
-      trimmed.includes("eslint-disable") &&
-      !isScript &&
-      !trimmed.includes("why:") &&
-      !trimmed.includes("ponytail:")
+      trimmed.includes("eslint" + "-disable") &&
+      !relPath.includes("check-codebase-discipline")
     ) {
       violations.push({
         file: relPath,
         line: lineNum,
-        rule: "no-unjustified-eslint-disable",
+        rule: "no-eslint-disable",
         detail:
-          "eslint-disable without a one-line why: or ponytail: is forbidden.",
+          "eslint-disable is forbidden. Fix the root cause or adjust eslint.config.js.",
       });
+    }
+
+    if (trimmed.startsWith("//") && !trimmed.startsWith("///")) {
+      const commentText = trimmed.replace(/^\/\/\s*/, "");
+      if (/^[-=]{3,}$/.test(commentText)) {
+        violations.push({
+          file: relPath,
+          line: lineNum,
+          rule: "no-comment-banners",
+          detail: "ASCII banner dividers (// ---) are forbidden.",
+        });
+      }
     }
   }
 }

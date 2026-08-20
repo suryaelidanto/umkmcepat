@@ -1,20 +1,3 @@
-// src/lib/projects/batched-response.ts
-// Strict streaming state-machine parser for the batched-generation response
-// contract:
-//
-//   <file path="src/...">raw content</file>
-//   <propose path="src/components/ui/<name>.tsx">reason</propose>
-//   <done summary="..." />
-//
-// Hard errors (unknown tags, missing attrs, disallowed paths, truncation)
-// throw BatchedParseError carrying the byte offset so repair prompts can cite
-// exactly where the stream went bad. Prose between blocks is ignored.
-//
-// Path allow-list here is SYNTACTIC (src/ + public/ only). Platform-owned
-// scaffold files (site.ts, index.css, main.tsx, __root.tsx, ...) are a
-// SEMANTIC gate: the runners (batched-generator / batched-edit) validate and
-// drop them at merge time so a stray emission triggers targeted repair
-// instead of a hard parse error.
 import {
   normalizeWriterDesignPlanV2Candidate,
   parseWriterDesignPlanV2,

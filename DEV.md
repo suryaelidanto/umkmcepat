@@ -23,7 +23,7 @@ Maintainer and agent workflow for UMKM Cepat. For the quality bar, read `PRINCIP
 ## Cleanliness contract
 
 - Refactors are behavior-preserving only. `bun run check` green before + after every change; a refactor that breaks the gate is reverted, not "fixed forward."
-- Comments explain a non-obvious _why_ in one liner, never restate code. Self-explanatory names first; delete obvious/restating/now-unnecessary comments; do not leave them "just in case." `ponytail:` comments mark deliberate simplifications — keep them.
+- Comments explain a non-obvious _why_ in a single short one-liner, never restate code. Self-explanatory names and structure first; delete obvious, restating, banner (`// ---`), or multi-line block comments. `ponytail:` comments mark deliberate simplifications and ceiling — keep them to a single line.
 - Prefer deletion over addition: a shallow wrapper removed is a win; a new abstraction for a single implementation or a "later" config value is a loss.
 - No new dependencies for what a few lines can do. No interface with one implementation, no factory for one product.
 - `ponytail:` comments mark deliberate simplifications and their upgrade ceiling — keep them.

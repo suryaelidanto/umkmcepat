@@ -1,17 +1,4 @@
 #!/usr/bin/env bun
-/* eslint-disable no-console */
-/**
- * Sync .env to .env.example structure WITHOUT touching your secret values.
- *
- * - Keys present in .env.example but missing from .env  -> added with the
- *   example's default value (you fill real secrets after).
- * - Keys in .env but not in .env.example                  -> removed (obsolete).
- * - Keys in both                                         -> your .env value is kept verbatim.
- * - Comments + ordering match .env.example.
- * - .env.bak backup is written before any change.
- *
- * Run: bun run sync:env
- */
 import { readFileSync, writeFileSync, existsSync, copyFileSync } from "node:fs";
 import path from "node:path";
 

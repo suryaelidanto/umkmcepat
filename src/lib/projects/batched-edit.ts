@@ -1,15 +1,3 @@
-// src/lib/projects/batched-edit.ts
-// Batched Edit (Phase 2 of the batched-generation engine):
-//
-// Instead of the legacy ToolLoopAgent exploring the source (read_file /
-// search_files) and writing one file at a time, we select target file paths
-// DETERMINISTICALLY from the edit instruction (path-stem nouns), then run ONE
-// streamed response over the SAME <file> contract + parser + gates as Phase 1
-// (see batched-generator.ts / batched-response.ts). Ambiguous instructions
-// fall back to a "self-select files from this manifest" prompt — the writer
-// gets the file tree + path stem sample and picks; still one call, no tool
-// loop. Format-repair (one round) and targeted repairs (two rounds) mirror
-// generate; budget exhausted → the attempt fails (no legacy fallback).
 import type { BatchedFile } from "@/lib/projects/batched-response";
 import type { StepCharger } from "@/lib/projects/energy-step-charger";
 import type { GeneratedProjectFile } from "@/lib/projects/generated-types";
@@ -22,23 +10,6 @@ import {
   type BatchedGenerateEventSink,
 } from "@/lib/projects/batched-generator";
 import { isProtectedScaffoldPath } from "@/lib/projects/scaffold/protected-paths";
-
-// ---------------------------------------------------------------------------
-// Deterministic target selection
-//
-// Candidates are the rendered app surface only: src/routes (pages) and
-// src/components (shared UI). Scaffold pieces (main.tsx, index.css, lib/)
-// and the content layer are excluded — the writer treats them as fixed,
-// same as the Phase 1 writer. platform-owned files stay protected by the
-// parser's path allow-list, so even a misguided self-selection can't write
-// them.
-//
-// Matching: lowercase the instruction, split on non-alphanumerics, then keep
-// tokens that appear inside any candidate file's stem ("katalog" matches
-// "src/routes/katalog.tsx"; "contact" matches "components/contact-form.tsx").
-// Tokens shorter than 4 chars ("hero", "menu") are too noisy — skip them.
-// If > 8 files match, treat as ambiguous rather than inlining a wall of
-// source.
 
 const EDITABLE_PREFIXES = ["src/routes/", "src/components/"];
 const AMBIGUITY_CAP = 8;
@@ -158,9 +129,6 @@ export function selectBatchedEditTargets(input: {
   return { needsSelfSelection: false, samplePaths, targets };
 }
 
-// ---------------------------------------------------------------------------
-// Prompt
-
 export function buildBatchedEditPrompt(input: {
   annotationContext?: string;
   instruction: string;
@@ -242,9 +210,6 @@ ${instruction}`;
   return { system, user };
 }
 
-// ---------------------------------------------------------------------------
-// Runner
-
 export type BatchedEditResult =
   | {
       ok: true;
@@ -261,12 +226,6 @@ export type BatchedEditResult =
       files?: never;
     };
 
-/**
- * Local import allow-list. Same source-of-truth as Phase 1 (the surface's
- * own package.json) but we can't reuse
- * `allowedPackageNamesFrom` directly without a scaffold re-build — the edit
- * surface is the LIVE sourceFiles, not a fresh starter.
- */
 function allowedPackagesFromLive(
   sourceFiles: GeneratedProjectFile[],
 ): Set<string> {

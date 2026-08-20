@@ -249,12 +249,7 @@ type WorkspaceStateResponse = {
   workspaceCard: WorkspaceCard;
 };
 
-// React.StrictMode intentionally mounts -> unmounts -> remounts each
-// component once in dev, which resets useRef-backed guards and would
-// otherwise fire the auto-send prompt twice for the same project (the first
-// request stays in-flight while a second one starts, tripping the server's
-// discuss lock and leaving the local chat state empty). Module-scope state
-// survives the remount because it isn't tied to a component instance.
+// why: module-scope guard survives React.StrictMode remount in dev to avoid duplicate auto-send
 const autoSentProjectIds = new Set<string>();
 
 export { chatBubbleClass } from "@/components/projects/chat/ChatMessage";
@@ -277,7 +272,6 @@ export function WorkspaceShell({
   initialWorkspaceCard,
   initialBrief,
   readOnly = false,
-  // Rename to `autoRetryAttempts` when the composer auto-retry task consumes it.
   autoRetryAttempts: _autoRetryAttempts = 2,
 }: WorkspaceShellProps) {
   const [mode, setMode] = useState<"build" | "discuss">("discuss");
@@ -319,18 +313,12 @@ export function WorkspaceShell({
     heldBuildRecommendationSignature,
     setHeldBuildRecommendationSignature,
   ] = useState<string | null>(null);
-  // Permanent record of build_recommendation signatures already used to start
-  // a build. Once a signature is here, the matching card never renders again —
-  // regardless of build outcome. Survives refresh via localStorage.
   const [
     consumedBuildRecommendationSignatures,
     setConsumedBuildRecommendationSignatures,
   ] = useState<Set<string>>(() =>
     readConsumedBuildRecommendationSignatures(projectId),
   );
-  // Initial postBuildChatOpen should default to true if the project already has
-  // active chat messages or a pending build_recommendation card so that chat
-  // and recommendation cards are immediately interactive on page load.
   const [postBuildChatOpen, setPostBuildChatOpen] = useState(
     () =>
       initialMessages.length > 0 ||
@@ -379,20 +367,15 @@ export function WorkspaceShell({
   const workspaceCardRef = useRef(initialWorkspaceCard);
   const preparingPollRef = useRef<(() => void) | null>(null);
   const loadWorkspaceStateRequestIdRef = useRef(0);
-  // Synchronous lock so the same `submitChatText` call within one tick can't
-  // fire `sendMessage` twice when `isProcessing` state hasn't propagated yet.
   const submitInFlightRef = useRef(false);
 
   const isDesktop = useIsDesktopViewport();
-  // Resume state for the last unanswered user message detected on mount.
-  // Null until a GET /chat/turn lands a failed/expired/cancelled turn.
   const [resumeError, setResumeError] = useState<{
     message: string;
     retryText: string;
   } | null>(null);
   const [isEditingPreview, setIsEditingPreview] = useState(false);
   const visualEditInFlightRef = useRef(false);
-  // Survives refresh: if user sent visual comments, clear them when server job ends OK.
   const pendingVisualRevisionRef = useRef(false);
   const [annotationInstruction, setAnnotationInstruction] = useState("");
   const [pendingAttachments, setPendingAttachments] = useState<

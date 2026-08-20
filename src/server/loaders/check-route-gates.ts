@@ -1,6 +1,3 @@
-// Server-only gate for every _main.* page. Marked server-only via the
-// @tanstack/react-start/server-only side-effect import so the import-protection
-// plugin does not bundle it into the client.
 import "@tanstack/react-start/server-only";
 
 import { redirect } from "@tanstack/react-router";
