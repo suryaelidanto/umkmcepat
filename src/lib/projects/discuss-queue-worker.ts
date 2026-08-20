@@ -15,10 +15,6 @@ import {
 import { finalizeDiscussTurn } from "@/lib/projects/discuss-turn";
 import { publishProgress } from "@/lib/projects/discuss-turn-pubsub";
 import { runDiscussTurn } from "@/lib/projects/discuss-turn-worker";
-/**
- * BullMQ entry for discuss: reload chat state from DB (user message already
- * persisted by POST) and run the existing turn worker.
- */
 export async function runQueuedDiscussTurn(
   job: DiscussAttemptJob,
   abortSignal?: AbortSignal,

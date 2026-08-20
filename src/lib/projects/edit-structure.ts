@@ -1,7 +1,4 @@
 // src/lib/projects/edit-structure.ts
-// Structural vs non-structural edit classification for contract-v1. Legacy-v1
-// edits keep free-form route behavior; contract-v1 requires a new reviewed
-// handoff + topology recompilation before any structural change.
 export type EditStructureDecision = {
   kind: "non_structural" | "structural";
   reasons: Array<"page_set" | "route_path" | "primary_cta" | "capability">;
@@ -26,8 +23,6 @@ const STRUCTURAL_PATTERNS: Array<{
   },
 ];
 
-/** Decide whether an edit request changes structure (requires a new handoff)
- * vs only content/style (reuses the active handoff). */
 export function classifyEditStructure(
   instruction: string,
 ): EditStructureDecision {

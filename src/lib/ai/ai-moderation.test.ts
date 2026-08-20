@@ -203,7 +203,6 @@ describe("moderateProjectRequest", () => {
 describe("moderation prompt", () => {
   it("tells the checker it is screening replies, not standalone requests", () => {
     // "ya", "iya" and "boleh" were all refused as CLARIFY because the checker
-    // judged each message as if it were a whole website request.
     const source = readFileSync(
       new URL("./ai-moderation.ts", import.meta.url),
       "utf8",
@@ -211,8 +210,6 @@ describe("moderation prompt", () => {
 
     expect(source).toMatch(/ongoing conversation/i);
     // Binary by design: CLARIFY was a refusal wearing softer copy, and the
-    // fuzzy middle is what refused "ya". Real outages are handled by the
-    // route's moderation_unavailable path instead.
     expect(source).toMatch(/exactly ALLOW or BLOCK/);
     expect(source).not.toMatch(/CLARIFY/);
     expect(source).not.toMatch(/checker keamanan lagi lambat/i);

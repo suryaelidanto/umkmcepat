@@ -1,6 +1,3 @@
-// Server-only gate for every _main.* page. Marked server-only via the
-// @tanstack/react-start/server-only side-effect import so the import-protection
-// plugin does not bundle it into the client.
 import "@tanstack/react-start/server-only";
 
 import { redirect } from "@tanstack/react-router";
@@ -41,8 +38,6 @@ export async function checkRouteGates(pathname: string) {
   }
 
   // Admin UI is gated by requireAdmin() (ADMIN_EMAILS allowlist), not
-  // waitlist. Waitlisted real admins must still open /admin; product routes
-  // stay waitlist-blocked so they experience the product as a normal user.
   if (!waitlistBypass) {
     try {
       const email = session.user.email ?? null;

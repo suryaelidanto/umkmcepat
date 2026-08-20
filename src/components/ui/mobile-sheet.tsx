@@ -5,7 +5,6 @@ import { motion } from "motion/react";
 import * as React from "react";
 
 // Bottom-anchored sheet for mobile (md:hidden). Slide-up + swipe-to-dismiss.
-// Desktop keeps center modals; this is the mobile-native pattern.
 export function MobileSheet({
   children,
   onOpenChange,

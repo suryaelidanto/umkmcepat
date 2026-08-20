@@ -1,9 +1,4 @@
 // src/lib/projects/high-risk-claims.ts
-// Versioned static matcher for high-risk claims in AI-owned generated source.
-// The goal is to block raw literals (phone, price, hours, address, proof,
-// regulated claims) outside the protected contract module. It is a finite
-// grammar, not a full NLP truth-prover; qualitative non-measurable copy is not
-// flagged. High-risk values must resolve through contract primitives instead.
 
 export type HighRiskClaimCategory =
   | "contact"
@@ -36,7 +31,6 @@ const REGULATED_RE =
   /\b(?:sertifikat|lisensi|halal|bpom|pirt|bpjs|jaminan|dijamin|garansi|100%|paling murah|termurah|terbaik)\b/i;
 
 // Fact-id call patterns resolve through the protected contract module; these
-// are allowed even if their argument names match a category.
 const FACT_REF_RE = /(?:ContractFact|ContractAction|MediaAsset)\s+factId=/g;
 
 function stripFactRefs(source: string): string {

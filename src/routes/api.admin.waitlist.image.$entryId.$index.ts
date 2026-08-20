@@ -10,9 +10,6 @@ export const Route = createFileRoute(
   server: {
     handlers: {
       // Admin-only: stream a waitlist entry's evidence image from storage.
-      // Private bucket reads are server-proxied; the browser never sees the R2 URL.
-      // imageRef is stored as a JSON array of refs (1-3 uploaded photos);
-      // $index selects which one to serve.
       GET: async ({ params }) => {
         const admin = await requireAdmin();
         if (!admin.ok) {

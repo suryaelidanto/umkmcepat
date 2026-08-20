@@ -9,10 +9,6 @@ export function resetNineRouterModelsCacheForTests() {
   cache = null;
 }
 
-/**
- * 9Router combos only (not upstream provider models).
- * Combos appear in GET /v1/models with owned_by: "combo".
- */
 export async function listNineRouterModels(): Promise<string[]> {
   if (cache && cache.expiresAt > Date.now()) {
     return cache.models;

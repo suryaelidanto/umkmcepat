@@ -190,7 +190,6 @@ function AdminNav() {
   );
 }
 
-/** Dense wide admin chrome. */
 export function AdminShell({ children }: { children: ReactNode }) {
   const { location } = useRouterState();
   const isTicketDetail =

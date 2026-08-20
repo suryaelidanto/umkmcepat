@@ -51,8 +51,6 @@ export function getClientIp(request: Request): string {
   }
 
   // Cloudflare appends the real client IP as the LAST hop and preserves any
-  // client-supplied leading hops; the leading entries are attacker-controlled
-  // and must never be trusted for rate limiting.
   const forwardedFor = request.headers.get("x-forwarded-for");
   const lastHop = forwardedFor?.split(",").at(-1)?.trim();
   if (isPlausibleIp(lastHop)) {
@@ -86,17 +84,11 @@ export async function getRateLimitConfig(
   return { limit, windowMs: windowSeconds * 1000 };
 }
 
-/**
- * Product routes (ai/build) already gate on daily energy for authenticated users.
- * Fixed hourly/10-min buckets were a second soft-paywall on retries.
- * Default pilot: skip ai|build when userId is known unless RATE_LIMIT_ENFORCE_PRODUCT=1.
- */
 export function shouldEnforceProductRateLimit(
   _type: RateLimitType,
   _userId?: string,
 ) {
   // Always enforce rate limiting, even for authenticated users on product routes.
-  // Daily energy is the primary economic gate; rate limits prevent burst abuse.
   return true;
 }
 

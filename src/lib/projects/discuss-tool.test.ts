@@ -7,10 +7,6 @@ import {
 } from "./discuss-tool";
 
 // Regression: the combo model (default-combo) double-encodes briefPatch and
-// workspaceCard as JSON strings instead of nested objects, e.g.
-//   { "briefPatch": "{\"businessType\":\"retail\"}", "workspaceCard": "{\"type\":\"q..." }
-// The strict z.object() schema rejected these (AI_TypeValidationError), and every
-// repair attempt churned on the same bad shape. The schema must accept both shapes.
 describe("presentWorkspaceCard inputSchema tolerates stringified JSON fields", () => {
   const parse = (input: unknown) =>
     presentWorkspaceCardInputSchema.safeParse(input);
@@ -196,8 +192,6 @@ describe("alignAssistantTextWithCard", () => {
 
   it("replaces a chat question that contradicts the card", () => {
     // Observed live: the model asked about visual style in the message while
-    // the card asked about price, so the owner answered a question they were
-    // never shown.
     const aligned = alignAssistantTextWithCard(
       "Targetnya sudah jelas; karena foto belum tersedia, kamu mau tampilan tipografi pedas tanpa foto atau ilustrasi makanan?",
       cardFor("Kisaran harga menu Seblak Surya biasanya berapa?"),
@@ -210,7 +204,6 @@ describe("alignAssistantTextWithCard", () => {
 
   it("keeps the model's own wording when it asks the same question", () => {
     // Rewriting every paraphrase would flatten warmer, more specific phrasing;
-    // only a materially different question is replaced.
     const text =
       "Sip, gaya pedasnya pas; nomor WhatsApp yang dipakai pelanggan untuk memesan berapa?";
 
@@ -266,7 +259,6 @@ describe("alignAssistantTextWithCard", () => {
 
   it("drops a question the build card cannot answer", () => {
     // Observed live: the message asked the owner to pick a visual style while
-    // the card underneath already declared the site ready to build.
     expect(
       alignAssistantTextWithCard(
         "Kisaran harganya sudah dicatat; kamu pilih tampilan tipografi pedas atau ilustrasi makanan tanpa foto?",

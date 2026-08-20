@@ -198,11 +198,6 @@ export async function qualifyGeneratedSite(
     }
     const criticReport = await deps.runCritic(files, browserReport, riskReport);
     // `unknown` means the critic could not run (no vision-capable model
-    // available, or the vision route returned 0 tokens). The deterministic
-    // source + browser gates already passed, so accept the build rather than
-    // fail-closing every risky build when vision infra is broken. The build
-    // remains flagged for offline corpus review via riskReport. A genuinely
-    // broken critic (`unavailable`) still fails closed.
     if (criticReport.status === "unknown") {
       return {
         ok: true,

@@ -105,8 +105,6 @@ function multiWriterContract(): GeneratedSiteWriterContractV2 {
 describe("buildReferenceCalibratedWriterPrompt", () => {
   it("states the numeric gate rules the writer keeps failing", () => {
     // A real build failed on both: 4 tracked uppercase labels where 1 was
-    // allowed, and site.usp never rendered. The prompt only said "do not
-    // repeat eyebrow scaffolding" and "render every populated contract fact".
     const kit = selectGeneratedSiteDesignKit({
       archetype: "generic",
       density: "sparse",
@@ -131,8 +129,6 @@ describe("buildReferenceCalibratedWriterPrompt", () => {
 
   it("gives the writer the exact CTA digits and the pattern id it is checked for", () => {
     // kit-pattern-missing greps for the composition pattern id, and
-    // primary-cta-target-missing greps for the accepted digits. The writer
-    // prompt named neither, so both were unreachable by construction.
     const kit = selectGeneratedSiteDesignKit({
       archetype: "generic",
       density: "sparse",
@@ -213,7 +209,6 @@ describe("buildReferenceCalibratedWriterPrompt", () => {
     );
     expect(prompt.system).toContain("src/content/site.ts");
     // Reproduced live: the writer referenced site.usp when this business's
-    // usp was empty and the key did not exist on the schema at all.
     expect(prompt.system).toContain(
       "never a field this business has no data for",
     );
@@ -225,23 +220,15 @@ describe("buildReferenceCalibratedWriterPrompt", () => {
       "text-muted, text-card, text-popover, text-secondary, and text-background are surface tokens, never text colors",
     );
     // Reproduced live: text-muted-foreground inside SiteSection surface=
-    // "contrast" (which compiles to bg-foreground text-background) read at
-    // contrast ratio 1.00 — that token family is only readable against the
-    // light background/muted/card/popover surfaces.
     expect(prompt.system).toContain(
       'Inside SiteSection surface="contrast" or any bg-foreground element, text-foreground, text-muted-foreground, text-card-foreground, text-popover-foreground, and text-secondary-foreground are invisible too',
     );
     // Reproduced live: a real build's CTA button paired bg-accent with bare
-    // text-foreground at 2.68:1, needing 4.5 — text-foreground is calibrated
-    // for the page's light background, not for bg-accent/bg-primary.
     expect(prompt.system).toContain(
       "bg-accent and bg-primary need text-accent-foreground and text-primary-foreground",
     );
     expect(prompt.system).toContain("one deliberate signature");
     // Reproduced live: a real build rendered site.trustPoints and site.usp
-    // as two adjacent sections with byte-identical items — visibly
-    // repetitive, since usp falls back to trustPoints verbatim whenever
-    // the brief has no distinct usp of its own.
     expect(prompt.system).toContain(
       "site.trustPoints and site.usp are often the same values — never render both",
     );

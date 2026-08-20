@@ -61,7 +61,6 @@ export async function handleAttemptStreamGet(
   }
 
   // Progress rows are keyed by ProjectBuild.id, not attemptId. Querying with
-  // attemptId as buildId produced empty late-join replays after restart.
   const events = attempt.buildId
     ? await prisma.runtimeEvent.findMany({
         where: { buildId: attempt.buildId, type: "build.progress" },

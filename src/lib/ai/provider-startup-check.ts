@@ -1,5 +1,4 @@
 // Asserts provider keys are set in production. Missing key -> boot fails
-// loudly (never silently returns mock-success at a trust boundary).
 const REQUIRED_IN_PRODUCTION = ["RESEND_API_KEY"] as const;
 
 export function assertProvidersForProduction(): void {

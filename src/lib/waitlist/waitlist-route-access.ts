@@ -13,7 +13,6 @@ export function isWaitlistMarketingPublicPath(pathname: string): boolean {
   );
 }
 
-/** Paths waitlist must not block. Admin UI is still gated by requireAdmin(). */
 export function isWaitlistGateBypassPath(pathname: string): boolean {
   return (
     isWaitlistMarketingPublicPath(pathname) ||

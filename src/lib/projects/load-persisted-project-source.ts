@@ -3,10 +3,6 @@ import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
 import { resolveProjectSourceFiles } from "@/lib/projects/resolve-project-source-files";
 import { readProjectSourceArtifact } from "@/lib/projects/runtime-artifacts";
 
-/**
- * Load real persisted source for a project (attempt snapshot, project snapshot,
- * or Project.sourceFiles). Empty placeholder snapshots do not count.
- */
 export async function loadPersistedProjectSourceFiles(args: {
   projectId: string;
   userId: string;

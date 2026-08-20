@@ -1,6 +1,4 @@
 // src/lib/projects/build-handoff-acceptance.ts
-// Contract-v1 generate path: verify an immutable handoff + review proof, CAS
-// draft->accepted, and create an attempt idempotently per client key.
 import { prisma } from "@/lib/prisma";
 
 export type AcceptHandoffInput = {
@@ -17,9 +15,6 @@ export type AcceptHandoffResult =
   | { created: true; attemptId: string }
   | { created: false; existingAttemptId: string };
 
-/** Lock the handoff, verify review hash, and either reuse or create the
- * attempt. Rejects when the review hash is stale. Throws on mismatch so the
- * route can 409. */
 export async function acceptHandoffAndCreateAttempt(
   input: AcceptHandoffInput,
 ): Promise<AcceptHandoffResult> {

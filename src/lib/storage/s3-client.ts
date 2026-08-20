@@ -22,7 +22,6 @@ export function getS3Config(bucket: "public" | "private"): S3ClientConfig {
   const accessKeyId = requiredEnv("S3_ACCESS_KEY_ID");
   const secretAccessKey = requiredEnv("S3_SECRET_ACCESS_KEY");
   // R2 only accepts region "auto"; ignore any S3_REGION override to avoid
-  // signature/path-style mismatches against the virtual-host endpoint.
   const region = provider === "r2" ? "auto" : getEnv("S3_REGION", "us-east-1");
 
   let endpoint = getEnv("S3_ENDPOINT").trim();
@@ -91,8 +90,6 @@ export async function deleteS3Object(
     await client.send(new DeleteObjectCommand({ Bucket: name, Key: key }));
   } catch (error) {
     // NoSuchKey = already gone; treat as success. Anything else rethrows.
-    // AWS SDK v3 sets `.name` on typed errors; a non-Error throw has no name,
-    // so we rethrow rather than swallow an unknown shape.
     if (!(error instanceof Error) || error.name !== "NoSuchKey") {
       throw error;
     }
@@ -141,13 +138,6 @@ export async function listS3Keys(
   return keys;
 }
 
-/**
- * Prefixes prepended to keys by callers. Single source of truth so ref/key
- * construction stays consistent across subsystems.
- *
- * @public — imported by object-storage.ts / runtime-artifacts.ts /
- * project-assets.ts / project-thumbnail.ts once Tasks 3-6 land.
- */
 export const S3_PREFIXES = {
   artifact: "project-artifacts",
   asset: "project-assets",

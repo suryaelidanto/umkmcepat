@@ -16,8 +16,6 @@ export const Route = createFileRoute("/api/support/assets")({
   server: {
     handlers: {
       // POST /api/support/assets: Upload support ticket attachments (both user and admin).
-      // Multipart form field: `file`. assetId is the full S3 key suffix
-      // including the detected extension so GET can reconstruct the key.
       POST: async ({ request }) => {
         const session = await auth();
         if (!session?.user?.id) {

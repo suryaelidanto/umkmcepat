@@ -34,7 +34,6 @@ export async function claimDiscussTurn({
   store?: ProjectChatTurnStore;
 }): Promise<{ claimed: boolean; turnId: string | null }> {
   // ponytail: userId reserved for Task 4 worker auth-scope check; the
-  // ProjectChatTurn row has no userId column (project owns the relation).
   void userId;
   return store.$transaction(async (tx) => {
     // On-claim TTL safety: finalize any expired running turn first.

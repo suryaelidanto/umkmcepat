@@ -14,11 +14,6 @@ import {
   type SiteSchemaProduct,
 } from "@/lib/projects/site-schema";
 
-/**
- * Best-effort shape guess from a free-text businessType.
- * Keys on normalized substring; order matters (first match wins).
- * `ponytail:` only a safety net — the AI spec call is the real selector.
- */
 function archetypeFromBusinessType(businessType: string): string {
   const text = businessType.toLowerCase();
   const rules: Array<[string, string]> = [
@@ -216,8 +211,6 @@ export function implementationSpecToSiteSchema(
     : rawHeadline;
 
   // Rich fields: pass through from spec.content when the AI structured them.
-  // When absent (AI stuffed everything in offer), they stay undefined and the
-  // gate skips them — same data-driven contract as createProjectSiteSchemaFromBrief.
   const products = parseSpecProducts(spec.content.products);
   const testimonials = parseSpecTestimonials(spec.content.testimonials);
   const faq = parseSpecFaq(spec.content.faq);
@@ -562,19 +555,12 @@ export function buildImplementationSpecPrompt(brief: ProjectBrief) {
     brief.notes.length ? `Conversation notes: ${brief.notes.join("; ")}` : "",
     `AI confidence: ${brief.confidence ?? 0}%`,
     // Structured content directive: tell the AI to put rich fields in
-    // spec.content as structured arrays, not stuff them into offer. The
-    // schema + gate read these as separate fields; stuffing them in offer
-    // makes the gate skip them and the rendered page ignores them.
     `STRUCTURED CONTENT RULE: put products, testimonials, faq, socialLinks, currentPromo in spec.content as separate structured arrays/strings — never stuff them into the offer field. Use offer for the one-line value proposition only.`,
   ]
     .filter(Boolean)
     .join("\n");
 }
 
-/**
- * Deterministic ImplementationSpec from an accepted discuss brief.
- * Must always pass parseImplementationSpec for ready briefs.
- */
 export function implementationSpecFromBrief(
   brief: ProjectBrief,
 ): ImplementationSpec {
@@ -642,7 +628,6 @@ export function implementationSpecFromBrief(
   ];
 
   // Rich content: only list components + content the brief actually populated.
-  // A 2-field brief (businessName + offer) yields Hero + Offer + Contact only.
   if (schema.products?.length) {
     components.push({
       name: "ProductCatalog",
@@ -685,7 +670,6 @@ export function implementationSpecFromBrief(
     paymentMethods: brief.paymentMethods || undefined,
     deliveryArea: brief.deliveryArea || undefined,
     // Rich fields mirrored from site.ts so the writer prompt tells the AI what
-    // to render. Undefined fields are omitted from the prompt entirely.
     products: schema.products,
     testimonials: schema.testimonials,
     faq: schema.faq,

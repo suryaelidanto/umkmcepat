@@ -4,11 +4,6 @@ import path from "node:path";
 const ROTATE_AT_BYTES = 5 * 1024 * 1024;
 let rotating = false;
 
-/**
- * Resolve the log file lazily so tests can isolate from concurrent writers by
- * setting DEV_LOG_FILE to a unique path. Defaults to ./dev.log (production).
- * Read at call time (not module load) so env changes in tests take effect.
- */
 function logFile(): string {
   const name = process.env.DEV_LOG_FILE || "dev.log";
   return path.isAbsolute(name) ? name : path.join(process.cwd(), name);
@@ -98,7 +93,6 @@ async function maybeRotate(line: string) {
   }
 }
 
-/** Stable key order for objects; arrays pass through (Object.keys replacer broke them). */
 function stableJson(value: Record<string, unknown>) {
   return JSON.stringify(value, (_key, nested) => {
     if (

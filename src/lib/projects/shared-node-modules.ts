@@ -19,7 +19,6 @@ export async function ensureSharedNodeModules(
   depSignature: string,
   opts: {
     installRunner?: (cwd: string) => Promise<InstallResult>;
-    /** Required for a real install into an empty shared root. */
     packageJsonContent?: string;
   } = {},
 ): Promise<string> {
@@ -56,7 +55,6 @@ export async function ensureSharedNodeModules(
   return nmPath;
 }
 
-/** Fire-and-forget friendly: provision golden node_modules for the starter deps. */
 export async function prewarmSharedNodeModules(): Promise<void> {
   const { createDependencySignature, createGeneratedViteTanStackStarterFiles } =
     await import("@/lib/projects/generated-source");

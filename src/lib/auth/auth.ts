@@ -14,9 +14,6 @@ declare global {
 }
 
 // Per-request scope for memoizing session resolution. Mirrors the CSP nonce
-// store pattern (csp-nonce.ts + server.ts boot init): every request gets a
-// fresh store, and callers that resolve the same session more than once
-// (route gates + loaders) share a single Auth.js resolve + banned check.
 export function getAuthStore(): AsyncLocalStorage<Map<string, unknown>> {
   if (typeof window !== "undefined") {
     throw new Error("Auth store is only available on the server side");
@@ -27,8 +24,6 @@ export function getAuthStore(): AsyncLocalStorage<Map<string, unknown>> {
 }
 
 // Handles every /api/auth/* request (sign-in, callback, sign-out, csrf,
-// session, providers) via Auth.js Core. Mounted from the auth catch-all
-// server route.
 export async function handleAuthRequest(request: Request): Promise<Response> {
   const forwardedProto = request.headers.get("x-forwarded-proto");
   const forwardedHost = request.headers.get("x-forwarded-host");
@@ -73,10 +68,6 @@ export async function handleAuthRequest(request: Request): Promise<Response> {
 }
 
 // Reads the current session for the in-flight request. Preserves the previous
-// `await auth()` call signature so every existing call site is unchanged: the
-// request is pulled from TanStack Start's server context instead of being
-// passed in. Returns null when there is no valid session, or when the user
-// has been banned.
 export async function auth(): Promise<Session | null> {
   const { session, banned } = await getAuthState();
   if (banned) {
@@ -91,8 +82,6 @@ export type AuthState = {
 };
 
 // Resolves the session cookie (without applying the ban filter) and reports
-// whether the resolved user is banned. Use this in route gates that need to
-// distinguish "guest" from "banned" — auth() collapses both into null.
 export async function getAuthState(): Promise<AuthState> {
   const store = getAuthStore().getStore();
   if (store) {
@@ -137,8 +126,6 @@ async function resolveAuthState(): Promise<AuthState> {
   }
 
   // Construct the target URL using the public base origin so Auth.js is run
-  // in the correct domain context (matching handleAuthRequest) and resolves
-  // secure cookies properly.
   const publicBaseUrl = `${proto}://${host}`;
   const actionUrl = new URL(
     authConfig.basePath + "/session",
@@ -186,8 +173,6 @@ async function resolveAuthState(): Promise<AuthState> {
 }
 
 // Defense-in-depth for routes that read User rows directly. auth() already
-// returns null for banned users, so today this is a no-op for them. It guards
-// against a future refactor that drops the auth() gate.
 export async function requireNotBanned(session: Session | null) {
   if (!session?.user?.id) {
     return;

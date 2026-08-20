@@ -9,7 +9,7 @@ Maintainer and agent workflow for UMKM Cepat. For the quality bar, read `PRINCIP
 - **Colocated tests by default** — single-module unit/component/route tests sit directly beside the source file (`foo.ts` + `foo.test.ts`). Top-level `tests/` is strictly for cross-domain (`tests/unit`), real DB/Redis infra (`tests/integration/*.itest.ts`), browser/mobile audits (`tests/browser/*.browser.test.ts`), and support harnesses (`tests/support`).
 - No any — `any` is lying to the compiler. Use `unknown` + narrowing, define the shape. Never `any`, `as any`, or `ts-ignore`/`eslint-disable` without one-liner why.
 - Solid as hell — nothing ships without `typecheck + lint + affected tests` green together. CI is not your safety net. Run `bun run check` before handoff. → See `AGENTS.md` god-tier Rules for single truth.
-- **Prefer self-explanatory code over comments.** Write code that says what it does through clear names and structure. Authored comments delete by default; only add a one-liner `why:` or `ponytail:` when it explains a non-obvious invariant, guarded edge case, or decision that would otherwise look wrong. Never restate code ("// loop over items" above `for`), narrate obvious, or split section that function name already communicates. When comment becomes unnecessary, delete it; do not leave it "just in case."
+- **Prefer self-explanatory code over comments.** Write code that says what it does through clear names and structure. Authored comments delete by default; only add a single short one-line comment when it explains a non-obvious invariant, guarded edge case, or deliberate simplification that would otherwise look wrong. Never restate code, narrate the obvious, or use multi-line comment blocks or banner dividers. When a comment becomes unnecessary, delete it; do not leave it "just in case."
 - Keep every developer-facing or internal-facing surface in English: docs, system prompts, agent prompts, code names, comments, logs, errors, test names, commits, scripts, and internal tooling copy.
 - Keep only consumer-facing product UI copy in Indonesian unless an i18n layer is introduced.
 - Do not commit secrets, `.env`, local logs, screenshots, browser artifacts, uploads, or generated junk.
@@ -23,7 +23,7 @@ Maintainer and agent workflow for UMKM Cepat. For the quality bar, read `PRINCIP
 ## Cleanliness contract
 
 - Refactors are behavior-preserving only. `bun run check` green before + after every change; a refactor that breaks the gate is reverted, not "fixed forward."
-- Comments explain a non-obvious _why_ in one liner, never restate code. Self-explanatory names first; delete obvious/restating/now-unnecessary comments; do not leave them "just in case." `ponytail:` comments mark deliberate simplifications — keep them.
+- Comments explain a non-obvious _why_ in a single short one-liner, never restate code. Self-explanatory names and structure first; delete obvious, restating, banner (`// ---`), or multi-line block comments. `ponytail:` comments mark deliberate simplifications and ceiling — keep them to a single line.
 - Prefer deletion over addition: a shallow wrapper removed is a win; a new abstraction for a single implementation or a "later" config value is a loss.
 - No new dependencies for what a few lines can do. No interface with one implementation, no factory for one product.
 - `ponytail:` comments mark deliberate simplifications and their upgrade ceiling — keep them.
@@ -55,7 +55,7 @@ Every human contributor and zero-context AI agent must follow this structure:
 ### 3. Comment Hygiene & Style
 
 - **Code explains itself:** Write clean, expressive identifiers and structure. Authored comments delete by default.
-- **Allowed exceptions:** Exactly one line starting with `why:` (non-obvious invariant or security edge case) or `ponytail:` (deliberate simplification and its upgrade ceiling). Delete narrative comments, restatements, dead code, and section dividers.
+- **Allowed exceptions:** Single-line comments strictly for non-obvious invariants, security edge cases, or deliberate simplifications. Delete narrative comments, restatements, dead code, multi-line blocks, and section dividers.
 
 ### 4. Zero-Bypass Type Safety
 

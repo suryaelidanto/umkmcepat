@@ -25,26 +25,18 @@ export type StepCharger = {
   };
 };
 
-/** Ledger task per charge reason. */
 const REASON_TO_RECORD_TASK: Record<string, string> = {
   "build:step": "build-step",
   "edit:step": "edit",
   "build:subagent": "build-step",
 };
 
-/**
- * Charges energy once per agent step via the ai-sdk `onStepFinish` hook and
- * records one AiCallRecord row per step (fire-and-forget).
- * `isExhausted` is latching: once the balance hits zero the loop must stop,
- * and a concurrently-granted top-up should not silently resume it.
- */
 export function createStepCharger(opts: {
   userId: string;
   reason: string;
   modelId: string;
   projectId?: string | null;
   onCharge?: (event: StepChargeEvent) => void;
-  /** Extra AiCallRecord fields merged into every per-step row. */
   recordMeta?: {
     attemptId?: string;
     buildId?: string;
@@ -68,10 +60,6 @@ export function createStepCharger(opts: {
     totals: () => ({ inputTokens, outputTokens, energyUsed }),
     async onStepFinish(step) {
       // The ai-sdk has no per-step start hook, so step latency is measured
-      // from the previous step's finish (charger creation for step 0).
-      // Steps are buffered (ToolLoopAgent never streams): there is no
-      // first-token moment, so step 0 reports ttftMs = requestMs for the
-      // logical call; later steps carry no ttftMs.
       const requestMs = Math.round(performance.now() - stepStartedAt);
       stepStartedAt = performance.now();
       recordAiCall({

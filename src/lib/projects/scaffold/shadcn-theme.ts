@@ -226,21 +226,6 @@ function readable(
     : bestReadable(background, minimum);
 }
 
-/**
- * A mid-tone surface can be too light for black text and too dark for white
- * text at the same time. The compiler owns semantic colors, so it keeps the
- * chosen hue and moves it the smallest deterministic step that admits readable
- * text — rather than failing an attempt over a legitimate brand colour.
- *
- * against, when given, adds a second constraint: the surface must also read
- * as text against that colour, not just admit black/white text on itself.
- * accent doubles as bare text (an accent-coloured eyebrow label) as well as
- * a button background, and those are different constraints — a saturated
- * mid-tone hue can easily admit black text on itself while still being too
- * close in luminance to a light page background to serve as text on it.
- * Reproduced live: a real theme's accent read at 2.15:1 as text against its
- * own background, well under the 4.5 a real eyebrow label needed.
- */
 function resolveReadableSurface(
   surface: string,
   minimum: number,

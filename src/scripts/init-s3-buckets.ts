@@ -1,4 +1,3 @@
-/* eslint-disable no-console -- why: standalone CLI initialization script */
 import {
   CreateBucketCommand,
   PutBucketPolicyCommand,
@@ -8,8 +7,7 @@ import {
 import { getEnv } from "@/lib/config/config";
 import { getStorageProvider } from "@/lib/storage/storage-provider";
 
-// Anonymous-read policy for the PUBLIC bucket only (display media is public by
-// design). Private bucket gets no policy → only signed requests read it.
+// Public bucket hosts public display media; private bucket requires signed requests
 const PUBLIC_READ_POLICY = JSON.stringify({
   Statement: [
     {
@@ -24,7 +22,6 @@ const PUBLIC_READ_POLICY = JSON.stringify({
 
 export async function ensureS3Buckets(): Promise<void> {
   // Only auto-create under the local (MinIO) provider — R2 buckets are
-  // created manually in the Cloudflare dashboard (managed infra).
   if (getStorageProvider() !== "local") {
     return;
   }

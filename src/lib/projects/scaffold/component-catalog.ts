@@ -1,10 +1,3 @@
-/**
- * Comprehensive Catalog of all 45+ Pre-seeded Shadcn/UI Components
- * and Creative Layout Primitives for the AI Landing Page Generator.
- *
- * Single source of truth for the model during code generation.
- */
-
 export interface ComponentDocumentation {
   name: string;
   module: string;

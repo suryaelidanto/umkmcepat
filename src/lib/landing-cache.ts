@@ -1,5 +1,4 @@
 // Matches Auth.js session cookies (authjs.session-token, and the
-// __Secure-authjs.session-token variant behind TLS terminators).
 const AUTH_COOKIE_PATTERN = /(?:^|;\s*)[^;=]*session-token=/i;
 const LANDING_PATHS = new Set(["/", "/privacy", "/terms", "/support"]);
 const LANDING_CACHE_CONTROL = "public, s-maxage=60, stale-while-revalidate=300";

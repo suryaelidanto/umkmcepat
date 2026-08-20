@@ -132,8 +132,6 @@ describe("buildBriefPatchFromWorkspaceAnswers", () => {
 
   it("promotes snake_case question ids to typed brief fields (regression: thin brief)", () => {
     // The discuss model generates question ids like business_name / primary_offer
-    // / contact; answers to those must fill the typed brief fields the batched
-    // build admission reads, not just facts/decisions.
     const patch = buildBriefPatchFromWorkspaceAnswers({
       card: {
         type: "question",

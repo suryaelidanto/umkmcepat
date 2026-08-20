@@ -295,12 +295,6 @@ export function ${isHome ? "HomeRouteComponent" : "KelasRouteComponent"}() {
   };
 };
 
-/**
- * The prompt states the plan shape as a real JSON skeleton whose creative
- * fields are `<placeholder>` strings. Extracting and filling it here keeps the
- * prompt and the strict parser provably in sync — a drifted prompt stops
- * parsing instead of failing later against a live model.
- */
 function extractPlanSkeleton(system: string): unknown {
   const start = system.indexOf(PROFESSIONAL_WRITER_PLAN_SKELETON_LABEL);
   if (start < 0) {
@@ -462,7 +456,6 @@ describe("professional site prompts", () => {
       files: [routeFile("src/routes/index.tsx")],
     });
     // A repair that does not know the primitive API reintroduces the very
-    // violations it was called to fix.
     expect(correction.system).toContain("@/components/site/layout");
     expect(correction.system).toContain("@/lib/preview-ready");
     expect(correction.system).toContain("usePreviewReady()");

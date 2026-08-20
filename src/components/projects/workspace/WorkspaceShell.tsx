@@ -249,12 +249,7 @@ type WorkspaceStateResponse = {
   workspaceCard: WorkspaceCard;
 };
 
-// React.StrictMode intentionally mounts -> unmounts -> remounts each
-// component once in dev, which resets useRef-backed guards and would
-// otherwise fire the auto-send prompt twice for the same project (the first
-// request stays in-flight while a second one starts, tripping the server's
-// discuss lock and leaving the local chat state empty). Module-scope state
-// survives the remount because it isn't tied to a component instance.
+// Module-scope guard survives React.StrictMode remount in dev to avoid duplicate auto-send
 const autoSentProjectIds = new Set<string>();
 
 export { chatBubbleClass } from "@/components/projects/chat/ChatMessage";
@@ -277,7 +272,6 @@ export function WorkspaceShell({
   initialWorkspaceCard,
   initialBrief,
   readOnly = false,
-  // Rename to `autoRetryAttempts` when the composer auto-retry task consumes it.
   autoRetryAttempts: _autoRetryAttempts = 2,
 }: WorkspaceShellProps) {
   const [mode, setMode] = useState<"build" | "discuss">("discuss");
@@ -319,18 +313,12 @@ export function WorkspaceShell({
     heldBuildRecommendationSignature,
     setHeldBuildRecommendationSignature,
   ] = useState<string | null>(null);
-  // Permanent record of build_recommendation signatures already used to start
-  // a build. Once a signature is here, the matching card never renders again —
-  // regardless of build outcome. Survives refresh via localStorage.
   const [
     consumedBuildRecommendationSignatures,
     setConsumedBuildRecommendationSignatures,
   ] = useState<Set<string>>(() =>
     readConsumedBuildRecommendationSignatures(projectId),
   );
-  // Initial postBuildChatOpen should default to true if the project already has
-  // active chat messages or a pending build_recommendation card so that chat
-  // and recommendation cards are immediately interactive on page load.
   const [postBuildChatOpen, setPostBuildChatOpen] = useState(
     () =>
       initialMessages.length > 0 ||
@@ -379,20 +367,15 @@ export function WorkspaceShell({
   const workspaceCardRef = useRef(initialWorkspaceCard);
   const preparingPollRef = useRef<(() => void) | null>(null);
   const loadWorkspaceStateRequestIdRef = useRef(0);
-  // Synchronous lock so the same `submitChatText` call within one tick can't
-  // fire `sendMessage` twice when `isProcessing` state hasn't propagated yet.
   const submitInFlightRef = useRef(false);
 
   const isDesktop = useIsDesktopViewport();
-  // Resume state for the last unanswered user message detected on mount.
-  // Null until a GET /chat/turn lands a failed/expired/cancelled turn.
   const [resumeError, setResumeError] = useState<{
     message: string;
     retryText: string;
   } | null>(null);
   const [isEditingPreview, setIsEditingPreview] = useState(false);
   const visualEditInFlightRef = useRef(false);
-  // Survives refresh: if user sent visual comments, clear them when server job ends OK.
   const pendingVisualRevisionRef = useRef(false);
   const [annotationInstruction, setAnnotationInstruction] = useState("");
   const [pendingAttachments, setPendingAttachments] = useState<
@@ -640,7 +623,6 @@ export function WorkspaceShell({
     queryKey: queryKeys.projectRuntime(projectId),
     queryFn: async () => {
       // During 503 backoff, fail the fetch and keep previous cached data.
-      // Never return a closed-over React state snapshot (stale after builds).
       if (Date.now() < runtimeRetryAfterRef.current) {
         throw new Error("runtime_backoff");
       }
@@ -697,7 +679,6 @@ export function WorkspaceShell({
     }
 
     // Server-owned job hydrate: refresh/HMR must reattach as observer, not
-    // wipe progress or auto-start a second generate.
     const job = result.activeJob;
     const jobRunning =
       job && ["generating", "building", "finalizing"].includes(job.phase || "");
@@ -771,7 +752,6 @@ export function WorkspaceShell({
       }
 
       // After refresh mid-edit, fetch success never runs — clear visual
-      // comments when a pending revision settles on a ready workspace.
       if (pendingVisualRevisionRef.current) {
         pendingVisualRevisionRef.current = false;
         setAnnotations([]);
@@ -945,15 +925,12 @@ export function WorkspaceShell({
     setSourceStatus("not_started");
     setBuildProgress([]);
     // Rows just got cleared, so the record of what was rendered must clear too
-    // — otherwise a replay of this same channel would be deduped into nothing.
     buildStreamDeduperRef.current = createBuildStreamDeduper();
     setBuildStartedAt(Date.now());
     setActiveTab("preview");
     setMobileSurface("preview");
 
     // Permanently consume the current build_recommendation signature (if any)
-    // so the same rancangan can never trigger another build. Retry must use
-    // the "Buat ulang website" CTA, not the original card. Outcome-agnostic.
     const consumedSignature = getBuildRecommendationHoldSignature(
       workspaceCardRef.current,
     );
@@ -981,10 +958,6 @@ export function WorkspaceShell({
 
     try {
       // Mode follows real persisted source only — failed status alone must not
-      // force retry_build (empty-source dead-end). Server re-resolves anyway.
-      // When rebuilding with a new handoff proof or first generation, run
-      // first_generate so the full generation pipeline runs instead of only
-      // replaying old source.
       const generateMode = "first_generate" as const;
       const activeCard = workspaceCardRef.current;
       const cardProof =
@@ -1005,7 +978,6 @@ export function WorkspaceShell({
               handoffId: proof.handoffId,
               reviewHash: proof.reviewHash,
               // Per-invocation nonce: a retry is a genuinely new build and must
-              // not collide with the first attempt's idempotency key.
               idempotencyKey: `build-${projectId}-${proof.handoffId}-${Date.now().toString(36)}`,
             }
           : undefined;
@@ -1045,7 +1017,6 @@ export function WorkspaceShell({
       }
 
       // Read the SSE channel tail from the POST response and route
-      // events through the same handler the late-joiner stream uses.
       if (response.body) {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -1085,7 +1056,6 @@ export function WorkspaceShell({
       return;
     } catch (error) {
       // Abort and network failure both leave a retryable failed state — never
-      // stick on local "building" with no CTA.
       setBuildStatus("failed");
       void loadRuntimeState();
       setBuildProgress((current) =>
@@ -1118,8 +1088,6 @@ export function WorkspaceShell({
   ]);
 
   // Append a one-liner to the chat so the user sees what fields the AI is
-  // building from, then start the build. Gated on canStartBuild to mirror the
-  // server-side readiness check.
   const handleStartBuild = useCallback(async () => {
     if (readOnly || !canStartBuild(workspaceCard) || !latestBrief) {
       return;
@@ -1174,14 +1142,6 @@ export function WorkspaceShell({
 
   useEffect(() => {
     // Guard against double-fire from React.StrictMode's dev-only
-    // mount -> cleanup -> remount cycle. Marking `autoSentProjectIds`
-    // synchronously (the previous approach) backfired: the *phantom* first
-    // mount marked the project as sent and got torn down before its request
-    // landed, so the *surviving* second mount saw "already sent" and skipped
-    // sending entirely — no card, no persisted prompt, nothing.
-    // Deferring the actual send to a macrotask fixes this: the phantom
-    // mount's cleanup cancels its pending timer before it fires, so only the
-    // surviving mount's timer ever runs `sendMessage`.
     if (
       readOnly ||
       hasStartedChat.current ||
@@ -1197,8 +1157,6 @@ export function WorkspaceShell({
     hasStartedChat.current = true;
     const timer = setTimeout(async () => {
       // Refresh recovery: check if a chat turn already exists in the DB.
-      // If yes, don't re-send the initial prompt — reload persisted messages
-      // instead. This prevents the "welcome" flash after a hard reload.
       try {
         const turnRes = await fetch(`/api/projects/${projectId}/chat/turn`, {
           cache: "no-store",
@@ -1206,7 +1164,6 @@ export function WorkspaceShell({
         if (turnRes.ok) {
           autoSentProjectIds.add(projectId);
           // Cannot call reloadLatestChat here — it's defined below
-          // (const function TDZ). Inline a minimal fetch instead.
           const chatRes = await fetch(
             `/api/projects/${projectId}/chat?limit=20`,
             { cache: "no-store" },
@@ -1231,11 +1188,6 @@ export function WorkspaceShell({
       }
 
       // ponytail: first-turn asset inclusion. The home form's images are
-      // persisted as ProjectAsset rows. We could fetch them here and pass
-      // mediaPaths in the body, but that requires a sync query at mount
-      // time and races with the project loader. The AI tool can resolve
-      // assets from the project state when it needs them. Add this only
-      // if first-turn asset inclusion becomes a UX requirement.
       autoSentProjectIds.add(projectId);
       sendMessage({ text: prompt }, { body: { mode } });
     }, 0);
@@ -1256,14 +1208,6 @@ export function WorkspaceShell({
 
   const isResponding = status === "submitted" || status === "streaming";
   const isBuilding = buildStatus === "building";
-  // First load: the initial prompt auto-sends via a macrotask, so useChat's
-  // `status` has not flipped to "submitted" yet and isProcessing would be false
-  // for a frame — flashing the textbox before the spinner card. Hold the
-  // spinner until the first-turn WORKSPACE CARD actually lands (not just the
-  // assistant text), so the textbox only appears once the question/recommend
-  // card is on screen. Escape hatch: if the turn settles (ready/error) without
-  // a card — e.g. a text-only reply or a failed turn — release so we never
-  // deadlock on an endless spinner.
   const allMessages = useMemo(
     () => dedupeUiMessages([...olderMessages, ...messages]),
     [messages, olderMessages],
@@ -1299,12 +1243,6 @@ export function WorkspaceShell({
     Boolean(prompt) &&
     workspaceCard.type === "none" &&
     !firstTurnSettled;
-  // `isRetrying` covers both retryChat() and retryWorkspaceCard() — both
-  // clear the visible error and keep working in the background.
-  // `isPreparingNextQuestion` covers the poll while the server finishes the
-  // next workspace card after a turn. Without both here, the composer falls
-  // through to the free textbox (or renders nothing) while the AI is still
-  // working — looking done when it is not.
   const isProcessing =
     firstTurnPending ||
     isResponding ||
@@ -1313,12 +1251,6 @@ export function WorkspaceShell({
     isRetrying ||
     isPreparingNextQuestion;
 
-  // Drive the workspace card from the streamed assistant tool output as it
-  // arrives, not only on the `status` → `ready` transition. This makes the
-  // card appear in the same render cycle as the AI text instead of after an
-  // extra fetch, and removes the "card flashes old/empty then snaps to new"
-  // gap between stream-end and the post-status effect. Guarded by
-  // isFreshWorkspaceCard so we never redundantly re-set the same card.
   useEffect(() => {
     const toolCard = getWorkspaceCardFromMessages(allMessages);
     if (!toolCard || toolCard.workspaceCard.type === "none") {
@@ -1530,11 +1462,6 @@ export function WorkspaceShell({
     const incoming = result.messages || [];
 
     // After a successful turn the streamed assistant message already IS the
-    // rendered state. A full `setMessages(server)` replace here would re-key
-    // the thread + reset scroll (the "chat reorders / flickers every turn"
-    // symptom). Skip the no-op replace when the server copy is
-    // render-equivalent to what's already on screen. Still update pagination
-    // cursors — those are cheap and the server is the authority for them.
     if (!messagesEqualForRender(allMessagesRef.current, incoming)) {
       setMessages(incoming);
       setOlderMessages([]);
@@ -1623,7 +1550,6 @@ export function WorkspaceShell({
       const behavior = options?.behavior ?? "smooth";
 
       // Instant programmatic jumps would otherwise look like "forced" scrolling.
-      // Only suppress the next scroll event for hard jumps (e.g. user send).
       if (behavior === "auto") {
         ignoreNextScrollRef.current = true;
         element.scrollTop = element.scrollHeight;
@@ -1786,7 +1712,6 @@ export function WorkspaceShell({
 
         if (Date.now() - startedAt >= PREPARING_TIMEOUT_MS) {
           // Final check before declaring failure: the server may have landed a
-          // card between the last poll and this timeout (turn TTL > UI budget).
           try {
             const response = await fetch(
               `/api/projects/${projectId}/workspace`,
@@ -1863,37 +1788,17 @@ export function WorkspaceShell({
 
   useEffect(() => {
     // Release the synchronous submit lock once the chat settles back to idle,
-    // so subsequent stepper / chat submissions aren't blocked forever.
     if (status === "ready" || status === "error") {
       submitInFlightRef.current = false;
     }
   }, [status]);
 
   // Mount-only reset: a reload always starts with a clean submit lock so a
-  // mid-turn disconnect that never returned to `ready`/`error` can't wedge the
-  // composer. The status-driven reset above handles steady-state; this covers
-  // the cold-start case.
   useEffect(() => {
     submitInFlightRef.current = false;
   }, []);
 
   // Auto-resume on cold start: if the last local message is an unanswered user
-  // message, query the server-side turn state and reconcile. Running → poll
-  // until terminal then reload chat. Succeeded → reload chat (persisted reply
-  // is in the DB). Failed/expired/cancelled → surface the error + retry. None
-  // (404) → composer stays ready. Never calls `sendMessage` for a running
-  // turn — that would create a second turn. ponytail: if useChat v4 grows a
-  // clean transport-resume API, swap the poll loop for it; the helper stays.
-  //
-  // Skip while THIS client is actively driving a turn (submitted/streaming).
-  // The optimistic user message that `sendMessage` pushes re-triggers this
-  // effect (deps include `messages`), and the poll races the in-flight POST:
-  // if the GET /chat/turn lands before the POST claims the new running turn,
-  // it sees the PREVIOUS completed turn (`succeeded` → reload) and
-  // `reloadLatestChat` replaces `messages` with a DB copy that doesn't yet
-  // contain the just-sent user message — wiping the user's chat bubble until
-  // the AI finishes replying. Only the cold-start path (`status === ready`
-  // with a trailing user message) is the resume's job.
   useEffect(() => {
     if (status === "submitted" || status === "streaming") {
       return;
@@ -1914,9 +1819,6 @@ export function WorkspaceShell({
         case "reload":
           await reloadLatestChat();
           // A later turn succeeded, so a stale failure banner must not survive
-          // it. A terminal error is different: a refused send creates no turn
-          // at all, so this poll always sees the previous success and would
-          // erase the only explanation the owner ever gets.
           setResumeError(null);
           if (
             !isTerminalChatError({
@@ -2623,7 +2525,6 @@ export function WorkspaceShell({
       }
 
       // Upload attached images to R2 (commit-on-send; nothing left the browser
-      // until now). On failure, keep the attachments so the user can retry.
       const fileParts: FileUIPart[] = [];
       const mediaPaths: string[] = [];
       const uploadErrors: { name: string; message: string }[] = [];
@@ -2703,7 +2604,6 @@ export function WorkspaceShell({
       }
 
       // Lock the channel for the duration of the request so a synchronous
-      // double-invoke (double-tap, React 19 batching edge) cannot post twice.
       submitInFlightRef.current = true;
 
       // User is sending a new turn: re-pin and jump to latest.
@@ -2718,9 +2618,6 @@ export function WorkspaceShell({
       );
 
       // Post-build "Chat dengan AI" is discuss-only. Rebuilds use the
-      // build_recommendation card ("Mulai build"), not an auto /edit build.
-      // Attached images ride as `files` (the SDK carries image content to the
-      // model); mediaPaths tells the agent which /media/<id> to bake in.
       sendMessage(
         {
           files: fileParts.length ? fileParts : undefined,
@@ -2815,7 +2712,6 @@ export function WorkspaceShell({
 
         if (turn.status === "succeeded") {
           // Turn already completed — reload persisted chat rather than
-          // regenerating. This is the "retry should resume, not restart" fix.
           try {
             await reloadLatestChat();
           } finally {
@@ -2885,7 +2781,7 @@ export function WorkspaceShell({
               try {
                 await reloadLatestChat();
               } catch {
-                /* retry remains visible */
+                // best-effort chat reload on stream finish
               } finally {
                 setIsRetrying(false);
               }
@@ -2961,7 +2857,7 @@ export function WorkspaceShell({
             try {
               await reloadLatestChat();
             } catch {
-              /* retry remains visible */
+              // best-effort chat reload on stream finish
             } finally {
               setIsRetrying(false);
             }
@@ -2975,7 +2871,6 @@ export function WorkspaceShell({
     }
 
     // Fallback: no extant /chat/turn (404, fetch error, failed/idle turn)
-    // or turn is not in a reloadable state — regenerate via AI SDK.
     try {
       await regenerate();
     } catch {
@@ -3034,9 +2929,6 @@ export function WorkspaceShell({
     clearError();
 
     // When a prior user turn exists, re-stream it via the normal chat path so
-    // a real chat bubble + card appears (visible feedback). Only fall back to
-    // the one-shot repair_card fetch when there is no user message to replay
-    // (e.g. initial-prepare failure before the user ever typed).
     const hasUserTurn = messages.some((message) => message.role === "user");
     if (hasUserTurn) {
       setWorkspaceCardError(false);
@@ -3164,7 +3056,6 @@ export function WorkspaceShell({
       return;
     }
     // Swipe only switches Diskusi <-> Tampilan on mobile. Off when on Kode
-    // tab so it doesn't fight Monaco's horizontal scroll.
     if (mobileSurface === "preview" && activeTab === "code") {
       return;
     }
@@ -3727,7 +3618,6 @@ export function WorkspaceShell({
                 <CompletedBuildNotice
                   onDiscuss={() => {
                     // Park only an unconsumed rancangan so free discuss opens
-                    // first; never re-hold a plan already used to start a build.
                     if (
                       buildRecommendationSignature &&
                       !consumedBuildRecommendationSignatures.has(
@@ -4189,7 +4079,6 @@ export function WorkspaceShell({
           isSending={isEditingPreview}
           onClose={() => {
             // Dismissing the review tray drops draft comments (work is done
-            // or user abandons). Prevents stale "N komentar siap" badges.
             setAnnotations([]);
             setAnnotationInstruction("");
             pendingVisualRevisionRef.current = false;
@@ -4448,12 +4337,10 @@ function writeHandoffProof(storageKey: string, proof: HandoffProof): void {
     window.localStorage.setItem(storageKey, JSON.stringify(proof));
   } catch {
     // Non-fatal: a retry without persisted proof falls back to the server's
-    // handoff-required message instead of a silent dead button.
   }
 }
 
 // Proof-carrying gate: every build_recommendation must carry a valid handoff
-// proof. The brief is still required (prevents stale-card builds).
 export function canStartBuild(
   card: WorkspaceCard | null | undefined,
   _brief?: ProjectBrief | null | undefined,
@@ -4468,8 +4355,6 @@ export function canStartBuild(
 }
 
 // Legacy single-arg bridge — callers passing only a brief (e.g. older tests)
-// keep compiling; they map to "no card yet" which is not buildable. During the
-// migration no prod path relies on this overload.
 export function canStartBuildFromBrief(
   brief: ProjectBrief | null | undefined,
 ): boolean {
@@ -4477,8 +4362,6 @@ export function canStartBuildFromBrief(
 }
 
 // Fetch the server-side turn state. Returns `null` on a 404 (no turn row for
-// this project — the pre-fix bug where a turn crashed before persist). The
-// caller treats `null` as `idle`.
 async function fetchDiscussTurn(projectId: string): Promise<TurnState | null> {
   try {
     const res = await fetch(`/api/projects/${projectId}/chat/turn`);
@@ -4492,7 +4375,6 @@ async function fetchDiscussTurn(projectId: string): Promise<TurnState | null> {
 }
 
 // Wrapper kept for the effect: fetch then resolve. Separate so the pure
-// resolver stays trivially testable.
 async function resolveDiscussResumeFromServer(
   projectId: string,
 ): Promise<DiscussResume> {

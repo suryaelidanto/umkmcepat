@@ -131,10 +131,6 @@ export function applyGeneratedSiteThemeV2(input: {
   theme: CompiledGeneratedSiteThemeV2;
 }): GeneratedProjectFile[] {
   // normalizeSiteSchemaForEmit fills missing product/paymentMethod keys with
-  // "" so every array element shares one shape under `as const`. Re-emitting
-  // straight from input.schema here silently undid that: a real writer
-  // referenced product.description and it genuinely did not exist on the
-  // re-emitted file's first product.
   const siteContent = `export const site = ${JSON.stringify(
     normalizeSiteSchemaForEmit({
       ...input.schema,

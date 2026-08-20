@@ -1,14 +1,3 @@
-// src/lib/projects/batched-generator.ts
-// Batched-generation writer: ONE streamed response emits all project files as
-// parseable blocks (see batched-response.ts for the contract). The parser
-// stages + validates; failures get up to 2 targeted repair rounds; budget
-// exhausted → `needsFallback` and the caller (build-attempt-worker) runs the
-// legacy ToolLoopAgent unchanged.
-//
-// Guarantees match the legacy path: path allow-list, TSX parse check,
-// import allow-list (platform package policy), required file coverage, and
-// a deterministic design lint. No tools — the model emits plain structured
-// text; every byte is validated before landing.
 import { streamText } from "ai";
 import ts from "typescript";
 
@@ -99,10 +88,6 @@ import { SHADCN_COMPONENT_BY_NAME } from "@/lib/projects/scaffold/shadcn-compone
 import { compileShadcnTheme } from "@/lib/projects/scaffold/shadcn-theme";
 import { createViteTanStackShadcnStarterFiles } from "@/lib/projects/scaffold/vite-tanstack-shadcn-starter";
 
-// ---------------------------------------------------------------------------
-// Constants shared with gates
-
-/** Dependency allow-list source of truth: the scaffold's own package.json. */
 function allowedPackageNamesFrom(
   starterFiles: GeneratedProjectFile[],
 ): Set<string> {
@@ -127,25 +112,16 @@ function allowedPackageNamesFrom(
 const IMPORT_SPECIFIER_PATTERN =
   /\b(?:import|export)[\s\S]*?\bfrom\s+["']([^"']+)["']|\bimport\s*[\(\s]["']([^"']+)["']/g;
 
-/** File extensions the @/ alias can resolve to (mirrors the tsconfig path
- * mapping + Vite's default resolve.extensions). */
 const ALIAS_RESOLVE_EXTENSIONS = [".ts", ".tsx", ".d.ts"] as const;
 
-/** External placeholder/image hosts the design lint rejects. */
 const BANNED_URL_PATTERN =
   /https?:\/\/(?:www\.)?(?:placehold\.co|via\.placeholder\.com|picsum\.photos|unsplash\.com|images\.unsplash\.com|dummyimage\.com|loremflickr\.com|placekitten\.com|lorem\.picsum)/i;
 
 const REQUIRED_STAGE_PATHS = ["src/routes/index.tsx"] as const;
 
-/** Starter-scaffold boilerplate the writer must replace. Matches the default
- * CTAs and feature-card copy from the TanStack starter — any hit means the AI
- * shipped scaffold rot instead of rewriting the home page from site.ts. */
 const STARTER_BOILERPLATE_PATTERN =
   /Read the Blog|View on GitHub|href="\/blog"|href="https:\/\/github\.com"|MDX Ready|Fast\s+\+\s+Beautiful|Beautiful\s+\+\s+MDX/i;
 
-/** Fields the gate enforces rendering for, in priority order. Only those the
- * staged site.ts actually populated are checked — empty fields are skipped so
- * a minimal 2-field brief is not penalized. */
 const RENDER_REQUIRED_SITE_FIELDS = [
   "headline",
   "subheadline",
@@ -160,18 +136,9 @@ const RENDER_REQUIRED_SITE_FIELDS = [
   "socialLinks",
 ] as const;
 
-/** Regex-scan site.ts for which fields hold real data. Avoids eval — a
- * malformed site object never crashes the gate. Handles both single-line
- * and multi-line site.ts emissions. A field counts as populated when its
- * value is a non-empty string, a non-empty array, or a non-empty object. */
 function detectPopulatedSiteFields(siteTsContent: string): readonly string[] {
   const populated: string[] = [];
   // Match each top-level key: 'field': value  or  field: value. Value is one
-  // of: quoted string, bracketed array, braced object, or bare scalar. Stops
-  // at the next comma or closing brace. Nested brackets/braces are not
-  // balanced — the schema's rich fields are arrays of flat objects, so a
-  // first-bracket cut is sufficient. ponytail: upgrade to a real TS parse if
-  // site.ts grows deeply nested content.
   const fieldRe =
     /"?([a-zA-Z_][a-zA-Z0-9_]*)"?\s*:\s*("[^"]*"|'[^']*'|\[[^\]]*\]|\{[^}]*\}|[^,}\n]*)/g;
   let m: RegExpExecArray | null;
@@ -206,11 +173,6 @@ function isPopulatedValue(raw: string): boolean {
   return raw.length > 0 && raw !== "undefined" && raw !== "null";
 }
 
-/** Parse index.tsx with the TypeScript compiler and return the set of site.*
- * fields that appear inside JSX expression containers ({...}) or as JSX
- * children — i.e. actually rendered, not just mentioned in a comment or
- * assigned to an unused variable. This is the semantic check the old
- * presence-regex gate could not do. */
 function renderedSiteFieldsInIndex(indexContent: string): Set<string> {
   const rendered = new Set<string>();
   const sourceFile = ts.createSourceFile(
@@ -222,7 +184,6 @@ function renderedSiteFieldsInIndex(indexContent: string): Set<string> {
   );
   const visit = (node: ts.Node) => {
     // site.<field> inside a JSX expression container {site.headline} counts
-    // as rendered. Also site.<field>.map(...) inside JSX renders.
     if (
       ts.isPropertyAccessExpression(node) &&
       ts.isIdentifier(node.expression) &&
@@ -239,9 +200,6 @@ function renderedSiteFieldsInIndex(indexContent: string): Set<string> {
   return rendered;
 }
 
-/** Walk up parents: true when the site.<field> access is inside a JSX
- * expression container ({...}) or is a JSX child. Comments, unused variable
- * initializers, and console.log args do not count. */
 function isInsideJsx(node: ts.Node): boolean {
   let current: ts.Node | undefined = node.parent;
   while (current) {
@@ -255,7 +213,6 @@ function isInsideJsx(node: ts.Node): boolean {
       return true;
     }
     // Stop at function/block boundaries — an access inside a non-JSX arrow
-    // fn body that is never called from JSX is not rendered.
     if (ts.isFunctionDeclaration(current) || ts.isBlock(current)) {
       return false;
     }
@@ -263,9 +220,6 @@ function isInsideJsx(node: ts.Node): boolean {
   }
   return false;
 }
-
-// ---------------------------------------------------------------------------
-// Public types
 
 export type BatchedGenerateResult =
   | {
@@ -290,12 +244,6 @@ export type BatchedGenerateEventSink = (
   data: Record<string, unknown>,
 ) => void;
 
-// ---------------------------------------------------------------------------
-// Prompt builder
-
-// ---------------------------------------------------------------------------
-// Validation gates
-
 export function collectBatchedPerFileIssues(input: {
   allowedPackages: ReadonlySet<string>;
   file: { content: string; path: string };
@@ -304,8 +252,6 @@ export function collectBatchedPerFileIssues(input: {
   const { file } = input;
 
   // JSX must never appear in a .ts file — content files are data-only modules
-  // (ts.transpileModule flags this too, but with a confusing --jsx option
-  // message). Flag it directly so the writer repair gets a clear instruction.
   if (
     /\.ts$/.test(file.path) &&
     /<[A-Za-z][^>]*>|<\/[A-Za-z]/.test(file.content)
@@ -414,9 +360,6 @@ export function collectBatchedGateIssues(
   }
 
   // Starter-boilerplate ban: reject the scaffold's default CTAs/copy that
-  // ship when the AI ignores site.ts. These literals only appear in the
-  // untouched starter, so any match means the writer did not rewrite the
-  // home page from the brief.
   if (indexFile && STARTER_BOILERPLATE_PATTERN.test(indexFile.content)) {
     issues.push(
       'src/routes/index.tsx ships starter boilerplate ("Read the Blog", "View on GitHub", "⚡ Fast", "🎨 Beautiful", "📝 MDX Ready", or /blog + github.com hrefs) — rewrite the home page from site.* content. The gate rejects scaffold rot.',
@@ -424,8 +367,6 @@ export function collectBatchedGateIssues(
   }
 
   // site.ts schema-drift detector: only read fields that exist on the site
-  // object. Invented fields (site.phone, site.tagline, site.name,
-  // site.address) fail tsc after the AI pass and burn repairs.
   const SITE_KNOWN_FIELDS = new Set([
     "businessName",
     "eyebrow",
@@ -473,12 +414,6 @@ export function collectBatchedGateIssues(
   }
 
   // Render-completeness gate (data-driven): parse the staged site.ts to learn
-  // which fields the brief populated, then assert each populated field is
-  // actually RENDERED in index.tsx — not just mentioned in a comment or
-  // unused variable. This is the check that catches the failure mode where
-  // the writer references site.headline once but ships starter cards for
-  // everything else. Reads site.ts with a regex (not eval) so a malformed
-  // site object never crashes the gate.
   if (indexFile) {
     const siteFile = stagedFiles.find((f) => f.path === "src/content/site.ts");
     const populatedFields = siteFile
@@ -495,10 +430,6 @@ export function collectBatchedGateIssues(
   }
 
   // The scaffold uses manual routing (createRoute in src/router.tsx), not
-  // TanStack file-route boilerplate. createFileRoute is a type-only helper in
-  // this router version — calling it with a path string fails the tsc build
-  // gate ("Argument of type '\"/\"' is not assignable to parameter of type
-  // 'undefined'") and the Route export never reaches the router tree.
   for (const file of stagedFiles) {
     if (
       /^src\/routes\/.+\.tsx$/.test(file.path) &&
@@ -530,13 +461,6 @@ export function collectBatchedGateIssues(
   }
 
   // Touch-target gate (deterministic source-side mirror of the browser
-  // check): the primary WhatsApp/CTA anchor must be wrapped in the <Button>
-  // component so it inherits the 44px min-height from the design system. A
-  // bare <a> renders at text height (~32px) and fails the browser
-  // touch-target assertion after a full build — catch it here with a clear
-  // repair instruction instead. Also catch bare CTA-text anchors (Pesan/Chat/
-  // Order/Klaim/...) that are not WhatsApp links — the browser gate picks
-  // the largest such anchor as the primary CTA and fails it at ~32px.
   const WRAPPED_CTA =
     /<Button\b[^>]*>\s*<a[^>]*\bhref=["']https?:\/\/(?:wa\.me|api\.whatsapp\.com)/;
   const ANY_WA_CTA =
@@ -550,7 +474,6 @@ export function collectBatchedGateIssues(
     const hasBareWaCta =
       ANY_WA_CTA.test(file.content) && !WRAPPED_CTA.test(file.content);
     // A bare CTA-text anchor is only flagged when it is NOT already inside a
-    // <Button> — detect by the absence of <Button wrapping any <a> in the file.
     const hasButtonWrap = /<Button\b[^>]*>\s*<a/.test(file.content);
     const hasBareTextCta = CTA_TEXT.test(file.content) && !hasButtonWrap;
     if (hasBareWaCta || hasBareTextCta) {
@@ -561,11 +484,6 @@ export function collectBatchedGateIssues(
   }
 
   // Design-token discipline: the scaffold compiles a WCAG theme into
-  // src/index.css (--background, --foreground, --accent, ...) and exposes
-  // them as Tailwind utilities (bg-background, text-accent, border-border).
-  // Arbitrary hex color utilities (bg-[#0b0b0d], text-[#d4af37]) bypass the
-  // token system — a re-theme will not propagate, and contrast is not
-  // verified. Flag them so the model uses the themed utilities instead.
   const ARBITRARY_COLOR =
     /\b(?:bg|text|border|ring|fill|stroke|from|to|via|shadow|outline|divide|accent)-\[#[0-9a-fA-F]{3,8}\]/;
   for (const file of stagedFiles) {
@@ -580,7 +498,6 @@ export function collectBatchedGateIssues(
   }
 
   // Social-link href gate: site.socialLinks entries carry both `handle` and
-  // `url`; using `handle` ("@suryaphone") as href produces a broken link.
   for (const file of stagedFiles) {
     if (!file.path.endsWith(".tsx")) {
       continue;
@@ -593,11 +510,6 @@ export function collectBatchedGateIssues(
   }
 
   // Local alias import gate: @/foo must resolve to a staged source file
-  // (src/foo.{ts,tsx,d.ts} or src/foo/index.{ts,tsx}) or tsc fails with
-  // "Cannot find module". The per-file import allow-list skips all @/ paths
-  // because it cannot see the full file set — resolve them here against the
-  // staged paths so a phantom @/lib/wa or @/content/faq is caught before a
-  // full build.
   const stagedPaths = new Set(stagedFiles.map((f) => f.path));
   for (const file of stagedFiles) {
     if (!/\.[mc]?[tj]sx?$/.test(file.path)) {
@@ -627,14 +539,6 @@ export function collectBatchedGateIssues(
   return issues;
 }
 
-// ---------------------------------------------------------------------------
-// Runner
-
-/**
- * Normalized result of one streamed response (writer / format-repair /
- * targeted repair). Exported so the batched edit runner (Phase 2) shares the
- * same call chassis — parser, per-file events, telemetry, write-through.
- */
 export type BatchedStreamModelEvidence = {
   modelRequested: string;
   modelServed: string | null;
@@ -656,11 +560,9 @@ export type BatchedStreamCallResult = BatchedStreamModelEvidence & {
   usage?: { inputTokens?: number; outputTokens?: number };
   requestMs: number;
   firstFileClosedMs?: number | null;
-  /** Set when the stream fast-failed on a structurally broken .tsx block. */
   syntaxIssue?: string;
 };
 
-/** Syntax error in one emitted <file/> block, thrown to fast-fail the stream. */
 export class WriterTsxSyntaxError extends Error {
   readonly path: string;
   constructor(input: { message: string; path: string }) {
@@ -697,14 +599,6 @@ function firstTsxSyntaxError(
   };
 }
 
-/**
- * Semantic gate a staged <file> block must pass before the batched-edit
- * worker may persist it to `project.sourceFiles`. Mirrors the merge-time
- * rules the runners apply: protected scaffold paths never land, and a
- * structurally-broken TSX block never lands mid-stream (targeted repair
- * re-emits it). ponytail: extend with a caller-supplied scope set if/when a
- * caller tracks writer targets or repair implicated paths at persist time.
- */
 export function isBatchedFilePersistable(file: BatchedFile): boolean {
   if (isProtectedScaffoldPath(file.path)) {
     return false;
@@ -712,7 +606,6 @@ export function isBatchedFilePersistable(file: BatchedFile): boolean {
   return firstTsxSyntaxError(file) === null;
 }
 
-/** Snapshot of parser-stage into the plain map shape results carry. */
 function parserStagedMap(
   parser: ReturnType<typeof createBatchedResponseParser>,
 ): Map<string, { content: string; path: string }> {
@@ -729,12 +622,6 @@ function parserStagedMap(
 export async function runOneStreamedResponse(args: {
   abortSignal?: AbortSignal;
   onEvent?: BatchedGenerateEventSink;
-  /**
-   * Durable write-through: full staged content as each block closes. The
-   * callback receives each complete block as-is; the CALLER is responsible
-   * for running `isBatchedFilePersistable` (protected-path / TSX / scope
-   * gate) before persisting — see edit-attempt-worker's persistBatchedStage.
-   */
   onFileStaged?: (file: BatchedFile) => void;
   onFileWritten?: (path: string) => void;
   phase: "writer" | "format-repair" | "repair" | "visual-repair";
@@ -759,7 +646,6 @@ export async function runOneStreamedResponse(args: {
   maxRetries?: 0 | 2;
   stepCharger?: StepCharger;
   system: string;
-  /** Ledger task. Phase 1 generate uses build-step/build-repair; Phase 2 edit uses "edit" for every leg. */
   task?: "build-step" | "edit";
   user: string;
 }): Promise<BatchedStreamCallResult> {
@@ -788,9 +674,6 @@ export async function runOneStreamedResponse(args: {
   let usage: { inputTokens?: number; outputTokens?: number } | undefined;
   const writtenThisCall = new Set<string>();
   // Declared OUTSIDE the try so the WriterTsxSyntaxError catch below can
-  // still resolve partial usage/modelServed. Kept as `| undefined` even
-  // though the catch is only reachable when streamText already assigned —
-  // TS can't prove that across the try/catch boundary.
   let result: ReturnType<typeof streamText> | undefined;
 
   try {
@@ -803,9 +686,6 @@ export async function runOneStreamedResponse(args: {
     result = streamText({
       model: getAiModel(requestedModel),
       // The V2 contract permits one compact route. The parser stops the
-      // stream as soon as that route closes. Repairs get a larger ceiling
-      // because they must first understand the failed candidate before
-      // emitting a complete replacement.
       maxOutputTokens:
         args.designPlanV3Expected ||
         (args.designPlanV2Expected &&
@@ -833,7 +713,6 @@ export async function runOneStreamedResponse(args: {
         stopTimer.firstChunk();
         parser.push(part.text);
         // Emit per-file progress as each block closes — the parser stages
-        // files incrementally, so a size bump means a file just finished.
         if (parser.stagedPaths.length > lastFileCount) {
           for (const path of parser.stagedPaths) {
             if (!writtenThisCall.has(path)) {
@@ -843,10 +722,6 @@ export async function runOneStreamedResponse(args: {
                 firstFileClosedMs ??= Date.now() - callStartedAt;
                 args.onFileStaged?.(stagedFile);
                 // Cheap per-file TSX gate at stage time: the tail of the
-                // response can't fix an already-broken block, but it CAN
-                // re-emit the same path (duplicate-diagnostic, last-wins) —
-                // so bail immediately and let the caller's targeted repair
-                // handle it instead of burning the rest of the stream.
                 const tsxError = firstTsxSyntaxError(stagedFile);
                 if (tsxError) {
                   throw new WriterTsxSyntaxError(tsxError);
@@ -928,17 +803,11 @@ export async function runOneStreamedResponse(args: {
     };
   } catch (error) {
     // Fast-fail on a structurally-broken TSX block mid-stream (see above):
-    // the remainder of the response can't repair it, so hand the caller a
-    // partial-snapshot result instead of a thrown transport error. Tokens up
-    // to the throw are still real usage — charge them via the same step
-    // charger the success path uses, and tag the ledger row status=error.
     if (error instanceof WriterTsxSyntaxError) {
       const { requestMs, ttftMs } = stopTimer();
       const ledgerTask =
         args.task ?? (args.phase === "writer" ? "build-step" : "build-repair");
       // Best-effort: usage/model may already be resolvable even though the
-      // text loop bailed early. Never let a usage-resolution failure mask the
-      // syntax signal — the caller still gets the partial snapshot.
       const partialUsage = result
         ? await Promise.resolve(result.usage).catch(() => undefined)
         : undefined;
@@ -1026,8 +895,6 @@ export async function runOneStreamedResponse(args: {
           diagnostics: [],
           doneSummary: null,
           // Keep whatever the parser staged before the hard error — a
-          // truncated tail must not wipe complete earlier blocks; the
-          // format-repair retry overlays them via duplicate-file last-wins.
           files: parserStagedMap(parser),
           proposals: [],
         },
@@ -1038,8 +905,6 @@ export async function runOneStreamedResponse(args: {
 }
 
 // NOTE: per-file progress events ride parser.stagedPaths — a read-only view
-// the parser maintains while streaming, so UI updates land as each </file>
-// closes rather than in a burst at <done>.
 
 export async function runBatchedGenerate(input: {
   abortSignal?: AbortSignal;
@@ -1083,11 +948,6 @@ export async function runBatchedGenerate(input: {
   });
 
   // Stage = scaffold starter files as the base, overlaid by batched AI
-  // files. Pre-seeding the scaffold files (site.ts, index.css, preview-ready,
-  // __root.tsx, main.tsx) into staged is required for the completeness gate —
-  // it reads site.ts to learn which fields are populated, and those files are
-  // platform-owned (the AI never emits them), so they must already be present
-  // when the gate runs.
   const staged = new Map<string, { content: string; path: string }>();
   for (const file of starterFiles) {
     staged.set(file.path, { content: file.content, path: file.path });
@@ -1191,11 +1051,6 @@ export async function runBatchedGenerate(input: {
   });
 
   // -- Format repair: parser hard error on the writer pass -> 1 retry. -----
-  // Hardening for truncation (cmspc6zv: Stream ended mid-<file> for ProductSection.tsx):
-  // the batched writer hits maxOutputTokens (24k) or transient network cut and the
-  // stream ends inside a <file> block. A single "re-emit everything" retry also
-  // truncates at the same token budget. Instead preserve already-staged files
-  // and resume only the truncated file + remaining files.
   const isTruncationError = (error: BatchedParseError) =>
     error.code === "truncated-file" ||
     error.code === "truncated-tag" ||
@@ -1239,7 +1094,6 @@ export async function runBatchedGenerate(input: {
         }
       }
       // Both writer + format-repair truncated -> try one truncation-resume that
-      // avoids re-emitting already-staged files, cutting token load in half.
       if (
         firstParseError &&
         isTruncationError(firstParseError) &&
@@ -1275,7 +1129,6 @@ export async function runBatchedGenerate(input: {
             }
           }
           // Also merge any proposals carried by the truncated attempts
-          // (rare, but keep them for mergeFinalFiles).
           for (const p of truncatedStaged.keys()) {
             void p;
           }
@@ -1289,8 +1142,6 @@ export async function runBatchedGenerate(input: {
       }
     } else if (truncatedStaged.size > 0) {
       // Format-repair succeeded but first writer had staged files before truncation
-      // (e.g. index.tsx closed before ProductSection truncated). Merge them so
-      // the final stage is not missing already-persisted files.
       for (const [path, file] of truncatedStaged) {
         if (!writerCall.response.files.has(path)) {
           writerCall.response.files.set(path, file);
@@ -1368,13 +1219,6 @@ export async function runBatchedGenerate(input: {
       };
     }
     // Scope enforcement: a repair response may ONLY rewrite the files it was
-    // asked to fix (implicated paths) or supply a still-missing required file.
-    // Anything else is dropped and surfaced as a diagnostic for the next
-    // round — never silently merged into the stage.
-    // Renamed-sibling allowance: when a .ts content file is flagged for JSX,
-    // the natural fix is renaming it to .tsx. Allow the .tsx sibling of any
-    // implicated .ts path so that legit rename fixes are not dropped as
-    // out-of-scope (which previously forced the slow legacy fallback).
     const requiredMissing = REQUIRED_STAGE_PATHS.filter(
       (path) => !staged.has(path),
     );
@@ -1397,8 +1241,6 @@ export async function runBatchedGenerate(input: {
       }
     }
     // Renamed-sibling cleanup: when a repair renames src/content/menu.ts to
-    // menu.tsx, drop the stale .ts entry — otherwise the gate keeps flagging
-    // the old JSX-bearing file and the build falls back to the legacy loop.
     for (const stagedPath of [...staged.keys()]) {
       if (
         stagedPath.endsWith(".ts") &&
@@ -1437,11 +1279,6 @@ export async function runBatchedGenerate(input: {
   }
 
   // Deterministic fix for AI hallucinated preview-ready import.
-  // The scaffold provides src/lib/preview-ready.ts with `usePreviewReady`,
-  // but cheap models emit variants like `../hooks/usePreviewReady`,
-  // `../lib/usePreviewReady` or `../preview` (wrong dir / filename) which
-  // then fails tsc as TS2307. Normalize any preview-related import that
-  // co-occurs with usePreviewReady usage to the canonical alias.
   for (const [path, file] of staged) {
     if (path.endsWith(".tsx") || path.endsWith(".ts")) {
       let content = file.content;
@@ -1452,7 +1289,6 @@ export async function runBatchedGenerate(input: {
         'from "@/lib/preview-ready"',
       );
       // Secondary: bare preview import (e.g. '../preview', '../lib/preview')
-      // when the file actually calls usePreviewReady() — also hallucinated.
       if (
         content.includes("usePreviewReady") &&
         /from\s+["'][^"']*\/preview["']/.test(content)
@@ -1463,8 +1299,6 @@ export async function runBatchedGenerate(input: {
         );
       }
       // Tertiary: bare '../hooks' or '../hooks/usePreviewReady' import when
-      // the file calls usePreviewReady() — the scaffold has no hooks dir; the
-      // AI invented it. Rewrite to the canonical alias.
       if (
         content.includes("usePreviewReady") &&
         /from\s+["'][^"']*hooks[^"']*["']/.test(content)
@@ -1475,26 +1309,16 @@ export async function runBatchedGenerate(input: {
         );
       }
       // Tertiary: shadcn casing — AI emits "@/components/ui/Button" (capital)
-      // but file is lowercase "button.tsx" on case-sensitive Linux. Normalize.
       content = content.replace(
         /from\s+["']@\/components\/ui\/([^"']+)["']/g,
         (_m, name) => `from "@/components/ui/${name.toLowerCase()}"`,
       );
       // Quaternary: "~/..." path alias — the scaffold uses "@/", not "~/".
-      // Some models emit "~/lib/..." or "~/components/..." which fails the
-      // package allow-list gate ("~" is not a declared package). Rewrite to
-      // the canonical "@/" alias.
       content = content.replace(
         /from\s+["']~\/([^"']+)["']/g,
         (_m, rest) => `from "@/${rest}"`,
       );
       // Quinary: site.* nested field-name normalization. The AI often uses
-      // wrong property names in .map() callbacks on site.* arrays. Rewrite
-      // the common mismatches by scanning for the callback param name and
-      // fixing its property accesses. This is a targeted string rewrite, not
-      // a full AST walk — it handles the <80% case (map callbacks) that tsc
-      // would otherwise fail on. ponytail: upgrade to a real tsc type-check
-      // gate if the AI invents new wrong names outside this set.
       const collectionFields: Array<{
         collection: string;
         rewrites: Array<[string, string]>;
@@ -1563,7 +1387,6 @@ export async function runBatchedGenerate(input: {
         }
       }
       // currentPromo is a string, not an object — strip object property
-      // accesses so it renders the string itself.
       content = content.replace(
         /site\.currentPromo\.(?:title|description|code|text|label|body|content|name)\b/g,
         "site.currentPromo",
@@ -1712,12 +1535,6 @@ export async function runReferenceCalibratedGenerate(input: {
   const firstFileClosedMs =
     writer.firstFileClosedMs ?? (editableFiles.length > 0 ? writerMs : null);
   // Checked immediately, on every response shape — including a malformed one
-  // that returns early below — because mergeFinalFiles silently drops a
-  // protected-path overlay rather than rejecting it. Without this, a writer
-  // that ignored "read-only" and re-emitted src/content/site.ts with its own
-  // paraphrase of the facts would report ok:true with the forged content
-  // merely discarded, never surfaced. Checked against staged (what the writer
-  // actually emitted for the whole call), matching the gateStage fix above.
   const forgedProtectedFiles = editableFiles.filter((file) =>
     isProtectedScaffoldPath(file.path),
   );
@@ -2080,9 +1897,6 @@ function gateStage(input: {
   const starterByPath = new Map(input.starterFiles.map((f) => [f.path, f]));
   const issues: string[] = [];
   // Flag protected scaffold paths the AI tried to overwrite. Presence in
-  // starterPaths is not evidence of legitimacy — every protected path is
-  // always pre-seeded from the starter, so a presence-only check could never
-  // fire; it must compare content against the starter's own version.
   for (const [path, file] of input.staged) {
     if (!isProtectedScaffoldPath(path)) {
       continue;
@@ -2095,7 +1909,6 @@ function gateStage(input: {
     }
   }
   // Per-file checks (TSX parse, import allow-list) run ONLY on AI-emitted
-  // files — the starter files are platform-owned and already validated.
   for (const file of stagedFiles) {
     if (starterByPath.has(file.path)) {
       continue;
@@ -2133,7 +1946,6 @@ function gateStage(input: {
   return issues;
 }
 
-/** Call out the files diagnostic lines blame; fall back to every staged file. */
 function extractImplicatedPaths(
   diagnostics: string[],
   staged: Map<string, { content: string; path: string }>,
@@ -2190,8 +2002,6 @@ function mergeFinalFiles(
   }
 
   // Propose-blocks auto-approve only when the basename is a known shadcn
-  // registry component at the canonical path; never trust proposed content
-  // for anything else — we materialize the platform-owned source ourselves.
   for (const proposal of proposals) {
     const basename = proposal.path.match(/([^/]+)\.tsx$/)?.[1];
     if (!basename) {
@@ -2213,7 +2023,6 @@ function mergeFinalFiles(
   for (const [path, file] of staged) {
     if (isProtectedScaffoldPath(path)) {
       // Never land platform-owned source — the repair loop surfaces the
-      // diagnostic; merge just drops the staged overlay for these paths.
       continue;
     }
     byPath.set(path, { content: file.content, path });

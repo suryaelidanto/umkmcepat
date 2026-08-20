@@ -223,7 +223,6 @@ describe("workspace chat sync", () => {
     ).toBe("free_chat");
 
     // post-build with chat open: card would normally be build_recommendation,
-    // but signature was consumed → falls back to post_build_chat
     expect(
       getWorkspaceComposerState({
         buildComplete: true,
@@ -645,10 +644,6 @@ describe("messagesEqualForRender", () => {
 });
 
 // Regression: when the preview runtime cannot serve (e.g. PROJECT_RUNTIME_SUPERVISOR=noop
-// in production, or the generated app never calls usePreviewReady()), the iframe never
-// posts the preview-ready signal. The old loader reloaded the iframe every 12s forever,
-// showing an endless spinner. The ready state must escalate to a terminal "stuck" state
-// after a bounded number of silent recoveries so the UI can fail honestly.
 describe("previewReadyState", () => {
   it("stays loading before the silent-recovery budget is exhausted", () => {
     for (

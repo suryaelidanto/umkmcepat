@@ -189,7 +189,6 @@ export function EnergyBoosterModal({
         </DialogHeader>
 
         {isCreating ? (
-          /* Fullscreen Modal Redirecting State with Selected Pack's Mascot Celebration */
           <div className="flex flex-col items-center gap-3.5 py-4 text-center animate-in fade-in-50 duration-300">
             <BoosterMascot
               packId={selectedPack}

@@ -11,10 +11,6 @@ export type JobReaperResult = {
 
 let reaperTimer: ReturnType<typeof setInterval> | null = null;
 
-/**
- * Global sweep: stale builds, expired project leases, expired discuss turns.
- * Idempotent; safe to call from interval and from user routes.
- */
 export async function runJobReaperOnce(
   now = new Date(),
 ): Promise<JobReaperResult> {
@@ -130,7 +126,6 @@ export function startJobReaper(intervalMs = 60_000): void {
   });
 }
 
-/** Test-only. */
 export function stopJobReaperForTests(): void {
   if (reaperTimer) {
     clearInterval(reaperTimer);

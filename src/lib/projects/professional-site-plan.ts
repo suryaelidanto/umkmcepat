@@ -41,10 +41,6 @@ export type WriterDesignPlanV3 = {
   }>;
 };
 
-/**
- * The writer prompt is generated from these same lists, so a plan field can
- * never be demanded by the parser without being stated to the writer.
- */
 export const WRITER_DESIGN_PLAN_V3_KEYS = [
   "schemaVersion",
   "blueprintHash",

@@ -55,7 +55,6 @@ export function getDiscussModel() {
   return resolveTaskModel("ai.model.discuss", ["AI_MODEL_DISCUSS"]);
 }
 
-/** Build pipeline + edit agent. */
 export function getGenerationModel() {
   return resolveTaskModel("ai.model.build", [
     "AI_MODEL_BUILD",

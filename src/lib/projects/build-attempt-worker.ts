@@ -170,7 +170,6 @@ export async function runBuildAttempt({
     data: Record<string, unknown>,
   ) {
     // Op payloads use `type` for the tool name (write_file, …). Put channel
-    // event type last so it is not clobbered; surface tool name as `tool`.
     const toolType =
       event === "operation" && typeof data.type === "string"
         ? data.type
@@ -292,7 +291,6 @@ export async function runBuildAttempt({
       });
 
       // Deterministic heal: rewrite unregistered <Link to="/x"> to hash
-      // anchors so TanStack's typed Link does not fail the TS build on retry.
       sourceFiles = ensureRegisteredRouteLinks(sourceFiles);
 
       const [retryBriefRow] = await prisma.$queryRaw<[{ brief: unknown }]>`
@@ -414,8 +412,6 @@ export async function runBuildAttempt({
         }).catch(() => undefined);
       } else if (!sourceStepCharger.isExhausted()) {
         // ponytail: when energy halted the build mid-loop, the
-        // energy_exhausted informational event is the user-facing truth;
-        // skip the contradicting "Build website gagal" failure message.
         send("progress", {
           label: "Website belum selesai",
           detail:
@@ -424,9 +420,6 @@ export async function runBuildAttempt({
         send("error", {
           message: "AI belum bisa membangun website ini.",
           // Never leak raw build logs (TS errors, [umkm:*] internals) to
-          // the end user. Send the safe Indonesian summary derived from
-          // the classified failure reason; the full log stays in the DB
-          // logText for the operator's "Kode" tab.
           detail:
             getIndonesianBuildFailureSummary(
               classifyBuildFailure(finalBuildResult.log ?? ""),
@@ -469,7 +462,6 @@ export async function runBuildAttempt({
 
       const attemptSpec = async (maxTokens: number) => {
         // Real tool-calling (not prompt-based JSON mode) — 9Router combo
-        // models emit malformed pseudo-XML wrappers under Output.json().
         const abortController = new AbortController();
         const timeoutMs = getAiTimeoutMs("buildSpec");
         const timeout = setTimeout(() => abortController.abort(), timeoutMs);
@@ -734,12 +726,6 @@ export async function runBuildAttempt({
     };
 
     // Batched durable staging: the writer/parser stage is in-memory only, so
-    // write each file through to Project.sourceFiles the moment its block
-    // closes — same progressive-saver the legacy agent loop uses. A worker
-    // crash mid-stream then leaves every completed file persisted, not lost.
-    // ponytail: writes the whole array per file O(n²); the saver queues
-    // serially so it stays correct — switch to per-file patch rows if this
-    // ever shows up in profiles.
     const batchedStageFiles = new Map<string, GeneratedProjectFile>();
     const persistBatchedStage = (file: GeneratedProjectFile) => {
       batchedStageFiles.set(file.path, file);
@@ -846,7 +832,6 @@ export async function runBuildAttempt({
             ? null
             : referenceCalibratedCandidate.safeMessage.slice(0, 1_000),
           // "browser qualification failed" alone cannot be acted on; the
-          // assertion ids say which check rejected the page.
           failedAssertions: referenceCalibratedCandidate.ok
             ? null
             : (referenceCalibratedCandidate.failedAssertions ?? []).slice(
@@ -1330,7 +1315,6 @@ export async function runBuildAttempt({
       });
     } else if (!sourceGeneration.energyExhausted) {
       // ponytail: on energy exhaustion the energy_exhausted event at :836
-      // is the user-facing truth; skip the contradicting "gagal" progress.
       send("progress", {
         label: "Website belum selesai",
         detail:
@@ -1498,14 +1482,12 @@ export async function runBuildAttempt({
           projectId,
         }),
         // Best-effort prettier sweep over the generated source so the code
-        // tab shows polished code. Fire-and-forget; never fails the turn.
         ...(sourceDir ? [formatGeneratedSource(sourceDir)] : []),
       ]);
     }
 
     if (!finalBuildOk && !sourceGeneration.energyExhausted) {
       // ponytail: when energy halted the build, the energy_exhausted event
-      // already told the user; don't emit a contradicting failure error.
       send("error", {
         message:
           "Website belum berhasil dibuat. Coba buat ulang website setelah mengecek brief.",
@@ -1582,8 +1564,6 @@ export async function runBuildAttempt({
         ? "Website belum selesai dibuat."
         : "Website belum berhasil dibuat.",
       // Never surface raw exception text to the end user (may contain
-      // internal paths/stack fragments). The raw message is already
-      // preserved in devLog + the ProjectBuild logText for operators.
       detail: emptyAgent
         ? "Belum ada bagian website yang berhasil ditulis. Coba buat ulang website — biasanya berhasil di percobaan berikutnya."
         : "Coba buat ulang website atau perbaiki deskripsi usahanya dulu.",

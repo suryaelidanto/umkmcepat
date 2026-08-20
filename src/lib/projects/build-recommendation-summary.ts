@@ -1,14 +1,6 @@
 import type { BuildContractV1 } from "./build-contract";
 import type { BuildPlanV1 } from "./build-plan";
 
-/**
- * What the owner reads before pressing "Mulai buat website". Derived from the
- * frozen contract and plan the build actually consumes, so the card can never
- * promise something different from what ships.
- *
- * Written for a shop owner, not an engineer: no business-type codes, no
- * confidence scores, no field counts, and nothing about detail they never gave.
- */
 const MAX_LISTED_OFFERS = 3;
 
 export function describeBuildRecommendation(
@@ -74,10 +66,6 @@ const CHANNEL_NAMES: Record<string, string> = {
   maps: "Google Maps",
 };
 
-/**
- * The stored intent label can be as vague as "Chat". Naming the channel says
- * where customers actually land, whatever wording the model chose.
- */
 function primaryCtaLabel(contract: BuildContractV1): string {
   const intent = contract.ctaIntents?.[0];
   const channel = intent?.kind ? CHANNEL_NAMES[intent.kind] : undefined;

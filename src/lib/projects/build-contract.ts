@@ -1,7 +1,4 @@
 // src/lib/projects/build-contract.ts
-// Versioned business contract carried from discussion through planning,
-// generation, repair, and edit. The server validates and normalizes every
-// draft; the model never writes facts directly.
 import {
   parseContact,
   type AddressValue,
@@ -124,13 +121,10 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null;
 }
 
-/** Discriminator determines the only valid value schema. */
 function parseFactValue(kind: FactKind, value: unknown): boolean {
   switch (kind) {
     case "other":
       // High-risk values must never hide under `other`. This rejects obvious
-      // phone/contact-like strings; the full high-risk grammar is enforced by
-      // the generated-claim gate at build time.
       if (typeof value === "string" && /^\+?[\d\s()-]{8,15}$/.test(value)) {
         return false;
       }
@@ -183,8 +177,6 @@ function validateProvenance(p: unknown): boolean {
   return true;
 }
 
-/** Server-side validation and normalization of a contract draft. This is the
- * trust boundary: the model proposes patches, this validates and rejects. */
 export function parseBuildContract(input: unknown): ContractParseResult {
   if (!isRecord(input) || input.schemaVersion !== 1) {
     return { ok: false, reason: "invalid contract schema" };

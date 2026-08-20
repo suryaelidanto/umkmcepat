@@ -1,6 +1,4 @@
 // Maps known backend/adapter error reasons to Indonesian user-facing strings.
-// Unknown reasons -> a generic fallback (never the raw internal string).
-// Raw errors are logged server-side; the user sees only these.
 
 const KNOWN: Array<{ match: RegExp; message: string }> = [
   {

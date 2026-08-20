@@ -34,11 +34,6 @@ function sameOrder(a: string[], b: string[]): boolean {
   return a.length === b.length && a.every((id, index) => id === b[index]);
 }
 
-/**
- * Diff an original layout against the current one and render an Indonesian
- * edit instruction the AI can apply to the generated source. Empty when no
- * structural change (reorder or removal) happened.
- */
 export function buildDirectEditInstruction(
   original: EditLayout,
   current: EditLayout,

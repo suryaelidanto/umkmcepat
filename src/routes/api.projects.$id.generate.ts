@@ -70,7 +70,6 @@ export async function handleGeneratePost(request: Request, routeId: string) {
   const userId = session.user.id;
 
   // Worker runs via BullMQ (survives browser disconnect). Cancel via
-  // POST /api/projects/$id/cancel which finalizes the operation lease.
 
   const energy = await checkEnergy(userId, getEnergyConfig().minBuild);
   if (!energy.allowed) {
@@ -149,8 +148,6 @@ export async function handleGeneratePost(request: Request, routeId: string) {
   }
 
   // Contract-v1 must present valid handoff proof before any operation is
-  // claimed. Without this, a 503 from the later attempt branch masks the
-  // missing proof as a transient build error.
   if (project.generationEngine === "contract-v1") {
     if (!contractHandoffId || !contractReviewHash) {
       return Response.json(
@@ -237,8 +234,6 @@ export async function handleGeneratePost(request: Request, routeId: string) {
         ) {
           await finalizeProjectOperation({
             // A stale/missing handoff is a client-state problem, not a real
-            // build failure. Release the lease and return to discuss so the
-            // user can continue — never poison the project into `failed`.
             data: { buildStatus: "not_started", status: "discussing" },
             projectId,
             token: operation.token,
@@ -278,7 +273,6 @@ export async function handleGeneratePost(request: Request, routeId: string) {
     }
 
     // Placeholder snapshot so a ProjectBuild row exists before agent work.
-    // Without it, agent-phase failures leave project=failed and canRetry=false.
     const earlySnapshot = await prisma.projectSnapshot.create({
       data: {
         files: [],

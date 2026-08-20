@@ -12,7 +12,6 @@ export type ImageUploadThumbProps = {
   className?: string;
 };
 
-/** Shared image preview thumb: spinner overlay while uploading, remove when idle. */
 export function ImageUploadThumb({
   src,
   alt = "",

@@ -153,7 +153,6 @@ export async function deleteProjectArtifact(
   );
 
   // Enumerate files from the manifest when available; best-effort so a
-  // missing/unreadable manifest does not block deleting the manifest key.
   let filePaths: string[] = [];
   try {
     const manifest = JSON.parse(
@@ -178,11 +177,6 @@ export async function deleteProjectArtifact(
 }
 
 // ponytail: S3 artifacts have no on-disk files dir. Returns null for any ref
-// so the post-generation prettier sweep (edit.ts/generate.ts) no-ops for S3-
-// stored source. Upgrade path: make this async + materialize to a temp dir
-// via readProjectSourceArtifact; requires touching the two route callers
-// (await + tempdir lifecycle). Out of scope for the s3-client rewiring —
-// the sweep is fire-and-forget Promise.allSettled polish, not load-bearing.
 export function resolveArtifactFilesDir(_ref: string): string | null {
   return null;
 }

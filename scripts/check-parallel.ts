@@ -1,7 +1,3 @@
-// Run the fast pre-commit gate checks in parallel.
-// Each step has its own cache; the slowest one wins.
-
-/* eslint-disable no-console */
 import { spawn } from "node:child_process";
 
 const steps: Array<[label: string, cmd: string, args: string[]]> = [

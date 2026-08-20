@@ -31,8 +31,6 @@ export const Route = createFileRoute("/api/projects/$id/chat/turn")({
         }
 
         // Prefer a live running turn (client will tail the stream).
-        // Fall back to the latest finished turn by startedAt desc so the
-        // client can replay success / offer retry on failure.
         const active = await getActiveDiscussTurn({ projectId: project.id });
         const turn =
           active ??

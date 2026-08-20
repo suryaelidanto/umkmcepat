@@ -40,7 +40,6 @@ describe("s3-client config", () => {
     ).config.region();
     expect(region).toBe("auto");
     // Endpoint is also an async resolver; the R2 host must be auto-derived
-    // from S3_ACCOUNT_ID when S3_ENDPOINT is empty.
     const endpoint = await (
       client as unknown as {
         config: { endpoint: () => Promise<{ hostname: string }> };

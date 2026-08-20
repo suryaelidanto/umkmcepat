@@ -191,8 +191,6 @@ describe("security headers", () => {
     );
     expect(policy).toContain("font-src 'self' data: https://fonts.gstatic.com");
     // Workspace preview iframe is same-origin ('self') and Turnstile is the
-    // only cross-origin frame we allow. Without 'self' the preview is
-    // blocked by parent's frame-src.
     expect(policy).toContain(
       "frame-src 'self' https://challenges.cloudflare.com",
     );

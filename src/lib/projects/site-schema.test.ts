@@ -98,14 +98,6 @@ describe("project site schema", () => {
 
   it("falls back usp to the already-computed trustPoints when the brief has none", () => {
     // compileGeneratedSiteContract auto-fills content.usp with grounded
-    // fallback copy (publicTrustPoints) even when the brief's usp is empty,
-    // and referenceCalibratedRequiredContentFields requires site.usp whenever
-    // that fallback ran. Reproduced live: the writer had no site.usp to
-    // render at all — an unsatisfiable requirement — because this schema
-    // left usp undefined while the contract already considered it populated.
-    // trustPoints is computed unconditionally, two lines above usp, from the
-    // same grounded offer/contactOrCta/stylePreference fields, so reusing it
-    // costs nothing invented.
     const schema = createProjectSiteSchemaFromBrief({
       version: 1,
       prompt: "buatkan saya website buat jualan angkringan",
@@ -141,9 +133,6 @@ describe("project site schema", () => {
 
   it("truncates an overlong offer at a word boundary with a visible ellipsis, never mid-word", () => {
     // Reproduced live: a real build's offer text was hard-sliced to a fixed
-    // character count, landing mid-word and mid-clause with no closing
-    // punctuation ("...seblak ceker bakso sosis " with nothing after it) —
-    // reads as broken copy, not shortened copy, to the owner reviewing it.
     const longOffer =
       "Seblak Ceker sih yang paling laku sekarang, seblak ada 3 menu saat ini: seblak ceker Rp10.000, seblak ceker bakso sosis Rp15.000, seblak sultan Rp20.000 lengkap dengan kerupuk dan isian lengkap";
     const schema = createProjectSiteSchemaFromBrief({

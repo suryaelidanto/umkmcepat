@@ -145,9 +145,6 @@ export function validateGeneratedPackagePolicy(
 }
 
 // Imports the generated app may use without declaring them in package.json. Vite resolves
-// these by walking up to the platform's node_modules (which declares react/motion/etc. for
-// its own use), silently bundling a second copy of react (or the dependency's own react)
-// and crashing the generated app at runtime. Keep this minimal and platform-owned only.
 const IMPLICIT_ALLOWED_PACKAGES = new Set<string>([
   "react",
   "react-dom",
@@ -156,8 +153,6 @@ const IMPLICIT_ALLOWED_PACKAGES = new Set<string>([
 ]);
 
 // Node built-in modules (and their `node:` aliases) that Vite/polyfills resolve without an
-// npm package. The scaffold's platform-owned vite.config.ts imports `path` bare, and the
-// app's own server/runtime scripts may `import "node:fs"`. These never hoist a second copy.
 const NODE_BUILTIN_PACKAGES = new Set<string>([
   "assert",
   "buffer",
@@ -234,7 +229,6 @@ function getUndeclaredImportIssues(
       const specifier = match[1];
 
       // Skip the platform alias, relative imports, URL imports, and node: built-ins —
-      // none of these are npm packages that could hoist from the platform node_modules.
       if (
         specifier.startsWith("@/") ||
         specifier.startsWith(".") ||
@@ -279,7 +273,6 @@ function dependencyKeys(value: unknown): string[] {
 }
 
 // "motion/react" -> "motion", "@tanstack/react-router" -> "@tanstack/react-router",
-// "react/jsx-runtime" -> "react/jsx-runtime" (kept so it maps to the react allow entry).
 function packageNameOf(specifier: string): string | null {
   if (specifier.startsWith("@")) {
     const [scope, name] = specifier.split("/");

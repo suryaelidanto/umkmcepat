@@ -8,7 +8,6 @@ export const Route = createFileRoute("/api/projects/$id/asset/$assetId")({
   server: {
     handlers: {
       // Serve an owner-uploaded project asset behind auth + ownership. The
-      // asset path differs from the generated-site assets splat route.
       GET: async ({ params }) => {
         const session = await auth();
         if (!session?.user?.id) {
@@ -21,7 +20,6 @@ export const Route = createFileRoute("/api/projects/$id/asset/$assetId")({
         const { id, assetId } = params;
 
         // Ownership check: the asset row must belong to this project AND the
-        // requesting user must own the project.
         const asset = await prisma.projectAsset.findUnique({
           where: { id: assetId },
           select: { projectId: true, publicUrl: true, userId: true },
@@ -38,8 +36,6 @@ export const Route = createFileRoute("/api/projects/$id/asset/$assetId")({
         }
 
         // Display media with a public R2 URL: redirect the browser to R2
-        // directly (zero server egress). Ownership is already checked above;
-        // the unguessable ULID URL is defense-in-depth, not the access control.
         if (asset.publicUrl) {
           return new Response(null, {
             status: 302,

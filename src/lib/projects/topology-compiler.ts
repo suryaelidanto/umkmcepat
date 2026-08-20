@@ -1,9 +1,4 @@
 // src/lib/projects/topology-compiler.ts
-// Platform-owned topology compilation for contract-v1. The platform writes
-// router, root, not-found, manifest, preview bridge, and route stubs from the
-// accepted plan; the AI builder may only write the generated creative paths
-// returned by buildAllowList. Dispatch by Project.generationEngine: legacy-v1
-// keeps its current broad src/** path policy (see generated-build-policy.ts).
 import type { BuildPlanV1 } from "./build-plan";
 
 export type CompiledTopology = {
@@ -23,7 +18,6 @@ export function compileRepresentativePaths(plan: BuildPlanV1): string[] {
   return plan.pages.map((p) => p.representativePath ?? p.path);
 }
 
-/** Exact AI-writable allow-list derived from the plan. Never a broad src/**. */
 export function buildAllowList(plan: BuildPlanV1): string[] {
   const paths = new Set<string>([
     "src/generated/site-shell.tsx",
@@ -41,7 +35,6 @@ export function buildAllowList(plan: BuildPlanV1): string[] {
   return [...paths];
 }
 
-/** Compile protected files from the plan. This is the platform-owned source. */
 export function compileTopologyFiles(plan: BuildPlanV1): CompiledTopology {
   const routePatterns = compileRoutePatterns(plan);
   const representativePaths = compileRepresentativePaths(plan);

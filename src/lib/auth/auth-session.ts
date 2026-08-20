@@ -32,10 +32,6 @@ export async function rotateRefreshToken(
 
   if (!storedToken) {
     // If token is missing, it might have been reused/stolen.
-    // As a defense-in-depth reuse detection mechanism:
-    // Invalidate everything to be safe. But since we don't know the userId here
-    // without the token lookup, we throw. If the client tries to use a token
-    // that doesn't exist, we force a full re-login.
     throw new Error("Invalid or already used refresh token.");
   }
 
@@ -57,7 +53,6 @@ export async function rotateRefreshToken(
 
     if (!activeToken) {
       // Reuse detected! Someone else has already rotated this token.
-      // Revoke all tokens for this user immediately for security.
       if (storedToken.userId) {
         await tx.refreshToken.deleteMany({
           where: { userId: storedToken.userId },

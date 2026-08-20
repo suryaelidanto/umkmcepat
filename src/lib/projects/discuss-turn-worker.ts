@@ -1,7 +1,4 @@
 // Detached discuss-turn worker. Runs the one-call AI generation + persists the
-// reply + finalizes the turn, independent of the SSE stream that tails
-// `subscribeProgress`. Task 5 rewires the POST route to call this detached
-// (`void runDiscussTurn(...).catch(...)`) instead of the old in-stream path.
 
 import {
   convertToModelMessages,
@@ -98,7 +95,6 @@ export async function runDiscussTurn({
   summary: ReturnType<typeof parseProjectChatSummary>;
   userId: string;
   // ponytail: production omits → uses the real model via getAiModel(modelName).
-  // Tests pass a mock so streamText's stream/usage/response can be controlled.
   modelOverride?: LanguageModel;
   abortSignal?: AbortSignal;
 }): Promise<void> {
@@ -191,7 +187,6 @@ export async function runDiscussTurn({
       messages: modelMessages,
       tools: { [PRESENT_WORKSPACE_CARD_TOOL_NAME]: presentWorkspaceCardTool },
       // Always require the card tool. "auto" let post-build turns skip the
-      // call entirely (text-only), so the UI never got a question card.
       toolChoice: {
         type: "tool",
         toolName: PRESENT_WORKSPACE_CARD_TOOL_NAME,
@@ -247,7 +242,6 @@ export async function runDiscussTurn({
     try {
       for await (const part of primary.stream) {
         // TTFT marked on the first *content* chunk (not stream-open parts)
-        // so mocked/abort shapes that never emit content leave it undefined.
         if (part.type === "text-delta" || part.type === "tool-input-delta") {
           stopDiscussTimer.firstChunk();
         }
@@ -361,7 +355,6 @@ export async function runDiscussTurn({
     }
 
     // Final tool-call may complete chars partial JSON never closed; or fill
-    // gap when provider only emits tool-call (no tool-input-delta).
     if (!fullText.trim()) {
       const fromTool = extractAssistantTextFromToolInput(toolInput);
       if (fromTool) {
@@ -393,7 +386,6 @@ export async function runDiscussTurn({
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
     // Primary's own usage: ledger row records its own leg; repair/compaction
-    // tokens are added later to total* and primaryOwn*.
     let primaryOwnInputTokens = 0;
     let primaryOwnOutputTokens = 0;
     try {
@@ -425,8 +417,6 @@ export async function runDiscussTurn({
     if (hadError) {
       if (chatText) {
         // Stream threw mid-flight but text already reached the client.
-        // Degrade to a plain textbox (type:"none" card) instead of a
-        // blind error toast, mirroring the primaryToolFailed else-tail.
         const resolvedToolCallId = streamToolCallId || toolCallId;
         publishProgress(turnId, {
           type: "tool-input-available",
@@ -493,7 +483,6 @@ export async function runDiscussTurn({
       }
 
       // Stream threw immediately: no text, no tool. Charge once, surface
-      // a clean error. Never persist a dummy assistant turn.
       await chargeDiscussEnergy();
       const streamFailMessage = "AI lagi gangguan. Coba lagi sebentar.";
       publishProgress(turnId, {
@@ -519,7 +508,6 @@ export async function runDiscussTurn({
     }
     if (!chatText) {
       // Post-build: none is a legal card. Do not repair for interview cards
-      // or invent assistant prose.
       if (hasBuiltSite) {
         const resolvedToolCallId = streamToolCallId || toolCallId;
         publishProgress(turnId, {
@@ -579,8 +567,6 @@ export async function runDiscussTurn({
       }
 
       // ponytail: tool-only response (no prose). Retry the card via
-      // repairDiscussCardWithTool, then persist a card-only assistant turn
-      // (no fake text). Never surface a dummy string.
       const repairStartedAt = Date.now();
       const repaired = await repairDiscussCardWithTool({
         brief: effectiveBrief,
@@ -725,7 +711,6 @@ export async function runDiscussTurn({
     };
 
     // Post-build policy: none is an allowed card. Do not treat it as a
-    // missing tool or spend energy on interview-card repair.
     let primaryToolFailed =
       workspaceTurn.workspaceCard.type === "none" && !hasBuiltSite;
     let repairsUsed = 0;
@@ -825,9 +810,6 @@ export async function runDiscussTurn({
     }
 
     // Legacy readiness gate: the server, not model confidence, authorizes a
-    // build recommendation. If structural decisions are still unresolved, the
-    // build card is demoted to the next question unless the user explicitly
-    // asked to build now (then it passes after an honest warning).
     if (
       project.generationEngine === "legacy-v1" &&
       workspaceTurn.workspaceCard.type === "build_recommendation"
@@ -879,7 +861,6 @@ export async function runDiscussTurn({
             engine: "contract-v1" as const,
             title: base.title,
             // Read from the frozen contract, never the model's prose, so the
-            // card cannot promise something the build will not produce.
             summary: describeBuildRecommendation(
               prepared.contract,
               prepared.plan,
@@ -931,7 +912,6 @@ export async function runDiscussTurn({
       : {};
 
     // Always emit tool protocol events (including type:"none") so useChat
-    // stream shape settles; product still forbids inventing question content.
     publishProgress(turnId, {
       type: "tool-input-available",
       toolCallId: resolvedToolCallId,
@@ -949,7 +929,6 @@ export async function runDiscussTurn({
     });
 
     // Last word on coherence: the owner answers the card, so a message that
-    // asks something else never reaches the transcript.
     chatText = alignAssistantTextWithCard(
       chatText,
       workspaceTurn.workspaceCard,
@@ -1068,8 +1047,6 @@ export async function runDiscussTurn({
     });
     const userMessage = "Obrolan belum berhasil diproses. Coba kirim ulang ya.";
     // Emit the error BEFORE finalizing: if finalize throws, the connected
-    // client's tail stream still receives the terminal `error` event instead
-    // of hanging until disconnect.
     publishProgress(turnId, { type: "error", errorText: userMessage });
     try {
       await finalizeDiscussTurn({

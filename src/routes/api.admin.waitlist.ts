@@ -31,7 +31,6 @@ export const Route = createFileRoute("/api/admin/waitlist")({
   server: {
     handlers: {
       // List waitlist entries (admin-only). ?status=pending|approved|rejected|all
-      // Default pending (includes waitlisted) so ops focus on work queue.
       GET: async ({ request }) => {
         const admin = await requireAdmin();
         if (!admin.ok) {
@@ -62,7 +61,6 @@ export const Route = createFileRoute("/api/admin/waitlist")({
       },
 
       // Approve or reject a waitlist entry. Body: { entryId, action: "approve"
-      // | "reject", reason?: string }.
       POST: async ({ request }) => {
         const admin = await requireAdmin();
         if (!admin.ok) {

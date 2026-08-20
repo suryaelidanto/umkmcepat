@@ -17,10 +17,6 @@ const DEFAULT_HEARTBEAT_MS = 15_000;
 const HARD_CEILING_ERROR =
   "Obrolan terlalu lama. Coba kirim ulang atau muat ulang halaman.";
 
-/**
- * Relay discuss progress to an SSE/UI writer until finish|error, with DB poll
- * fallback when the progress bus never delivers a terminal event.
- */
 export async function runDiscussProgressTail(options: {
   turnId: string;
   write: (event: DiscussProgressEvent) => void;
@@ -65,7 +61,7 @@ export async function runDiscussProgressTail(options: {
     try {
       write(event);
     } catch {
-      /* client gone */
+      // ignore write error
     }
     settle();
   };

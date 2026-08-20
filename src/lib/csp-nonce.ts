@@ -1,6 +1,4 @@
 // Client-safe wrapper for server-side CSP Nonce.
-// The AsyncLocalStorage store is initialized on the server startup (server.ts)
-// or test startup (csp-nonce.test.ts) to keep browser bundles clean of node:* imports.
 
 declare global {
   var __nonceStore:

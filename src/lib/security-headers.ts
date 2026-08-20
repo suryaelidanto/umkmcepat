@@ -44,15 +44,6 @@ export function isCrossSiteMutation({
   return false;
 }
 
-/**
- * Origins are taken from verified code references, not guesses:
- *   api.dicebear.com   — avatars, src/lib/profile.ts:9
- *   api.qrserver.com   — payment QR, EnergyBoosterModal.tsx:159
- *   avatars.githubusercontent.com — GitHub contributor avatars, CommunitySection.tsx
- *   challenges.cloudflare.com — Turnstile widget
- * S3_PUBLIC_BASE_URL and the Umami host are environment-dependent, so the
- * policy is assembled at runtime rather than declared as a constant.
- */
 export function buildContentSecurityPolicy(nonce: string) {
   const mediaOrigin = originOf(process.env.S3_PUBLIC_BASE_URL);
   const umamiOrigin = originOf(process.env.NEXT_PUBLIC_UMAMI_SCRIPT_SRC);
@@ -86,9 +77,6 @@ export function buildContentSecurityPolicy(nonce: string) {
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' data: https://fonts.gstatic.com",
     // Workspace embeds the preview iframe under /api/projects/<id>/preview/,
-    // and Turnstile under https://challenges.cloudflare.com. 'self' covers
-    // same-origin framing; anything cross-origin (Turnstile) needs an explicit
-    // allowlist entry.
     "frame-src 'self' https://challenges.cloudflare.com",
     "object-src 'none'",
     "base-uri 'self'",
@@ -144,9 +132,6 @@ export function applySecurityHeaders(
   }
 
   // Control plane only. The generated-project origin returned above: we do not
-  // control its subdomains and must not pin them. `preload` is deliberately
-  // omitted until the domain is confirmed stable on HTTPS — it is effectively
-  // irreversible once submitted.
   headers.set(
     "Strict-Transport-Security",
     "max-age=63072000; includeSubDomains",

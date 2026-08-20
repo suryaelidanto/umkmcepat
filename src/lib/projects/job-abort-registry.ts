@@ -24,7 +24,6 @@ export function clearJobAbort(jobId: string): void {
   controllers.delete(jobId);
 }
 
-/** Test-only: drop all registered controllers. */
 export function resetJobAbortRegistryForTests(): void {
   controllers.clear();
 }

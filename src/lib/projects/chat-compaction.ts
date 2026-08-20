@@ -119,7 +119,6 @@ export async function maybeCompactProjectChat({
   const timeout = setTimeout(() => abortController.abort(), timeoutMs);
   const requestedModel = getModerationModel();
   // Non-streaming generateObject: ttftMs = requestMs (buffered response has
-  // no first-token moment).
   const stopTimer = startAiCallTimer({ withTtft: true });
 
   let result;

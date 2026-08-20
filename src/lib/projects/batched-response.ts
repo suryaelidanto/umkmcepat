@@ -1,20 +1,3 @@
-// src/lib/projects/batched-response.ts
-// Strict streaming state-machine parser for the batched-generation response
-// contract:
-//
-//   <file path="src/...">raw content</file>
-//   <propose path="src/components/ui/<name>.tsx">reason</propose>
-//   <done summary="..." />
-//
-// Hard errors (unknown tags, missing attrs, disallowed paths, truncation)
-// throw BatchedParseError carrying the byte offset so repair prompts can cite
-// exactly where the stream went bad. Prose between blocks is ignored.
-//
-// Path allow-list here is SYNTACTIC (src/ + public/ only). Platform-owned
-// scaffold files (site.ts, index.css, main.tsx, __root.tsx, ...) are a
-// SEMANTIC gate: the runners (batched-generator / batched-edit) validate and
-// drop them at merge time so a stray emission triggers targeted repair
-// instead of a hard parse error.
 import {
   normalizeWriterDesignPlanV2Candidate,
   parseWriterDesignPlanV2,
@@ -104,27 +87,15 @@ export class BatchedParseError extends Error {
 }
 
 export type BatchedResponseParser = {
-  /** Feed the next stream chunk. Throws BatchedParseError on hard errors. */
   push: (chunk: string) => void;
-  /** Close the stream; throws on truncation. */
   finalize: () => BatchedParseResult;
-  /** Read-only snapshot of files staged so far (streaming progress). */
   readonly stagedPaths: readonly string[];
-  /** Staged content for one path (durable write-through consumers). */
   stagedFile: (path: string) => BatchedFile | undefined;
-  /** True once a hard error has latched. */
   readonly failed: boolean;
-  /** True when the configured complete-file stop boundary has been reached. */
   readonly stoppedAfterFilePath: boolean;
-  /** True once every configured required V3 file has closed. */
   readonly stoppedAfterRequiredFilePaths: boolean;
 };
 
-/**
- * Max chars carried while hunting for the next `<` outside a block. A longer
- * run means the model is emitting an endless prose stream — fail instead of
- * buffering forever.
- */
 const MAX_PROSE_SCAN = 199_000;
 const MAX_DESIGN_PLAN_CHARS = 8_192;
 
@@ -217,10 +188,6 @@ export function createBatchedResponseParser(options?: {
   implicitDoneSummary?: string;
   stopAfterFilePath?: string;
 }): BatchedResponseParser {
-  /**
-   * Invariant: `pending` holds the unconsumed tail of the stream. Absolute
-   * offset of `pending[0]` is `consumedChars`.
-   */
   let pending = "";
   let consumedChars = 0;
   const files = new Map<string, BatchedFile>();
@@ -264,12 +231,6 @@ export function createBatchedResponseParser(options?: {
     /([^\s="'/>]+)\s*=\s*"([^"]*)"|([^\s="'/>]+)\s*=\s*'([^']*)'/y;
   const WS_PATTERN = /\s+/y;
 
-  /**
-   * Parse `<name attr="v" ...>`. Tolerates arbitrary whitespace between
-   * tokens; any non-whitespace residue after the last attribute (or before a
-   * self-closing `/`) is malformed — so `<filex ...>` never slips through as
-   * `<file>`.
-   */
   function parseTag(inner: string, tagOffset: number): TagInfo {
     const selfClosing = /\/\s*$/.test(inner);
     const body = selfClosing ? inner.replace(/\/\s*$/, "") : inner;
@@ -342,16 +303,10 @@ export function createBatchedResponseParser(options?: {
     }
   }
 
-  /** Trim exactly one leading + one trailing newline (block convention). */
   function cleanContent(raw: string): string {
     return raw.replace(/^\r?\n/, "").replace(/\r?\n$/, "");
   }
 
-  /**
-   * Find `needle`, honoring double/single/backtick quoting so code containing
-   * the literal tag is not cut early. Backslash escapes the next char inside
-   * a quote.
-   */
   function findTerminator(needle: string, from: number): number {
     let index = from;
     let quote: '"' | "'" | "`" | null = null;
@@ -381,17 +336,11 @@ export function createBatchedResponseParser(options?: {
     return -1;
   }
 
-  /** Consume `chars` from the head of pending, advancing absolute offset. */
   function consume(chars: number): void {
     pending = pending.slice(chars);
     consumedChars += chars;
   }
 
-  /**
-   * Process the head of pending.
-   * Returns true if any forward progress was made; false when we need more
-   * input before we can make a decision.
-   */
   function step(): boolean {
     if (!pending) {
       return false;

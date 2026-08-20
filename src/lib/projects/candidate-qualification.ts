@@ -1,8 +1,4 @@
 // src/lib/projects/candidate-qualification.ts
-// Immutable candidate qualification run for contract-v1. One run begins with
-// each explicit user-triggered generation/edit/retry attempt; automatic
-// repairs share one bounded budget and never mutate the parent candidate.
-// A failed child never replaces the project's last-known-good candidate.
 
 export type QualificationRunBudget = {
   initial: 1;
@@ -14,8 +10,6 @@ export type QualificationRunBudget = {
 
 export type RepairKind = "compile" | "browser" | "visual";
 
-/** Fresh bounded budget for one explicit qualification run. Visual repair is
- * disabled in shadow mode (0); calibration may raise it later. */
 export function createQualificationRunBudget(options?: {
   visualRepairEnabled?: boolean;
 }): QualificationRunBudget {
@@ -35,8 +29,6 @@ export class QualificationRunBudgetImpl {
     this.budget = budget ?? createQualificationRunBudget();
   }
 
-  /** Consume one repair of the given kind; throws when exhausted. A failed
-   * child that must be recompiled consumes a compile repair. */
   consume(kind: RepairKind): void {
     if (kind === "compile") {
       if (this.budget.compileRepairsRemaining === 0) {
@@ -57,7 +49,6 @@ export class QualificationRunBudgetImpl {
     }
   }
 
-  /** Register a new immutable child candidate. */
   createdCandidate(): void {
     this.budget.candidatesCreated += 1;
   }

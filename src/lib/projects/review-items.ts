@@ -1,7 +1,4 @@
 // src/lib/projects/review-items.ts
-// The complete owner-review set for a contract/plan pair. The server derives,
-// sorts, and persists these; the build-recommendation card renders them
-// without truncation.
 import type { BuildContractV1 } from "./build-contract";
 import type { BuildPlanV1 } from "./build-plan";
 
@@ -26,8 +23,6 @@ export type ReviewItemV1 = {
 export const REVIEW_MAX_ITEMS = 96;
 export const REVIEW_MAX_SERIALIZED_BYTES = 48 * 1024;
 
-/** Derive the complete, deduplicated review set. It never truncates; callers
- * must fail planning if the set exceeds the persisted bounds. */
 export function deriveReviewItems(
   contract: BuildContractV1,
   plan: BuildPlanV1,

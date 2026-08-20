@@ -1,19 +1,5 @@
 import type { GeneratedProjectFile } from "@/lib/projects/generated-types";
 
-/**
- * Seeded shadcn/ui "new-york" + Tailwind v4 component sources.
- *
- * Source-copied verbatim from the canonical shadcn registry
- * (apps/v4/registry/new-york-v4/ui/*.tsx) with one transformation: the
- * unified `radix-ui` import is split into the individual `@radix-ui/react-*`
- * packages the platform allowlist permits (the pre-unification canonical
- * shadcn shape). MIT-licensed source — see LICENSE at shadcn-ui/ui.
- *
- * ponytail: when the platform allowlist adds the unified `radix-ui`
- * package, revert these imports to `import { Slot } from "radix-ui"` etc.
- * to match the latest shadcn registry verbatim.
- */
-
 const UTILS_TS = `import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 
@@ -245,12 +231,6 @@ export const SHADCN_COMPONENT_BY_NAME = new Map<string, GeneratedProjectFile>(
   }),
 );
 
-/**
- * Transitive closure of `@/components/ui/<name>` imports reachable from `file`.
- * Excludes files already in `present` (matched by path). Cycle-safe via a
- * visited set. Returns deps-first order: a dependency appears before the
- * component that imports it.
- */
 export function resolveShadcnDeps(
   file: GeneratedProjectFile,
   present: GeneratedProjectFile[],

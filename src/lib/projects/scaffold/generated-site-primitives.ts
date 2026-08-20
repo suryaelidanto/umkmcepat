@@ -134,7 +134,6 @@ export function SiteCluster({
   );
 }
 
-// ---------------------------------------------------------------------------
 // 21st.dev-Inspired Creative Component Primitives
 
 export function BentoGrid({

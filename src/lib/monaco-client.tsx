@@ -2,13 +2,9 @@ import { loader } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
 
 // Bundle Monaco locally instead of fetching it from the jsdelivr CDN at
-// runtime (the loader's default). The full package ships every language
-// basic-languages/ needs (ts, js, css, html, json, markdown, ...), so all
-// extensions the scaffold engine can emit are covered with no CDN dependency.
 loader.config({ monaco });
 
 // Read-only code viewer. Vite-bundled per-language workers keep syntax
-// highlighting snappy; `new URL` lets Vite emit + hash each worker chunk.
 self.MonacoEnvironment = {
   getWorker(_workerId, label) {
     if (label === "json") {

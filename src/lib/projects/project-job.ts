@@ -317,7 +317,6 @@ export function deriveActiveProjectJob({
   projectStatus?: string | null;
 }): ActiveProjectJob | null {
   // Prefer a truly active build row. Do NOT treat an old succeeded build as
-  // active just because Project.status is still "building" during edit agent.
   const activeBuild = build && isActiveBuildStatus(build.status) ? build : null;
   const activeAttempt =
     attempt && isActiveAttemptStatus(attempt.status) ? attempt : null;

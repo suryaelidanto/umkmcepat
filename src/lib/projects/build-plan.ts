@@ -1,6 +1,4 @@
 // src/lib/projects/build-plan.ts
-// Validated pre-build page topology. The plan translates a review-ready
-// contract into executable site structure; it never overrides accepted facts.
 import type { BuildContractV1 } from "./build-contract";
 
 export type SectionSurfaceIntent = "full_bleed" | "contained" | "prose";
@@ -68,7 +66,6 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null;
 }
 
-/** Normalize and validate the page topology from a model-proposed plan. */
 export function parseBuildPlan(input: unknown): PlanParseResult {
   if (!isRecord(input) || input.schemaVersion !== 1) {
     return { ok: false, reason: "invalid plan schema" };
@@ -124,7 +121,6 @@ export function parseBuildPlan(input: unknown): PlanParseResult {
   return { ok: true, value: input as unknown as BuildPlanV1 };
 }
 
-/** Mechanical plan-vs-contract check before any generation happens. */
 export function validatePlanAgainstContract(
   plan: BuildPlanV1,
   contract: BuildContractV1,

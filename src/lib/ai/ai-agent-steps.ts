@@ -34,7 +34,6 @@ const AI_AGENT_STEPS = {
   },
 } satisfies Record<AiAgentStepKey, AiAgentStepConfig>;
 
-/** Max tool-loop steps for generate/repair agents (env-clamped). */
 export function getAgentMaxSteps(key: AiAgentStepKey): number {
   const config = AI_AGENT_STEPS[key];
   const readSync = getSettingSync as unknown as (

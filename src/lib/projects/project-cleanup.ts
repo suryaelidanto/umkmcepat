@@ -24,13 +24,6 @@ export type ProjectCleanupOutcome = {
   errors: Array<{ step: string; message: string }>;
 };
 
-/**
- * Stop runtime deployments and delete every resource tied to a project:
- * source/dist artifacts (S3), materialized runtime dirs, build workspace
- * dirs, and the project thumbnail (S3). Best-effort: each failure is recorded
- * and never blocks the next step or the caller's DB row delete. Idempotent:
- * re-running after a partial failure safely clears whatever remains.
- */
 export async function cleanupProjectResources(
   input: ProjectCleanupInput,
 ): Promise<ProjectCleanupOutcome> {
@@ -67,7 +60,6 @@ export async function cleanupProjectResources(
   );
 
   // Gate-screenshot evidence is private S3 JSON, deleted best-effort like
-  // other project artifacts (G4).
   await Promise.all(
     (input.gateEvidenceRefs ?? []).map(async (ref) => {
       if (!ref) {
@@ -82,7 +74,6 @@ export async function cleanupProjectResources(
   );
 
   // Delete materialized runtime dirs (per deployment) and the build
-  // workspace dir (per project). Safe to rm missing dirs (force: true).
   const runtimeRoot = path.resolve(
     input.runtimeRootDir ||
       getEnv("PROJECT_RUNTIME_DIR", ".data/project-runtimes"),
@@ -114,7 +105,6 @@ export async function cleanupProjectResources(
   }
 
   // Delete owner-uploaded project assets (business images / references /
-  // logos) stored in S3. Best-effort, idempotent.
   if (input.assetRefs?.length) {
     await Promise.all(
       input.assetRefs.map(async (ref) => {

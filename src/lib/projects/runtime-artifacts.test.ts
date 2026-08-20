@@ -182,9 +182,6 @@ describe("project runtime artifacts", () => {
 
   it("resolveArtifactFilesDir returns null for s3 refs (no on-disk path)", () => {
     // ponytail: S3 artifacts have no on-disk files dir; the post-generation
-    // prettier sweep is a no-op for S3-stored source. Upgrade path: make this
-    // fn async + materialize to a temp dir (requires touching edit/generate
-    // route callers). Out of scope for the s3-client rewiring.
     expect(
       resolveArtifactFilesDir("project-artifact:s3:source:abc"),
     ).toBeNull();

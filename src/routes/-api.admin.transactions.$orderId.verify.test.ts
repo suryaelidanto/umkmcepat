@@ -59,7 +59,6 @@ describe("POST /api/admin/transactions/$orderId/verify", () => {
     sendPaymentReceiptMock.mockReset();
 
     // Default: $transaction executes callback with a tx object that has
-    // updateMany (returns count=1) and $executeRaw
     prismaTransactionMock.mockImplementation(
       async (cb: (tx: unknown) => unknown) => {
         return cb({

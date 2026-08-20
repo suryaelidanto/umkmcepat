@@ -11,19 +11,6 @@ import {
 import os from "node:os";
 import path from "node:path";
 
-/**
- * Pre-commit auto-fix gate. Runs `prettier --write` + `eslint --fix` on staged
- * files, re-stages the fixed content, then runs a read-only prettier + eslint
- * check.
- *
- * CRITICAL SAFETY — never stages unstaged working-tree changes:
- * The fixers (prettier/eslint) operate on real files, so we must put the
- * STAGED version into the working tree before fixing (otherwise a file with
- * staged + unstaged edits would have the unstaged edit fixed-and-committed).
- * We snapshot each staged file's working-tree bytes to a temp dir, write the
- * staged blob into the working tree, fix + re-stage, then restore the snapshot.
- * No `git stash`, so no merge-conflict state can ever be left in the index.
- */
 function gitCapture(args: string[]): string {
   const result = spawnSync("git", args, { encoding: "utf8" });
   if (result.status !== 0) {
@@ -71,7 +58,6 @@ async function main() {
   );
 
   // Files that have both staged and unstaged changes need working-tree
-  // protection; files staged-but-unchanged-in-worktree are safe as-is.
   const dirty = new Set(
     gitCapture(["diff", "--name-only"]).split(/\r?\n/).filter(Boolean),
   );
@@ -82,8 +68,6 @@ async function main() {
 
   try {
     // 1. Snapshot working-tree bytes for staged files that also have unstaged
-    //    changes, then replace the working-tree file with the staged blob so
-    //    the fixers only see staged content.
     for (const rel of files) {
       if (!dirty.has(rel)) {
         continue;
@@ -147,9 +131,6 @@ async function main() {
     for (const snap of snapshots) {
       if (snap.wtBytes === null) {
         // Working tree had no file at this path (it was a staged addition
-        // with a subsequent unstaged deletion). Recreate the staged content so
-        // the user doesn't lose the unstaged delete intent — actually nothing
-        // to restore; leave as-is (fixed staged content is already staged).
         continue;
       }
       await mkdir(path.dirname(snap.abs), { recursive: true });

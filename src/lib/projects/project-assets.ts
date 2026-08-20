@@ -25,7 +25,6 @@ const KINDS: readonly ProjectAssetKind[] = [
 ];
 
 // Display kinds go to the public S3 bucket; references go to the private
-// bucket (AI-input-only, never displayed, never public).
 export const DISPLAY_KINDS: readonly ProjectAssetKind[] = [
   "business-image",
   "logo",
@@ -36,7 +35,6 @@ function isDisplayKind(kind: ProjectAssetKind): boolean {
 }
 
 // S3 object key for a parsed asset ref —
-// `<S3_PREFIXES.asset>/<projectId>/<userId>/<kind>/<ulid>[.<ext>]`.
 function assetS3Key(parsed: ParsedProjectAssetRef): string {
   return `${S3_PREFIXES.asset}/${parsed.projectId}/${parsed.userId}/${parsed.kind}/${parsed.ulid}${parsed.ext ? `.${parsed.ext}` : ""}`;
 }
@@ -93,9 +91,6 @@ export function parseProjectAssetRef(
     return null;
   }
   // The file segment is <ulid>.<ext> written by writeProjectAsset, or a bare
-  // ulid from other ref producers. When an extension is present it must be a
-  // known image ext; we carry it forward so read/delete resolve the exact
-  // S3 key instead of guessing by extension order.
   const parsed = parseFileSegment(fileSegment);
   if (!parsed || !isValidUlid(parsed.ulid)) {
     return null;
@@ -164,7 +159,6 @@ export async function writeProjectAsset({
   void provider; // single path now; kept for future local/cloud gating if needed
 
   // Display media (business-image/logo) go to the public S3 bucket and get a
-  // publicUrl; references go to the private bucket with no publicUrl.
   if (isDisplayKind(kind)) {
     await putS3Object(
       "public",

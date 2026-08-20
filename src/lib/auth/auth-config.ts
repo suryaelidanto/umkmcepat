@@ -19,9 +19,6 @@ const googleConfigured = Boolean(
 );
 
 // Shared Auth.js Core config. Mirrors the previous NextAuth v5 setup exactly:
-// Google provider, Prisma adapter, JWT sessions, and the same session/jwt
-// callbacks. JWT encryption (salt + secret derivation) is identical to
-// next-auth v5, so session cookies issued before the migration stay valid.
 export const authConfig: AuthConfig = {
   basePath: "/api/auth",
   adapter: PrismaAdapter(prisma),
@@ -52,7 +49,6 @@ export const authConfig: AuthConfig = {
 
       if (session.user) {
         // Always re-derive from ADMIN_EMAILS so allowlist changes apply
-        // without re-login, and a stale token.admin=false cannot stick.
         session.user.admin = isAdminEmail(session.user.email ?? "");
       }
 
@@ -68,15 +64,11 @@ export const authConfig: AuthConfig = {
       }
 
       // A token without a subject cannot identify an application user. Return
-      // null so Auth.js clears malformed or legacy cookies.
       if (!token.sub) {
         return null;
       }
 
       // Auto-logout stale JWTs: if User was deleted (TRUNCATE etc.) the
-      // cookie still decrypts but DB has no row. Auth.js treats an empty
-      // object as a valid token, so return null to make session() clear
-      // the cookie and report an unauthenticated session.
       try {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.sub },
@@ -91,7 +83,6 @@ export const authConfig: AuthConfig = {
         }
       } catch {
         // Fail open: if DB is down, keep existing token to avoid
-        // logging everyone out on a transient DB blip.
       }
 
       if (trigger === "update") {
@@ -108,14 +99,11 @@ export const authConfig: AuthConfig = {
   },
   secret: process.env.NEXTAUTH_SECRET,
   // When a user links an OAuth account (first sign-in), connect them to any
-  // approved pilot waitlist entry whose email matches, so the waitlist gate
-  // lets approved applicants through. Best-effort; never blocks sign-in.
   events: {
     async linkAccount({ user }) {
       if (user?.id && user?.email) {
         const waitlistEnabled = await isWaitlistEnabled().catch(() => true);
         // Admin bypass = waitlist + approved: even when gate is ON, an
-        // admin email must never be stuck at 0 energy. OFF grants everyone.
         const isAdmin = isAdminEmail(user.email ?? "");
         const shouldInstantGrant = !waitlistEnabled || isAdmin;
         const instantGrant = shouldInstantGrant
@@ -132,7 +120,6 @@ export const authConfig: AuthConfig = {
     },
     async createUser({ user }) {
       // Credentials / email signup path (not OAuth). Same rule: OFF grants
-      // everyone, ON grants only admins instantly (others wait for approval).
       if (user?.id) {
         const waitlistEnabled = await isWaitlistEnabled().catch(() => true);
         const email = (user as { email?: string | null })?.email ?? null;
@@ -145,12 +132,10 @@ export const authConfig: AuthConfig = {
     },
   },
   // The control plane sits behind a TLS-terminating proxy in production; trust
-  // the forwarded host so OAuth callback URLs resolve to the public origin.
   trustHost: true,
 };
 
 // Populate AUTH_SECRET/host env defaults the way the framework integrations do,
-// so a single NEXTAUTH_SECRET keeps working without renaming env vars.
 setEnvDefaults(process.env, authConfig);
 
 function getSessionUpdateName(value: unknown) {

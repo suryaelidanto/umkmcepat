@@ -71,7 +71,6 @@ export function createLoopDetector() {
       return result;
     },
 
-    /** Call after a failed replace_in_file (does not double exact-repeat counts). */
     noteReplaceFailure(): TrackResult {
       consecutiveReplaceFails += 1;
       if (consecutiveReplaceFails >= REPLACE_FAIL_HARD_AT) {

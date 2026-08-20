@@ -26,11 +26,6 @@ export type FormFieldProps = {
   }) => React.ReactNode;
 };
 
-/**
- * Single-source renderer for label + hint + error. The render-prop lets us
- * compose <input>, <select>, <textarea> without duplicating the border-on-
- * invalid styling across every primitive.
- */
 export function FormField({
   label,
   required,
@@ -50,9 +45,7 @@ export function FormField({
       {children({
         id,
         invalid,
-        onBlur: () => {
-          /* owner calls markTouched from useValidatedForm */
-        },
+        onBlur: () => {},
       })}
       {hint && !invalid ? (
         <span className="text-xs text-[#5f5f5d] dark:text-surface-warm-white/50">

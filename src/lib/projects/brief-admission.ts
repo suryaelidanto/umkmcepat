@@ -1,15 +1,3 @@
-// src/lib/projects/brief-admission.ts
-// Deterministic brief-completeness gate for the batched writer. Runs BEFORE
-// any AI call: a failed gate costs zero energy and returns an Indonesian
-// user-facing reason. This is the fast sibling of discuss-readiness.ts —
-// the batched prompt can't ask follow-up questions mid-stream, so anything
-// the writer needs must be present in the brief up front.
-//
-// Blocks on the minimum buildable brief: identity (businessName) +
-// offering (offer) + readyForBuild flag. Rich fields (contact, style, target
-// customer, products, testimonials, FAQ) are optional — the writer prompt +
-// completeness gate skip empty ones, so a build can start as soon as the core
-// is known. This mirrors MIN_BRIEF_FIELDS in brief-flow.ts.
 import { evaluateBuildReadiness } from "./build-readiness";
 import { parseCanonicalBrief, type ProjectBriefV2 } from "./canonical-brief";
 
@@ -19,8 +7,6 @@ export type BatchedBriefAdmissionResult =
   | { ok: true; blockers: []; reason: null }
   | { ok: false; blockers: string[]; reason: string };
 
-/** Thrown by the batched generator when the admission gate blocks. Never an
- * AI-call failure — the worker surfaces `reason` to the user uncharged. */
 export class BatchedAdmissionBlockedError extends Error {
   readonly blockers: string[];
   readonly reason: string;
@@ -47,11 +33,6 @@ const FIELD_LABELS: Record<string, string> = {
   "content.deliveryArea": "area layanan",
 };
 
-/**
- * Validate a parsed ProjectBrief against what the batched writer needs.
- * Never throws; always returns structured blockers + a single Indonesian
- * user-facing sentence for the UI error path.
- */
 export function checkContractGenerateAdmission(input: {
   briefSnapshot: ProjectBriefV2;
   contractHash: string;

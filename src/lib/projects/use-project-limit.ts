@@ -45,8 +45,6 @@ const FALLBACK_LIMIT: ProjectLimitInfo = {
 
 export function useProjectLimit(): ProjectLimitInfo {
   // shouldThrow: false so components using this hook (ProjectList,
-  // HomePromptForm) can render outside the "/_main/" route match, e.g. in
-  // Storybook, without pulling in the route module's server-only imports.
   const match = useMatch({ from: "/_main/", shouldThrow: false });
   const loader = match?.loaderData as
     | {
@@ -57,8 +55,6 @@ export function useProjectLimit(): ProjectLimitInfo {
     | undefined;
 
   // ponytail: reactive subscription to projects cache so hero section
-  // updates when project count changes (e.g. full → available). If query
-  // hasn't been initialised yet we fall through to loader data.
   const { data: fromCache } = useInfiniteQuery<
     ProjectsPage,
     Error,

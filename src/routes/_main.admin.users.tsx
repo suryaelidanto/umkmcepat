@@ -20,7 +20,6 @@ import {
 import { resolveAsyncListState } from "@/lib/async-list-state";
 import { fetchJson } from "@/lib/query-client";
 
-/** id-ID thousands: 1000000 → "1.000.000" */
 function formatGroupedNumber(value: unknown): string {
   if (value === "" || value === null || value === undefined) {
     return "";
@@ -32,7 +31,6 @@ function formatGroupedNumber(value: unknown): string {
   return Math.trunc(n).toLocaleString("id-ID");
 }
 
-/** Strip non-digits; empty → "" for draft, else number. */
 function parseGroupedNumber(raw: string): number | "" {
   const digits = raw.replace(/\D/g, "");
   if (digits === "") {

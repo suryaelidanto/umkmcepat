@@ -2,17 +2,6 @@ import { useCallback, useMemo, useState } from "react";
 
 import type { ZodError, ZodSchema } from "zod";
 
-/**
- * Lightweight zod-backed form helper. Centralizes the pattern this app uses
- * for user-facing forms (input validation, error display, submit gating) so
- * pages don't re-roll `useState` boilerplate. Stay narrow: a few typed fields,
- * a schema, onSubmit. Drop down to raw hooks only for highly specialized
- * forms (drag/resize, async field combos).
- *
- * For optional fields in the schema, default the field's initial value to
- * `""` — the helper does NOT distinguish missing-vs-empty at submit time
- * (server validates the canonical type).
- */
 export type ValidatedFormOptions<TValues extends Record<string, unknown>> = {
   schema: ZodSchema<TValues>;
   initialValues: TValues;
@@ -74,7 +63,6 @@ export function useValidatedForm<TValues extends Record<string, unknown>>(
   );
 
   // Re-parse the whole form whenever a value changes so dependents (e.g. a
-  // confirm-password field matching a password field) stay consistent.
   const liveFieldErrors = useMemo(() => {
     const parsed = schema.safeParse(values);
     const out: Partial<Record<keyof TValues, FieldError>> = {};

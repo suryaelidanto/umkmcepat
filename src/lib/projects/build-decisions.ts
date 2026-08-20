@@ -1,8 +1,4 @@
 // src/lib/projects/build-decisions.ts
-// Server-owned decision registry for deterministic build readiness. The model
-// may propose a decisionId and ask a question, but the server owns
-// applicability, readiness effects, and skip behavior. The model cannot create
-// new blocking categories at runtime.
 
 export type DecisionTarget =
   | "business_identity"
@@ -133,8 +129,6 @@ export function findDecision(id: string): BuildDecisionDefinition | undefined {
   return BUILD_DECISIONS.find((d) => d.id === id);
 }
 
-/** Pick the highest-value unanswered applicable decision. Value is registry
- * order (earlier = more foundational); blocked decisions sort first. */
 export function selectNextBuildDecision(input: {
   applicable: DecisionId[];
   answered: string[];

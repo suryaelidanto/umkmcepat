@@ -1,8 +1,5 @@
 import { prisma } from "@/lib/prisma";
 
-/**
- * Validates whether a project belongs to a given user.
- */
 export async function verifyProjectOwnership(
   projectId: string,
   userId: string,

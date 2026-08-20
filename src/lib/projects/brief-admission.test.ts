@@ -63,7 +63,6 @@ describe("checkBatchedGenerateAdmission", () => {
 
   it("admits a brief whose structural detail was never asked", () => {
     // Mirrors build readiness: nothing schedules the address/hours/photo
-    // questions, so an empty field state must not refuse the build.
     const result = checkBatchedGenerateAdmission({
       brief: readyBrief({ fieldState: {} }),
     });

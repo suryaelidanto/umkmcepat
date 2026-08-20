@@ -38,7 +38,6 @@ vi.mock("@/lib/payment/user-credits", () => ({
 }));
 
 // Per-step charging records its own ledger rows (phase-less); the tests only
-// assert on the writer/repair rows from runBatchedEdit itself.
 vi.mock("./energy-step-charger", () => ({
   createStepCharger: vi.fn(() => ({
     isExhausted: () => false,
@@ -162,7 +161,6 @@ describe("selectBatchedEditTargets", () => {
 
   it("falls back to self-selection when matches exceed the ambiguity cap", () => {
     // A generated app surface (only src/ paths are candidates) bigger than 8
-    // files, all matching the noun → genuinely ambiguous.
     const many = Array.from({ length: 9 }, (_, i) => ({
       content: "export const x = 1;",
       path: `src/routes/page-${i}.tsx`,
@@ -208,7 +206,6 @@ describe("runBatchedEdit — happy path", () => {
     }
     expect(result.writtenPaths).toContain("src/routes/index.tsx");
     // Written file content replaces the original; the parser trims exactly
-    // one trailing newline, so compare normalized.
     expect(
       result.files
         .find((f) => f.path === "src/routes/index.tsx")

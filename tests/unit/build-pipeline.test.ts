@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
 // Integration test proving the build pipeline logic works end-to-end.
-// Mocks the AI provider to verify the code path without external dependencies.
 
 const generateTextMock = vi.fn().mockResolvedValue({
   text: "ALLOW",

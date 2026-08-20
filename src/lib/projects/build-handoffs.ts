@@ -1,6 +1,4 @@
 // src/lib/projects/build-handoffs.ts
-// Durable handoff read/selection helpers. Handoff rows are immutable
-// contract/plan pairs; execution status lives on attempts/builds, never here.
 import { prisma } from "@/lib/prisma";
 import {
   parseBuildContract,
@@ -102,8 +100,6 @@ export async function loadAcceptedHandoffForAttempt(input: {
     throw new Error("accepted handoff brief snapshot missing");
   }
   // Idempotent parse: if already canonical V2, hash directly from the stored
-  // canonical brief snapshot rather than re-normalizing fields that mutate
-  // categories/order.
   const briefSnapshot = parseCanonicalBrief(rawBrief);
   const briefHash = hashCanonicalBrief(rawBrief as ProjectBriefV2);
   if (
@@ -147,11 +143,6 @@ export async function loadAcceptedHandoffForAttempt(input: {
   };
 }
 
-/** Create (or reuse) an immutable draft handoff for a contract/plan pair.
- * Idempotent on the revision-unique constraint; equal semantic content at a
- * later revision creates a distinct row. Returns the stored review hash and
- * review items so callers always emit a card that matches the row — never a
- * freshly-computed hash that could diverge from the reused row. */
 export async function createDraftHandoff(input: CreateHandoffInput): Promise<{
   id: string;
   reused: boolean;
@@ -187,7 +178,6 @@ export async function createDraftHandoff(input: CreateHandoffInput): Promise<{
       };
     }
     // Content changed at the same nominal revision: bump to the next
-    // contract revision instead of silently reusing a stale immutable row.
     const latest = await prisma.projectBuildHandoff.findFirst({
       where: { projectId: input.projectId },
       orderBy: { contractRevision: "desc" },
@@ -251,7 +241,6 @@ export async function createDraftHandoff(input: CreateHandoffInput): Promise<{
   };
 }
 
-/** Resolve the selected contract-v1 deployment's handoff for a project. */
 export async function loadActiveHandoff(
   projectId: string,
 ): Promise<ActiveHandoff | null> {
@@ -277,9 +266,6 @@ export async function loadActiveHandoff(
   };
 }
 
-/** A contract-v1 snapshot is directly restorable only when its recorded
- * contract/plan hashes match the project's active handoff. Otherwise restoring
- * it is a structural change requiring a new reviewed handoff. */
 export async function isSnapshotRestorableAgainstActiveHandoff(input: {
   projectId: string;
   snapshotMetadata: unknown;
@@ -314,11 +300,6 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return null;
 }
 
-/**
- * Atomically select a qualified candidate's handoff as the project's active
- * handoff. Verifies the operation lease, updates the project, and supersedes
- * the previously active handoff. A failed candidate must never reach here.
- */
 export async function selectQualifiedHandoff(input: {
   projectId: string;
   handoffId: string;

@@ -5,9 +5,6 @@ import {
   type SocialLinkValue,
 } from "@/lib/projects/brief-rich-fields";
 
-/** Rich content fields the brief may populate. All optional: the gate and
- * prompt only enforce/render fields the brief actually filled, so a minimal
- * 2-field brief (businessName + offer) is not penalized. */
 export type SiteSchemaProduct = {
   name: string;
   description?: string;
@@ -89,9 +86,6 @@ function cleanText(value: unknown, fallback: string, maxLength = MAX_TEXT) {
     return text;
   }
   // A hard slice can land mid-word with no signal it was cut — reads as
-  // broken copy, not shortened copy. Reproduced live: a real build's offer
-  // text silently trailed off mid-clause ("...seblak ceker bakso sosis "
-  // with no closing punctuation).
   const truncated = text.slice(0, maxLength - 1);
   const lastSpace = truncated.lastIndexOf(" ");
   const wordSafe = lastSpace > 0 ? truncated.slice(0, lastSpace) : truncated;
@@ -219,14 +213,8 @@ export function createProjectSiteSchemaFromBrief(
       targetCustomerDetail,
     }),
     // Rich fields: only set when the brief actually populated them, so the
-    // prompt + gate can skip empty ones. A 2-field minimal brief yields a
-    // schema with no rich fields — the gate only enforces businessName/offer.
     tagline: brief.tagline?.trim() || undefined,
     // compileGeneratedSiteContract auto-fills content.usp with the same
-    // grounded fallback (publicTrustPoints) when the brief supplied none,
-    // and the reference-calibrated gate requires site.usp whenever that ran
-    // — falling back here to the trustPoints already computed above (not
-    // fabricated further) keeps the two derivations satisfiable together.
     usp:
       brief.usp && brief.usp.length
         ? brief.usp
@@ -237,8 +225,6 @@ export function createProjectSiteSchemaFromBrief(
     products: briefProducts(brief),
     testimonials: briefTestimonials(brief),
     // faq is never populated from a brief (the brief type has no faq field),
-    // but the prompt often mentions "FAQ" so the model references site.faq.
-    // Emit an empty array so the field is always typed and safe to map/guard.
     faq: [],
     socialLinks:
       brief.socialLinks && brief.socialLinks.length

@@ -170,8 +170,6 @@ describe("Payment API Routes", () => {
         );
       } catch {
         // Test harness may or may not propagate the throw depending on how
-        // the Response is returned. Either way, the side effects must not
-        // have happened.
       }
 
       expect(createMayarPaymentMock).not.toHaveBeenCalled();
@@ -583,7 +581,6 @@ describe("Payment API Routes", () => {
       });
 
       // Someone tampered with the QRIS amount at scan time — verified
-      // amount from Mayar's API does not match what we charged for.
       getMayarTransactionMock.mockResolvedValueOnce({
         status: "paid",
         amount: 1000,

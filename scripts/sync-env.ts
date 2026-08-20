@@ -1,17 +1,4 @@
 #!/usr/bin/env bun
-/* eslint-disable no-console */
-/**
- * Sync .env to .env.example structure WITHOUT touching your secret values.
- *
- * - Keys present in .env.example but missing from .env  -> added with the
- *   example's default value (you fill real secrets after).
- * - Keys in .env but not in .env.example                  -> removed (obsolete).
- * - Keys in both                                         -> your .env value is kept verbatim.
- * - Comments + ordering match .env.example.
- * - .env.bak backup is written before any change.
- *
- * Run: bun run sync:env
- */
 import { readFileSync, writeFileSync, existsSync, copyFileSync } from "node:fs";
 import path from "node:path";
 
@@ -33,7 +20,6 @@ copyFileSync(ENV, BACKUP);
 console.log(`backup: ${BACKUP}`);
 
 // Parse a .env file into ordered [line] preserving comments/blanks, plus a
-// map of KEY -> raw value (without the surrounding quotes stripped).
 function parse(file: string) {
   const lines = readFileSync(file, "utf8").split(/\r?\n/);
   const values = new Map<string, string>();
@@ -54,8 +40,6 @@ let removed = 0;
 let kept = 0;
 
 // Rebuild .env following .env.example's line order + comments. For each KEY=
-// line in the example, use the CURRENT .env value if it exists (preserve
-// secrets), otherwise the example's default. Drop .env-only keys (obsolete).
 const out: string[] = [];
 for (const line of ex.lines) {
   const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);

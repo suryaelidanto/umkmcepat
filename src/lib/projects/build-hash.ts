@@ -1,8 +1,4 @@
 // src/lib/projects/build-hash.ts
-// Canonical SHA-256 hashing for contract, plan, and review items. Semantic
-// content only: acceptance status, revisions, handoff ids, timestamps, and
-// attempt state are never hash inputs. Uses an explicit projection so a
-// future field addition has a single migration point.
 import { createHash } from "node:crypto";
 
 import type { BuildContractV1 } from "./build-contract";
@@ -17,18 +13,14 @@ function sha256Hex(data: string): string {
   return createHash("sha256").update(data, "utf8").digest("hex");
 }
 
-/** Contract arrays are unordered sets; sort by a stable id key. */
 function sortById<T>(arr: T[], key: (item: T) => string): T[] {
   return [...arr].sort((a, b) => key(a).localeCompare(key(b)));
 }
 
-/** Plan set-like arrays sort by normalized value; ordered arrays keep order. */
 function sortValues(arr: unknown[]): unknown[] {
   return [...arr].map(String).sort((a, b) => a.localeCompare(b));
 }
 
-/** Contract hash projection: schemaVersion + every semantic field except
- * revision and contentHash. */
 function contractHashInput(c: BuildContractV1): unknown {
   return {
     schemaVersion: c.schemaVersion,
@@ -46,9 +38,6 @@ function contractHashInput(c: BuildContractV1): unknown {
   };
 }
 
-/** Plan hash projection: schemaVersion, contractHash, and every semantic
- * field except revision and contentHash. Pages/sections/navigation keep
- * presentation order; set-like id arrays and anti-references sort. */
 function planHashInput(p: BuildPlanV1): unknown {
   return {
     schemaVersion: p.schemaVersion,
@@ -92,7 +81,6 @@ function canonicalize(v: unknown): unknown {
   return v;
 }
 
-/** Stable canonical JSON: sorted keys, NFC, \n line endings. */
 export function canonicalJson(value: unknown): string {
   return JSON.stringify(canonicalize(value)) ?? "null";
 }

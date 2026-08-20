@@ -197,7 +197,6 @@ describe("getCommunityContributorsCached", () => {
   });
 
   // The module holds a module-level TTL cache; load a fresh instance per test
-  // so cache state never leaks between tests.
   async function loadFreshModule() {
     vi.resetModules();
     return await import("@/lib/community-contributors");

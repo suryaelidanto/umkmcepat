@@ -1,8 +1,4 @@
 // Test helper: pull a method handler out of a TanStack server route so existing
-// handler tests can invoke it directly the way they used to call the exported
-// Next.js route function. Usage:
-//   const GET = getHandler(Route, "GET");
-//   const res = await GET(new Request(url), { id: "123" });
 type HandlerFn = (ctx: {
   request: Request;
   params: Record<string, string | undefined>;

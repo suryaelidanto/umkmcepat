@@ -68,12 +68,16 @@ const eslintConfig = [
       "prefer-const": "error",
       eqeqeq: ["error", "always", { null: "ignore" }],
       curly: ["error", "all"],
-      // Not enforced under the previous next/typescript preset; keep parity so
-      // the migration does not introduce churn in unrelated pre-existing files.
       "no-useless-escape": "off",
       "require-yield": "off",
       "no-useless-assignment": "off",
       "preserve-caught-error": "off",
+    },
+  },
+  {
+    files: ["scripts/**", "src/scripts/**"],
+    rules: {
+      "no-console": "off",
     },
   },
 ];

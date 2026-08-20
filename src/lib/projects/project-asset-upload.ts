@@ -21,11 +21,6 @@ const EXT_CONTENT_TYPE: Record<string, string> = {
   webp: "image/webp",
 };
 
-/**
- * Derive the authoritative content type from the byte-detected extension in
- * the ref, NOT from the client-supplied file.type (which can lie). The ref's
- * extension is set by writeProjectAsset from magic-byte detection.
- */
 export function contentTypeFromRef(ref: string): string {
   const ext = ref.slice(ref.lastIndexOf(".") + 1).toLowerCase();
   return EXT_CONTENT_TYPE[ext] ?? "application/octet-stream";
@@ -44,13 +39,6 @@ export function isAllowedAssetPurpose(purpose: string): purpose is string {
   return ALLOWED_PURPOSES.includes(purpose);
 }
 
-/**
- * Validate, store, and record an owner-scoped project asset upload. The bytes
- * are magic-byte validated + size-capped inside writeProjectAsset; this layer
- * resolves the kind from the caller-supplied `purpose`, persists a ProjectAsset
- * row for cleanup-on-delete, and returns a signed-ish URL path the workspace
- * can use to fetch the asset behind auth.
- */
 export async function uploadProjectAsset({
   bytes,
   projectId,
@@ -77,7 +65,6 @@ export async function uploadProjectAsset({
   });
 
   // Derive the content type from the byte-detected extension in the ref, not
-  // from the client-supplied contentType (which can lie about the bytes).
   const storedContentType = contentTypeFromRef(ref);
 
   const asset = await prisma.projectAsset.create({

@@ -29,14 +29,7 @@ function isGeneratedOrigin(requestOrigin: string) {
   }
 }
 
-// Global request middleware — runs before every request (server routes, SSR,
-// server functions). Preserves the exact behavior and ordering of the previous
-// Next.js middleware: cross-site mutation block, then global rate limit, then
-// security headers applied to every response.
 const securityMiddleware = createMiddleware().server(async ({ next }) => {
-  // Warm the AppSetting snapshot before any handler runs, so getSettingSync
-  // call sites resolve DB values instead of falling back to env. Idempotent
-  // and single-flight — after the first request this awaits a resolved promise.
   await primeSettingCache();
 
   const nonce = generateNonce();
@@ -89,11 +82,9 @@ const securityMiddleware = createMiddleware().server(async ({ next }) => {
       return await next();
     });
   });
-  // Auth.js (Undici) can return immutable Headers; applySecurityHeaders
-  // mutates in place and throws TypeError: immutable. Handle by cloning.
+  // Handle immutable headers from auth runtime safely
   let responseHeaders: Headers;
   try {
-    // Probe mutability without side effect.
     result.response.headers.set("x-immutability-probe", "1");
     result.response.headers.delete("x-immutability-probe");
     responseHeaders = result.response.headers;
@@ -105,7 +96,6 @@ const securityMiddleware = createMiddleware().server(async ({ next }) => {
     pathname,
     nonce,
   });
-  // If we cloned, rebuild response with mutable headers.
   let finalResponse = result.response;
   if (responseHeaders !== result.response.headers) {
     finalResponse = new Response(result.response.body, {
@@ -119,9 +109,6 @@ const securityMiddleware = createMiddleware().server(async ({ next }) => {
   return { ...result, response: finalResponse };
 });
 
-// CSRF protection for server functions. Our custom securityMiddleware already
-// covers /api/* routes via isCrossSiteMutation; this protects same-origin RPC
-// server function endpoints (non-/api/ paths) per TanStack Start convention.
 const csrfMiddleware = createCsrfMiddleware({
   filter: (ctx) => ctx.handlerType === "serverFn",
 });
