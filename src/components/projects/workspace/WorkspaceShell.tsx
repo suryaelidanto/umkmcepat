@@ -1208,7 +1208,6 @@ export function WorkspaceShell({
 
   const isResponding = status === "submitted" || status === "streaming";
   const isBuilding = buildStatus === "building";
-  // First load: the initial prompt auto-sends via a macrotask, so useChat's
   const allMessages = useMemo(
     () => dedupeUiMessages([...olderMessages, ...messages]),
     [messages, olderMessages],
@@ -1244,7 +1243,6 @@ export function WorkspaceShell({
     Boolean(prompt) &&
     workspaceCard.type === "none" &&
     !firstTurnSettled;
-  // `isRetrying` covers both retryChat() and retryWorkspaceCard() — both
   const isProcessing =
     firstTurnPending ||
     isResponding ||
@@ -1253,7 +1251,6 @@ export function WorkspaceShell({
     isRetrying ||
     isPreparingNextQuestion;
 
-  // Drive the workspace card from the streamed assistant tool output as it
   useEffect(() => {
     const toolCard = getWorkspaceCardFromMessages(allMessages);
     if (!toolCard || toolCard.workspaceCard.type === "none") {

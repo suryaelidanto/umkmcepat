@@ -14,7 +14,6 @@ function jsonObjectOrString<T extends z.ZodTypeAny>(shape: T) {
 }
 
 export const presentWorkspaceCardInputSchema = z.object({
-  // Models sometimes emit assistantText as part of tool input, but on final
   assistantText: z.string().trim().default(""),
   projectTitle: z.string().optional(),
   readyForBuild: z.boolean().default(false),
