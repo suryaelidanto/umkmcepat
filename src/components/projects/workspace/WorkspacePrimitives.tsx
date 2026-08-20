@@ -17,6 +17,7 @@ import {
   Undo2,
   X,
   LifeBuoy,
+  RotateCw,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
@@ -75,6 +76,7 @@ export function WorkspaceTopBar({
   projectId,
   title: _title,
   onPickTab,
+  onRefreshPreview,
 }: {
   activeTab: BuildTab;
   setActiveTab: (tab: BuildTab) => void;
@@ -99,6 +101,7 @@ export function WorkspaceTopBar({
   projectId?: string;
   title?: string;
   onPickTab?: (tab: BuildTab) => void;
+  onRefreshPreview?: () => void;
 }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   return (
@@ -210,6 +213,17 @@ export function WorkspaceTopBar({
                   HP
                 </TabButton>
               </div>
+              {onRefreshPreview ? (
+                <button
+                  type="button"
+                  onClick={onRefreshPreview}
+                  className="hidden md:inline-flex size-9 items-center justify-center rounded-radius-md border border-black/10 text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/10 dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white cursor-pointer transition-colors"
+                  aria-label="Muat ulang tampilan website"
+                  title="Muat ulang tampilan"
+                >
+                  <RotateCw className="size-3.5" />
+                </button>
+              ) : null}
             </>
           ) : null}
           {annotationAvailable &&

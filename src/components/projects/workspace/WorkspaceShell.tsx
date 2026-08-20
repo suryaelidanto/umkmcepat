@@ -1396,6 +1396,7 @@ export function WorkspaceShell({
         patchProjectInList({ buildStatus: "ready" });
         void loadRuntimeState();
         setSourceReloadKey((current) => current + 1);
+        setPreviewReloadKey((current) => current + 1);
         window.dispatchEvent(new Event("umkm:energy-changed"));
         void queryClient.invalidateQueries({
           queryKey: queryKeys.projects,
@@ -3993,6 +3994,7 @@ export function WorkspaceShell({
           closeChatPanel={closeChatPanel}
           runtime={runtimeControl}
           title={initialTitle}
+          onRefreshPreview={() => setPreviewReloadKey((current) => current + 1)}
           onPickTab={(tab) => {
             setActiveTab(tab);
             setMobileSurface("preview");
