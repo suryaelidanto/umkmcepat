@@ -90,11 +90,19 @@ export const APP_SETTINGS: ConfigEntry[] = [
     fallback: false,
   },
   {
+    key: "feature.visual_edit_enabled",
+    category: "feature_flag",
+    tier: "basic",
+    type: "boolean",
+    label: "Workspace Tunjuk & Ubah (visual edit) mode",
+    fallback: false,
+  },
+  {
     key: "feature.direct_edit_enabled",
     category: "feature_flag",
     tier: "basic",
     type: "boolean",
-    label: "Workspace Ubah (element edit) mode",
+    label: "Workspace Ubah (legacy alias)",
     fallback: false,
   },
   {

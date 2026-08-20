@@ -410,7 +410,7 @@ export function WorkspaceShell({
   const [pendingAnnotationComment, setPendingAnnotationComment] = useState("");
   const visualAnnotationsLoadedRef = useRef(false);
   const [directEditMode, setDirectEditMode] = useState(false);
-  const directEditFlagEnabled = useFeatureFlag("feature.direct_edit_enabled");
+  const directEditFlagEnabled = useFeatureFlag("feature.visual_edit_enabled");
   const effectiveDirectEditMode = directEditMode && directEditFlagEnabled;
   const composerUploadsEnabled = useFeatureFlag(
     "feature.composer_uploads_enabled",
@@ -2165,7 +2165,7 @@ export function WorkspaceShell({
     ]);
 
     try {
-      const response = await fetch(`/api/projects/${projectId}/edit`, {
+      const response = await fetch(`/api/projects/${projectId}/visual-edit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -2377,7 +2377,7 @@ export function WorkspaceShell({
     );
 
     try {
-      const response = await fetch(`/api/projects/${projectId}/edit`, {
+      const response = await fetch(`/api/projects/${projectId}/visual-edit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ instruction, kind: "instruction", summary }),

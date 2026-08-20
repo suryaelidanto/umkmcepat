@@ -233,14 +233,16 @@ export function WorkspaceTopBar({
               type="button"
               onClick={onToggleDirectEdit}
               aria-label={
-                directEditActive ? "Nonaktifkan ubah" : "Aktifkan ubah"
+                directEditActive
+                  ? "Nonaktifkan mode tunjuk & ubah"
+                  : "Aktifkan mode tunjuk & ubah"
               }
               aria-pressed={directEditActive}
               className={`hidden md:inline-flex h-9 items-center gap-spacing-2 rounded-radius-md border px-spacing-3 py-spacing-2 text-xs transition cursor-pointer ${directEditActive ? "border-[#8fd3ff]/35 bg-[#8fd3ff]/12 text-[#d6f0ff]" : "border-surface-warm-white/10 bg-surface-warm-white/5 text-surface-warm-white/64 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"}`}
             >
               <MessageSquarePlus className="size-4" />
               <span className="hidden sm:inline">
-                {directEditActive ? "Ubah aktif" : "Ubah"}
+                {directEditActive ? "Mode Tunjuk Aktif" : "Tunjuk & Ubah"}
               </span>
             </button>
           ) : null}

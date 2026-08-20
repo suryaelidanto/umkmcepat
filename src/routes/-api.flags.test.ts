@@ -22,7 +22,9 @@ describe("GET /api/flags", () => {
   it("returns 200 with both flags and a public cache header", async () => {
     getPublicFlagsMock.mockResolvedValue({
       "feature.composer_uploads_enabled": true,
+      "feature.visual_edit_enabled": false,
       "feature.direct_edit_enabled": false,
+      "feature.default_theme": "dark",
     });
 
     const response = await GET();
@@ -35,7 +37,9 @@ describe("GET /api/flags", () => {
     const body = await response.json();
     expect(body).toEqual({
       "feature.composer_uploads_enabled": true,
+      "feature.visual_edit_enabled": false,
       "feature.direct_edit_enabled": false,
+      "feature.default_theme": "dark",
     });
   });
 });
