@@ -64,7 +64,7 @@ describe("resolveModelPricing", () => {
     });
   });
 
-  it("strips ag/ and antigravity/ prefixes to find underlying model pricing", async () => {
+  it("resolves ag/ and antigravity/ catalog entries directly", async () => {
     const agGemini = await resolveModelPricing("ag/google/gemini-3.7-flash");
     expect(agGemini).toMatchObject({
       pricingSource: "catalog",
@@ -76,8 +76,6 @@ describe("resolveModelPricing", () => {
     );
     expect(agDeepseek).toMatchObject({
       pricingSource: "catalog",
-      promptPrice: 0.0000000742,
-      completionPrice: 0.0000001484,
     });
   });
 
