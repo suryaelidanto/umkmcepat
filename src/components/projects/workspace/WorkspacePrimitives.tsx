@@ -797,11 +797,13 @@ export function EmptyPreviewState() {
 }
 
 export function WorkspaceCardView({
+  buildComplete = false,
   canBuild = true,
   card,
   onBuild,
   onDiscuss,
 }: {
+  buildComplete?: boolean;
   card: WorkspaceCard;
   canBuild?: boolean;
   onBuild: () => void;
@@ -843,7 +845,7 @@ export function WorkspaceCardView({
               onClick={onBuild}
               className="rounded-[12px] bg-[#1c1c1c] px-spacing-5 text-white hover:bg-black disabled:opacity-50 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/86"
             >
-              Mulai buat website
+              {buildComplete ? "Perbarui website" : "Mulai buat website"}
             </Button>
             {onDiscuss ? (
               <Button

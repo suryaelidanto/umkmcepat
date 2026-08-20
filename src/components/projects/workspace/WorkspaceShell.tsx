@@ -3794,6 +3794,7 @@ export function WorkspaceShell({
                 {...COMPOSER_TRANSITION}
               >
                 <WorkspaceCardView
+                  buildComplete={buildComplete}
                   canBuild={canStartBuildNow}
                   card={workspaceCard}
                   onBuild={() => void handleStartBuild()}
@@ -3838,6 +3839,7 @@ export function WorkspaceShell({
               <motion.div key="composer-free" {...COMPOSER_TRANSITION}>
                 {composerState === "held_build_recommendation" ? (
                   <HeldBuildRecommendationNotice
+                    buildComplete={buildComplete}
                     canBuild={canStartBuildNow}
                     onBuild={() => void handleStartBuild()}
                     onDismiss={dismissBuildRecommendation}
