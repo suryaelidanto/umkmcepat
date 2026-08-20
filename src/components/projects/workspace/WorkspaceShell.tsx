@@ -1815,10 +1815,27 @@ export function WorkspaceShell({
     }
   }, [status]);
 
-  // Mount-only reset: a reload always starts with a clean submit lock so a
+  // Stream watchdog: recover if the streaming connection dropped silently while the server finished
   useEffect(() => {
-    submitInFlightRef.current = false;
-  }, []);
+    if (status !== "submitted" && status !== "streaming") {
+      return;
+    }
+
+    const watchdog = window.setTimeout(async () => {
+      try {
+        const turn = await fetchDiscussTurn(projectId);
+        if (turn?.status === "succeeded") {
+          await reloadLatestChat();
+          clearError();
+          setIsRetrying(false);
+        }
+      } catch {
+        // ignore network error
+      }
+    }, 10_000);
+
+    return () => window.clearTimeout(watchdog);
+  }, [clearError, messages.length, projectId, reloadLatestChat, status]);
 
   // Auto-resume on cold start: if the server is actively running a turn or last local message is an unanswered user turn
   useEffect(() => {
