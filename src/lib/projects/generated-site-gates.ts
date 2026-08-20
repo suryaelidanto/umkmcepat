@@ -1220,7 +1220,7 @@ function ensureGeneratedRoutePrimaryCta(
 
 function ensureActionTouchTargets(content: string): string {
   const anchorPattern =
-    /<a\b(?=[^>]*\bhref\s*=\s*(?:"[^"]*"|'[^']*'|\{[^>]*\}))[^>]*>[\s\S]{0,240}?<\/a>/gi;
+    /<a\b(?=[^>]*\bhref\s*=\s*(?:"[^"]*"|'[^']*'|\{[^>]*\}))[^>]*>/gi;
   return content.replace(anchorPattern, (match: string) =>
     makeTouchSafeAnchor(match),
   );

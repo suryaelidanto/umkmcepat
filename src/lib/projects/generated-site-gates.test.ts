@@ -610,6 +610,17 @@ describe("normalizeGeneratedInteractiveTargets", () => {
     expect(normalized).not.toContain("fonts.googleapis.com");
     expect(normalized).toContain('@import "tailwindcss";');
   });
+
+  it("only adds touch target classes to opening anchor and button tags, not child icons or nested elements", () => {
+    const normalized = normalizeGeneratedSiteContent(
+      '<Button asChild size="lg"><a href="https://wa.me/628123"><MessageCircle className="size-4 text-primary" />Pilih Paket</a></Button>',
+    );
+
+    expect(normalized).toContain('className="size-4 text-primary"');
+    expect(normalized).not.toContain(
+      'className="inline-flex min-h-11 min-w-11 items-center justify-center size-4 text-primary"',
+    );
+  });
 });
 
 describe("normalizeBatchedSiteAnchors", () => {
