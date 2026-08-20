@@ -18,6 +18,7 @@ import {
 
 export type ActiveHandoff = {
   id: string;
+  briefHash?: string | null;
   contractHash: string;
   planHash: string;
   contractRevision: number;
@@ -259,6 +260,7 @@ export async function loadActiveHandoff(
   }
   return {
     id: handoff.id,
+    briefHash: handoff.briefHash,
     contractHash: handoff.contractHash,
     planHash: handoff.planHash,
     contractRevision: handoff.contractRevision,

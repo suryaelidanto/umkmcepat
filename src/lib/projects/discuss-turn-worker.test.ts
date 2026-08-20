@@ -111,6 +111,10 @@ vi.mock("@/lib/projects/attempt-queue", () => ({
   enqueueAttemptJob: enqueueAttemptJobMock,
 }));
 
+vi.mock("@/lib/projects/build-handoffs", () => ({
+  loadActiveHandoff: vi.fn(async () => null),
+}));
+
 vi.mock("@/lib/projects/build-planner", () => ({
   prepareBuildHandoff: prepareBuildHandoffMock,
 }));
