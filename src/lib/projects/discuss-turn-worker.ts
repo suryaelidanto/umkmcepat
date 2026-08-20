@@ -40,16 +40,10 @@ import {
   parseProjectMemoryFacts,
 } from "@/lib/projects/chat-memory";
 import {
-  buildEarlyBuildWarning,
-  demoteToReadinessQuestion,
-  READINESS_QUESTION_INTRO,
-  requestsImmediateBuild,
-} from "@/lib/projects/discuss-readiness-ui";
-import {
+  alignAssistantTextWithCard,
   buildCardSystemPrompt,
   buildOneCallSystemPrompt,
   extractAssistantTextFromToolInput,
-  alignAssistantTextWithCard,
   nextAssistantTextDeltaFromPartialToolJson,
   nextPartialWorkspaceCardFromToolJson,
   PRESENT_WORKSPACE_CARD_TOOL_NAME,
@@ -809,35 +803,8 @@ export async function runDiscussTurn({
       }
     }
 
-    // Legacy readiness gate: the server, not model confidence, authorizes a
-    if (
-      project.generationEngine === "legacy-v1" &&
-      workspaceTurn.workspaceCard.type === "build_recommendation"
-    ) {
-      const readiness = evaluateBuildReadiness(
-        parseCanonicalBrief(workspaceTurn.brief, project.prompt),
-      );
-      if (readiness.state === "blocked") {
-        if (requestsImmediateBuild(lastUserTextValue)) {
-          chatText = buildEarlyBuildWarning(
-            readiness.blockers.map((blocker) => blocker.field),
-          );
-        } else {
-          workspaceTurn = demoteToReadinessQuestion(workspaceTurn, readiness);
-          chatText = READINESS_QUESTION_INTRO;
-        }
-        devLog("discuss", "gate", {
-          projectId: project.id,
-          turnId,
-          blockers: readiness.blockers.map((blocker) => blocker.field),
-          buildAllowed: requestsImmediateBuild(lastUserTextValue),
-        });
-      }
-    }
-
     if (
       workspaceTurn.workspaceCard.type === "build_recommendation" &&
-      project.generationEngine === "contract-v1" &&
       workspaceTurn.readyForBuild
     ) {
       const prepared = await prepareBuildHandoff({

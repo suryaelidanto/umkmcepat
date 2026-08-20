@@ -35,17 +35,6 @@ describe("resolveGenerateMode (contract-v1)", () => {
     });
     expect(mode).toBe("first_generate");
   });
-
-  it("keeps legacy behavior when engine is legacy-v1", () => {
-    expect(
-      resolveGenerateMode({
-        requestedMode: "first_generate",
-        hasPersistedSource: false,
-        generationEngine: "legacy-v1",
-        hasAcceptedHandoff: false,
-      }),
-    ).toBe("first_generate");
-  });
 });
 
 describe("acceptHandoffAndCreateAttempt", () => {

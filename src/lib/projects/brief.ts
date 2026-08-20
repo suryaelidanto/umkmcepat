@@ -120,29 +120,21 @@ export type WorkspaceCard =
   | { type: "question"; question: BriefQuestion }
   | { type: "image_upload"; imageUpload: ImageUploadQuestion }
   | ContractBuildRecommendationCard
-  | LegacyBuildRecommendationCard
   | BuildRetryCard;
 
 export type ContractBuildRecommendationCard = {
   type: "build_recommendation";
-  engine: "contract-v1";
+  engine?: "contract-v1";
   title: string;
   summary: string[];
-  handoffId: string;
-  reviewHash: string;
-  reviewItems: Array<{
+  handoffId?: string;
+  reviewHash?: string;
+  reviewItems?: Array<{
     id: string;
     kind: string;
     label: string;
     value: string;
   }>;
-};
-
-export type LegacyBuildRecommendationCard = {
-  type: "build_recommendation";
-  engine?: "legacy-v1";
-  title: string;
-  summary: string[];
 };
 
 export type ProjectBriefPatch = Partial<

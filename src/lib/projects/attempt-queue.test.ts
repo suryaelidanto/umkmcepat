@@ -47,7 +47,7 @@ describe("queueNameForJob", () => {
       projectPrompt: "x",
       projectStatus: "discussing",
       projectTitle: "t",
-      generationEngine: "legacy-v1",
+      generationEngine: "contract-v1",
     };
     const generate: AttemptJob = {
       kind: "generate",

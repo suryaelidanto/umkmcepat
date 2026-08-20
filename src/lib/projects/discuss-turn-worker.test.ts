@@ -175,7 +175,7 @@ const baseProject = {
   prompt: "Saya jual kopi",
   status: "draft",
   title: "T",
-  generationEngine: "legacy-v1",
+  generationEngine: "contract-v1",
 };
 const baseMessages: UIMessage[] = [
   { id: "m1", role: "user", parts: [{ type: "text", text: "hai" }] as never },
@@ -836,9 +836,42 @@ describe("runDiscussTurn worker", () => {
     expect(writeAiRequestLogMock).toHaveBeenCalled();
   });
 
-  it("legacy gate lets an explicit early build through with a warning", async () => {
+  it("handoff preparation runs and attaches proof when build recommendation is ready", async () => {
+    prepareBuildHandoffMock.mockResolvedValue({
+      state: "ready",
+      contract: {
+        schemaVersion: 1,
+        identity: { businessName: "Kedai Kopi" },
+        facts: [
+          {
+            id: "offer-1",
+            kind: "offer",
+            value: [{ name: "Kopi Susu", isPrimary: true }],
+            provenance: { source: "owner" },
+          },
+        ],
+      },
+      plan: { schemaVersion: 1, pages: [{ id: "p1" }] },
+      handoffId: "h-ready",
+      reviewHash: "a".repeat(64),
+      reviewItems: [],
+    });
     normalizeWorkspaceTurnMock.mockReturnValue({
-      brief: baseBrief,
+      brief: {
+        businessName: "Kedai Kopi",
+        businessType: "F&B",
+        offer: "Kopi Susu",
+        targetCustomer: "Mahasiswa",
+        contactOrCta: "WhatsApp 08123456789",
+        stylePreference: "Warm",
+        confidence: 100,
+        prompt: "Saya jual kopi",
+        offers: [{ name: "Kopi Susu", isPrimary: true }],
+        business: { name: "Kedai Kopi", type: "F&B" },
+        audience: "Mahasiswa",
+        primaryAction: { type: "whatsapp", value: "08123456789" },
+        visualDirection: "Warm",
+      } as never,
       projectTitle: "Kedai Kopi",
       workspaceCard: {
         type: "build_recommendation",
@@ -889,8 +922,10 @@ describe("runDiscussTurn worker", () => {
       )
       .map(([, event]) => event.output.workspaceCard)[0] as {
       type: "build_recommendation";
+      handoffId?: string;
     };
     expect(cardEvent.type).toBe("build_recommendation");
+    expect(cardEvent.handoffId).toBe("h-ready");
     expect(finalizeDiscussTurnMock).toHaveBeenCalledWith(
       expect.objectContaining({ turnId: "ct_gate_eager", status: "succeeded" }),
     );
