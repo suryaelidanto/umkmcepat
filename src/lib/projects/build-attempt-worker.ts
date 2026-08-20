@@ -709,10 +709,6 @@ export async function runBuildAttempt({
     if (!specLeaseRenewed) {
       throw new Error("Build operation lease was superseded.");
     }
-    send("progress", {
-      label: "Membuat bagian website",
-      detail: "Menulis bagian website satu per satu.",
-    });
 
     const saver = createProgressiveSaver({
       projectId,

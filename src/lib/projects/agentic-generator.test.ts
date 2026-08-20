@@ -9,6 +9,7 @@ vi.mock("ai", () => ({
       steps: [],
     };
   }),
+  isStepCount: vi.fn((count: number) => (step: unknown) => step === count),
   tool: (config: unknown) => config,
 }));
 

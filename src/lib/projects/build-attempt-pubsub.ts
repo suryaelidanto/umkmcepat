@@ -105,7 +105,20 @@ export function createReadStreamFromChannel(attemptId: string): Response {
         }
       });
 
+      const heartbeatTimer = setInterval(() => {
+        if (tailResolved) {
+          clearInterval(heartbeatTimer);
+          return;
+        }
+        try {
+          controller.enqueue(encoder.encode(": ping\n\n"));
+        } catch {
+          resolveTail();
+        }
+      }, 15_000);
+
       void tailDone.then(() => {
+        clearInterval(heartbeatTimer);
         unsubscribe();
         try {
           controller.close();

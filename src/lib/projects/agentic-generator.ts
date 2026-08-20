@@ -1,4 +1,4 @@
-import { generateText, tool } from "ai";
+import { generateText, isStepCount, tool } from "ai";
 import { z } from "zod";
 
 import type { StepCharger } from "@/lib/projects/energy-step-charger";
@@ -13,6 +13,7 @@ import {
 import { getGenerationModel } from "@/lib/ai/ai-models";
 import { getSettingSync } from "@/lib/config/app-settings";
 import { devLog } from "@/lib/dev-log";
+import { generateDiff, type DiffLine } from "@/lib/projects/diff";
 import {
   buildGeneratedProject,
   createGeneratedViteTanStackStarterFiles,
@@ -31,6 +32,8 @@ export type AgenticGeneratedSourceResult = {
     type: string;
     title: string;
     detail: string;
+    diff?: DiffLine[];
+    path?: string;
     state: "succeeded" | "failed";
   }>;
 };
@@ -147,14 +150,29 @@ export async function runAgenticGenerate(input: {
               "Security restriction: Only files under src/ and public/ can be written.",
           };
         }
+        const oldContent = fileMap.get(path) ?? "";
+        const diff = generateDiff(oldContent, content);
         fileMap.set(path, content);
         touched.add(path);
         opSeq++;
+        const friendlyTitle = path.endsWith("index.tsx")
+          ? "Menyusun halaman utama"
+          : path.includes("components/")
+            ? `Menyiapkan komponen ${
+                path
+                  .split("/")
+                  .pop()
+                  ?.replace(/\.tsx?$/, "") || "tampilan"
+              }`
+            : `Menyimpan ${path.split("/").pop() || path}`;
+
         const op = {
           id: `op-${opSeq}`,
           type: "write_file",
-          title: `Menulis ${path}`,
-          detail: `Menyimpan file ${path} (${content.length} bytes)`,
+          title: friendlyTitle,
+          detail: `Menyesuaikan isi ${path}`,
+          path,
+          diff: diff.length ? diff : undefined,
           state: "succeeded" as const,
         };
         operationTrace.push(op);
@@ -247,12 +265,12 @@ Price: ${brief.priceRange || schema.priceRange || "Terjangkau"}
 Start by writing src/routes/index.tsx now, check the build, and finish.`;
 
   const requestedModel = getGenerationModel();
-  const _maxSteps =
+  const maxSteps =
     Number(getSettingSync("ai.agent.generate_max_steps", 30)) || 30;
 
   if (onEvent) {
     onEvent("progress", {
-      label: "Menyiapkan pembuatan interaktif",
+      label: "Menyiapkan pembuatan website",
       detail: "AI Agent sedang merancang arsitektur dan komponen website.",
     });
   }
@@ -262,7 +280,7 @@ Start by writing src/routes/index.tsx now, check the build, and finish.`;
     system: systemPrompt,
     prompt: userPrompt,
     tools,
-    stopSequences: [],
+    stopWhen: isStepCount(maxSteps),
     abortSignal,
     ...getNoReasoningCallOptions(),
     telemetry: getAiTelemetry("project-agentic-generate", {
