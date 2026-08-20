@@ -170,6 +170,7 @@ type WorkspaceShellProps = {
   initialBrief?: ProjectBrief;
   readOnly?: boolean;
   autoRetryAttempts?: number;
+  autoRetryDelayMs?: number;
 };
 
 type RuntimeWorkspaceState = {
@@ -292,6 +293,7 @@ export function WorkspaceShell({
   initialBrief,
   readOnly = false,
   autoRetryAttempts: _autoRetryAttempts = 2,
+  autoRetryDelayMs = 4000,
 }: WorkspaceShellProps) {
   const [mode, setMode] = useState<"build" | "discuss">("discuss");
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
@@ -408,7 +410,7 @@ export function WorkspaceShell({
   const [pendingAnnotationComment, setPendingAnnotationComment] = useState("");
   const visualAnnotationsLoadedRef = useRef(false);
   const [directEditMode, setDirectEditMode] = useState(false);
-  const directEditFlagEnabled = useFeatureFlag("feature.direct_edit_enabled");
+  const directEditFlagEnabled = useFeatureFlag("feature.visual_edit_enabled");
   const effectiveDirectEditMode = directEditMode && directEditFlagEnabled;
   const composerUploadsEnabled = useFeatureFlag(
     "feature.composer_uploads_enabled",
@@ -1394,6 +1396,7 @@ export function WorkspaceShell({
         patchProjectInList({ buildStatus: "ready" });
         void loadRuntimeState();
         setSourceReloadKey((current) => current + 1);
+        setPreviewReloadKey((current) => current + 1);
         window.dispatchEvent(new Event("umkm:energy-changed"));
         void queryClient.invalidateQueries({
           queryKey: queryKeys.projects,
@@ -1812,11 +1815,27 @@ export function WorkspaceShell({
     }
   }, [status]);
 
-  // Mount-only reset: a reload always starts with a clean submit lock so a
+  // Stream watchdog: recover if the streaming connection dropped silently while the server finished
   useEffect(() => {
-    submitInFlightRef.current = false;
-  }, []);
+    if (status !== "submitted" && status !== "streaming") {
+      return;
+    }
 
+    const watchdog = window.setTimeout(async () => {
+      try {
+        const turn = await fetchDiscussTurn(projectId);
+        if (turn?.status === "succeeded") {
+          await reloadLatestChat();
+          clearError();
+          setIsRetrying(false);
+        }
+      } catch {
+        // ignore network error
+      }
+    }, 10_000);
+
+    return () => window.clearTimeout(watchdog);
+  }, [clearError, messages.length, projectId, reloadLatestChat, status]);
   // Auto-resume on cold start: if the server is actively running a turn or last local message is an unanswered user turn
   useEffect(() => {
     if (status === "submitted" || status === "streaming") {
@@ -2011,7 +2030,8 @@ export function WorkspaceShell({
       }
     }
 
-    if (settle.clearPreparing) {
+    if (settle.clearPreparing || settle.applyToolCard) {
+      clearError();
       setWorkspaceCardError(false);
       setIsPreparingNextQuestion(false);
       void loadWorkspaceState({ preserveCard: true });
@@ -2144,7 +2164,7 @@ export function WorkspaceShell({
     ]);
 
     try {
-      const response = await fetch(`/api/projects/${projectId}/edit`, {
+      const response = await fetch(`/api/projects/${projectId}/visual-edit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -2356,7 +2376,7 @@ export function WorkspaceShell({
     );
 
     try {
-      const response = await fetch(`/api/projects/${projectId}/edit`, {
+      const response = await fetch(`/api/projects/${projectId}/visual-edit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ instruction, kind: "instruction", summary }),
@@ -3033,16 +3053,31 @@ export function WorkspaceShell({
     lastAutoRetriedErrorRef.current = error;
     retryAttemptRef.current = next;
     setIsRetrying("response");
-    void retryChat();
-  }, [error, isRetrying, status, readOnly, _autoRetryAttempts, retryChat]);
+    const timer = window.setTimeout(() => {
+      void retryChat();
+    }, autoRetryDelayMs);
 
-  // Reset retry counter on a successful turn completion.
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [
+    error,
+    isRetrying,
+    status,
+    readOnly,
+    _autoRetryAttempts,
+    autoRetryDelayMs,
+    retryChat,
+  ]);
+
+  // Reset retry counter and clear stale errors on a successful turn completion.
   useEffect(() => {
     if (status === "ready") {
       retryAttemptRef.current = 0;
       lastAutoRetriedErrorRef.current = null;
+      clearError();
     }
-  }, [status]);
+  }, [clearError, status]);
 
   const retryWorkspaceCard = useCallback(async () => {
     if (status === "streaming" || status === "submitted" || isRetrying) {
@@ -3404,7 +3439,7 @@ export function WorkspaceShell({
                 Pesan terlalu panjang. Ringkas dulu sebelum dikirim.
               </p>
             </div>
-          ) : error ? (
+          ) : error && !isRetrying ? (
             <div className="rounded-[18px] border border-destructive/30 bg-destructive/10 px-spacing-5 py-spacing-4 dark:border-[#ffb4a6]/24 dark:bg-[#ffb4a6]/[0.06]">
               <p className="text-sm font-medium text-destructive dark:text-[#ffb4a6]">
                 {toUserFacingDiscussError(error.message)}
@@ -3663,7 +3698,7 @@ export function WorkspaceShell({
                         />
                         <div className="flex items-center justify-between gap-spacing-4">
                           <div className="flex items-center gap-spacing-2">
-                            {!buildComplete && !isBuilding && !isProcessing ? (
+                            {!isBuilding && !isProcessing ? (
                               <Button
                                 type="button"
                                 variant="outline"
@@ -3671,7 +3706,11 @@ export function WorkspaceShell({
                                   if (canStartBuildNow) {
                                     void handleStartBuild();
                                   } else {
-                                    submitChatText("Buat website sekarang");
+                                    submitChatText(
+                                      buildComplete
+                                        ? "Perbarui website sekarang"
+                                        : "Buat website sekarang",
+                                    );
                                   }
                                 }}
                                 disabled={
@@ -3680,7 +3719,9 @@ export function WorkspaceShell({
                                 }
                                 className="h-8 rounded-full border-surface-warm-white/12 bg-transparent px-spacing-3 text-xs font-medium text-surface-warm-white hover:bg-surface-warm-white/10"
                               >
-                                Buat website
+                                {buildComplete
+                                  ? "Perbarui website"
+                                  : "Buat website"}
                               </Button>
                             ) : null}
                           </div>
@@ -3752,6 +3793,7 @@ export function WorkspaceShell({
                 {...COMPOSER_TRANSITION}
               >
                 <WorkspaceCardView
+                  buildComplete={buildComplete}
                   canBuild={canStartBuildNow}
                   card={workspaceCard}
                   onBuild={() => void handleStartBuild()}
@@ -3796,6 +3838,7 @@ export function WorkspaceShell({
               <motion.div key="composer-free" {...COMPOSER_TRANSITION}>
                 {composerState === "held_build_recommendation" ? (
                   <HeldBuildRecommendationNotice
+                    buildComplete={buildComplete}
                     canBuild={canStartBuildNow}
                     onBuild={() => void handleStartBuild()}
                     onDismiss={dismissBuildRecommendation}
@@ -3804,7 +3847,7 @@ export function WorkspaceShell({
                 ) : null}
                 <form
                   onSubmit={handleMessageSubmit}
-                  className="mt-spacing-3 min-w-0 rounded-[28px] border border-border bg-card p-spacing-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-sm"
+                  className="mt-spacing-3 min-w-0 rounded-[28px] border border-black/10 bg-[#fcfbf8] p-spacing-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-sm dark:border-surface-warm-white/12 dark:bg-[#262622] dark:shadow-[0_18px_48px_rgba(0,0,0,0.22)]"
                 >
                   <label htmlFor="workspace-message" className="sr-only">
                     Pesan untuk AI
@@ -3844,8 +3887,7 @@ export function WorkspaceShell({
                   />
                   <div className="flex items-center justify-between gap-spacing-4">
                     <div className="flex items-center gap-spacing-2">
-                      {!buildComplete &&
-                      !isBuilding &&
+                      {!isBuilding &&
                       !isProcessing &&
                       composerState !== "held_build_recommendation" ? (
                         <Button
@@ -3855,7 +3897,11 @@ export function WorkspaceShell({
                             if (canStartBuildNow) {
                               void handleStartBuild();
                             } else {
-                              submitChatText("Buat website sekarang");
+                              submitChatText(
+                                buildComplete
+                                  ? "Perbarui website sekarang"
+                                  : "Buat website sekarang",
+                              );
                             }
                           }}
                           disabled={
@@ -3863,7 +3909,7 @@ export function WorkspaceShell({
                           }
                           className="h-8 rounded-full border-border bg-transparent px-spacing-3 text-xs font-medium text-foreground hover:bg-muted"
                         >
-                          Buat website
+                          {buildComplete ? "Perbarui website" : "Buat website"}
                         </Button>
                       ) : null}
                     </div>
@@ -3966,6 +4012,7 @@ export function WorkspaceShell({
           closeChatPanel={closeChatPanel}
           runtime={runtimeControl}
           title={initialTitle}
+          onRefreshPreview={() => setPreviewReloadKey((current) => current + 1)}
           onPickTab={(tab) => {
             setActiveTab(tab);
             setMobileSurface("preview");

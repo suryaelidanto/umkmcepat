@@ -252,24 +252,13 @@ export function buildOneCallSystemPrompt({
   brief,
   context,
   hasBuiltSite,
+  hasPendingChanges = false,
 }: {
   brief: unknown;
   context: string;
   hasBuiltSite: boolean;
+  hasPendingChanges?: boolean;
 }) {
-  if (hasBuiltSite) {
-    return `${buildChatSystemPrompt({ brief, context, hasBuiltSite })}
-
-CRITICAL OUTPUT:
-Call ${PRESENT_WORKSPACE_CARD_TOOL_NAME} exactly once. Tool input MUST include:
-- assistantText: EXACTLY ONE short Indonesian chat sentence (max 20 words, aku/kamu only) acknowledging the edit request or build confirmation
-- workspaceCard: nested object only. Full tool input examples:
-  - When user wants to rebuild or changes are ready: { "assistantText": "...", "workspaceCard": { "type": "build_recommendation", "title": "Perbarui website", "summary": ["Perubahan siap diterapkan"] } }
-  - Clarification (preferred when you need a choice, e.g. which color): { "assistantText": "...", "workspaceCard": { "type": "question", "question": { "id": "slug", "question": "...", "answerMode": "choice"|"text", "selectionMode": "single", "options": [{ "label": "...", "description": "..." }] } } }
-  - Ack only, no more questions this turn: { "assistantText": "...", "workspaceCard": { "type": "none" } }
-This is an edit request, not an interview. Never put type at the top level without workspaceCard. Never put JSON in free chat text. Put the user-visible reply in assistantText.`;
-  }
-
   const photoEnabled = (() => {
     try {
       return getSettingSync(
@@ -282,7 +271,24 @@ This is an edit request, not an interview. Never put type at the top level witho
   })();
   const photoRule = photoEnabled
     ? ""
-    : "\nPHOTO FEATURE OFF: Photo uploads are disabled via /admin/settings (feature.composer_uploads_enabled=false). NEVER ask photo-upload questions using visuals, media_strategy, or image_upload. Style choice cards such as visual_direction and style_preference remain allowed. Skip only photo uploads and pick the next unfilled applicable field.";
+    : "\nPHOTO FEATURE OFF: Photo uploads are disabled via /admin/settings (feature.composer_uploads_enabled=false). NEVER mention, suggest, or ask photo/image upload questions in chat or option cards. Focus strictly on text, typography, color palette, trust points, and content details.";
+
+  if (hasBuiltSite) {
+    const syncStateDirective = hasPendingChanges
+      ? '\nSYNC STATE (DIRTY): New changes have been discussed/updated that are NOT yet rendered in the preview. When the user confirms or wants to see them applied, emit type="build_recommendation", title="Perbarui website", summary=["<short summary of new changes>"].'
+      : '\nSYNC STATE (CLEAN): The website in preview is already 100% up-to-date with all agreed details. DO NOT blindly rebuild. If the user asks to update or build with no new changes, warmly ask in assistantText what specific part they want to refine (e.g. text, colors, package details, or contact), and emit type="question" with relevant refinement options or type="none".';
+
+    return `${buildChatSystemPrompt({ brief, context, hasBuiltSite })}${photoRule}${syncStateDirective}
+
+CRITICAL OUTPUT:
+Call ${PRESENT_WORKSPACE_CARD_TOOL_NAME} exactly once. Tool input MUST include:
+- assistantText: EXACTLY ONE short Indonesian chat sentence (max 20 words, aku/kamu only) acknowledging the edit request or asking a helpful refinement question
+- workspaceCard: nested object only. Full tool input examples:
+  - When user wants to rebuild, requests an edit, or changes are ready: { "assistantText": "...", "workspaceCard": { "type": "build_recommendation", "title": "Perbarui website", "summary": ["Perubahan siap diterapkan"] } }
+  - Clarification (preferred when you need a choice, e.g. which color or which section to refine): { "assistantText": "...", "workspaceCard": { "type": "question", "question": { "id": "slug", "question": "...", "answerMode": "choice"|"text", "selectionMode": "single", "options": [{ "label": "...", "description": "..." }] } } }
+  - General conversational ack with no pending changes: { "assistantText": "...", "workspaceCard": { "type": "none" } }
+This is an edit request, not an interview. Never put type at the top level without workspaceCard. Never put JSON in free chat text. Put the user-visible reply in assistantText.`;
+  }
 
   return `${buildChatSystemPrompt({ brief, context, hasBuiltSite })}${photoRule}
 

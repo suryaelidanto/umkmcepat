@@ -21,6 +21,9 @@ describe("getPublicFlags", () => {
         if (key === "feature.composer_uploads_enabled") {
           return false;
         }
+        if (key === "feature.visual_edit_enabled") {
+          return true;
+        }
         if (key === "feature.direct_edit_enabled") {
           return true;
         }
@@ -35,6 +38,7 @@ describe("getPublicFlags", () => {
 
     expect(flags).toEqual({
       "feature.composer_uploads_enabled": false,
+      "feature.visual_edit_enabled": true,
       "feature.direct_edit_enabled": true,
       "feature.default_theme": "light",
     });
@@ -47,6 +51,7 @@ describe("getPublicFlags", () => {
 
     expect(flags).toEqual({
       "feature.composer_uploads_enabled": true,
+      "feature.visual_edit_enabled": true,
       "feature.direct_edit_enabled": true,
       "feature.default_theme": "dark",
     });
@@ -57,7 +62,7 @@ describe("getPublicFlags", () => {
 
     await getPublicFlags();
 
-    expect(getSettingMock).toHaveBeenCalledTimes(3);
+    expect(getSettingMock).toHaveBeenCalledTimes(4);
     expect(getSettingMock).toHaveBeenCalledWith(
       "feature.composer_uploads_enabled",
       true,

@@ -27,10 +27,14 @@ import { getSafeAiErrorLog } from "@/lib/projects/ai-error-log";
 import { enqueueAttemptJob } from "@/lib/projects/attempt-queue";
 import { parseProjectBrief, type WorkspaceCard } from "@/lib/projects/brief";
 import { normalizeWorkspaceTurn } from "@/lib/projects/brief-flow";
+import { loadActiveHandoff } from "@/lib/projects/build-handoffs";
 import { prepareBuildHandoff } from "@/lib/projects/build-planner";
 import { evaluateBuildReadiness } from "@/lib/projects/build-readiness";
 import { describeBuildRecommendation } from "@/lib/projects/build-recommendation-summary";
-import { parseCanonicalBrief } from "@/lib/projects/canonical-brief";
+import {
+  hashCanonicalBrief,
+  parseCanonicalBrief,
+} from "@/lib/projects/canonical-brief";
 import { ensureQuestionCardRichness } from "@/lib/projects/card-richness";
 import {
   buildProjectChatContext,
@@ -114,6 +118,17 @@ export async function runDiscussTurn({
       ? getTextFromUIMessage(lastUserText)
       : undefined;
     const hasBuiltSite = project.status === "ready";
+    const activeHandoff = hasBuiltSite
+      ? await loadActiveHandoff(project.id).catch(() => null)
+      : null;
+    const currentBriefHash = hashCanonicalBrief(
+      parseCanonicalBrief(effectiveBrief, project.prompt),
+    );
+    const hasPendingChanges =
+      hasBuiltSite &&
+      Boolean(activeHandoff?.briefHash) &&
+      activeHandoff?.briefHash !== currentBriefHash;
+
     const handoffNormalizeOptions = {
       hasBuiltSite,
       lastUserText: lastUserTextValue,
@@ -127,6 +142,7 @@ export async function runDiscussTurn({
       brief: effectiveBrief,
       context: chatContext.systemContext,
       hasBuiltSite,
+      hasPendingChanges,
     });
     const cardSystemPrompt = buildCardSystemPrompt();
     const modelMessages = await convertToModelMessages(

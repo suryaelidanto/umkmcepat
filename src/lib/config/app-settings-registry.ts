@@ -90,11 +90,19 @@ export const APP_SETTINGS: ConfigEntry[] = [
     fallback: false,
   },
   {
+    key: "feature.visual_edit_enabled",
+    category: "feature_flag",
+    tier: "basic",
+    type: "boolean",
+    label: "Workspace Tunjuk & Ubah (visual edit) mode",
+    fallback: false,
+  },
+  {
     key: "feature.direct_edit_enabled",
     category: "feature_flag",
     tier: "basic",
     type: "boolean",
-    label: "Workspace Ubah (element edit) mode",
+    label: "Workspace Ubah (legacy alias)",
     fallback: false,
   },
   {
@@ -652,6 +660,17 @@ export const APP_SETTINGS: ConfigEntry[] = [
     min: 0,
     max: 5,
     env: "DISCUSS_CHAT_AUTO_RETRY_ATTEMPTS",
+  },
+  {
+    key: "discuss.chat.auto_retry_delay_ms",
+    category: "ai",
+    tier: "advanced",
+    type: "number",
+    label: "AI — discuss auto-retry delay (ms)",
+    fallback: 4000,
+    min: 1000,
+    max: 15000,
+    env: "DISCUSS_CHAT_AUTO_RETRY_DELAY_MS",
   },
   {
     key: "ai.timeout.moderation_ms",

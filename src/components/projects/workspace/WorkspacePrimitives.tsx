@@ -17,6 +17,7 @@ import {
   Undo2,
   X,
   LifeBuoy,
+  RotateCw,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
@@ -75,6 +76,7 @@ export function WorkspaceTopBar({
   projectId,
   title: _title,
   onPickTab,
+  onRefreshPreview,
 }: {
   activeTab: BuildTab;
   setActiveTab: (tab: BuildTab) => void;
@@ -99,6 +101,7 @@ export function WorkspaceTopBar({
   projectId?: string;
   title?: string;
   onPickTab?: (tab: BuildTab) => void;
+  onRefreshPreview?: () => void;
 }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   return (
@@ -210,6 +213,17 @@ export function WorkspaceTopBar({
                   HP
                 </TabButton>
               </div>
+              {onRefreshPreview ? (
+                <button
+                  type="button"
+                  onClick={onRefreshPreview}
+                  className="hidden md:inline-flex size-9 items-center justify-center rounded-radius-md border border-black/10 text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/10 dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white cursor-pointer transition-colors"
+                  aria-label="Muat ulang tampilan website"
+                  title="Muat ulang tampilan"
+                >
+                  <RotateCw className="size-3.5" />
+                </button>
+              ) : null}
             </>
           ) : null}
           {annotationAvailable &&
@@ -219,14 +233,16 @@ export function WorkspaceTopBar({
               type="button"
               onClick={onToggleDirectEdit}
               aria-label={
-                directEditActive ? "Nonaktifkan ubah" : "Aktifkan ubah"
+                directEditActive
+                  ? "Nonaktifkan mode tunjuk & ubah"
+                  : "Aktifkan mode tunjuk & ubah"
               }
               aria-pressed={directEditActive}
               className={`hidden md:inline-flex h-9 items-center gap-spacing-2 rounded-radius-md border px-spacing-3 py-spacing-2 text-xs transition cursor-pointer ${directEditActive ? "border-[#8fd3ff]/35 bg-[#8fd3ff]/12 text-[#d6f0ff]" : "border-surface-warm-white/10 bg-surface-warm-white/5 text-surface-warm-white/64 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"}`}
             >
               <MessageSquarePlus className="size-4" />
               <span className="hidden sm:inline">
-                {directEditActive ? "Ubah aktif" : "Ubah"}
+                {directEditActive ? "Mode Tunjuk Aktif" : "Tunjuk & Ubah"}
               </span>
             </button>
           ) : null}
@@ -783,11 +799,13 @@ export function EmptyPreviewState() {
 }
 
 export function WorkspaceCardView({
+  buildComplete = false,
   canBuild = true,
   card,
   onBuild,
   onDiscuss,
 }: {
+  buildComplete?: boolean;
   card: WorkspaceCard;
   canBuild?: boolean;
   onBuild: () => void;
@@ -829,7 +847,7 @@ export function WorkspaceCardView({
               onClick={onBuild}
               className="rounded-[12px] bg-[#1c1c1c] px-spacing-5 text-white hover:bg-black disabled:opacity-50 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/86"
             >
-              Mulai buat website
+              {buildComplete ? "Perbarui website" : "Mulai buat website"}
             </Button>
             {onDiscuss ? (
               <Button

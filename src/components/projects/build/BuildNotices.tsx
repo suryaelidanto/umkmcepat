@@ -5,11 +5,13 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function HeldBuildRecommendationNotice({
+  buildComplete = false,
   canBuild = true,
   onBuild,
   onDismiss,
   onOpen,
 }: {
+  buildComplete?: boolean;
   canBuild?: boolean;
   onBuild: () => void;
   onDismiss?: () => void;
@@ -50,7 +52,7 @@ export function HeldBuildRecommendationNotice({
           onClick={onBuild}
           className="h-8 flex-1 rounded-[10px] bg-[#1c1c1c] text-white px-3 text-xs hover:bg-black disabled:opacity-50 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white"
         >
-          Mulai buat website
+          {buildComplete ? "Perbarui website" : "Mulai buat website"}
         </Button>
       </div>
     </div>
