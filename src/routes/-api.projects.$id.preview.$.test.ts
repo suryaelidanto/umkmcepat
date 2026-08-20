@@ -131,6 +131,50 @@ describe("project preview route", () => {
     );
   });
 
+  it("serves the stored static artifact when the active runtime is unavailable", async () => {
+    const successfulBuild = {
+      artifactRef: "project-artifact:local:dist:build_success",
+      createdAt: newer,
+      id: "build_success",
+      snapshotId: "snapshot_success",
+      status: "succeeded",
+      updatedAt: newer,
+    };
+    prismaProjectDeploymentFindManyMock.mockResolvedValue([
+      {
+        build: successfulBuild,
+        buildId: successfulBuild.id,
+        createdAt: newer,
+        id: "deployment_success",
+        kind: "preview",
+        snapshotId: successfulBuild.snapshotId,
+        status: "created",
+        updatedAt: newer,
+      },
+    ]);
+    proxyDeploymentRequestMock.mockResolvedValue(null);
+    prismaQueryRawMock.mockResolvedValue([
+      {
+        distFiles: [
+          {
+            content: "<html><body>Website siap</body></html>",
+            contentType: "text/html; charset=utf-8",
+            path: "index.html",
+          },
+        ],
+      },
+    ]);
+
+    const response = await GET(new Request("http://localhost/preview"), {
+      id: "project_1",
+      _splat: "",
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Type")).toContain("text/html");
+    await expect(response.text()).resolves.toContain("Website siap");
+  });
+
   it("backfills a missing thumbnail once after a successful preview response", async () => {
     const successfulBuild = {
       artifactRef: "project-artifact:local:dist:build_success",

@@ -141,6 +141,14 @@ async function getPreviewResponse({
       return response;
     }
 
+    const staticResponse = await getStoredPreviewResponse({
+      projectId: project.id,
+      path,
+    });
+    if (staticResponse) {
+      return staticResponse;
+    }
+
     return createPreviewIssueResponse({
       detail:
         "Tampilan website belum berhasil dimulai. Coba muat ulang tampilan.",
@@ -149,8 +157,31 @@ async function getPreviewResponse({
     });
   }
 
+  const staticResponse = await getStoredPreviewResponse({
+    projectId: project.id,
+    path,
+  });
+  if (staticResponse) {
+    return staticResponse;
+  }
+
+  return createPreviewIssueResponse({
+    detail:
+      "Jalankan build setelah brief siap, lalu tampilan akan muncul di sini.",
+    status: 404,
+    title: "Tampilan website belum tersedia",
+  });
+}
+
+async function getStoredPreviewResponse({
+  projectId,
+  path,
+}: {
+  path: string[];
+  projectId: string;
+}) {
   const [row] = await prisma.$queryRaw<[{ distFiles: unknown }]>`
-    SELECT "distFiles" FROM "Project" WHERE id = ${project.id}
+    SELECT "distFiles" FROM "Project" WHERE id = ${projectId}
   `;
   const distFiles = parseGeneratedDistFiles(row?.distFiles);
   const requestedPath = path.join("/") || "index.html";
@@ -159,12 +190,7 @@ async function getPreviewResponse({
     distFiles.find((item) => item.path === "index.html");
 
   if (!file) {
-    return createPreviewIssueResponse({
-      detail:
-        "Jalankan build setelah brief siap, lalu tampilan akan muncul di sini.",
-      status: 404,
-      title: "Tampilan website belum tersedia",
-    });
+    return null;
   }
 
   return new Response(
