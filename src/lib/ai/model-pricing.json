@@ -426,6 +426,20 @@
     "source": "https://openrouter.ai/google/gemini-3.7-flash",
     "checkedAt": "2026-08-19"
   },
+  "gemini-3.7-flash-tiered": {
+    "sourceModelId": "gemini-3.7-flash-tiered",
+    "promptPrice": 3.75e-7,
+    "completionPrice": 0.000001875,
+    "source": "https://openrouter.ai/google/gemini-3.7-flash",
+    "checkedAt": "2026-08-20"
+  },
+  "default-combo": {
+    "sourceModelId": "default-combo",
+    "promptPrice": 3.75e-7,
+    "completionPrice": 0.000001875,
+    "source": "https://openrouter.ai/google/gemini-3.7-flash",
+    "checkedAt": "2026-08-20"
+  },
   "openrouter/google/gemini-3.7-flash:batch": {
     "sourceModelId": "openrouter/google/gemini-3.7-flash:batch",
     "promptPrice": 1.875e-7,

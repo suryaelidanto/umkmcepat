@@ -20,8 +20,8 @@ const catalog = modelPricing as Record<string, CatalogEntry>;
 const unresolvedWarnings = new Set<string>();
 
 export const CONSERVATIVE_DEFAULT_PRICE: ModelPrice = {
-  promptPrice: 0.0000015,
-  completionPrice: 0.0000019,
+  promptPrice: 0.0000004,
+  completionPrice: 0.0000015,
 };
 
 export function normalizeProviderModelId(modelId: string): string {
@@ -63,6 +63,15 @@ export function findCatalogEntry(rawModelId: string): CatalogEntry | null {
   for (const [key, entry] of Object.entries(catalog)) {
     if (key.endsWith(`/${trimmed}`) || key === trimmed) {
       return entry;
+    }
+  }
+  // Try matching with common suffixes stripped (e.g. "-tiered", "-latest", "-preview")
+  const baseTrimmed = trimmed.replace(/-(?:tiered|latest|preview|free)$/, "");
+  if (baseTrimmed !== trimmed) {
+    for (const [key, entry] of Object.entries(catalog)) {
+      if (key.endsWith(`/${baseTrimmed}`) || key === baseTrimmed) {
+        return entry;
+      }
     }
   }
   return null;
