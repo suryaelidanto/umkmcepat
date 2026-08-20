@@ -60,6 +60,15 @@ export async function handleAttemptStreamGet(
     );
   }
 
+  // Stream live progress while attempt is actively running in background.
+  if (
+    attempt.status === "generating" ||
+    attempt.status === "building" ||
+    attempt.status === "repairing"
+  ) {
+    return createReadStreamFromChannel(attemptId);
+  }
+
   // Progress rows are keyed by ProjectBuild.id, not attemptId. Querying with
   const events = attempt.buildId
     ? await prisma.runtimeEvent.findMany({

@@ -1,3 +1,9 @@
+import { randomUUID } from "node:crypto";
+
+import Redis from "ioredis";
+
+import { getRedisUrl } from "@/lib/redis-url";
+
 export type BuildProgressEvent = {
   type:
     "progress" | "operation" | "energy" | "energy_exhausted" | "done" | "error";
@@ -11,7 +17,105 @@ type Channel = {
 };
 
 const CHANNEL_GRACE_MS = 60_000;
+const REDIS_CHANNEL_PREFIX = "build-progress:";
+const PROCESS_ID = randomUUID();
+
 const channels = new Map<string, Channel>();
+let redisPub: Redis | null = null;
+let redisSub: Redis | null = null;
+let redisInitFailed = false;
+let pmessageHooked = false;
+
+function getRedisPubClient(): Redis | null {
+  if (redisInitFailed) {
+    return null;
+  }
+  if (redisPub) {
+    return redisPub;
+  }
+  try {
+    const url = getRedisUrl();
+    if (!url) {
+      return null;
+    }
+    redisPub = new Redis(url, {
+      maxRetriesPerRequest: 1,
+      enableReadyCheck: false,
+      lazyConnect: true,
+    });
+    redisPub.connect().catch(() => {
+      redisPub = null;
+      redisInitFailed = true;
+    });
+    return redisPub;
+  } catch {
+    redisInitFailed = true;
+    return null;
+  }
+}
+
+function getRedisSubClient(): Redis | null {
+  if (redisInitFailed) {
+    return null;
+  }
+  if (redisSub) {
+    return redisSub;
+  }
+  try {
+    const url = getRedisUrl();
+    if (!url) {
+      return null;
+    }
+    redisSub = new Redis(url, {
+      maxRetriesPerRequest: 1,
+      enableReadyCheck: false,
+      lazyConnect: true,
+    });
+    redisSub
+      .connect()
+      .then(() => {
+        if (!pmessageHooked && redisSub) {
+          pmessageHooked = true;
+          redisSub
+            .psubscribe(`${REDIS_CHANNEL_PREFIX}*`)
+            .catch(() => undefined);
+          redisSub.on("pmessage", (_pattern, channelName, message) => {
+            const attemptId = channelName.slice(REDIS_CHANNEL_PREFIX.length);
+            try {
+              const envelope = JSON.parse(message) as {
+                processId: string;
+                event: BuildProgressEvent;
+              };
+              if (envelope.processId === PROCESS_ID) {
+                return;
+              }
+              const channel = channels.get(attemptId);
+              if (channel) {
+                channel.events.push(envelope.event);
+                for (const sub of channel.subscribers) {
+                  try {
+                    sub(envelope.event);
+                  } catch {
+                    // ignore
+                  }
+                }
+              }
+            } catch {
+              // ignore
+            }
+          });
+        }
+      })
+      .catch(() => {
+        redisSub = null;
+        redisInitFailed = true;
+      });
+    return redisSub;
+  } catch {
+    redisInitFailed = true;
+    return null;
+  }
+}
 
 export function publishBuildProgress(
   attemptId: string,
@@ -40,6 +144,20 @@ export function publishBuildProgress(
     }
   }
 
+  const pub = getRedisPubClient();
+  if (pub) {
+    try {
+      pub
+        .publish(
+          `${REDIS_CHANNEL_PREFIX}${attemptId}`,
+          JSON.stringify({ processId: PROCESS_ID, event: stamped }),
+        )
+        .catch(() => undefined);
+    } catch {
+      // ignore redis publish errors
+    }
+  }
+
   if (event.type === "done" || event.type === "error") {
     setTimeout(() => channels.delete(attemptId), CHANNEL_GRACE_MS);
   }
@@ -49,6 +167,7 @@ export function subscribeBuildProgress(
   attemptId: string,
   onEvent: (event: BuildProgressEvent) => void,
 ): () => void {
+  getRedisSubClient();
   let channel = channels.get(attemptId);
   if (!channel) {
     channel = { events: [], nextSeq: 0, subscribers: new Set() };
