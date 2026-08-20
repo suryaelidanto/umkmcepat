@@ -131,7 +131,6 @@ import {
   RESUME_POLL_INTERVAL_MS,
   resolveDiscussResume,
   toUserFacingDiscussError,
-  type DiscussResume,
   type TurnState,
 } from "@/lib/projects/workspace-resume";
 import {
@@ -1798,27 +1797,101 @@ export function WorkspaceShell({
     submitInFlightRef.current = false;
   }, []);
 
-  // Auto-resume on cold start: if the last local message is an unanswered user
+  // Auto-resume on cold start: if the server is actively running a turn or last local message is an unanswered user turn
   useEffect(() => {
     if (status === "submitted" || status === "streaming") {
       return;
     }
 
-    const last = messages.at(-1);
-    if (!last || last.role !== "user") {
-      return;
-    }
-
     let canceled = false;
     const poll = async () => {
-      const result = await resolveDiscussResumeFromServer(projectId);
+      const turn = await fetchDiscussTurn(projectId);
       if (canceled) {
         return;
       }
+      if (turn?.status === "running") {
+        setIsRetrying("response");
+        if (turn.turnId && typeof EventSource !== "undefined") {
+          const es = new EventSource(
+            `/api/projects/${projectId}/turns/${turn.turnId}/stream`,
+          );
+          const assistantMessageId = `reattach-${turn.turnId}`;
+          const appendAssistantDelta = (delta: string) => {
+            if (!delta) {
+              return;
+            }
+            setMessages((current) => {
+              const index = current.findIndex(
+                (m) => m.id === assistantMessageId,
+              );
+              if (index === -1) {
+                return [
+                  ...current,
+                  {
+                    id: assistantMessageId,
+                    role: "assistant",
+                    parts: [{ type: "text", text: delta }],
+                  },
+                ];
+              }
+              return current.map((m, mIdx) => {
+                if (mIdx !== index) {
+                  return m;
+                }
+                const parts = m.parts.length
+                  ? [...m.parts]
+                  : [{ type: "text" as const, text: "" }];
+                const first = parts[0];
+                if (first?.type === "text") {
+                  parts[0] = { ...first, text: `${first.text}${delta}` };
+                }
+                return { ...m, parts };
+              });
+            });
+            shouldStickToBottomRef.current = true;
+          };
+
+          const finish = async () => {
+            es.close();
+            try {
+              await reloadLatestChat();
+            } finally {
+              setIsRetrying(false);
+            }
+          };
+
+          es.addEventListener("text-delta", (event) => {
+            try {
+              const parsed = JSON.parse(event.data) as { delta?: string };
+              if (typeof parsed.delta === "string") {
+                appendAssistantDelta(parsed.delta);
+              }
+            } catch {
+              // ignore malformed SSE
+            }
+          });
+
+          es.addEventListener("finish", () => {
+            void finish();
+          });
+
+          es.addEventListener("error", () => {
+            es.close();
+            void reloadLatestChat().finally(() => setIsRetrying(false));
+          });
+          return;
+        }
+      }
+
+      const last = messages.at(-1);
+      if (!last || last.role !== "user") {
+        return;
+      }
+
+      const result = resolveDiscussResume(turn);
       switch (result.kind) {
         case "reload":
           await reloadLatestChat();
-          // A later turn succeeded, so a stale failure banner must not survive
           setResumeError(null);
           if (
             !isTerminalChatError({
@@ -1831,6 +1904,7 @@ export function WorkspaceShell({
           }
           return;
         case "poll":
+          setIsRetrying("response");
           await new Promise((resolve) =>
             window.setTimeout(resolve, RESUME_POLL_INTERVAL_MS),
           );
@@ -1839,12 +1913,14 @@ export function WorkspaceShell({
           }
           return;
         case "retry":
+          setIsRetrying(false);
           setResumeError({
             message: result.errorMessage,
             retryText: result.retryText,
           });
           return;
         case "idle":
+          setIsRetrying(false);
           setResumeError(null);
           return;
       }
@@ -4372,11 +4448,4 @@ async function fetchDiscussTurn(projectId: string): Promise<TurnState | null> {
   } catch {
     return null;
   }
-}
-
-// Wrapper kept for the effect: fetch then resolve. Separate so the pure
-async function resolveDiscussResumeFromServer(
-  projectId: string,
-): Promise<DiscussResume> {
-  return resolveDiscussResume(await fetchDiscussTurn(projectId));
 }

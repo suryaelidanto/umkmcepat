@@ -214,6 +214,7 @@ describe("POST /api/projects/preview (discuss) — server-side turn flow", () =>
     expect(subscribeProgressMock).toHaveBeenCalledWith(
       "ct_live",
       expect.any(Function),
+      { replayBuffered: false },
     );
 
     // The tail stream body emits the replayed deltas + finish.
@@ -291,6 +292,7 @@ describe("POST /api/projects/preview (discuss) — server-side turn flow", () =>
     expect(subscribeProgressMock).toHaveBeenCalledWith(
       "ct_fresh",
       expect.any(Function),
+      { replayBuffered: false },
     );
   });
 

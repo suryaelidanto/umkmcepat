@@ -69,24 +69,28 @@ export async function runDiscussProgressTail(options: {
   let synchronizing = Boolean(loadSnapshot);
   const syncBuffer: DiscussProgressEvent[] = [];
 
-  const unsubscribe = subscribeProgress(turnId, (event) => {
-    if (settled) {
-      return;
-    }
-    if (synchronizing) {
-      syncBuffer.push(event);
-      return;
-    }
-    try {
-      write(event);
-    } catch {
-      settle();
-      return;
-    }
-    if (event.type === "finish" || event.type === "error") {
-      settle();
-    }
-  });
+  const unsubscribe = subscribeProgress(
+    turnId,
+    (event) => {
+      if (settled) {
+        return;
+      }
+      if (synchronizing) {
+        syncBuffer.push(event);
+        return;
+      }
+      try {
+        write(event);
+      } catch {
+        settle();
+        return;
+      }
+      if (event.type === "finish" || event.type === "error") {
+        settle();
+      }
+    },
+    { replayBuffered: false },
+  );
 
   if (loadSnapshot) {
     try {
