@@ -9,11 +9,16 @@ export type SnapshotSummary = {
   id: string;
   kind: SnapshotKind;
   parentSnapshotId: string | null;
+  published: boolean;
   restorable: boolean;
 };
 
 export type SnapshotKind = "initial" | "edit" | "repair" | "restore";
 
+type SnapshotBuildSummary = {
+  id: string;
+  status: string;
+};
 export async function listSnapshots(
   projectId: string,
 ): Promise<SnapshotSummary[]> {
@@ -32,13 +37,44 @@ export async function listSnapshots(
     take: 100,
   });
 
-  const builds = await prisma.projectBuild.findMany({
-    where: { projectId },
-    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    select: { id: true, snapshotId: true, status: true },
-  });
-  const buildBySnapshot = new Map(
-    builds.map((build) => [build.snapshotId, build]),
+  const [builds, previewDeployments, publishedDeployments] = await Promise.all([
+    prisma.projectBuild.findMany({
+      where: { projectId },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      select: { id: true, snapshotId: true, status: true },
+    }),
+    prisma.projectDeployment.findMany({
+      where: { kind: "preview", projectId },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: 100,
+      select: {
+        build: { select: { id: true, status: true } },
+        snapshotId: true,
+      },
+    }),
+    prisma.projectDeployment.findMany({
+      where: { kind: "published", projectId },
+      orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+      take: 20,
+      select: { snapshotId: true },
+    }),
+  ]);
+  const buildBySnapshot = new Map<string, SnapshotBuildSummary>();
+  for (const build of builds) {
+    buildBySnapshot.set(build.snapshotId, {
+      id: build.id,
+      status: build.status,
+    });
+  }
+  for (const deployment of previewDeployments) {
+    if (deployment.snapshotId && deployment.build) {
+      buildBySnapshot.set(deployment.snapshotId, deployment.build);
+    }
+  }
+  const publishedSnapshotIds = new Set(
+    publishedDeployments
+      .map((deployment) => deployment.snapshotId)
+      .filter((snapshotId): snapshotId is string => Boolean(snapshotId)),
   );
 
   return snapshots.map((snapshot) => {
@@ -54,6 +90,7 @@ export async function listSnapshots(
       id: snapshot.id,
       kind: kindOf(snapshot.sourceType, snapshot.metadata),
       parentSnapshotId: snapshot.parentSnapshotId,
+      published: publishedSnapshotIds.has(snapshot.id),
       restorable,
     };
   });

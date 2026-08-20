@@ -1,10 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const { prismaProjectDeploymentFindManyMock, proxyDeploymentRequestMock } =
-  vi.hoisted(() => ({
-    prismaProjectDeploymentFindManyMock: vi.fn(),
-    proxyDeploymentRequestMock: vi.fn(),
-  }));
+const {
+  prismaProjectDeploymentFindManyMock,
+  proxyDeploymentRequestMock,
+  readProjectDistArtifactMock,
+} = vi.hoisted(() => ({
+  prismaProjectDeploymentFindManyMock: vi.fn(),
+  proxyDeploymentRequestMock: vi.fn(),
+  readProjectDistArtifactMock: vi.fn(),
+}));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -14,9 +18,19 @@ vi.mock("@/lib/prisma", () => ({
     },
   },
 }));
-vi.mock("@/lib/projects/runtime-proxy", () => ({
-  proxyDeploymentRequest: proxyDeploymentRequestMock,
+vi.mock("@/lib/projects/runtime-artifacts", () => ({
+  readProjectDistArtifact: readProjectDistArtifactMock,
 }));
+vi.mock("@/lib/projects/runtime-proxy", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/projects/runtime-proxy")
+  >("@/lib/projects/runtime-proxy");
+
+  return {
+    ...actual,
+    proxyDeploymentRequest: proxyDeploymentRequestMock,
+  };
+});
 
 import { getHandler } from "../../tests/support/route-handler";
 
@@ -27,6 +41,7 @@ const GET = getHandler(Route, "GET");
 describe("published generated route", () => {
   afterEach(() => {
     vi.clearAllMocks();
+    readProjectDistArtifactMock.mockResolvedValue([]);
     vi.unstubAllEnvs();
   });
 
@@ -163,7 +178,54 @@ describe("published generated route", () => {
     expect(response.status).toBe(410);
     expect(response.headers.get("X-Robots-Tag")).toBe("noindex");
     expect(response.headers.get("Cache-Control")).toBe("no-store");
+    await expect(response.text()).resolves.toContain("Website tidak tersedia");
     expect(proxyDeploymentRequestMock).not.toHaveBeenCalled();
+  });
+
+  it("serves the published artifact when the runtime is unavailable", async () => {
+    vi.stubEnv("GENERATED_PUBLIC_EXECUTION_ENABLED", "true");
+    prismaProjectDeploymentFindManyMock.mockResolvedValueOnce([
+      {
+        build: {
+          artifactRef: "project-artifact:s3:dist:build_2",
+          createdAt: new Date(),
+          id: "build_2",
+          snapshot: {
+            project: { title: "Warung", user: { bannedAt: null } },
+          },
+          snapshotId: "snapshot_2",
+          status: "succeeded",
+          updatedAt: new Date(),
+        },
+        buildId: "build_2",
+        createdAt: new Date(),
+        id: "deployment_2",
+        kind: "published",
+        snapshotId: "snapshot_2",
+        status: "created",
+        updatedAt: new Date(),
+      },
+    ]);
+    proxyDeploymentRequestMock.mockResolvedValueOnce(null);
+    readProjectDistArtifactMock.mockResolvedValueOnce([
+      {
+        content:
+          '<html><head></head><body><script src="./assets/app.js"></script></body></html>',
+        contentType: "text/html; charset=utf-8",
+        path: "index.html",
+      },
+    ]);
+
+    const response = await GET(
+      new Request("https://sites.example.net/p/warung/"),
+      { slug: "warung" },
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.text()).resolves.toContain("/p/warung/assets/app.js");
+    expect(readProjectDistArtifactMock).toHaveBeenCalledWith(
+      "project-artifact:s3:dist:build_2",
+    );
   });
 
   it("still proxies for an active (non-banned) owner", async () => {

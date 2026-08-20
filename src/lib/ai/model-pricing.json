@@ -426,6 +426,13 @@
     "source": "https://openrouter.ai/google/gemini-3.7-flash",
     "checkedAt": "2026-08-19"
   },
+  "gemini-3.7-flash-tiered": {
+    "sourceModelId": "gemini-3.7-flash-tiered",
+    "promptPrice": 3.75e-7,
+    "completionPrice": 0.000001875,
+    "source": "https://openrouter.ai/google/gemini-3.7-flash",
+    "checkedAt": "2026-08-20"
+  },
   "openrouter/google/gemini-3.7-flash:batch": {
     "sourceModelId": "openrouter/google/gemini-3.7-flash:batch",
     "promptPrice": 1.875e-7,
@@ -3288,5 +3295,418 @@
     "completionPrice": 0.00006,
     "source": "https://openrouter.ai/openai/gpt-4",
     "checkedAt": "2026-08-19"
+  },
+  "ag/google/gemini-3.7-flash": {
+    "sourceModelId": "ag/google/gemini-3.7-flash",
+    "promptPrice": 3.75e-7,
+    "completionPrice": 0.000001875,
+    "source": "https://openrouter.ai/google/gemini-3.7-flash",
+    "checkedAt": "2026-08-20"
+  },
+  "ag/gemini-3.7-flash": {
+    "sourceModelId": "ag/gemini-3.7-flash",
+    "promptPrice": 3.75e-7,
+    "completionPrice": 0.000001875,
+    "source": "https://openrouter.ai/google/gemini-3.7-flash",
+    "checkedAt": "2026-08-20"
+  },
+  "ag/gemini-3.7-flash-tiered": {
+    "sourceModelId": "ag/gemini-3.7-flash-tiered",
+    "promptPrice": 3.75e-7,
+    "completionPrice": 0.000001875,
+    "source": "https://openrouter.ai/google/gemini-3.7-flash",
+    "checkedAt": "2026-08-20"
+  },
+  "antigravity/google/gemini-3.7-flash": {
+    "sourceModelId": "antigravity/google/gemini-3.7-flash",
+    "promptPrice": 3.75e-7,
+    "completionPrice": 0.000001875,
+    "source": "https://openrouter.ai/google/gemini-3.7-flash",
+    "checkedAt": "2026-08-20"
+  },
+  "antigravity/gemini-3.7-flash": {
+    "sourceModelId": "antigravity/gemini-3.7-flash",
+    "promptPrice": 3.75e-7,
+    "completionPrice": 0.000001875,
+    "source": "https://openrouter.ai/google/gemini-3.7-flash",
+    "checkedAt": "2026-08-20"
+  },
+  "ag/google/gemini-3.6-flash": {
+    "sourceModelId": "ag/google/gemini-3.6-flash",
+    "promptPrice": 7.5e-7,
+    "completionPrice": 0.00000375,
+    "source": "https://openrouter.ai/google/gemini-3.6-flash",
+    "checkedAt": "2026-08-20"
+  },
+  "ag/gemini-3.6-flash": {
+    "sourceModelId": "ag/gemini-3.6-flash",
+    "promptPrice": 7.5e-7,
+    "completionPrice": 0.00000375,
+    "source": "https://openrouter.ai/google/gemini-3.6-flash",
+    "checkedAt": "2026-08-20"
+  },
+  "ag/gemini-3.6-flash-tiered": {
+    "sourceModelId": "ag/gemini-3.6-flash-tiered",
+    "promptPrice": 7.5e-7,
+    "completionPrice": 0.00000375,
+    "source": "https://openrouter.ai/google/gemini-3.6-flash",
+    "checkedAt": "2026-08-20"
+  },
+  "antigravity/google/gemini-3.6-flash": {
+    "sourceModelId": "antigravity/google/gemini-3.6-flash",
+    "promptPrice": 7.5e-7,
+    "completionPrice": 0.00000375,
+    "source": "https://openrouter.ai/google/gemini-3.6-flash",
+    "checkedAt": "2026-08-20"
+  },
+  "antigravity/gemini-3.6-flash": {
+    "sourceModelId": "antigravity/gemini-3.6-flash",
+    "promptPrice": 7.5e-7,
+    "completionPrice": 0.00000375,
+    "source": "https://openrouter.ai/google/gemini-3.6-flash",
+    "checkedAt": "2026-08-20"
+  },
+  "gemini-3.6-flash-tiered": {
+    "sourceModelId": "gemini-3.6-flash-tiered",
+    "promptPrice": 7.5e-7,
+    "completionPrice": 0.00000375,
+    "source": "https://openrouter.ai/google/gemini-3.6-flash",
+    "checkedAt": "2026-08-20"
+  },
+  "ag/google/gemini-3.5-flash-lite": {
+    "sourceModelId": "ag/google/gemini-3.5-flash-lite",
+    "promptPrice": 3e-7,
+    "completionPrice": 0.0000025,
+    "source": "https://openrouter.ai/google/gemini-3.5-flash-lite",
+    "checkedAt": "2026-08-20"
+  },
+  "ag/gemini-3.5-flash-lite": {
+    "sourceModelId": "ag/gemini-3.5-flash-lite",
+    "promptPrice": 3e-7,
+    "completionPrice": 0.0000025,
+    "source": "https://openrouter.ai/google/gemini-3.5-flash-lite",
+    "checkedAt": "2026-08-20"
+  },
+  "ag/gemini-3.5-flash-lite-tiered": {
+    "sourceModelId": "ag/gemini-3.5-flash-lite-tiered",
+    "promptPrice": 3e-7,
+    "completionPrice": 0.0000025,
+    "source": "https://openrouter.ai/google/gemini-3.5-flash-lite",
+    "checkedAt": "2026-08-20"
+  },
+  "antigravity/google/gemini-3.5-flash-lite": {
+    "sourceModelId": "antigravity/google/gemini-3.5-flash-lite",
+    "promptPrice": 3e-7,
+    "completionPrice": 0.0000025,
+    "source": "https://openrouter.ai/google/gemini-3.5-flash-lite",
+    "checkedAt": "2026-08-20"
+  },
+  "antigravity/gemini-3.5-flash-lite": {
+    "sourceModelId": "antigravity/gemini-3.5-flash-lite",
+    "promptPrice": 3e-7,
+    "completionPrice": 0.0000025,
+    "source": "https://openrouter.ai/google/gemini-3.5-flash-lite",
+    "checkedAt": "2026-08-20"
+  },
+  "gemini-3.5-flash-lite-tiered": {
+    "sourceModelId": "gemini-3.5-flash-lite-tiered",
+    "promptPrice": 3e-7,
+    "completionPrice": 0.0000025,
+    "source": "https://openrouter.ai/google/gemini-3.5-flash-lite",
+    "checkedAt": "2026-08-20"
+  },
+  "ag/deepseek/deepseek-v4-flash": {
+    "sourceModelId": "ag/deepseek/deepseek-v4-flash",
+    "promptPrice": 8.8606e-8,
+    "completionPrice": 1.77212e-7,
+    "source": "https://openrouter.ai/deepseek/deepseek-v4-flash",
+    "checkedAt": "2026-08-20"
+  },
+  "ag/deepseek-v4-flash": {
+    "sourceModelId": "ag/deepseek-v4-flash",
+    "promptPrice": 8.8606e-8,
+    "completionPrice": 1.77212e-7,
+    "source": "https://openrouter.ai/deepseek/deepseek-v4-flash",
+    "checkedAt": "2026-08-20"
+  },
+  "ag/deepseek-v4-flash-tiered": {
+    "sourceModelId": "ag/deepseek-v4-flash-tiered",
+    "promptPrice": 8.8606e-8,
+    "completionPrice": 1.77212e-7,
+    "source": "https://openrouter.ai/deepseek/deepseek-v4-flash",
+    "checkedAt": "2026-08-20"
+  },
+  "antigravity/deepseek/deepseek-v4-flash": {
+    "sourceModelId": "antigravity/deepseek/deepseek-v4-flash",
+    "promptPrice": 8.8606e-8,
+    "completionPrice": 1.77212e-7,
+    "source": "https://openrouter.ai/deepseek/deepseek-v4-flash",
+    "checkedAt": "2026-08-20"
+  },
+  "antigravity/deepseek-v4-flash": {
+    "sourceModelId": "antigravity/deepseek-v4-flash",
+    "promptPrice": 8.8606e-8,
+    "completionPrice": 1.77212e-7,
+    "source": "https://openrouter.ai/deepseek/deepseek-v4-flash",
+    "checkedAt": "2026-08-20"
+  },
+  "deepseek-v4-flash-tiered": {
+    "sourceModelId": "deepseek-v4-flash-tiered",
+    "promptPrice": 8.8606e-8,
+    "completionPrice": 1.77212e-7,
+    "source": "https://openrouter.ai/deepseek/deepseek-v4-flash",
+    "checkedAt": "2026-08-20"
+  },
+  "ag/deepseek/deepseek-v4-pro": {
+    "sourceModelId": "ag/deepseek/deepseek-v4-pro",
+    "promptPrice": 0.0000016,
+    "completionPrice": 0.0000032,
+    "source": "https://openrouter.ai/deepseek/deepseek-v4-pro",
+    "checkedAt": "2026-08-20"
+  },
+  "ag/deepseek-v4-pro": {
+    "sourceModelId": "ag/deepseek-v4-pro",
+    "promptPrice": 0.0000016,
+    "completionPrice": 0.0000032,
+    "source": "https://openrouter.ai/deepseek/deepseek-v4-pro",
+    "checkedAt": "2026-08-20"
+  },
+  "ag/deepseek-v4-pro-tiered": {
+    "sourceModelId": "ag/deepseek-v4-pro-tiered",
+    "promptPrice": 0.0000016,
+    "completionPrice": 0.0000032,
+    "source": "https://openrouter.ai/deepseek/deepseek-v4-pro",
+    "checkedAt": "2026-08-20"
+  },
+  "antigravity/deepseek/deepseek-v4-pro": {
+    "sourceModelId": "antigravity/deepseek/deepseek-v4-pro",
+    "promptPrice": 0.0000016,
+    "completionPrice": 0.0000032,
+    "source": "https://openrouter.ai/deepseek/deepseek-v4-pro",
+    "checkedAt": "2026-08-20"
+  },
+  "antigravity/deepseek-v4-pro": {
+    "sourceModelId": "antigravity/deepseek-v4-pro",
+    "promptPrice": 0.0000016,
+    "completionPrice": 0.0000032,
+    "source": "https://openrouter.ai/deepseek/deepseek-v4-pro",
+    "checkedAt": "2026-08-20"
+  },
+  "deepseek-v4-pro-tiered": {
+    "sourceModelId": "deepseek-v4-pro-tiered",
+    "promptPrice": 0.0000016,
+    "completionPrice": 0.0000032,
+    "source": "https://openrouter.ai/deepseek/deepseek-v4-pro",
+    "checkedAt": "2026-08-20"
+  },
+  "ag/openai/gpt-5.6-luna": {
+    "sourceModelId": "ag/openai/gpt-5.6-luna",
+    "promptPrice": 2e-7,
+    "completionPrice": 0.0000012,
+    "source": "https://openrouter.ai/openai/gpt-5.6-luna",
+    "checkedAt": "2026-08-20"
+  },
+  "ag/gpt-5.6-luna": {
+    "sourceModelId": "ag/gpt-5.6-luna",
+    "promptPrice": 2e-7,
+    "completionPrice": 0.0000012,
+    "source": "https://openrouter.ai/openai/gpt-5.6-luna",
+    "checkedAt": "2026-08-20"
+  },
+  "ag/gpt-5.6-luna-tiered": {
+    "sourceModelId": "ag/gpt-5.6-luna-tiered",
+    "promptPrice": 2e-7,
+    "completionPrice": 0.0000012,
+    "source": "https://openrouter.ai/openai/gpt-5.6-luna",
+    "checkedAt": "2026-08-20"
+  },
+  "antigravity/openai/gpt-5.6-luna": {
+    "sourceModelId": "antigravity/openai/gpt-5.6-luna",
+    "promptPrice": 2e-7,
+    "completionPrice": 0.0000012,
+    "source": "https://openrouter.ai/openai/gpt-5.6-luna",
+    "checkedAt": "2026-08-20"
+  },
+  "antigravity/gpt-5.6-luna": {
+    "sourceModelId": "antigravity/gpt-5.6-luna",
+    "promptPrice": 2e-7,
+    "completionPrice": 0.0000012,
+    "source": "https://openrouter.ai/openai/gpt-5.6-luna",
+    "checkedAt": "2026-08-20"
+  },
+  "gpt-5.6-luna-tiered": {
+    "sourceModelId": "gpt-5.6-luna-tiered",
+    "promptPrice": 2e-7,
+    "completionPrice": 0.0000012,
+    "source": "https://openrouter.ai/openai/gpt-5.6-luna",
+    "checkedAt": "2026-08-20"
+  },
+  "ag/anthropic/claude-sonnet-5": {
+    "sourceModelId": "ag/anthropic/claude-sonnet-5",
+    "promptPrice": 0.000002,
+    "completionPrice": 0.00001,
+    "source": "https://openrouter.ai/anthropic/claude-sonnet-5",
+    "checkedAt": "2026-08-20"
+  },
+  "ag/claude-sonnet-5": {
+    "sourceModelId": "ag/claude-sonnet-5",
+    "promptPrice": 0.000002,
+    "completionPrice": 0.00001,
+    "source": "https://openrouter.ai/anthropic/claude-sonnet-5",
+    "checkedAt": "2026-08-20"
+  },
+  "ag/claude-sonnet-5-tiered": {
+    "sourceModelId": "ag/claude-sonnet-5-tiered",
+    "promptPrice": 0.000002,
+    "completionPrice": 0.00001,
+    "source": "https://openrouter.ai/anthropic/claude-sonnet-5",
+    "checkedAt": "2026-08-20"
+  },
+  "antigravity/anthropic/claude-sonnet-5": {
+    "sourceModelId": "antigravity/anthropic/claude-sonnet-5",
+    "promptPrice": 0.000002,
+    "completionPrice": 0.00001,
+    "source": "https://openrouter.ai/anthropic/claude-sonnet-5",
+    "checkedAt": "2026-08-20"
+  },
+  "antigravity/claude-sonnet-5": {
+    "sourceModelId": "antigravity/claude-sonnet-5",
+    "promptPrice": 0.000002,
+    "completionPrice": 0.00001,
+    "source": "https://openrouter.ai/anthropic/claude-sonnet-5",
+    "checkedAt": "2026-08-20"
+  },
+  "claude-sonnet-5-tiered": {
+    "sourceModelId": "claude-sonnet-5-tiered",
+    "promptPrice": 0.000002,
+    "completionPrice": 0.00001,
+    "source": "https://openrouter.ai/anthropic/claude-sonnet-5",
+    "checkedAt": "2026-08-20"
+  },
+  "ag/anthropic/claude-haiku-4.5": {
+    "sourceModelId": "ag/anthropic/claude-haiku-4.5",
+    "promptPrice": 0.000001,
+    "completionPrice": 0.000005,
+    "source": "https://openrouter.ai/anthropic/claude-haiku-4.5",
+    "checkedAt": "2026-08-20"
+  },
+  "ag/claude-haiku-4.5": {
+    "sourceModelId": "ag/claude-haiku-4.5",
+    "promptPrice": 0.000001,
+    "completionPrice": 0.000005,
+    "source": "https://openrouter.ai/anthropic/claude-haiku-4.5",
+    "checkedAt": "2026-08-20"
+  },
+  "ag/claude-haiku-4.5-tiered": {
+    "sourceModelId": "ag/claude-haiku-4.5-tiered",
+    "promptPrice": 0.000001,
+    "completionPrice": 0.000005,
+    "source": "https://openrouter.ai/anthropic/claude-haiku-4.5",
+    "checkedAt": "2026-08-20"
+  },
+  "antigravity/anthropic/claude-haiku-4.5": {
+    "sourceModelId": "antigravity/anthropic/claude-haiku-4.5",
+    "promptPrice": 0.000001,
+    "completionPrice": 0.000005,
+    "source": "https://openrouter.ai/anthropic/claude-haiku-4.5",
+    "checkedAt": "2026-08-20"
+  },
+  "antigravity/claude-haiku-4.5": {
+    "sourceModelId": "antigravity/claude-haiku-4.5",
+    "promptPrice": 0.000001,
+    "completionPrice": 0.000005,
+    "source": "https://openrouter.ai/anthropic/claude-haiku-4.5",
+    "checkedAt": "2026-08-20"
+  },
+  "claude-haiku-4.5-tiered": {
+    "sourceModelId": "claude-haiku-4.5-tiered",
+    "promptPrice": 0.000001,
+    "completionPrice": 0.000005,
+    "source": "https://openrouter.ai/anthropic/claude-haiku-4.5",
+    "checkedAt": "2026-08-20"
+  },
+  "ag/qwen/qwen3.7-flash": {
+    "sourceModelId": "ag/qwen/qwen3.7-flash",
+    "promptPrice": 3e-8,
+    "completionPrice": 1.3e-7,
+    "source": "https://openrouter.ai/qwen/qwen3.7-flash",
+    "checkedAt": "2026-08-20"
+  },
+  "ag/qwen3.7-flash": {
+    "sourceModelId": "ag/qwen3.7-flash",
+    "promptPrice": 3e-8,
+    "completionPrice": 1.3e-7,
+    "source": "https://openrouter.ai/qwen/qwen3.7-flash",
+    "checkedAt": "2026-08-20"
+  },
+  "ag/qwen3.7-flash-tiered": {
+    "sourceModelId": "ag/qwen3.7-flash-tiered",
+    "promptPrice": 3e-8,
+    "completionPrice": 1.3e-7,
+    "source": "https://openrouter.ai/qwen/qwen3.7-flash",
+    "checkedAt": "2026-08-20"
+  },
+  "antigravity/qwen/qwen3.7-flash": {
+    "sourceModelId": "antigravity/qwen/qwen3.7-flash",
+    "promptPrice": 3e-8,
+    "completionPrice": 1.3e-7,
+    "source": "https://openrouter.ai/qwen/qwen3.7-flash",
+    "checkedAt": "2026-08-20"
+  },
+  "antigravity/qwen3.7-flash": {
+    "sourceModelId": "antigravity/qwen3.7-flash",
+    "promptPrice": 3e-8,
+    "completionPrice": 1.3e-7,
+    "source": "https://openrouter.ai/qwen/qwen3.7-flash",
+    "checkedAt": "2026-08-20"
+  },
+  "qwen3.7-flash-tiered": {
+    "sourceModelId": "qwen3.7-flash-tiered",
+    "promptPrice": 3e-8,
+    "completionPrice": 1.3e-7,
+    "source": "https://openrouter.ai/qwen/qwen3.7-flash",
+    "checkedAt": "2026-08-20"
+  },
+  "ag/xiaomi/mimo-v2.5": {
+    "sourceModelId": "ag/xiaomi/mimo-v2.5",
+    "promptPrice": 1.4e-7,
+    "completionPrice": 2.8e-7,
+    "source": "https://openrouter.ai/xiaomi/mimo-v2.5",
+    "checkedAt": "2026-08-20"
+  },
+  "ag/mimo-v2.5": {
+    "sourceModelId": "ag/mimo-v2.5",
+    "promptPrice": 1.4e-7,
+    "completionPrice": 2.8e-7,
+    "source": "https://openrouter.ai/xiaomi/mimo-v2.5",
+    "checkedAt": "2026-08-20"
+  },
+  "ag/mimo-v2.5-tiered": {
+    "sourceModelId": "ag/mimo-v2.5-tiered",
+    "promptPrice": 1.4e-7,
+    "completionPrice": 2.8e-7,
+    "source": "https://openrouter.ai/xiaomi/mimo-v2.5",
+    "checkedAt": "2026-08-20"
+  },
+  "antigravity/xiaomi/mimo-v2.5": {
+    "sourceModelId": "antigravity/xiaomi/mimo-v2.5",
+    "promptPrice": 1.4e-7,
+    "completionPrice": 2.8e-7,
+    "source": "https://openrouter.ai/xiaomi/mimo-v2.5",
+    "checkedAt": "2026-08-20"
+  },
+  "antigravity/mimo-v2.5": {
+    "sourceModelId": "antigravity/mimo-v2.5",
+    "promptPrice": 1.4e-7,
+    "completionPrice": 2.8e-7,
+    "source": "https://openrouter.ai/xiaomi/mimo-v2.5",
+    "checkedAt": "2026-08-20"
+  },
+  "mimo-v2.5-tiered": {
+    "sourceModelId": "mimo-v2.5-tiered",
+    "promptPrice": 1.4e-7,
+    "completionPrice": 2.8e-7,
+    "source": "https://openrouter.ai/xiaomi/mimo-v2.5",
+    "checkedAt": "2026-08-20"
   }
 }

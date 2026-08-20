@@ -20,19 +20,17 @@ const catalog = modelPricing as Record<string, CatalogEntry>;
 const unresolvedWarnings = new Set<string>();
 
 export const CONSERVATIVE_DEFAULT_PRICE: ModelPrice = {
-  promptPrice: 0.0000015,
-  completionPrice: 0.0000019,
+  promptPrice: 0.0000003,
+  completionPrice: 0.000001,
 };
 
 export function normalizeProviderModelId(modelId: string): string {
-  const id = modelId.trim();
+  const id = modelId.trim().toLowerCase();
   if (!id) {
     return "unknown";
   }
   const parts = id.split("/");
-  return parts.length >= 3
-    ? id.toLowerCase()
-    : `openrouter/${id.toLowerCase()}`;
+  return parts.length >= 3 ? id : `openrouter/${id}`;
 }
 
 function warnUnresolvedModel(rawModelId: string): void {
@@ -59,7 +57,7 @@ export function findCatalogEntry(rawModelId: string): CatalogEntry | null {
   if (catalog[normalized]) {
     return catalog[normalized];
   }
-  // Try matching suffix (e.g. "gpt-5.6-luna" matches "cmc/openai/gpt-5.6-luna" or "openrouter/openai/gpt-5.6-luna")
+  // Suffix fallback for vendor prefixes (e.g. "cmc/openai/gpt-5.6-luna" or "openrouter/openai/gpt-5.6-luna")
   for (const [key, entry] of Object.entries(catalog)) {
     if (key.endsWith(`/${trimmed}`) || key === trimmed) {
       return entry;

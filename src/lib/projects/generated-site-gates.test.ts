@@ -5,6 +5,11 @@ import {
   inspectGeneratedSiteTasteSource,
   inspectReferenceCalibratedSiteSource,
   normalizeBatchedSiteAnchors,
+  normalizeGeneratedInteractiveTargets,
+  findGeneratedInternalLinkIssues,
+  findGeneratedPrimaryActionIssues,
+  normalizeGeneratedInternalLinks,
+  normalizeGeneratedSiteContent,
 } from "./generated-site-gates";
 
 import type { WriterDesignPlanV1 } from "./batched-response";
@@ -557,6 +562,190 @@ describe("reference-calibrated generated site source gates", () => {
   });
 });
 
+describe("generated internal link gates", () => {
+  it("reports unknown static hash targets without mutating them", () => {
+    expect(
+      findGeneratedInternalLinkIssues([
+        {
+          path: "src/routes/index.tsx",
+          content:
+            '<a href="#missing">X</a> const links = [{ href: "#also-missing" }];',
+        },
+      ]),
+    ).toEqual([
+      "src/routes/index.tsx: missing #missing",
+      "src/routes/index.tsx: missing #also-missing",
+    ]);
+  });
+
+  it("requires a customer-facing primary action anchor when site data is rendered", () => {
+    expect(
+      findGeneratedPrimaryActionIssues([
+        {
+          path: "src/routes/index.tsx",
+          content: "<button>{site.primaryCta}</button>",
+        },
+      ]),
+    ).toEqual(["src/routes/index.tsx: primary CTA must be an anchor action"]);
+  });
+
+  it("resolves common generated anchor aliases against IDs across files", () => {
+    const [suffixRoute] = normalizeGeneratedInternalLinks([
+      {
+        path: "src/routes/index.tsx",
+        content: '<a href="#chat-box">Chat</a><a href="#missing">Missing</a>',
+      },
+      {
+        path: "src/components/site/Contact.tsx",
+        content: '<section id="chat">Kontak</section>',
+      },
+    ]);
+    const [tokenRoute] = normalizeGeneratedInternalLinks([
+      {
+        path: "src/routes/index.tsx",
+        content: '<a href="#chat-langsung">Langsung</a>',
+      },
+      {
+        path: "src/components/site/Contact.tsx",
+        content: '<section id="kontak-chat">Chat</section>',
+      },
+    ]);
+
+    expect(suffixRoute?.content).toContain('href="#chat"');
+    expect(suffixRoute?.content).toContain('href="#missing"');
+    expect(tokenRoute?.content).toContain('href="#kontak-chat"');
+  });
+});
+
+describe("normalizeGeneratedInteractiveTargets", () => {
+  it("upgrades interactive elements in generated component files", () => {
+    const [file] = normalizeGeneratedInteractiveTargets([
+      {
+        path: "src/components/site/SiteFooter.tsx",
+        content:
+          '<a href="#kontak" className="inline-flex min-h-10 items-center">Chat Admin</a><Button className="h-9">Kirim</Button>',
+      },
+    ]);
+
+    expect(file?.content).toContain("min-h-11");
+    expect(file?.content).toContain("min-w-11");
+    expect(file?.content).not.toContain("min-h-10");
+  });
+
+  it("keeps computed className props valid while enforcing the target", () => {
+    const [file] = normalizeGeneratedInteractiveTargets([
+      {
+        path: "src/components/site/Actions.tsx",
+        content:
+          "<a href={link} className={classes}>Chat</a><Button className={classes}>Kirim</Button>",
+      },
+    ]);
+
+    expect(file?.content.match(/<a[^>]+>/)?.[0]).not.toMatch(
+      /className=.*className=/,
+    );
+    expect(file?.content.match(/<Button[^>]+>/)?.[0]).not.toMatch(
+      /className=.*className=/,
+    );
+    expect(file?.content).toContain('style={{ minHeight: "44px"');
+  });
+
+  it("repairs contrast on generated component surfaces and action colors", () => {
+    const normalized = normalizeGeneratedSiteContent(
+      '<div className="bg-accent p-8"><h3>Masih ragu?</h3></div><a href={link} className="bg-white text-accent">Tanya Admin</a><Button className="bg-[#25D366] text-white">Chat</Button>',
+    );
+
+    expect(normalized).toContain("bg-accent p-8 text-foreground");
+    expect(normalized).toContain("bg-white text-foreground");
+    expect(normalized).toContain("bg-[#25D366] text-foreground");
+  });
+
+  it("adds visible focus styles and repairs invalid text token usage", () => {
+    const normalized = normalizeGeneratedSiteContent(
+      '<a href="#chat" className="inline-flex min-h-11 min-w-11 text-border">Chat</a>',
+    );
+
+    expect(normalized).toContain("focus-visible:ring-2");
+    expect(normalized).toContain("text-muted-foreground");
+    expect(normalized).not.toContain("text-border");
+  });
+
+  it("repairs invalid SVG preserveAspectRatio values", () => {
+    const normalized = normalizeGeneratedSiteContent(
+      '<svg preserveAspectRatio="repeat"><pattern /></svg><svg preserveAspectRatio="repeat-x" /><svg preserveAspectRatio="repeat-y" />',
+    );
+
+    expect(normalized).toContain('preserveAspectRatio="none"');
+    expect(normalized).not.toMatch(/preserveAspectRatio="repeat(?:-[xy])?"/);
+  });
+
+  it("keeps secondary badge text paired with the secondary surface", () => {
+    const normalized = normalizeGeneratedSiteContent(
+      '<Badge variant="secondary" className="text-primary">Penyaluran Warga</Badge>',
+    );
+
+    expect(normalized).toContain("text-secondary-foreground");
+    expect(normalized).not.toContain("text-primary");
+    expect(
+      normalizeGeneratedSiteContent(
+        '<Badge variant="secondary" className="text-primary-foreground">Label</Badge>',
+      ),
+    ).toContain("text-primary-foreground");
+  });
+
+  it("removes remote font imports from generated CSS", () => {
+    const normalized = normalizeGeneratedSiteContent(
+      '@import url("https://fonts.googleapis.com/css2?family=Fraunces");\n@import "tailwindcss";',
+    );
+
+    expect(normalized).not.toContain("fonts.googleapis.com");
+    expect(normalized).toContain('@import "tailwindcss";');
+  });
+
+  it("only adds touch target classes to opening anchor and button tags, not child icons or nested elements", () => {
+    const normalized = normalizeGeneratedSiteContent(
+      '<Button asChild size="lg"><a href="https://wa.me/628123"><MessageCircle className="size-4 text-primary" />Pilih Paket</a></Button>',
+    );
+
+    expect(normalized).toContain('className="size-4 text-primary"');
+    expect(normalized).not.toContain(
+      'className="inline-flex min-h-11 min-w-11 items-center justify-center size-4 text-primary"',
+    );
+  });
+
+  it("never creates duplicate className attributes on multiline or property-rich anchor tags", () => {
+    const input = `<nav className="flex flex-col gap-1 p-4" aria-label="Navigasi mobile">
+      {navLinks.map((link) => (
+        <a
+          key={link.href}
+          href={link.href}
+          onClick={() => setOpen(false)}
+          className="inline-flex min-h-11 min-w-11 items-center rounded-md px-3 text-sm font-medium text-foreground/80 transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          {link.label}
+        </a>
+      ))}
+    </nav>
+    <button
+      type="button"
+      onClick={() => setOpen((v) => !v)}
+      className="flex size-11 items-center justify-center rounded-md text-foreground transition-colors hover:bg-secondary lg:hidden"
+      aria-label={open ? "Tutup menu" : "Buka menu"}
+      aria-expanded={open}
+    >
+      Menu
+    </button>`;
+    const normalized = normalizeGeneratedSiteContent(input);
+    expect(normalized).not.toContain("min-h-11 min-w-11 min-h-11");
+    expect(normalized).not.toMatch(
+      /<button[^>]*className="[^"]*"\s+[^>]*className="/,
+    );
+    expect(normalized).not.toMatch(
+      /<a[^>]*className="[^"]*"\s+[^>]*className="/,
+    );
+  });
+});
+
 describe("normalizeBatchedSiteAnchors", () => {
   it("anchors the accepted composition pattern on the home route", () => {
     const [file] = normalizeBatchedSiteAnchors(
@@ -627,7 +816,7 @@ describe("normalizeBatchedSiteAnchors", () => {
     ]);
 
     expect(file?.content).toContain(
-      '<a className="bg-accent px-6 text-accent-foreground">Chat</a>',
+      '<a className="bg-accent px-6 text-foreground">Chat</a>',
     );
     expect(file?.content).toContain(
       '<a className="bg-primary px-6 text-primary-foreground/80">Lihat</a>',
@@ -722,8 +911,8 @@ export default function IndexRoute() {
       { primaryCtaTarget: "08123456789" },
     );
 
-    expect(file?.content).toContain(
-      '<a className="inline-flex min-h-11 min-w-11 items-center justify-center cta-primary" href="https://wa.me/628123456789?text=Halo"',
+    expect(file?.content).toMatch(
+      /<a className="[^"]*inline-flex[^"]*min-h-11[^"]*min-w-11[^"]*cta-primary[^"]*" href="https:\/\/wa\.me\/628123456789\?text=Halo"/,
     );
     expect(file?.content).toContain("cta-primary");
   });

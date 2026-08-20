@@ -4,7 +4,13 @@ import { resolveGeneratedPublicRequest } from "@/lib/generated-public-origin";
 import { prisma } from "@/lib/prisma";
 import { selectActivePublishedDeployment } from "@/lib/projects/deployment-resolution";
 import { createPreviewIssueHtml } from "@/lib/projects/preview-error-html";
-import { proxyDeploymentRequest } from "@/lib/projects/runtime-proxy";
+import { readProjectDistArtifact } from "@/lib/projects/runtime-artifacts";
+import {
+  applyPreviewSandboxHeaders,
+  injectPublishedHead,
+  proxyDeploymentRequest,
+  rewritePublicAssetUrls,
+} from "@/lib/projects/runtime-proxy";
 
 function createPublicIssueResponse({
   detail,
@@ -125,8 +131,9 @@ export const Route = createFileRoute("/p/$slug/$")({
           });
         }
 
+        const businessName = deployment.build?.snapshot?.project?.title;
         const response = await proxyDeploymentRequest({
-          businessName: deployment.build?.snapshot?.project?.title,
+          businessName,
           deploymentId: deployment.id,
           deploymentStatus: deployment.status,
           noindex: false,
@@ -136,6 +143,16 @@ export const Route = createFileRoute("/p/$slug/$")({
         });
 
         if (!response) {
+          const staticResponse = await getPublishedArtifactResponse({
+            artifactRef: deployment.build.artifactRef,
+            businessName,
+            path,
+            slug,
+          });
+          if (staticResponse) {
+            return staticResponse;
+          }
+
           return createPublicIssueResponse({
             detail: "Website belum bisa dimulai.",
             status: 503,
@@ -153,3 +170,40 @@ export const Route = createFileRoute("/p/$slug/$")({
     },
   },
 });
+
+async function getPublishedArtifactResponse({
+  artifactRef,
+  businessName,
+  path,
+  slug,
+}: {
+  artifactRef: string;
+  businessName?: string | null;
+  path: string[];
+  slug: string;
+}) {
+  const files = await readProjectDistArtifact(artifactRef).catch(() => []);
+  const requestedPath = path.join("/") || "index.html";
+  const file =
+    files.find((candidate) => candidate.path === requestedPath) ||
+    files.find((candidate) => candidate.path === "index.html");
+
+  if (!file) {
+    return null;
+  }
+
+  const isHtml = file.contentType.toLowerCase().includes("text/html");
+  const content = isHtml
+    ? injectPublishedHead(rewritePublicAssetUrls(file.content, slug), {
+        businessName,
+        noindex: false,
+        slug,
+      })
+    : file.content;
+  const headers = applyPreviewSandboxHeaders(
+    new Headers({ "Content-Type": file.contentType }),
+    { noindex: false },
+  );
+
+  return new Response(content, { headers });
+}

@@ -1,46 +1,57 @@
 "use client";
 
+import { X } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 
 export function HeldBuildRecommendationNotice({
   canBuild = true,
   onBuild,
+  onDismiss,
   onOpen,
 }: {
   canBuild?: boolean;
   onBuild: () => void;
+  onDismiss?: () => void;
   onOpen: () => void;
 }) {
   return (
-    <div className="rounded-[22px] border border-border bg-card px-spacing-5 py-spacing-4 shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-spacing-4">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-foreground">
-            Rancangan website disimpan
-          </p>
-          <p className="mt-spacing-1 text-xs leading-5 text-muted-foreground">
-            Lanjutkan diskusi dulu, atau buka rancangan saat siap membuat
-            website.
-          </p>
-        </div>
-        <div className="flex shrink-0 flex-wrap gap-spacing-2">
-          <Button
+    <div className="relative rounded-[20px] border border-border bg-card p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-2 pr-6">
+        <p className="text-sm font-semibold text-foreground">
+          Rancangan website disimpan
+        </p>
+        {onDismiss ? (
+          <button
             type="button"
-            variant="outline"
-            onClick={onOpen}
-            className="h-9 rounded-[12px] border-border bg-transparent px-spacing-4 text-xs text-foreground hover:bg-muted"
+            onClick={onDismiss}
+            aria-label="Tutup pemberitahuan rancangan"
+            className="absolute right-3 top-3 inline-flex size-6 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
-            Buka rancangan
-          </Button>
-          <Button
-            type="button"
-            disabled={!canBuild}
-            onClick={onBuild}
-            className="h-9 rounded-[12px] bg-[#1c1c1c] text-white px-spacing-4 text-xs hover:bg-black disabled:opacity-50 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white"
-          >
-            Mulai buat website
-          </Button>
-        </div>
+            <X className="size-3.5" />
+          </button>
+        ) : null}
+      </div>
+      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+        Lanjutkan diskusi dulu, atau buka rancangan saat siap membuat website.
+      </p>
+      <div className="mt-3 flex items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onOpen}
+          className="h-8 flex-1 rounded-[10px] border-border bg-transparent px-3 text-xs text-foreground hover:bg-muted"
+        >
+          Buka rancangan
+        </Button>
+        <Button
+          type="button"
+          disabled={!canBuild}
+          onClick={onBuild}
+          className="h-8 flex-1 rounded-[10px] bg-[#1c1c1c] text-white px-3 text-xs hover:bg-black disabled:opacity-50 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white"
+        >
+          Mulai buat website
+        </Button>
       </div>
     </div>
   );

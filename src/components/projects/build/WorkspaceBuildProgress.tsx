@@ -37,6 +37,9 @@ function StepDuration({
   }
 
   if (durationMs !== undefined) {
+    if (durationMs < 100) {
+      return null;
+    }
     if (durationMs < 1000) {
       return (
         <span className="text-xs font-medium tabular-nums text-muted-foreground">

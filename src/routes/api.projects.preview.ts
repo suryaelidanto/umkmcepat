@@ -24,6 +24,8 @@ import {
   parseProjectBrief,
 } from "@/lib/projects/brief";
 import { parseWorkspaceCard } from "@/lib/projects/brief-flow";
+import { prepareBuildHandoff } from "@/lib/projects/build-planner";
+import { describeBuildRecommendation } from "@/lib/projects/build-recommendation-summary";
 import { parseCanonicalBrief } from "@/lib/projects/canonical-brief";
 import {
   buildProjectChatContext,
@@ -609,6 +611,41 @@ async function repairWorkspaceCard({
     );
   }
 
+  let finalWorkspaceCard = turn.workspaceCard;
+  if (
+    finalWorkspaceCard.type === "build_recommendation" &&
+    turn.readyForBuild
+  ) {
+    const prepared = await prepareBuildHandoff({
+      projectId: project.id,
+      userId,
+      engine: "contract-v1",
+      brief: turn.brief,
+      messages,
+    });
+    if (prepared.state === "ready") {
+      const base = finalWorkspaceCard as {
+        type: "build_recommendation";
+        title: string;
+        summary: string[];
+      };
+      finalWorkspaceCard = {
+        type: "build_recommendation",
+        engine: "contract-v1" as const,
+        title: base.title,
+        summary: describeBuildRecommendation(prepared.contract, prepared.plan),
+        handoffId: prepared.handoffId,
+        reviewHash: prepared.reviewHash,
+        reviewItems: prepared.reviewItems.map((item) => ({
+          id: item.id,
+          kind: item.kind,
+          label: item.label,
+          value: item.value,
+        })),
+      };
+    }
+  }
+
   const title = turn.projectTitle || project.title;
   await persistProjectChatTurn({
     brief: scrubBriefForStorage(turn.brief, turn.readyForBuild, project.id),
@@ -616,7 +653,7 @@ async function repairWorkspaceCard({
     projectId: project.id,
     title,
     userId,
-    workspaceCard: turn.workspaceCard,
+    workspaceCard: finalWorkspaceCard,
   });
   await chargeEnergyForAiUsage({
     userId,
@@ -629,7 +666,7 @@ async function repairWorkspaceCard({
 
   return Response.json({
     projectTitle: title,
-    workspaceCard: turn.workspaceCard,
+    workspaceCard: finalWorkspaceCard,
   });
 }
 

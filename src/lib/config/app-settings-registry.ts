@@ -80,15 +80,7 @@ export const APP_SETTINGS: ConfigEntry[] = [
     fallback: "dark",
     enumOptions: ["dark", "light", "system"],
   },
-  {
-    key: "generation.engine",
-    category: "feature_flag",
-    tier: "basic",
-    type: "string",
-    label: "Mesin Generasi (Generation Engine)",
-    fallback: "single_shot",
-    enumOptions: ["agentic", "single_shot"],
-  },
+
   {
     key: "feature.composer_uploads_enabled",
     category: "feature_flag",
@@ -506,6 +498,17 @@ export const APP_SETTINGS: ConfigEntry[] = [
     max: 16,
   },
   {
+    key: "runtime.generated_build_timeout_ms",
+    category: "runtime",
+    tier: "advanced",
+    type: "number",
+    label: "Runtime — generated build timeout (ms)",
+    fallback: 90_000,
+    env: "PROJECT_GENERATED_BUILD_TIMEOUT_MS",
+    min: 30_000,
+    max: 180_000,
+  },
+  {
     key: "runtime.max_containers",
     category: "runtime",
     tier: "advanced",
@@ -806,7 +809,7 @@ export const APP_SETTINGS: ConfigEntry[] = [
     tier: "advanced",
     type: "number",
     label: "AI — generate agent max steps",
-    fallback: 30,
+    fallback: 40,
     env: "AI_AGENT_GENERATE_MAX_STEPS",
     min: 15,
     max: 60,

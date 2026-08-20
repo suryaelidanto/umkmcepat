@@ -845,6 +845,232 @@ export function inspectReferenceCalibratedSiteSource(input: {
   };
 }
 
+export function findGeneratedInternalLinkIssues(
+  files: GeneratedProjectFile[],
+): string[] {
+  const ids = collectGeneratedStaticIds(files);
+  const issues: string[] = [];
+  for (const file of files) {
+    if (!file.path.endsWith(".tsx")) {
+      continue;
+    }
+    for (const match of file.content.matchAll(
+      /(href\s*(?:=|:)\s*)(["'])#([a-z0-9-]+)\2/gi,
+    )) {
+      const target = match[3];
+      if (target && !ids.has(target)) {
+        issues.push(`${file.path}: missing #${target}`);
+      }
+    }
+  }
+  return issues;
+}
+
+export function findGeneratedPrimaryActionIssues(
+  files: GeneratedProjectFile[],
+): string[] {
+  const source = files
+    .filter((file) => file.path.endsWith(".tsx"))
+    .map((file) => file.content)
+    .join("\n");
+  if (!source.includes("site.primaryCta")) {
+    return [];
+  }
+  const actionAnchor =
+    /<a\b[\s\S]{0,400}?\b(?:site\.primaryCta|pesan|chat|hubungi|sedekah|konsultasi)[\s\S]{0,200}<\/a>/i;
+  return actionAnchor.test(source)
+    ? []
+    : ["src/routes/index.tsx: primary CTA must be an anchor action"];
+}
+
+function collectGeneratedStaticIds(files: GeneratedProjectFile[]): Set<string> {
+  const ids = new Set<string>();
+  for (const file of files) {
+    for (const match of file.content.matchAll(/\bid=["']([a-z0-9-]+)["']/gi)) {
+      if (match[1]) {
+        ids.add(match[1]);
+      }
+    }
+  }
+  return ids;
+}
+
+export function normalizeGeneratedInternalLinks(
+  files: GeneratedProjectFile[],
+): GeneratedProjectFile[] {
+  const ids = collectGeneratedStaticIds(files);
+  const aliases = [
+    "-section",
+    "-anchor",
+    "-target",
+    "-content",
+    "-link",
+    "-box",
+  ];
+  return files.map((file) => {
+    if (!file.path.endsWith(".tsx")) {
+      return file;
+    }
+    const content = file.content.replace(
+      /(href\s*(?:=|:)\s*)(["'])#([a-z0-9-]+)\2/gi,
+      (match: string, prefix: string, quote: string, target: string) => {
+        if (ids.has(target)) {
+          return match;
+        }
+        const suffixAlias = aliases.find(
+          (suffix) =>
+            target.endsWith(suffix) && ids.has(target.slice(0, -suffix.length)),
+        );
+        if (suffixAlias) {
+          return `${prefix}${quote}#${target.slice(0, -suffixAlias.length)}${quote}`;
+        }
+        const targetTokens = new Set(
+          target.split("-").filter((token) => token.length > 2),
+        );
+        const tokenAliases = [...ids].filter((id) =>
+          id
+            .split("-")
+            .some((token) => token.length > 2 && targetTokens.has(token)),
+        );
+        return tokenAliases.length === 1
+          ? `${prefix}${quote}#${tokenAliases[0]}${quote}`
+          : match;
+      },
+    );
+    return content === file.content ? file : { ...file, content };
+  });
+}
+
+export function normalizeGeneratedInteractiveTargets(
+  files: GeneratedProjectFile[],
+): GeneratedProjectFile[] {
+  return files.map((file) => {
+    if (!file.path.endsWith(".tsx")) {
+      return file;
+    }
+    return {
+      ...file,
+      content: normalizeGeneratedInteractiveContent(file.content),
+    };
+  });
+}
+
+export function normalizeGeneratedInteractiveContent(content: string): string {
+  return ensureButtonTouchTargets(ensureActionTouchTargets(content));
+}
+
+function deduplicateJsxAttributes(content: string): string {
+  return replaceJsxOpeningTags(
+    content,
+    ["a", "button", "Button", "div", "span", "p", "section", "article"],
+    (tagSource, _tagName) => {
+      const classMatches = [
+        ...tagSource.matchAll(/\bclassName=(?:\{[\s\S]*?\}|"[^"]*"|'[^']*')/g),
+      ];
+      if (classMatches.length <= 1) {
+        return tagSource;
+      }
+      const lastClassAttr = classMatches[classMatches.length - 1][0];
+      const cleaned = tagSource.replace(
+        /\bclassName=(?:\{[\s\S]*?\}|"[^"]*"|'[^']*')/g,
+        "",
+      );
+      if (cleaned.endsWith("/>")) {
+        return `${cleaned.slice(0, -2).trim()} ${lastClassAttr} />`;
+      }
+      if (cleaned.endsWith(">")) {
+        return `${cleaned.slice(0, -1).trim()} ${lastClassAttr}>`;
+      }
+      return tagSource;
+    },
+  );
+}
+
+export function normalizeGeneratedSiteContent(content: string): string {
+  const withoutRemoteFonts = content.replace(
+    /@import\s+url\(\s*["']https:\/\/fonts\.googleapis\.com\/[^)]*["']\s*\)\s*;?/gi,
+    "",
+  );
+  const normalizedSvgAttributes = withoutRemoteFonts.replace(
+    /preserveAspectRatio=(["'])repeat(?:-[xy])?\1/gi,
+    (_match: string, quote: string) =>
+      `preserveAspectRatio=${quote}none${quote}`,
+  );
+  const normalizedComponentTokens = normalizeGeneratedComponentTokens(
+    normalizedSvgAttributes,
+  );
+  return deduplicateJsxAttributes(
+    normalizeGeneratedContrastSurfaces(
+      normalizeGeneratedInteractiveContent(normalizedComponentTokens),
+    ),
+  );
+}
+
+function normalizeGeneratedComponentTokens(content: string): string {
+  const normalized = replaceJsxOpeningTags(content, ["Badge"], (tagSource) => {
+    if (!/\bvariant=["']secondary["']/.test(tagSource)) {
+      return tagSource;
+    }
+    return tagSource.replace(
+      /\btext-primary\b(?!-)/g,
+      "text-secondary-foreground",
+    );
+  });
+  return normalized.replace(/\btext-border\b(?!-)/g, "text-muted-foreground");
+}
+
+function normalizeGeneratedContrastSurfaces(content: string): string {
+  // Normalize className="..." and string literals inside className={...}
+  const literalPattern =
+    /(?:className=["']([\s\S]*?)["']|className=\{[\s\S]*?\})/g;
+  return content.replace(literalPattern, (match) => {
+    return match.replace(
+      /(["'`])([^"'`]+)\1/g,
+      (innerMatch, quote, innerClasses) => {
+        const normalized = normalizeGeneratedSurfaceClasses(innerClasses);
+        return `${quote}${normalized}${quote}`;
+      },
+    );
+  });
+}
+
+function normalizeGeneratedSurfaceClasses(classes: string): string {
+  const hasOrangeSurface = /\bbg-(?:accent|terra)(?:\/\d{1,3})?\b/.test(
+    classes,
+  );
+  const hasGreenSurface = /\bbg-\[#(?:25D366|1fb457)\]/i.test(classes);
+  const hasWhiteSurface = /\bbg-white(?:\/\d{1,3})?\b/.test(classes);
+  let normalized = classes;
+
+  if (hasOrangeSurface) {
+    normalized = normalized.replace(
+      /\btext-(?:white|accent(?:-foreground)?|forest-foreground)(\/\d{1,3})?\b/g,
+      (_match, opacity: string | undefined) =>
+        `text-foreground${opacity ?? ""}`,
+    );
+    if (
+      !/\btext-(?:foreground|background|primary-foreground)\b/.test(normalized)
+    ) {
+      normalized = `${normalized} text-foreground`;
+    }
+  }
+  if (hasGreenSurface) {
+    normalized = normalized.replace(
+      /\btext-white(\/\d{1,3})?\b/g,
+      (_match, opacity: string | undefined) =>
+        `text-foreground${opacity ?? ""}`,
+    );
+  }
+  if (hasWhiteSurface) {
+    normalized = normalized.replace(
+      /\btext-accent(?!-)(\/\d{1,3})?\b/g,
+      (_match, opacity: string | undefined) =>
+        `text-foreground${opacity ?? ""}`,
+    );
+  }
+  return normalized;
+}
+
 export function normalizeBatchedSiteAnchors(
   files: GeneratedProjectFile[],
   options?: {
@@ -1007,9 +1233,7 @@ export function normalizeBatchedSiteAnchors(
         options?.primaryCtaTarget,
       );
     }
-    if (isGeneratedRouteSource) {
-      content = ensureActionTouchTargets(content);
-    }
+    content = normalizeGeneratedSiteContent(content);
     content = ensureCtaTouchTarget(content, whatsappHref);
     return { ...file, content };
   });
@@ -1144,34 +1368,176 @@ function ensureGeneratedRoutePrimaryCta(
   return `${content.slice(0, closingMain)}${action}\n${content.slice(closingMain)}`;
 }
 
+function replaceJsxOpeningTags(
+  content: string,
+  tagNames: string[],
+  replacer: (tagSource: string, tagName: string) => string,
+): string {
+  const nameSet = new Set(tagNames);
+  let result = "";
+  let i = 0;
+  const len = content.length;
+
+  while (i < len) {
+    if (content[i] === "<") {
+      const match = content.slice(i).match(/^<([a-zA-Z0-9_]+)\b/);
+      if (match && nameSet.has(match[1] ?? "")) {
+        const tagName = match[1] ?? "";
+        let j = i + tagName.length + 1;
+        let braceDepth = 0;
+        let inQuote: '"' | "'" | "`" | null = null;
+        let tagEnd = -1;
+
+        while (j < len) {
+          const char = content[j];
+          if (inQuote) {
+            if (char === "\\" && j + 1 < len) {
+              j += 2;
+              continue;
+            }
+            if (char === inQuote) {
+              inQuote = null;
+            }
+          } else if (char === '"' || char === "'" || char === "`") {
+            inQuote = char;
+          } else if (char === "{") {
+            braceDepth++;
+          } else if (char === "}") {
+            if (braceDepth > 0) {
+              braceDepth--;
+            }
+          } else if (char === ">" && braceDepth === 0) {
+            tagEnd = j + 1;
+            break;
+          }
+          j++;
+        }
+
+        if (tagEnd !== -1) {
+          const tagSource = content.slice(i, tagEnd);
+          result += replacer(tagSource, tagName);
+          i = tagEnd;
+          continue;
+        }
+      }
+    }
+    result += content[i];
+    i++;
+  }
+
+  return result;
+}
+
 function ensureActionTouchTargets(content: string): string {
-  const actionPattern =
-    /<a([^>]*?)href=["'][^"']+["']([^>]*?)>([\s\S]{0,240}?)<\/a>/gi;
-  return content.replace(actionPattern, (match: string) =>
-    makeTouchSafeAnchor(match),
+  return replaceJsxOpeningTags(content, ["a"], (tagSource) => {
+    if (!/\bhref\s*=\s*/.test(tagSource)) {
+      return tagSource;
+    }
+    return makeTouchSafeAnchor(tagSource);
+  });
+}
+
+function ensureButtonTouchTargets(content: string): string {
+  return replaceJsxOpeningTags(content, ["Button", "button"], (tagSource) =>
+    makeTouchSafeInteractiveElement(tagSource),
   );
 }
 
+function normalizeSmallTouchHeight(match: string): string {
+  return match.replace(/\bmin-h-(?:6|7|8|9|10)\b/g, "min-h-11");
+}
+
 function makeTouchSafeAnchor(match: string): string {
-  if (/min-h-11/.test(match) && /inline-flex|flex/.test(match)) {
-    if (/min-w-11/.test(match)) {
-      return match;
+  const normalized = normalizeSmallTouchHeight(match);
+  if (/className=\{[\s\S]*?\}/s.test(normalized)) {
+    return addTouchSafeStyle(normalized, "a");
+  }
+  const classNameMatch = normalized.match(/className=["']([\s\S]*?)["']/);
+  if (classNameMatch) {
+    const classes = classNameMatch[1] ?? "";
+    const hasMinH = /\bmin-h-11\b/.test(classes);
+    const hasMinW = /\bmin-w-11\b/.test(classes);
+    const hasFlex = /\b(?:inline-flex|flex)\b/.test(classes);
+    const hasFocusStyle =
+      /\b(?:focus|focus-visible):(?:ring|outline-(?!none)|border)/.test(
+        classes,
+      );
+
+    if (hasMinH && hasMinW && hasFlex && hasFocusStyle) {
+      return normalized;
     }
-    return match.replace(
-      /className=["']([^"']*)["']/,
-      (_classMatch, classes: string) => `className="min-w-11 ${classes}"`,
+    const needed = [
+      !hasFlex && "inline-flex min-h-11 min-w-11 items-center justify-center",
+      hasFlex && !hasMinH && "min-h-11",
+      hasFlex && !hasMinW && "min-w-11",
+      !hasFocusStyle &&
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    const combined = `${needed} ${classes}`.trim().replace(/\s+/g, " ");
+    return normalized.replace(
+      /className=["']([\s\S]*?)["']/,
+      `className="${combined}"`,
     );
   }
-  if (/className=["'][^"']*["']/.test(match)) {
+  return normalized.replace(
+    "<a",
+    '<a className="inline-flex min-h-11 min-w-11 items-center justify-center"',
+  );
+}
+
+function makeTouchSafeInteractiveElement(match: string): string {
+  const normalized = normalizeSmallTouchHeight(match);
+  const tagName = normalized.startsWith("<Button") ? "Button" : "button";
+  if (/className=\{[\s\S]*?\}/s.test(normalized)) {
+    return addTouchSafeStyle(normalized, tagName);
+  }
+  const classNameMatch = normalized.match(/className=["']([\s\S]*?)["']/);
+  if (classNameMatch) {
+    const classes = classNameMatch[1] ?? "";
+    const hasMinH = /\bmin-h-11\b/.test(classes);
+    const hasMinW = /\bmin-w-11\b/.test(classes);
+    if (hasMinH && hasMinW) {
+      return normalized;
+    }
+    const needed = [!hasMinH && "min-h-11", !hasMinW && "min-w-11"]
+      .filter(Boolean)
+      .join(" ");
+
+    const combined = `${needed} ${classes}`.trim().replace(/\s+/g, " ");
+    return normalized.replace(
+      /className=["']([\s\S]*?)["']/,
+      `className="${combined}"`,
+    );
+  }
+  return normalized.replace(
+    `<${tagName}`,
+    `<${tagName} className="min-h-11 min-w-11"`,
+  );
+}
+
+function addTouchSafeStyle(match: string, tagName: string): string {
+  const styleObjectPattern = /style=\{\{([\s\S]*?)\}\}/;
+  if (styleObjectPattern.test(match)) {
     return match.replace(
-      /className=["']([^"']*)["']/,
-      (_classMatch, classes: string) =>
-        `className="inline-flex min-h-11 min-w-11 items-center justify-center ${classes}"`,
+      styleObjectPattern,
+      (_styleMatch, properties: string) =>
+        `style={{ minHeight: "44px", minWidth: "44px",${properties} }}`,
+    );
+  }
+  const styleExpressionPattern = /style=\{([^{}]+)\}/;
+  if (styleExpressionPattern.test(match)) {
+    return match.replace(
+      styleExpressionPattern,
+      (_styleMatch, expression: string) =>
+        `style={{ minHeight: "44px", minWidth: "44px", ...(${expression}) }}`,
     );
   }
   return match.replace(
-    "<a",
-    '<a className="inline-flex min-h-11 min-w-11 items-center justify-center"',
+    `<${tagName}`,
+    `<${tagName} style={{ minHeight: "44px", minWidth: "44px" }}`,
   );
 }
 

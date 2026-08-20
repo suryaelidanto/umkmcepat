@@ -7,10 +7,12 @@ import { selectActivePreviewDeployment } from "@/lib/projects/deployment-resolut
 import { parseGeneratedDistFiles } from "@/lib/projects/generated-source";
 import { createPreviewIssueHtml } from "@/lib/projects/preview-error-html";
 import { refreshProjectThumbnail } from "@/lib/projects/project-thumbnail";
+import { readProjectDistArtifact } from "@/lib/projects/runtime-artifacts";
 import {
   applyPreviewSandboxHeaders,
   injectPreviewAnnotationBridge,
   proxyDeploymentRequest,
+  rewritePreviewAssetUrls,
 } from "@/lib/projects/runtime-proxy";
 import { isAdminEmail } from "@/lib/waitlist/waitlist";
 
@@ -141,6 +143,15 @@ async function getPreviewResponse({
       return response;
     }
 
+    const staticResponse = await getStoredPreviewResponse({
+      artifactRef: deployment.build.artifactRef,
+      projectId: project.id,
+      path,
+    });
+    if (staticResponse) {
+      return staticResponse;
+    }
+
     return createPreviewIssueResponse({
       detail:
         "Tampilan website belum berhasil dimulai. Coba muat ulang tampilan.",
@@ -149,34 +160,65 @@ async function getPreviewResponse({
     });
   }
 
-  const [row] = await prisma.$queryRaw<[{ distFiles: unknown }]>`
-    SELECT "distFiles" FROM "Project" WHERE id = ${project.id}
-  `;
-  const distFiles = parseGeneratedDistFiles(row?.distFiles);
+  const staticResponse = await getStoredPreviewResponse({
+    projectId: project.id,
+    path,
+  });
+  if (staticResponse) {
+    return staticResponse;
+  }
+
+  return createPreviewIssueResponse({
+    detail:
+      "Jalankan build setelah brief siap, lalu tampilan akan muncul di sini.",
+    status: 404,
+    title: "Tampilan website belum tersedia",
+  });
+}
+
+async function getStoredPreviewResponse({
+  artifactRef,
+  projectId,
+  path,
+}: {
+  artifactRef?: string | null;
+  path: string[];
+  projectId: string;
+}) {
+  const distFiles = artifactRef
+    ? await readProjectDistArtifact(artifactRef).catch(() => [])
+    : await readStoredProjectDistFiles(projectId);
   const requestedPath = path.join("/") || "index.html";
   const file =
     distFiles.find((item) => item.path === requestedPath) ||
     distFiles.find((item) => item.path === "index.html");
 
   if (!file) {
-    return createPreviewIssueResponse({
-      detail:
-        "Jalankan build setelah brief siap, lalu tampilan akan muncul di sini.",
-      status: 404,
-      title: "Tampilan website belum tersedia",
-    });
+    return null;
   }
 
-  return new Response(
-    file.contentType.toLowerCase().includes("text/html")
-      ? injectPreviewAnnotationBridge(file.content)
-      : file.content,
-    {
-      headers: applyPreviewSandboxHeaders(
-        new Headers({ "Content-Type": file.contentType }),
-      ),
-    },
-  );
+  const isHtml = file.contentType.toLowerCase().includes("text/html");
+  const content = isHtml
+    ? injectPreviewAnnotationBridge(
+        rewritePreviewAssetUrls(file.content, {
+          deploymentId: "stored",
+          projectId,
+        }),
+      )
+    : file.content;
+
+  return new Response(content, {
+    headers: applyPreviewSandboxHeaders(
+      new Headers({ "Content-Type": file.contentType }),
+    ),
+  });
+}
+
+async function readStoredProjectDistFiles(projectId: string) {
+  const [row] = await prisma.$queryRaw<[{ distFiles: unknown }]>`
+    SELECT "distFiles" FROM "Project" WHERE id = ${projectId}
+  `;
+  return parseGeneratedDistFiles(row?.distFiles);
 }
 
 function scheduleThumbnailRecovery({

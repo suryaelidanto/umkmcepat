@@ -18,6 +18,7 @@ import {
   type GeneratedProjectFile,
 } from "./generated-types";
 
+import { getSettingSync } from "@/lib/config/app-settings";
 import { isGeneratedBuildExecutionEnabled } from "@/lib/config/config";
 import { devLog } from "@/lib/dev-log";
 import { sanitizeBuildLog } from "@/lib/projects/build-logs";
@@ -39,6 +40,7 @@ type BuildGeneratedProjectOptions = {
     command: string[],
     cwd: string,
   ) => Promise<BuildCommandResult>;
+  timeoutMs?: number;
   workspaceRoot?: string;
   workspaceKey?: string;
 };
@@ -51,7 +53,11 @@ type BuildCacheMetadata = {
 
 const MAX_LOG_LENGTH = 20_000;
 const MAX_IN_FLIGHT_LOG_LENGTH = 1024 * 1024;
-const BUILD_TIMEOUT_MS = 180_000;
+export const DEFAULT_GENERATED_BUILD_TIMEOUT_MS = 90_000;
+const MIN_GENERATED_BUILD_TIMEOUT_MS = 30_000;
+const MAX_GENERATED_BUILD_TIMEOUT_MS = 180_000;
+const GENERATED_BUILD_TIMEOUT_SETTING = "runtime.generated_build_timeout_ms";
+const GENERATED_BUILD_TIMEOUT_ENV = "PROJECT_GENERATED_BUILD_TIMEOUT_MS";
 const BLOCKED_GENERATED_PATHS = new Set([
   ".env",
   ".env.local",
@@ -86,6 +92,24 @@ const BLOCKED_WINDOWS_BASENAMES = new Set([
   "nul",
   "prn",
 ]);
+
+export function getGeneratedBuildTimeoutMs() {
+  const readSync = getSettingSync as unknown as (
+    key: string,
+    fallback: undefined,
+  ) => number | undefined;
+  const dbValue = readSync(GENERATED_BUILD_TIMEOUT_SETTING, undefined);
+  const envValue = process.env[GENERATED_BUILD_TIMEOUT_ENV];
+  const parsedEnv = envValue ? Number(envValue) : undefined;
+  const configured = dbValue ?? parsedEnv ?? DEFAULT_GENERATED_BUILD_TIMEOUT_MS;
+  if (!Number.isFinite(configured) || configured <= 0) {
+    return DEFAULT_GENERATED_BUILD_TIMEOUT_MS;
+  }
+  return Math.min(
+    MAX_GENERATED_BUILD_TIMEOUT_MS,
+    Math.max(MIN_GENERATED_BUILD_TIMEOUT_MS, Math.round(configured)),
+  );
+}
 
 export function parseGeneratedDistFiles(value: unknown): GeneratedDistFile[] {
   if (!Array.isArray(value)) {
@@ -276,7 +300,10 @@ async function buildGeneratedProjectInWorkspace(
   options: BuildGeneratedProjectOptions,
 ): Promise<BuildGeneratedProjectResult> {
   const startedAt = Date.now();
-  const commandRunner = options.commandRunner ?? runCommand;
+  const timeoutMs = options.timeoutMs ?? getGeneratedBuildTimeoutMs();
+  const commandRunner =
+    options.commandRunner ??
+    ((command, cwd) => runCommand(command, cwd, timeoutMs));
   const workspaceRoot = resolveBuildWorkspaceRoot(options.workspaceRoot);
   const workspace = path.join(
     workspaceRoot,
@@ -437,6 +464,7 @@ async function buildGeneratedProjectInWorkspace(
 export async function runCommand(
   command: string[],
   cwd: string,
+  timeoutMs = getGeneratedBuildTimeoutMs(),
 ): Promise<BuildCommandResult> {
   return await new Promise((resolve) => {
     const child = spawn(command[0], command.slice(1), {
@@ -466,13 +494,16 @@ export async function runCommand(
         : output;
     }
 
-    const timeout = setTimeout(() => {
-      child.kill();
-      resolve({
-        ok: false,
-        log: truncateLog(`${capturedOutput()}\nBuild timed out.`),
-      });
-    }, BUILD_TIMEOUT_MS);
+    const timeout = setTimeout(
+      () => {
+        child.kill();
+        resolve({
+          ok: false,
+          log: truncateLog(`${capturedOutput()}\nBuild timed out.`),
+        });
+      },
+      Math.max(1, Math.round(timeoutMs)),
+    );
 
     child.stdout.on("data", appendOutput);
     child.stderr.on("data", appendOutput);

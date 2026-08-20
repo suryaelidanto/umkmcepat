@@ -118,6 +118,21 @@ describe("APP_SETTINGS registry", () => {
       expect(source).toContain("feature.composer_uploads_enabled");
     }
   });
+
+  it("registers the measured generated build timeout", () => {
+    expect(
+      APP_SETTINGS.find(
+        (entry) => entry.key === "runtime.generated_build_timeout_ms",
+      ),
+    ).toMatchObject({
+      category: "runtime",
+      type: "number",
+      fallback: 90_000,
+      env: "PROJECT_GENERATED_BUILD_TIMEOUT_MS",
+      min: 30_000,
+      max: 180_000,
+    });
+  });
 });
 
 describe("registry schema", () => {

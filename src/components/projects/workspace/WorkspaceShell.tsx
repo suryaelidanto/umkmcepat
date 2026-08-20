@@ -127,11 +127,11 @@ import {
   createVisualAnnotationSummary,
   type VisualAnnotationDraft,
 } from "@/lib/projects/visual-annotations";
+import { getWorkspaceReleaseState } from "@/lib/projects/workspace-release";
 import {
   RESUME_POLL_INTERVAL_MS,
   resolveDiscussResume,
   toUserFacingDiscussError,
-  type DiscussResume,
   type TurnState,
 } from "@/lib/projects/workspace-resume";
 import {
@@ -191,9 +191,15 @@ type RuntimeWorkspaceState = {
     updatedAt?: string;
   } | null;
   activePreviewDeployment?: {
+    build?: {
+      id: string;
+      status: string;
+    } | null;
+    buildId?: string | null;
     id: string;
     lastRequestAt?: string | null;
     publicPath?: string | null;
+    snapshotId?: string | null;
     status: string;
   } | null;
   build: {
@@ -205,9 +211,15 @@ type RuntimeWorkspaceState = {
     status: string;
   } | null;
   deployment: {
+    build?: {
+      id: string;
+      status: string;
+    } | null;
+    buildId?: string | null;
     id: string;
     lastRequestAt?: string | null;
     publicPath?: string | null;
+    snapshotId?: string | null;
     status: string;
   } | null;
   events: Array<{
@@ -216,8 +228,15 @@ type RuntimeWorkspaceState = {
     type: string;
   }>;
   publishedDeployment: {
+    build?: {
+      id: string;
+      status: string;
+    } | null;
+    buildId?: string | null;
     id: string;
     publicPath: string | null;
+    publicState?: "live" | "not_live";
+    snapshotId?: string | null;
     slug: string | null;
     status: string;
   } | null;
@@ -1653,7 +1672,7 @@ export function WorkspaceShell({
   }, [workspaceCard]);
 
   useEffect(() => {
-    if (!buildComplete || !heldBuildRecommendationSignature) {
+    if (!heldBuildRecommendationSignature) {
       return;
     }
     const signature = getBuildRecommendationHoldSignature(workspaceCard);
@@ -1663,13 +1682,13 @@ export function WorkspaceShell({
     if (
       workspaceCard.type !== "build_recommendation" ||
       consumed ||
-      !signature
+      !signature ||
+      heldBuildRecommendationSignature !== signature
     ) {
       window.localStorage.removeItem(buildRecommendationStorageKey);
       setHeldBuildRecommendationSignature(null);
     }
   }, [
-    buildComplete,
     buildRecommendationStorageKey,
     consumedBuildRecommendationSignatures,
     heldBuildRecommendationSignature,
@@ -1798,23 +1817,98 @@ export function WorkspaceShell({
     submitInFlightRef.current = false;
   }, []);
 
-  // Auto-resume on cold start: if the last local message is an unanswered user
+  // Auto-resume on cold start: if the server is actively running a turn or last local message is an unanswered user turn
   useEffect(() => {
     if (status === "submitted" || status === "streaming") {
       return;
     }
 
-    const last = messages.at(-1);
-    if (!last || last.role !== "user") {
-      return;
-    }
-
     let canceled = false;
     const poll = async () => {
-      const result = await resolveDiscussResumeFromServer(projectId);
+      const turn = await fetchDiscussTurn(projectId);
       if (canceled) {
         return;
       }
+      if (turn?.status === "running") {
+        setIsRetrying("response");
+        if (turn.turnId && typeof EventSource !== "undefined") {
+          const es = new EventSource(
+            `/api/projects/${projectId}/turns/${turn.turnId}/stream`,
+          );
+          const assistantMessageId = `reattach-${turn.turnId}`;
+          const appendAssistantDelta = (delta: string) => {
+            if (!delta) {
+              return;
+            }
+            setMessages((current) => {
+              const index = current.findIndex(
+                (m) => m.id === assistantMessageId,
+              );
+              if (index === -1) {
+                return [
+                  ...current,
+                  {
+                    id: assistantMessageId,
+                    role: "assistant",
+                    parts: [{ type: "text", text: delta }],
+                  },
+                ];
+              }
+              return current.map((m, mIdx) => {
+                if (mIdx !== index) {
+                  return m;
+                }
+                const parts = m.parts.length
+                  ? [...m.parts]
+                  : [{ type: "text" as const, text: "" }];
+                const first = parts[0];
+                if (first?.type === "text") {
+                  parts[0] = { ...first, text: `${first.text}${delta}` };
+                }
+                return { ...m, parts };
+              });
+            });
+            shouldStickToBottomRef.current = true;
+          };
+
+          const finish = async () => {
+            es.close();
+            try {
+              await reloadLatestChat();
+            } finally {
+              setIsRetrying(false);
+            }
+          };
+
+          es.addEventListener("text-delta", (event) => {
+            try {
+              const parsed = JSON.parse(event.data) as { delta?: string };
+              if (typeof parsed.delta === "string") {
+                appendAssistantDelta(parsed.delta);
+              }
+            } catch {
+              // ignore malformed SSE
+            }
+          });
+
+          es.addEventListener("finish", () => {
+            void finish();
+          });
+
+          es.addEventListener("error", () => {
+            es.close();
+            void reloadLatestChat().finally(() => setIsRetrying(false));
+          });
+          return;
+        }
+      }
+
+      const last = messages.at(-1);
+      if (!last || last.role !== "user") {
+        return;
+      }
+
+      const result = resolveDiscussResume(turn);
       switch (result.kind) {
         case "reload":
           await reloadLatestChat();
@@ -1831,6 +1925,7 @@ export function WorkspaceShell({
           }
           return;
         case "poll":
+          setIsRetrying("response");
           await new Promise((resolve) =>
             window.setTimeout(resolve, RESUME_POLL_INTERVAL_MS),
           );
@@ -1839,12 +1934,14 @@ export function WorkspaceShell({
           }
           return;
         case "retry":
+          setIsRetrying(false);
           setResumeError({
             message: result.errorMessage,
             retryText: result.retryText,
           });
           return;
         case "idle":
+          setIsRetrying(false);
           setResumeError(null);
           return;
       }
@@ -2664,6 +2761,7 @@ export function WorkspaceShell({
       buildRecommendationSignature,
     );
     setHeldBuildRecommendationSignature(buildRecommendationSignature);
+    setPostBuildChatOpen(true);
     setMode("discuss");
   }, [buildRecommendationSignature, buildRecommendationStorageKey]);
 
@@ -2671,6 +2769,32 @@ export function WorkspaceShell({
     window.localStorage.removeItem(buildRecommendationStorageKey);
     setHeldBuildRecommendationSignature(null);
   }, [buildRecommendationStorageKey]);
+
+  const dismissBuildRecommendation = useCallback(() => {
+    window.localStorage.removeItem(buildRecommendationStorageKey);
+    setHeldBuildRecommendationSignature(null);
+    const signature = getBuildRecommendationHoldSignature(
+      workspaceCardRef.current,
+    );
+    if (signature) {
+      setConsumedBuildRecommendationSignatures((prev) => {
+        if (prev.has(signature)) {
+          return prev;
+        }
+        const next = new Set(prev);
+        next.add(signature);
+        try {
+          window.localStorage.setItem(
+            buildRecommendationConsumedKey,
+            JSON.stringify([...next]),
+          );
+        } catch {
+          // ignore
+        }
+        return next;
+      });
+    }
+  }, [buildRecommendationConsumedKey, buildRecommendationStorageKey]);
 
   function handleMessageSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -3537,7 +3661,29 @@ export function WorkspaceShell({
                           }
                           className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none [scrollbar-width:none] placeholder:text-surface-warm-white/38 disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
                         />
-                        <div className="flex items-center justify-end gap-spacing-4">
+                        <div className="flex items-center justify-between gap-spacing-4">
+                          <div className="flex items-center gap-spacing-2">
+                            {!buildComplete && !isBuilding && !isProcessing ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                  if (canStartBuildNow) {
+                                    void handleStartBuild();
+                                  } else {
+                                    submitChatText("Buat website sekarang");
+                                  }
+                                }}
+                                disabled={
+                                  sessionExpired ||
+                                  authStatus !== "authenticated"
+                                }
+                                className="h-8 rounded-full border-surface-warm-white/12 bg-transparent px-spacing-3 text-xs font-medium text-surface-warm-white hover:bg-surface-warm-white/10"
+                              >
+                                Buat website
+                              </Button>
+                            ) : null}
+                          </div>
                           <div className="flex items-center gap-spacing-2">
                             {composerUploadsEnabled ? (
                               <ComposerAttachButton
@@ -3652,6 +3798,7 @@ export function WorkspaceShell({
                   <HeldBuildRecommendationNotice
                     canBuild={canStartBuildNow}
                     onBuild={() => void handleStartBuild()}
+                    onDismiss={dismissBuildRecommendation}
                     onOpen={openBuildRecommendation}
                   />
                 ) : null}
@@ -3695,7 +3842,31 @@ export function WorkspaceShell({
                     className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-foreground outline-none [scrollbar-width:none] placeholder:text-muted-foreground disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
                     disabled={sessionExpired || authStatus !== "authenticated"}
                   />
-                  <div className="flex items-center justify-end gap-spacing-4">
+                  <div className="flex items-center justify-between gap-spacing-4">
+                    <div className="flex items-center gap-spacing-2">
+                      {!buildComplete &&
+                      !isBuilding &&
+                      !isProcessing &&
+                      composerState !== "held_build_recommendation" ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            if (canStartBuildNow) {
+                              void handleStartBuild();
+                            } else {
+                              submitChatText("Buat website sekarang");
+                            }
+                          }}
+                          disabled={
+                            sessionExpired || authStatus !== "authenticated"
+                          }
+                          className="h-8 rounded-full border-border bg-transparent px-spacing-3 text-xs font-medium text-foreground hover:bg-muted"
+                        >
+                          Buat website
+                        </Button>
+                      ) : null}
+                    </div>
                     <div className="flex items-center gap-spacing-2">
                       {composerUploadsEnabled ? (
                         <ComposerAttachButton
@@ -4157,6 +4328,8 @@ function createRuntimeControl({
   sourceStatus: string;
 }): WorkspaceRuntimeControl {
   const runtimeBuildStatus =
+    runtimeState?.activePreviewDeployment?.build?.status ||
+    runtimeState?.deployment?.build?.status ||
     runtimeState?.build?.status ||
     (sourceStatus === "passed"
       ? "succeeded"
@@ -4167,10 +4340,23 @@ function createRuntimeControl({
           : buildStatus);
   const runtimePublishedPath =
     publishedPath || runtimeState?.publishedDeployment?.publicPath || null;
+  const release = getWorkspaceReleaseState({
+    ownerBlocked: runtimeState?.publishedDeployment?.publicState === "not_live",
+    previewBuildId:
+      runtimeState?.activePreviewDeployment?.buildId ??
+      runtimeState?.activePreviewDeployment?.build?.id ??
+      runtimeState?.deployment?.buildId ??
+      runtimeState?.deployment?.build?.id,
+    previewBuildStatus: runtimeBuildStatus,
+    publishedBuildId:
+      runtimeState?.publishedDeployment?.buildId ??
+      runtimeState?.publishedDeployment?.build?.id,
+    publishedPath: runtimePublishedPath,
+    publishedStatus: runtimeState?.publishedDeployment?.status,
+  });
 
   return {
-    canPublish:
-      runtimeBuildStatus === "succeeded" || runtimeBuildStatus === "passed",
+    ...release,
     isPublishing,
     onPublish,
     publishedPath: runtimePublishedPath,
@@ -4372,11 +4558,4 @@ async function fetchDiscussTurn(projectId: string): Promise<TurnState | null> {
   } catch {
     return null;
   }
-}
-
-// Wrapper kept for the effect: fetch then resolve. Separate so the pure
-async function resolveDiscussResumeFromServer(
-  projectId: string,
-): Promise<DiscussResume> {
-  return resolveDiscussResume(await fetchDiscussTurn(projectId));
 }

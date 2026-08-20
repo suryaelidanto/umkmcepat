@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth/auth";
 import { isGeneratedPublicExecutionEnabled } from "@/lib/config/config";
 import { getGeneratedPublicUrl } from "@/lib/generated-public-origin";
 import { prisma } from "@/lib/prisma";
-import { selectLatestSuccessfulBuild } from "@/lib/projects/deployment-resolution";
+import { selectActivePreviewDeployment } from "@/lib/projects/deployment-resolution";
 import { createRuntimeEventData } from "@/lib/projects/runtime-events";
 
 export const Route = createFileRoute("/api/projects/$id/publish")({
@@ -44,24 +44,35 @@ export const Route = createFileRoute("/api/projects/$id/publish")({
           );
         }
 
-        const builds = await prisma.projectBuild.findMany({
-          where: {
-            projectId: project.id,
-          },
+        const previewDeployments = await prisma.projectDeployment.findMany({
+          where: { kind: "preview", projectId: project.id },
           orderBy: { createdAt: "desc" },
           take: 20,
           select: {
-            artifactRef: true,
+            build: {
+              select: {
+                artifactRef: true,
+                createdAt: true,
+                id: true,
+                snapshotId: true,
+                status: true,
+                updatedAt: true,
+              },
+            },
+            buildId: true,
             createdAt: true,
             id: true,
+            kind: true,
             snapshotId: true,
             status: true,
             updatedAt: true,
           },
         });
-        const build = selectLatestSuccessfulBuild(builds);
+        const previewDeployment =
+          selectActivePreviewDeployment(previewDeployments);
+        const build = previewDeployment?.build;
 
-        if (!build) {
+        if (!build || !previewDeployment) {
           return Response.json(
             {
               message: "Website yang siap belum tersedia untuk dipublikasikan.",
@@ -83,7 +94,7 @@ export const Route = createFileRoute("/api/projects/$id/publish")({
               data: {
                 buildId: build.id,
                 publicPath,
-                snapshotId: build.snapshotId,
+                snapshotId: previewDeployment.snapshotId,
                 status: "created",
                 stoppedAt: null,
               },
@@ -96,7 +107,7 @@ export const Route = createFileRoute("/api/projects/$id/publish")({
                 projectId: project.id,
                 publicPath,
                 slug,
-                snapshotId: build.snapshotId,
+                snapshotId: previewDeployment.snapshotId,
                 status: "created",
               },
               select: { id: true },
@@ -107,15 +118,25 @@ export const Route = createFileRoute("/api/projects/$id/publish")({
             buildId: build.id,
             deploymentId: deployment.id,
             message: existingDeployment
-              ? "Published deployment was updated to the latest build."
-              : "Published deployment was created.",
-            metadata: { publicPath, slug },
+              ? "Published deployment was updated to the selected preview version."
+              : "Published deployment was created from the selected preview version.",
+            metadata: {
+              previewDeploymentId: previewDeployment.id,
+              publicPath,
+              slug,
+            },
             projectId: project.id,
             type: "deployment.created",
           }),
         });
 
-        return Response.json({ ok: true, path: publicPath, slug });
+        return Response.json({
+          buildId: build.id,
+          ok: true,
+          path: publicPath,
+          slug,
+          snapshotId: previewDeployment.snapshotId,
+        });
       },
     },
   },

@@ -51,9 +51,11 @@ export type { BuildProgressStep } from "@/components/projects/build/WorkspaceBui
 
 export type WorkspaceRuntimeControl = {
   canPublish?: boolean;
+  hasUnpublishedPreview?: boolean;
   isPublishing?: boolean;
   onPublish?: () => void;
   publishedPath?: string | null;
+  publishedState?: "live" | "not_live" | "unpublished";
 };
 
 export function WorkspaceTopBar({
@@ -529,10 +531,44 @@ function RuntimeControl({
   variant?: "pill" | "row";
   onActivate?: () => void;
 }) {
+  const publishLabel = runtime.isPublishing
+    ? "Menerbitkan..."
+    : runtime.publishedPath
+      ? "Terbitkan versi ini"
+      : "Terbitkan";
+  const publishAriaLabel = runtime.isPublishing
+    ? "Sedang menerbitkan website..."
+    : runtime.publishedPath
+      ? "Terbitkan versi Preview ini ke Production"
+      : "Terbitkan website ke domain publik";
+  const publishButton = (
+    <button
+      type="button"
+      disabled={!runtime.canPublish || runtime.isPublishing}
+      onClick={() => {
+        runtime.onPublish?.();
+        onActivate?.();
+      }}
+      aria-label={publishAriaLabel}
+      className="inline-flex h-11 w-full items-center justify-center gap-spacing-2 rounded-radius-md bg-[#1c1c1c] px-spacing-4 text-sm font-semibold text-white shadow-xs hover:bg-black disabled:cursor-not-allowed disabled:opacity-50 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/90"
+    >
+      {runtime.isPublishing ? (
+        <Loader2 className="size-4 animate-spin" />
+      ) : (
+        <Globe2 className="size-4" />
+      )}
+      <span>{publishLabel}</span>
+    </button>
+  );
+
   if (variant === "row") {
     return (
       <div className="flex w-full flex-col gap-spacing-2">
-        {runtime.publishedPath ? (
+        {runtime.publishedPath && runtime.publishedState === "not_live" ? (
+          <span className="inline-flex h-11 w-full items-center justify-center rounded-radius-md border border-amber-400/20 bg-amber-400/10 px-spacing-4 text-sm font-semibold text-amber-200">
+            Website tidak live
+          </span>
+        ) : runtime.publishedPath ? (
           <a
             href={runtime.publishedPath}
             target="_blank"
@@ -544,55 +580,54 @@ function RuntimeControl({
             <ExternalLink className="size-4" />
             <span>Buka website</span>
           </a>
-        ) : (
-          <button
-            type="button"
-            disabled={!runtime.canPublish || runtime.isPublishing}
-            onClick={() => {
-              runtime.onPublish?.();
-              onActivate?.();
-            }}
-            aria-label={
-              runtime.isPublishing
-                ? "Sedang menerbitkan website..."
-                : "Terbitkan website ke domain publik"
-            }
-            className="inline-flex h-11 w-full items-center justify-center gap-spacing-2 rounded-radius-md bg-[#1c1c1c] px-spacing-4 text-sm font-semibold text-white shadow-xs hover:bg-black disabled:opacity-50 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/90 cursor-pointer"
-          >
-            {runtime.isPublishing ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Globe2 className="size-4" />
-            )}
-            <span>{runtime.isPublishing ? "Menerbitkan..." : "Terbitkan"}</span>
-          </button>
-        )}
+        ) : null}
+        {runtime.hasUnpublishedPreview ? publishButton : null}
+        {!runtime.publishedPath ? publishButton : null}
       </div>
     );
   }
+
   return (
     <div className="flex min-w-0 items-center gap-spacing-1 sm:gap-spacing-2">
-      {runtime.publishedPath ? (
-        <a
-          href={runtime.publishedPath}
-          target="_blank"
-          rel="noreferrer"
-          aria-label="Buka website yang diterbitkan"
-          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#1c1c1c] px-3 text-xs font-semibold text-white shadow-xs transition hover:bg-black dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-white"
-        >
-          <ExternalLink className="size-3.5" />
-          <span>Buka Website</span>
-        </a>
+      {runtime.publishedPath && runtime.publishedState === "not_live" ? (
+        <span className="inline-flex h-9 items-center justify-center rounded-lg border border-amber-400/20 bg-amber-400/10 px-3 text-xs font-semibold text-amber-200">
+          Tidak live
+        </span>
+      ) : runtime.publishedPath ? (
+        <>
+          <a
+            href={runtime.publishedPath}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Buka website yang diterbitkan"
+            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#1c1c1c] px-3 text-xs font-semibold text-white shadow-xs transition hover:bg-black dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-white"
+          >
+            <ExternalLink className="size-3.5" />
+            <span>Buka Website</span>
+          </a>
+          {runtime.hasUnpublishedPreview ? (
+            <button
+              type="button"
+              disabled={!runtime.canPublish || runtime.isPublishing}
+              onClick={runtime.onPublish}
+              aria-label={publishAriaLabel}
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#1c1c1c] px-3 text-xs font-semibold text-white shadow-xs transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-50 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-white"
+            >
+              {runtime.isPublishing ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Globe2 className="size-3.5" />
+              )}
+              <span>{publishLabel}</span>
+            </button>
+          ) : null}
+        </>
       ) : (
         <button
           type="button"
           disabled={!runtime.canPublish || runtime.isPublishing}
           onClick={runtime.onPublish}
-          aria-label={
-            runtime.isPublishing
-              ? "Sedang menerbitkan website..."
-              : "Terbitkan website ke domain publik"
-          }
+          aria-label={publishAriaLabel}
           className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#1c1c1c] px-3 text-xs font-semibold text-white shadow-xs transition hover:bg-black active:scale-95 disabled:cursor-not-allowed disabled:bg-black/5 disabled:text-black/30 disabled:hover:bg-black/5 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/90 dark:disabled:bg-white/5 dark:disabled:text-white/30 cursor-pointer"
         >
           {runtime.isPublishing ? (
@@ -600,7 +635,7 @@ function RuntimeControl({
           ) : (
             <Globe2 className="size-3.5" />
           )}
-          <span>{runtime.isPublishing ? "Menerbitkan..." : "Terbitkan"}</span>
+          <span>{publishLabel}</span>
         </button>
       )}
     </div>

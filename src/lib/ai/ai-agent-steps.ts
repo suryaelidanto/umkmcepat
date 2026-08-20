@@ -14,7 +14,7 @@ const AI_AGENT_STEPS = {
   generate: {
     key: "ai.agent.generate_max_steps",
     env: "AI_AGENT_GENERATE_MAX_STEPS",
-    defaultSteps: 30,
+    defaultSteps: 40,
     minSteps: 15,
     maxSteps: 60,
   },

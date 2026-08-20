@@ -49,8 +49,8 @@ beforeEach(clearEnv);
 afterEach(clearEnv);
 
 describe("getAgentMaxSteps", () => {
-  it("defaults generate to 30 and repair to 12", () => {
-    expect(getAgentMaxSteps("generate")).toBe(30);
+  it("defaults generate to 40 and repair to 12", () => {
+    expect(getAgentMaxSteps("generate")).toBe(40);
     expect(getAgentMaxSteps("repair")).toBe(12);
   });
 
@@ -72,7 +72,7 @@ describe("getAgentMaxSteps", () => {
 
   it("falls back on invalid values", () => {
     process.env.AI_AGENT_GENERATE_MAX_STEPS = "nope";
-    expect(getAgentMaxSteps("generate")).toBe(30);
+    expect(getAgentMaxSteps("generate")).toBe(40);
   });
 
   it("defaults subagent to 8 and clamps to [2, 15]", () => {
@@ -137,6 +137,6 @@ describe("getAgentMaxSteps DB-first", () => {
 
   it("falls back to the default when neither DB nor env is set", () => {
     invalidateSettingCache();
-    expect(getAgentMaxSteps("generate")).toBe(30);
+    expect(getAgentMaxSteps("generate")).toBe(40);
   });
 });

@@ -9,6 +9,7 @@ import {
   PREVIEW_ASSET_TOKEN_PARAM,
   verifyPreviewAssetToken,
 } from "@/lib/projects/preview-asset-token";
+import { readProjectDistArtifact } from "@/lib/projects/runtime-artifacts";
 import {
   applyPreviewSandboxHeaders,
   proxyDeploymentRequest,
@@ -86,14 +87,20 @@ async function getAssetResponse({
   const requestUrl = new URL(request.url);
   const assetToken = requestUrl.searchParams.get(PREVIEW_ASSET_TOKEN_PARAM);
 
-  if (
+  const hasValidToken =
     deployment?.build?.artifactRef &&
-    verifyPreviewAssetToken({
+    (verifyPreviewAssetToken({
       deploymentId: deployment.id,
       projectId: deployment.projectId,
       token: assetToken,
-    })
-  ) {
+    }) ||
+      verifyPreviewAssetToken({
+        deploymentId: "stored",
+        projectId: id,
+        token: assetToken,
+      }));
+
+  if (hasValidToken) {
     const response = await proxyDeploymentRequest({
       deploymentId: deployment.id,
       deploymentStatus: deployment.status,
@@ -107,6 +114,15 @@ async function getAssetResponse({
         data: { lastRequestAt: new Date() },
       });
       return response;
+    }
+
+    const staticResponse = await getStoredAssetResponse({
+      artifactRef: deployment.build?.artifactRef,
+      path: assetPath,
+      projectId: id,
+    });
+    if (staticResponse) {
+      return staticResponse;
     }
 
     return sandboxJson(
@@ -149,24 +165,52 @@ async function getAssetResponse({
       return response;
     }
 
+    const staticResponse = await getStoredAssetResponse({
+      artifactRef: deployment.build.artifactRef,
+      path: assetPath,
+      projectId: id,
+    });
+    if (staticResponse) {
+      return staticResponse;
+    }
+
     return sandboxJson(
       { message: "Tampilan website belum bisa dimulai." },
       { status: 503 },
     );
   }
 
-  const [row] = await prisma.$queryRaw<[{ distFiles: unknown }]>`
-    SELECT "distFiles" FROM "Project" WHERE id = ${project.id} AND "userId" = ${session.user.id}
-  `;
-  const distFiles = parseGeneratedDistFiles(row?.distFiles);
-  const requestedPath = assetPath.join("/");
+  const staticResponse = await getStoredAssetResponse({
+    path: assetPath,
+    projectId: project.id,
+  });
+  if (staticResponse) {
+    return staticResponse;
+  }
+
+  return sandboxJson(
+    { message: "Aset website belum tersedia." },
+    { status: 404 },
+  );
+}
+
+async function getStoredAssetResponse({
+  artifactRef,
+  path,
+  projectId,
+}: {
+  artifactRef?: string | null;
+  path: string[];
+  projectId: string;
+}) {
+  const distFiles = artifactRef
+    ? await readProjectDistArtifact(artifactRef).catch(() => [])
+    : await readStoredProjectDistFiles(projectId);
+  const requestedPath = path.join("/");
   const file = distFiles.find((item) => item.path === requestedPath);
 
   if (!file) {
-    return sandboxJson(
-      { message: "Aset website belum tersedia." },
-      { status: 404 },
-    );
+    return null;
   }
 
   return new Response(file.content, {
@@ -174,6 +218,13 @@ async function getAssetResponse({
       new Headers({ "Content-Type": file.contentType }),
     ),
   });
+}
+
+async function readStoredProjectDistFiles(projectId: string) {
+  const [row] = await prisma.$queryRaw<[{ distFiles: unknown }]>`
+    SELECT "distFiles" FROM "Project" WHERE id = ${projectId}
+  `;
+  return parseGeneratedDistFiles(row?.distFiles);
 }
 
 function sandboxJson(

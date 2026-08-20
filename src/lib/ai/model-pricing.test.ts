@@ -64,6 +64,30 @@ describe("resolveModelPricing", () => {
     });
   });
 
+  it("resolves ag/ and antigravity/ catalog entries directly", async () => {
+    const agGemini = await resolveModelPricing("ag/google/gemini-3.7-flash");
+    expect(agGemini).toMatchObject({
+      pricingSource: "catalog",
+      promptPrice: 0.000000375,
+      completionPrice: 0.000001875,
+    });
+    const agDeepseek = await resolveModelPricing(
+      "ag/deepseek/deepseek-v4-flash",
+    );
+    expect(agDeepseek).toMatchObject({
+      pricingSource: "catalog",
+    });
+  });
+
+  it("matches models with vendor suffixes like -tiered or -latest to catalog base models", async () => {
+    const tiered = await resolveModelPricing("gemini-3.7-flash-tiered");
+    expect(tiered).toMatchObject({
+      pricingSource: "catalog",
+      promptPrice: 0.000000375,
+      completionPrice: 0.000001875,
+    });
+  });
+
   it("uses the conservative floor for unknown models", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     await expect(resolveModelPricing("new-provider/model-x")).resolves.toEqual({

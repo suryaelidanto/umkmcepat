@@ -72,13 +72,6 @@ describe("enforceGeneratedWritePolicy", () => {
     expect(result.ok).toBe(true);
   });
 
-  it("bypasses the allow-list for legacy-v1 (keeps current broad path policy)", () => {
-    const result = enforceGeneratedWritePolicy(
-      input({ engine: "legacy-v1", filePath: "src/routes/x.tsx" }),
-    );
-    expect(result.ok).toBe(true);
-  });
-
   it("accepts a plan-derived allow-list path", () => {
     const allow = buildAllowList(plan() as never);
     expect(allow).toContain("src/generated/site-shell.tsx");

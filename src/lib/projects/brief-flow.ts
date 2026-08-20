@@ -993,7 +993,7 @@ function buildRecommendationCard(
 ): WorkspaceCard {
   return {
     type: "build_recommendation",
-    engine: "legacy-v1" as const,
+    engine: "contract-v1" as const,
     title: friendlyBuildRecommendationTitle(title),
     summary: buildCardSummary(brief, summary),
   };

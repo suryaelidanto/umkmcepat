@@ -23,6 +23,7 @@ type SnapshotSummary = {
   id: string;
   kind: string;
   parentSnapshotId: string | null;
+  published: boolean;
   restorable: boolean;
 };
 
@@ -200,11 +201,18 @@ export function WorkspaceHistoryDrawer({
                   className="flex items-center justify-between gap-spacing-4 rounded-radius-md border border-white/[0.08] bg-white/[0.03] px-spacing-6 py-spacing-5"
                 >
                   <div className="flex min-w-0 flex-col gap-spacing-1">
-                    <span className="text-body-small font-[480] text-surface-warm-white">
-                      {label}
-                      {snapshot.fileCount != null
-                        ? ` · ${snapshot.fileCount} file`
-                        : ""}
+                    <span className="flex flex-wrap items-center gap-spacing-2 text-body-small font-[480] text-surface-warm-white">
+                      <span>
+                        {label}
+                        {snapshot.fileCount != null
+                          ? ` · ${snapshot.fileCount} file`
+                          : ""}
+                      </span>
+                      {snapshot.published ? (
+                        <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2 py-0.5 text-[11px] font-medium text-emerald-200">
+                          Produksi
+                        </span>
+                      ) : null}
                     </span>
                     <span className="text-body-small text-surface-warm-white/55">
                       {formatDate(snapshot.createdAt)} · {buildLabel}

@@ -45,6 +45,24 @@ describe("build worker", () => {
     });
   });
 
+  it("keeps timed out builds failed and classifies the timeout", async () => {
+    const worker = createLocalBuildWorker({
+      buildProject: vi.fn(async () => ({
+        distFiles: [],
+        log: "Build timed out.",
+        ok: false,
+      })),
+    });
+
+    await expect(
+      worker.runBuild({ buildId: "build_timeout", files: [] }),
+    ).resolves.toMatchObject({
+      artifactRef: null,
+      failureReason: "timeout",
+      status: "failed",
+    });
+  });
+
   it("allows concurrent runBuild calls (capacity is BullMQ, not in-process reject)", async () => {
     const worker = createLocalBuildWorker({
       buildProject: vi.fn(async () => ({

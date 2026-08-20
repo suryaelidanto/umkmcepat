@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
+    "build:trigger": "bun scripts/trigger-project-build.ts",
     "check": "bun run check:locks && bun scripts/generate-route-tree.ts && bun scripts/check-parallel.ts",
     "check:discipline": "bun scripts/check-codebase-discipline.ts",
     "check:docs": "bun scripts/check-doc-links.ts",

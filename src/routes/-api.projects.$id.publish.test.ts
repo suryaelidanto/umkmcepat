@@ -5,6 +5,7 @@ const {
   prismaProjectBuildFindManyMock,
   prismaProjectDeploymentCreateMock,
   prismaProjectDeploymentFindFirstMock,
+  prismaProjectDeploymentFindManyMock,
   prismaProjectFindFirstMock,
   prismaRuntimeEventCreateMock,
 } = vi.hoisted(() => ({
@@ -12,6 +13,7 @@ const {
   prismaProjectBuildFindManyMock: vi.fn(),
   prismaProjectDeploymentCreateMock: vi.fn(),
   prismaProjectDeploymentFindFirstMock: vi.fn(),
+  prismaProjectDeploymentFindManyMock: vi.fn(),
   prismaProjectFindFirstMock: vi.fn(),
   prismaRuntimeEventCreateMock: vi.fn(),
 }));
@@ -24,6 +26,7 @@ vi.mock("@/lib/prisma", () => ({
     projectDeployment: {
       create: prismaProjectDeploymentCreateMock,
       findFirst: prismaProjectDeploymentFindFirstMock,
+      findMany: prismaProjectDeploymentFindManyMock,
       update: vi.fn(),
     },
     runtimeEvent: { create: prismaRuntimeEventCreateMock },
@@ -54,6 +57,7 @@ describe("project publish route", () => {
       id: "project_1",
       title: "Website Angkringan",
     });
+    prismaProjectBuildFindManyMock.mockResolvedValue([]);
     prismaProjectDeploymentFindFirstMock.mockResolvedValue(null);
     prismaProjectDeploymentCreateMock.mockResolvedValue({
       id: "published_deployment",
@@ -76,23 +80,24 @@ describe("project publish route", () => {
     expect(prismaRuntimeEventCreateMock).not.toHaveBeenCalled();
   });
 
-  it("publishes the latest successful artifact instead of a newer failed attempt", async () => {
-    prismaProjectBuildFindManyMock.mockResolvedValue([
+  it("publishes the checked-out preview instead of a newer successful build", async () => {
+    prismaProjectDeploymentFindManyMock.mockResolvedValue([
       {
-        artifactRef: null,
+        build: {
+          artifactRef: "project-artifact:local:dist:build_checked_out",
+          createdAt: older,
+          id: "build_checked_out",
+          snapshotId: "snapshot_original",
+          status: "succeeded",
+          updatedAt: older,
+        },
+        buildId: "build_checked_out",
         createdAt: newer,
-        id: "build_failed",
-        snapshotId: "snapshot_failed",
-        status: "failed",
+        id: "preview_deployment",
+        kind: "preview",
+        snapshotId: "snapshot_restore",
+        status: "created",
         updatedAt: newer,
-      },
-      {
-        artifactRef: "project-artifact:local:dist:build_success",
-        createdAt: older,
-        id: "build_success",
-        snapshotId: "snapshot_success",
-        status: "succeeded",
-        updatedAt: older,
       },
     ]);
 
@@ -106,8 +111,8 @@ describe("project publish route", () => {
     expect(prismaProjectDeploymentCreateMock).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          buildId: "build_success",
-          snapshotId: "snapshot_success",
+          buildId: "build_checked_out",
+          snapshotId: "snapshot_restore",
         }),
       }),
     );

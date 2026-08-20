@@ -5,6 +5,8 @@ import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
+import { chromium } from "playwright-core";
+
 import type {
   BrowserAssertion,
   BrowserGateReport,
@@ -19,6 +21,8 @@ import type {
 } from "./generated-site-contract";
 import type { GeneratedDistFile } from "./generated-types";
 import type { ProfessionalSiteBlueprintV1 } from "./professional-site-blueprint";
+
+import { devLog } from "@/lib/dev-log";
 
 type BrowserRunnerOutput = {
   routes: Array<BrowserRouteReport & { screenshot?: string }>;
@@ -133,7 +137,13 @@ export async function runProfessionalSiteBrowserGates(
       evidenceIds,
       overheadMs: Date.now() - startedAt,
     };
-  } catch {
+  } catch (error) {
+    devLog("generate", "professional-browser-gates.error", {
+      error:
+        error instanceof Error
+          ? error.message.slice(0, 500)
+          : String(error).slice(0, 500),
+    });
     return {
       version: 2,
       status: "infrastructure_error",
@@ -217,7 +227,13 @@ export async function runGeneratedSiteBrowserGates(
       evidenceIds,
       overheadMs: Date.now() - startedAt,
     };
-  } catch {
+  } catch (error) {
+    devLog("generate", "generated-browser-gates.error", {
+      error:
+        error instanceof Error
+          ? error.message.slice(0, 500)
+          : String(error).slice(0, 500),
+    });
     return {
       version: 1,
       status: "infrastructure_error",
@@ -302,8 +318,15 @@ function spawnRunner(input: {
     process.cwd(),
     "scripts/qualify-generated-site.ts",
   );
-  const runner = process.execPath;
+  const runner = resolveGeneratedBrowserRunner(
+    process.execPath,
+    process.versions.bun,
+  );
   const executable = browserExecutable();
+  devLog("generate", "generated-browser-runner.spawn", {
+    browserExecutableSet: Boolean(executable),
+    runner,
+  });
   return new Promise((resolve, reject) => {
     const child = spawn(
       runner,
@@ -351,6 +374,20 @@ function spawnRunner(input: {
   });
 }
 
+export function resolveGeneratedBrowserExecutable(
+  configured: string | undefined,
+  fallback: string | undefined,
+): string | undefined {
+  return configured?.trim() || fallback?.trim() || undefined;
+}
+
+export function resolveGeneratedBrowserRunner(
+  processExecutable: string,
+  bunVersion: string | undefined,
+): string {
+  return bunVersion ? processExecutable : "bun";
+}
+
 function browserExecutable(): string | undefined {
   const configured = process.env.PROJECT_THUMBNAIL_BROWSER_PATH?.trim();
   if (configured) {
@@ -366,7 +403,10 @@ function browserExecutable(): string | undefined {
       }
     }
   }
-  return undefined;
+  return resolveGeneratedBrowserExecutable(
+    undefined,
+    chromium.executablePath(),
+  );
 }
 
 function normalizePath(value: string): string {

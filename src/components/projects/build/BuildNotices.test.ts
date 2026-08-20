@@ -8,17 +8,20 @@ import {
 } from "./BuildNotices";
 
 describe("build notice copy", () => {
-  it("uses friendly website language for a held recommendation", () => {
+  it("uses friendly website language for a held recommendation and supports dismiss", () => {
+    const onDismiss = vi.fn();
     const markup = renderToStaticMarkup(
       createElement(HeldBuildRecommendationNotice, {
         canBuild: true,
         onBuild: vi.fn(),
+        onDismiss,
         onOpen: vi.fn(),
       }),
     );
 
     expect(markup).toContain("Rancangan website disimpan");
     expect(markup).toContain("Mulai buat website");
+    expect(markup).toContain("Tutup pemberitahuan rancangan");
     expect(markup).not.toContain("Mulai build");
   });
 

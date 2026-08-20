@@ -18,6 +18,8 @@ UMKM Cepat is an AI builder platform for Indonesian UMKM websites. Current gener
 
 The platform is one control-plane app that guides the user, stores project metadata, generates standalone source artifacts, builds previews, and supports review/edit/publish flows without locking generated source to UMKM Cepat internals.
 
+Every successful build is an immutable project version. Preview always shows the current checked-out version and never requires publication. `Terbitkan` promotes that preview to the single Production pointer; editing or checking out another history version creates a newer Preview without changing Production. The Riwayat list stays append-only, so restoring an older version creates a new version rather than deleting later work. A blocked owner leaves an existing public route as not live, not as a public “blocked” page. Once published, the public URL stays reserved; later publication updates the Production pointer rather than creating a second site or an owner-facing unpublish state.
+
 The platform is 100% free for users — every feature is usable without paying. Access is managed via a pilot whitelist with admin approval (initially capped at ~10 active UMKM businesses). Each approved user receives a one-time 500,000 Energy grant with no automatic refill. Users can optionally buy a non-expiring Energy Booster via the navbar profile dropdown, while admins can issue manual pilot grants; paying never gates features, so the core stays free. Each build shows a simple itemized ledger of what it spent — steps, tokens, energy, and time — while technical provider/model pricing proof stays in the admin/debug ledger so the product stays understandable for UMKM users.
 
 ## Brand Personality

@@ -10,7 +10,7 @@ type ProjectOperationStore = {
   };
 };
 
-export const DEFAULT_OPERATION_TTL_MS = 15 * 60_000;
+export const DEFAULT_OPERATION_TTL_MS = 60 * 60_000;
 
 export async function claimProjectOperation({
   kind,

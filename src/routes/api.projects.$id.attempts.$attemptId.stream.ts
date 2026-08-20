@@ -45,10 +45,6 @@ export async function handleAttemptStreamGet(
     );
   }
 
-  if (readBuildProgressState(attemptId) === "live") {
-    return createReadStreamFromChannel(attemptId);
-  }
-
   const attempt = await prisma.projectEditAttempt.findFirst({
     where: { id: attemptId, projectId: project.id, userId: session.user.id },
     select: { id: true, status: true, buildId: true },
@@ -58,6 +54,15 @@ export async function handleAttemptStreamGet(
       { message: "Proses pembuatan website tidak ditemukan." },
       { status: 404 },
     );
+  }
+
+  if (
+    readBuildProgressState(attemptId) === "live" ||
+    attempt.status === "generating" ||
+    attempt.status === "building" ||
+    attempt.status === "repairing"
+  ) {
+    return createReadStreamFromChannel(attemptId);
   }
 
   // Progress rows are keyed by ProjectBuild.id, not attemptId. Querying with

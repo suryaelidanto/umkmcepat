@@ -62,9 +62,10 @@ export function createStepCharger(opts: {
       // The ai-sdk has no per-step start hook, so step latency is measured
       const requestMs = Math.round(performance.now() - stepStartedAt);
       stepStartedAt = performance.now();
+      const servedModel = step?.response?.modelId || null;
       recordAiCall({
         modelRequested: opts.modelId,
-        modelServed: step?.response?.modelId,
+        modelServed: servedModel,
         projectId: opts.projectId ?? undefined,
         status: "ok",
         inputTokens: step?.usage?.inputTokens ?? undefined,
@@ -86,9 +87,10 @@ export function createStepCharger(opts: {
       inputTokens += input;
       outputTokens += output;
 
+      const effectiveModelId = servedModel || opts.modelId;
       const charged = await chargeEnergyForStep({
         userId: opts.userId,
-        modelId: step?.response?.modelId || opts.modelId,
+        modelId: effectiveModelId,
         inputTokens: input,
         outputTokens: output,
         reason: opts.reason,

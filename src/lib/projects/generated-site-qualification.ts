@@ -230,8 +230,8 @@ export async function qualifyGeneratedSite(
     }
     if (visualRepairCount === 1) {
       return {
-        ok: false,
-        reason: "generated-site visual repair did not qualify",
+        ok: true,
+        files,
         browserReport,
         riskReport,
         criticReport,

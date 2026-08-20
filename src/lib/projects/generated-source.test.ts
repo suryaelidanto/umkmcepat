@@ -17,6 +17,8 @@ import {
   assertSafeProjectFilePath,
   buildGeneratedProject,
   createDependencySignature,
+  getGeneratedBuildTimeoutMs,
+  runCommand,
   createGeneratedProjectFiles,
   createGeneratedSourceSnapshotMetadata,
   parseGeneratedProjectFiles,
@@ -488,6 +490,25 @@ describe("generated project source", () => {
         path: "index.html",
       },
     ]);
+  });
+
+  it("classifies a command that exceeds the build timeout", async () => {
+    const result = await runCommand(
+      [process.execPath, "-e", "setTimeout(() => {}, 1000)"],
+      process.cwd(),
+      25,
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.log).toContain("Build timed out.");
+  });
+
+  it("bounds the generated build timeout setting", () => {
+    vi.stubEnv("PROJECT_GENERATED_BUILD_TIMEOUT_MS", "1");
+    expect(getGeneratedBuildTimeoutMs()).toBe(30_000);
+
+    vi.stubEnv("PROJECT_GENERATED_BUILD_TIMEOUT_MS", "999999");
+    expect(getGeneratedBuildTimeoutMs()).toBe(180_000);
   });
 
   it("times tsc and vite separately on build success", async () => {
