@@ -1912,6 +1912,7 @@ export function WorkspaceShell({
       switch (result.kind) {
         case "reload":
           await reloadLatestChat();
+          // A later turn succeeded, so a stale failure banner must not survive
           setResumeError(null);
           if (
             !isTerminalChatError({

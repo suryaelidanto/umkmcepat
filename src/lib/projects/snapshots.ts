@@ -19,7 +19,6 @@ type SnapshotBuildSummary = {
   id: string;
   status: string;
 };
-
 export async function listSnapshots(
   projectId: string,
 ): Promise<SnapshotSummary[]> {
