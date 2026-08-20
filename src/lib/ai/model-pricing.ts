@@ -36,7 +36,11 @@ export function normalizeProviderModelId(modelId: string): string {
 }
 
 function warnUnresolvedModel(rawModelId: string): void {
-  if (unresolvedWarnings.has(rawModelId)) {
+  if (
+    unresolvedWarnings.has(rawModelId) ||
+    rawModelId.endsWith("-combo") ||
+    rawModelId.startsWith("combo/")
+  ) {
     return;
   }
   unresolvedWarnings.add(rawModelId);
