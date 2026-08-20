@@ -3034,8 +3034,8 @@ export function WorkspaceShell({
     }
     lastAutoRetriedErrorRef.current = error;
     retryAttemptRef.current = next;
+    setIsRetrying("response");
     const timer = window.setTimeout(() => {
-      setIsRetrying("response");
       void retryChat();
     }, autoRetryDelayMs);
 
@@ -3420,7 +3420,7 @@ export function WorkspaceShell({
                 Pesan terlalu panjang. Ringkas dulu sebelum dikirim.
               </p>
             </div>
-          ) : error ? (
+          ) : error && !isRetrying ? (
             <div className="rounded-[18px] border border-destructive/30 bg-destructive/10 px-spacing-5 py-spacing-4 dark:border-[#ffb4a6]/24 dark:bg-[#ffb4a6]/[0.06]">
               <p className="text-sm font-medium text-destructive dark:text-[#ffb4a6]">
                 {toUserFacingDiscussError(error.message)}
