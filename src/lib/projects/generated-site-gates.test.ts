@@ -621,6 +621,27 @@ describe("normalizeGeneratedInteractiveTargets", () => {
       'className="inline-flex min-h-11 min-w-11 items-center justify-center size-4 text-primary"',
     );
   });
+
+  it("never creates duplicate className attributes on multiline or property-rich anchor tags", () => {
+    const input = `<nav className="flex flex-col gap-1 p-4" aria-label="Navigasi mobile">
+      {navLinks.map((link) => (
+        <a
+          key={link.href}
+          href={link.href}
+          onClick={() => setOpen(false)}
+          className="inline-flex min-h-11 min-w-11 items-center rounded-md px-3 text-sm font-medium text-foreground/80 transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          {link.label}
+        </a>
+      ))}
+    </nav>`;
+    const normalized = normalizeGeneratedSiteContent(input);
+    const anchorMatches = normalized.match(/<a\b[^>]*>/gs) || [];
+    for (const a of anchorMatches) {
+      const classCount = (a.match(/\bclassName=/g) || []).length;
+      expect(classCount).toBe(1);
+    }
+  });
 });
 
 describe("normalizeBatchedSiteAnchors", () => {

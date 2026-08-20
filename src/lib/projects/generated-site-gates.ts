@@ -1220,14 +1220,14 @@ function ensureGeneratedRoutePrimaryCta(
 
 function ensureActionTouchTargets(content: string): string {
   const anchorPattern =
-    /<a\b(?=[^>]*\bhref\s*=\s*(?:"[^"]*"|'[^']*'|\{[^>]*\}))[^>]*>/gi;
+    /<a\b(?=[\s\S]*?\bhref\s*=\s*(?:"[^"]*"|'[^']*'|\{[^>]*\}))[^>]*>/gis;
   return content.replace(anchorPattern, (match: string) =>
     makeTouchSafeAnchor(match),
   );
 }
 
 function ensureButtonTouchTargets(content: string): string {
-  const buttonPattern = /<(?:Button|button)\b[^>]*>/g;
+  const buttonPattern = /<(?:Button|button)\b[^>]*>/gs;
   return content.replace(buttonPattern, (match: string) =>
     makeTouchSafeInteractiveElement(match),
   );
@@ -1239,23 +1239,31 @@ function normalizeSmallTouchHeight(match: string): string {
 
 function makeTouchSafeAnchor(match: string): string {
   const normalized = normalizeSmallTouchHeight(match);
-  if (/className=\{[\s\S]*?\}/.test(normalized)) {
+  if (/className=\{[\s\S]*?\}/s.test(normalized)) {
     return addTouchSafeStyle(normalized, "a");
   }
-  if (/min-h-11/.test(normalized) && /inline-flex|flex/.test(normalized)) {
-    if (/min-w-11/.test(normalized)) {
+  const classNameMatch = normalized.match(/className=["']([\s\S]*?)["']/);
+  if (classNameMatch) {
+    const classes = classNameMatch[1] ?? "";
+    const hasMinH = /\bmin-h-11\b/.test(classes);
+    const hasMinW = /\bmin-w-11\b/.test(classes);
+    const hasFlex = /\b(?:inline-flex|flex)\b/.test(classes);
+
+    if (hasMinH && hasMinW && hasFlex) {
       return normalized;
     }
+    const needed = [
+      !hasFlex && "inline-flex min-h-11 min-w-11 items-center justify-center",
+      hasFlex && !hasMinH && "min-h-11",
+      hasFlex && !hasMinW && "min-w-11",
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    const combined = `${needed} ${classes}`.trim().replace(/\s+/g, " ");
     return normalized.replace(
-      /className=["']([^"']*)["']/,
-      (_classMatch, classes: string) => `className="min-w-11 ${classes}"`,
-    );
-  }
-  if (/className=["'][^"']*["']/.test(normalized)) {
-    return normalized.replace(
-      /className=["']([^"']*)["']/,
-      (_classMatch, classes: string) =>
-        `className="inline-flex min-h-11 min-w-11 items-center justify-center ${classes}"`,
+      /className=["']([\s\S]*?)["']/,
+      `className="${combined}"`,
     );
   }
   return normalized.replace(
@@ -1267,18 +1275,25 @@ function makeTouchSafeAnchor(match: string): string {
 function makeTouchSafeInteractiveElement(match: string): string {
   const normalized = normalizeSmallTouchHeight(match);
   const tagName = normalized.startsWith("<Button") ? "Button" : "button";
-  if (/className=\{[\s\S]*?\}/.test(normalized)) {
+  if (/className=\{[\s\S]*?\}/s.test(normalized)) {
     return addTouchSafeStyle(normalized, tagName);
   }
-  if (/min-h-11/.test(normalized) && /min-w-11/.test(normalized)) {
-    return normalized;
-  }
-  const classNamePattern = /className=["']([^"']*)["']/;
-  if (classNamePattern.test(normalized)) {
+  const classNameMatch = normalized.match(/className=["']([\s\S]*?)["']/);
+  if (classNameMatch) {
+    const classes = classNameMatch[1] ?? "";
+    const hasMinH = /\bmin-h-11\b/.test(classes);
+    const hasMinW = /\bmin-w-11\b/.test(classes);
+    if (hasMinH && hasMinW) {
+      return normalized;
+    }
+    const needed = [!hasMinH && "min-h-11", !hasMinW && "min-w-11"]
+      .filter(Boolean)
+      .join(" ");
+
+    const combined = `${needed} ${classes}`.trim().replace(/\s+/g, " ");
     return normalized.replace(
-      classNamePattern,
-      (_classMatch, classes: string) =>
-        `className="min-h-11 min-w-11 ${classes}"`,
+      /className=["']([\s\S]*?)["']/,
+      `className="${combined}"`,
     );
   }
   return normalized.replace(
