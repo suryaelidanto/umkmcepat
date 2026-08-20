@@ -45,16 +45,38 @@ function warnUnresolvedModel(rawModelId: string): void {
   );
 }
 
+export function findCatalogEntry(rawModelId: string): CatalogEntry | null {
+  const trimmed = rawModelId.trim().toLowerCase();
+  if (!trimmed) {
+    return null;
+  }
+  // Exact key match
+  if (catalog[trimmed]) {
+    return catalog[trimmed];
+  }
+  // Try normalized provider key
+  const normalized = normalizeProviderModelId(trimmed);
+  if (catalog[normalized]) {
+    return catalog[normalized];
+  }
+  // Try matching suffix (e.g. "gpt-5.6-luna" matches "cmc/openai/gpt-5.6-luna" or "openrouter/openai/gpt-5.6-luna")
+  for (const [key, entry] of Object.entries(catalog)) {
+    if (key.endsWith(`/${trimmed}`) || key === trimmed) {
+      return entry;
+    }
+  }
+  return null;
+}
+
 export async function resolveModelPricing(
   modelId: string,
 ): Promise<ResolvedModelPricing> {
   const rawModelId = modelId.trim() || "unknown";
-  const key = normalizeProviderModelId(rawModelId);
-  const entry = catalog[key];
+  const entry = findCatalogEntry(rawModelId);
   if (entry) {
     return {
       rawModelId,
-      pricedModelId: key,
+      pricedModelId: entry.sourceModelId || rawModelId,
       pricingSource: "catalog",
       promptPrice: entry.promptPrice,
       completionPrice: entry.completionPrice,

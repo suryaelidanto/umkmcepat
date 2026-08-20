@@ -94,17 +94,60 @@ describe("ProcessingControl copy", () => {
     expect(markup).toContain("Website sedang disiapkan.");
   });
 
-  it("ignores the current build step in Diskusi mode", () => {
-    const markup = renderToStaticMarkup(
+  it("supports granular discuss phases in Diskusi mode", () => {
+    const markupStreaming = renderToStaticMarkup(
       createElement(ProcessingControl, {
-        currentStep: { detail: "src/routes/index.tsx", label: "Menulis file" },
         mode: "Diskusi" as const,
+        discussPhase: "streaming",
         onStop: vi.fn(),
       }),
     );
+    expect(markupStreaming).toContain("AI sedang menulis balasan...");
+    expect(markupStreaming).toContain("Balasan AI akan muncul di atas.");
 
-    expect(markup).toContain("AI sedang memproses...");
-    expect(markup).not.toContain("Menulis file");
+    const markupCard = renderToStaticMarkup(
+      createElement(ProcessingControl, {
+        mode: "Diskusi" as const,
+        discussPhase: "preparing_card",
+        onStop: vi.fn(),
+      }),
+    );
+    expect(markupCard).toContain("Menyiapkan pertanyaan berikutnya...");
+    expect(markupCard).toContain("Merangkum konteks dan opsi jawaban.");
+
+    const markupOptions = renderToStaticMarkup(
+      createElement(ProcessingControl, {
+        mode: "Diskusi" as const,
+        discussPhase: "preparing_options",
+        onStop: vi.fn(),
+      }),
+    );
+    expect(markupOptions).toContain("Sedang menyiapkan pilihan...");
+    expect(markupOptions).toContain("Merangkum opsi terbaik untukmu.");
+
+    const markupRetryingResponse = renderToStaticMarkup(
+      createElement(ProcessingControl, {
+        mode: "Diskusi" as const,
+        discussPhase: "retrying_response",
+        onStop: vi.fn(),
+      }),
+    );
+    expect(markupRetryingResponse).toContain("Menyempurnakan balasan...");
+    expect(markupRetryingResponse).toContain(
+      "Tunggu sebentar, AI sedang menyusun ulang teks.",
+    );
+
+    const markupRetryingCard = renderToStaticMarkup(
+      createElement(ProcessingControl, {
+        mode: "Diskusi" as const,
+        discussPhase: "retrying_card",
+        onStop: vi.fn(),
+      }),
+    );
+    expect(markupRetryingCard).toContain("Menata ulang pilihan jawaban...");
+    expect(markupRetryingCard).toContain(
+      "Sedang menyiapkan tombol pilihan untukmu.",
+    );
   });
 });
 

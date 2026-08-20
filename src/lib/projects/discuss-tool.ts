@@ -18,9 +18,10 @@ function jsonObjectOrString<T extends z.ZodTypeAny>(shape: T) {
 }
 
 export const presentWorkspaceCardInputSchema = z.object({
-  // Forced toolChoice often suppresses free chat text; put the user-visible
-  // Indonesian reply here so the worker can persist it as a normal text part.
-  assistantText: z.string().trim().min(1),
+  // Models sometimes emit assistantText as part of tool input, but on final
+  // recommendation cards may omit it (or emit free text). Default to "" so
+  // strict tool validation never fails with AI_TypeValidationError.
+  assistantText: z.string().trim().default(""),
   projectTitle: z.string().optional(),
   readyForBuild: z.boolean().default(false),
   briefPatch: jsonObjectOrString(

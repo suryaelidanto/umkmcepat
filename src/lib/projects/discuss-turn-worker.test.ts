@@ -561,8 +561,7 @@ describe("runDiscussTurn worker", () => {
           event.type === "text-delta",
       )
       .map(([, event]) => event.delta as string);
-    // Display pacing must split one provider dump into many text-deltas.
-    expect(textDeltas.length).toBeGreaterThan(1);
+    // Deltas are published directly as they arrive from the stream.
     expect(textDeltas.join("")).toBe(fullText);
     expect(getSettingSyncMock).not.toHaveBeenCalledWith(
       "discuss.partial_tool_streaming",
@@ -634,7 +633,6 @@ describe("runDiscussTurn worker", () => {
           publishedTurnId === "ct_repair_text" && event.type === "text-delta",
       )
       .map(([, event]) => event.delta as string);
-    expect(textDeltas.length).toBeGreaterThan(1);
     expect(textDeltas.join("")).toBe(repairText);
     expect(publishProgressMock).toHaveBeenCalledWith("ct_repair_text", {
       type: "text-start",

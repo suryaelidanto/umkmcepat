@@ -143,7 +143,7 @@ describe("resolveDiscussResume", () => {
     expect(result.kind).toBe("retry");
     if (result.kind === "retry") {
       expect(result.errorMessage).not.toMatch(/Cannot find module/i);
-      expect(result.errorMessage).toMatch(/obrolan|kirim|gagal/i);
+      expect(result.errorMessage).toMatch(/kendala|obrolan|kirim|gagal/i);
     }
   });
 

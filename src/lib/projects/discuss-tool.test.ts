@@ -121,12 +121,15 @@ describe("presentWorkspaceCard inputSchema tolerates stringified JSON fields", (
     }
   });
 
-  it("rejects a tool call without user-visible assistantText", () => {
+  it("defaults assistantText to empty string when omitted by model", () => {
     const result = parse({
       workspaceCard: { type: "none" },
     });
 
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.assistantText).toBe("");
+    }
   });
 });
 

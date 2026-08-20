@@ -59,6 +59,12 @@ describe("classifyDiscussChatError", () => {
   it("classifies the server transient copy as transient (drives auto-retry)", () => {
     expect(
       classifyDiscussChatError({
+        message:
+          "AI lagi ada kendala sebentar. Tunggu sebentar lalu coba lagi ya.",
+      }),
+    ).toBe("transient");
+    expect(
+      classifyDiscussChatError({
         message: "AI lagi gangguan. Coba lagi sebentar.",
       }),
     ).toBe("transient");
