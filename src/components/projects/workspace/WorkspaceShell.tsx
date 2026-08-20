@@ -2013,7 +2013,8 @@ export function WorkspaceShell({
       }
     }
 
-    if (settle.clearPreparing) {
+    if (settle.clearPreparing || settle.applyToolCard) {
+      clearError();
       setWorkspaceCardError(false);
       setIsPreparingNextQuestion(false);
       void loadWorkspaceState({ preserveCard: true });
@@ -3052,13 +3053,14 @@ export function WorkspaceShell({
     retryChat,
   ]);
 
-  // Reset retry counter on a successful turn completion.
+  // Reset retry counter and clear stale errors on a successful turn completion.
   useEffect(() => {
     if (status === "ready") {
       retryAttemptRef.current = 0;
       lastAutoRetriedErrorRef.current = null;
+      clearError();
     }
-  }, [status]);
+  }, [clearError, status]);
 
   const retryWorkspaceCard = useCallback(async () => {
     if (status === "streaming" || status === "submitted" || isRetrying) {
