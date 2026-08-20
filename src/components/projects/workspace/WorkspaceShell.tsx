@@ -3681,7 +3681,7 @@ export function WorkspaceShell({
                         />
                         <div className="flex items-center justify-between gap-spacing-4">
                           <div className="flex items-center gap-spacing-2">
-                            {!buildComplete && !isBuilding && !isProcessing ? (
+                            {!isBuilding && !isProcessing ? (
                               <Button
                                 type="button"
                                 variant="outline"
@@ -3689,7 +3689,11 @@ export function WorkspaceShell({
                                   if (canStartBuildNow) {
                                     void handleStartBuild();
                                   } else {
-                                    submitChatText("Buat website sekarang");
+                                    submitChatText(
+                                      buildComplete
+                                        ? "Perbarui website sekarang"
+                                        : "Buat website sekarang",
+                                    );
                                   }
                                 }}
                                 disabled={
@@ -3698,7 +3702,9 @@ export function WorkspaceShell({
                                 }
                                 className="h-8 rounded-full border-surface-warm-white/12 bg-transparent px-spacing-3 text-xs font-medium text-surface-warm-white hover:bg-surface-warm-white/10"
                               >
-                                Buat website
+                                {buildComplete
+                                  ? "Perbarui website"
+                                  : "Buat website"}
                               </Button>
                             ) : null}
                           </div>
@@ -3862,8 +3868,7 @@ export function WorkspaceShell({
                   />
                   <div className="flex items-center justify-between gap-spacing-4">
                     <div className="flex items-center gap-spacing-2">
-                      {!buildComplete &&
-                      !isBuilding &&
+                      {!isBuilding &&
                       !isProcessing &&
                       composerState !== "held_build_recommendation" ? (
                         <Button
@@ -3873,7 +3878,11 @@ export function WorkspaceShell({
                             if (canStartBuildNow) {
                               void handleStartBuild();
                             } else {
-                              submitChatText("Buat website sekarang");
+                              submitChatText(
+                                buildComplete
+                                  ? "Perbarui website sekarang"
+                                  : "Buat website sekarang",
+                              );
                             }
                           }}
                           disabled={
@@ -3881,7 +3890,7 @@ export function WorkspaceShell({
                           }
                           className="h-8 rounded-full border-border bg-transparent px-spacing-3 text-xs font-medium text-foreground hover:bg-muted"
                         >
-                          Buat website
+                          {buildComplete ? "Perbarui website" : "Buat website"}
                         </Button>
                       ) : null}
                     </div>

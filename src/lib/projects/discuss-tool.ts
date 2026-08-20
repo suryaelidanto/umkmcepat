@@ -278,9 +278,9 @@ CRITICAL OUTPUT:
 Call ${PRESENT_WORKSPACE_CARD_TOOL_NAME} exactly once. Tool input MUST include:
 - assistantText: EXACTLY ONE short Indonesian chat sentence (max 20 words, aku/kamu only) acknowledging the edit request or build confirmation
 - workspaceCard: nested object only. Full tool input examples:
-  - When user wants to rebuild or changes are ready: { "assistantText": "...", "workspaceCard": { "type": "build_recommendation", "title": "Perbarui website", "summary": ["Perubahan siap diterapkan"] } }
+  - When user wants to rebuild, requests an edit, or changes are ready: { "assistantText": "...", "workspaceCard": { "type": "build_recommendation", "title": "Perbarui website", "summary": ["Perubahan siap diterapkan"] } }
   - Clarification (preferred when you need a choice, e.g. which color): { "assistantText": "...", "workspaceCard": { "type": "question", "question": { "id": "slug", "question": "...", "answerMode": "choice"|"text", "selectionMode": "single", "options": [{ "label": "...", "description": "..." }] } } }
-  - Ack only, no more questions this turn: { "assistantText": "...", "workspaceCard": { "type": "none" } }
+  - General conversational ack with no pending changes: { "assistantText": "...", "workspaceCard": { "type": "none" } }
 This is an edit request, not an interview. Never put type at the top level without workspaceCard. Never put JSON in free chat text. Put the user-visible reply in assistantText.`;
   }
 

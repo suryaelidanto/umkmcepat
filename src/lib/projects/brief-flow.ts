@@ -196,7 +196,7 @@ const BUILD_CONFIRM_COPY_RE =
 const USER_AFFIRM_START_RE =
   /^(ya|iya|yoi|oke|ok|yes|yep|gas|lanjut|boleh|setuju|silakan|silahkan)\b/i;
 const USER_AFFIRM_BUILD_RE =
-  /langsung\s*bangun|bangun\s*aja|mulai\s*build|mulai\s*bangun|build\s*sekarang|udah\s*dulu|cukup(\s*sudah)?/i;
+  /langsung\s*bangun|bangun\s*aja|mulai\s*build|mulai\s*bangun|build\s*sekarang|buat\s*sekarang|perbarui|update|terapkan|ubah|ganti|pasang|simpan|udah\s*dulu|cukup(\s*sudah)?/i;
 
 const FACT_KEY_TO_BRIEF_FIELD: Record<string, string> = {
   business_name: "businessName",
@@ -301,7 +301,7 @@ export function normalizeWorkspaceTurn(
     unstringifyJsonObject(value.workspaceCard) as { type?: string } | null
   )?.type;
 
-  // Server-side enforcement: when a site is built, allow build_recommendation if the user explicitly affirms rebuilding/updating
+  // Server-side enforcement: when a site is built, allow build_recommendation if the user affirms updating/rebuilding
   if (
     options.hasBuiltSite &&
     (workspaceCard.type === "build_recommendation" ||
@@ -309,7 +309,7 @@ export function normalizeWorkspaceTurn(
       originalCardType === "brief_review")
   ) {
     if (!isUserAffirmingBuild(options.lastUserText)) {
-      workspaceCard = createFallbackWorkspaceCard(brief);
+      workspaceCard = { type: "none" };
     }
   } else if (!options.hasBuiltSite) {
     // Reliable handoff: promote to build_recommendation when build-time is

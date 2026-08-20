@@ -1141,6 +1141,36 @@ describe("normalizeWorkspaceTurn", () => {
     expect(turn.workspaceCard.type).toBe("none");
   });
 
+  it("allows a build_recommendation card post-build when user asks to update or rebuild", () => {
+    const brief = parseProjectBrief(
+      {
+        businessName: "Kopi Senja Roastery",
+        businessType: "Kopi Senja Roastery",
+        offer: "Biji kopi roasting",
+        targetCustomer: "Pecinta kopi lokal",
+        contactOrCta: "WhatsApp 08123456789",
+        stylePreference: "Warm and cozy",
+      },
+      "jualan kopi",
+    );
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "build_recommendation",
+          title: "Perbarui website",
+          summary: ["Tambahkan paket 50rb"],
+        },
+      },
+      brief,
+      {
+        hasBuiltSite: true,
+        lastUserText: "Tolong perbarui websitenya dengan paket 50rb",
+      },
+    );
+
+    expect(turn.workspaceCard.type).toBe("build_recommendation");
+  });
+
   it("still allows a question card pre-build (hasBuiltSite: false / omitted) — same input as the built-site test above", () => {
     const brief = parseProjectBrief(
       { businessType: "Kopi Senja Roastery", offer: "Biji kopi roasting" },
