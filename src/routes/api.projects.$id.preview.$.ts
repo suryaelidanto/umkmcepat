@@ -12,6 +12,7 @@ import {
   applyPreviewSandboxHeaders,
   injectPreviewAnnotationBridge,
   proxyDeploymentRequest,
+  rewritePreviewAssetUrls,
 } from "@/lib/projects/runtime-proxy";
 import { isAdminEmail } from "@/lib/waitlist/waitlist";
 
@@ -196,16 +197,21 @@ async function getStoredPreviewResponse({
     return null;
   }
 
-  return new Response(
-    file.contentType.toLowerCase().includes("text/html")
-      ? injectPreviewAnnotationBridge(file.content)
-      : file.content,
-    {
-      headers: applyPreviewSandboxHeaders(
-        new Headers({ "Content-Type": file.contentType }),
-      ),
-    },
-  );
+  const isHtml = file.contentType.toLowerCase().includes("text/html");
+  const content = isHtml
+    ? injectPreviewAnnotationBridge(
+        rewritePreviewAssetUrls(file.content, {
+          deploymentId: "stored",
+          projectId,
+        }),
+      )
+    : file.content;
+
+  return new Response(content, {
+    headers: applyPreviewSandboxHeaders(
+      new Headers({ "Content-Type": file.contentType }),
+    ),
+  });
 }
 
 async function readStoredProjectDistFiles(projectId: string) {

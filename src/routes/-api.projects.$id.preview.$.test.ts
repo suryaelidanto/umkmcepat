@@ -143,7 +143,8 @@ describe("project preview route", () => {
       {
         distFiles: [
           {
-            content: "<html><body>Website siap</body></html>",
+            content:
+              '<html><body><script src="./assets/app.js"></script>Website siap</body></html>',
             contentType: "text/html; charset=utf-8",
             path: "index.html",
           },
@@ -158,7 +159,9 @@ describe("project preview route", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("Content-Type")).toContain("text/html");
-    await expect(response.text()).resolves.toContain("Website siap");
+    const body = await response.text();
+    expect(body).toContain("Website siap");
+    expect(body).not.toContain('src="./assets/');
   });
 
   it("serves the active deployment artifact when the runtime is unavailable", async () => {
