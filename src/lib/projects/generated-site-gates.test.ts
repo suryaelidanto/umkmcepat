@@ -5,6 +5,7 @@ import {
   inspectGeneratedSiteTasteSource,
   inspectReferenceCalibratedSiteSource,
   normalizeBatchedSiteAnchors,
+  normalizeGeneratedInteractiveTargets,
 } from "./generated-site-gates";
 
 import type { WriterDesignPlanV1 } from "./batched-response";
@@ -554,6 +555,40 @@ describe("reference-calibrated generated site source gates", () => {
         "placeholder-forbidden",
       ]),
     );
+  });
+});
+
+describe("normalizeGeneratedInteractiveTargets", () => {
+  it("upgrades interactive elements in generated component files", () => {
+    const [file] = normalizeGeneratedInteractiveTargets([
+      {
+        path: "src/components/site/SiteFooter.tsx",
+        content:
+          '<a href="#kontak" className="inline-flex min-h-10 items-center">Chat Admin</a><Button className="h-9">Kirim</Button>',
+      },
+    ]);
+
+    expect(file?.content).toContain("min-h-11");
+    expect(file?.content).toContain("min-w-11");
+    expect(file?.content).not.toContain("min-h-10");
+  });
+
+  it("keeps computed className props valid while enforcing the target", () => {
+    const [file] = normalizeGeneratedInteractiveTargets([
+      {
+        path: "src/components/site/Actions.tsx",
+        content:
+          "<a href={link} className={classes}>Chat</a><Button className={classes}>Kirim</Button>",
+      },
+    ]);
+
+    expect(file?.content.match(/<a[^>]+>/)?.[0]).not.toMatch(
+      /className=.*className=/,
+    );
+    expect(file?.content.match(/<Button[^>]+>/)?.[0]).not.toMatch(
+      /className=.*className=/,
+    );
+    expect(file?.content).toContain('style={{ minHeight: "44px"');
   });
 });
 

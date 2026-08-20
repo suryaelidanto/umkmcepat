@@ -14,6 +14,7 @@ import { getGenerationModel } from "@/lib/ai/ai-models";
 import { getSettingSync } from "@/lib/config/app-settings";
 import { devLog } from "@/lib/dev-log";
 import { generateDiff, type DiffLine } from "@/lib/projects/diff";
+import { normalizeGeneratedInteractiveContent } from "@/lib/projects/generated-site-gates";
 import {
   buildGeneratedProject,
   createGeneratedViteTanStackStarterFiles,
@@ -259,8 +260,11 @@ export async function runAgenticGenerate(input: {
           };
         }
         const oldContent = fileMap.get(path) ?? "";
-        const diff = generateDiff(oldContent, content);
-        fileMap.set(path, content);
+        const normalizedContent = path.endsWith(".tsx")
+          ? normalizeGeneratedInteractiveContent(content)
+          : content;
+        const diff = generateDiff(oldContent, normalizedContent);
+        fileMap.set(path, normalizedContent);
         touched.add(path);
         opSeq++;
         const fallbackTitle = path.endsWith("index.tsx")
@@ -288,14 +292,18 @@ export async function runAgenticGenerate(input: {
           onEvent("operation", op);
         }
         if (onFileStaged) {
-          onFileStaged({ path, content });
+          onFileStaged({ path, content: normalizedContent });
         }
         await renewProjectOperation({
           projectId,
           token: input.operationToken ?? "",
           userId: input.userId,
         }).catch(() => undefined);
-        return { success: true, path, bytes: content.length };
+        return {
+          success: true,
+          path,
+          bytes: normalizedContent.length,
+        };
       },
     }),
 
@@ -375,8 +383,8 @@ DESIGN DIRECTIVES & EXAMPLES (GREAT VS BAD):
    - GREAT: Concrete value showcase with live metric counters (<StatCounter>), real business trust points, direct WhatsApp CTA button (<MessageCircle className="mr-2 size-4" />), and crisp typography.
 
 3. ACCESSIBILITY & TECHNICAL RIGOR:
-   - BAD: <a> tags with href="/layanan" that don't exist, tiny unclickable buttons (size < 44px), white text on faint yellow backgrounds, fake pricing or fake address.
-   - GREAT: Data from "@/content/site" with import { site } from "@/content/site", clickable targets min-h-11 min-w-11, hash navigation (href="#kontak" or href="#paket") or valid route links, high contrast text on all backgrounds.
+   - BAD: <a> tags with href="/layanan" that don't exist, 'min-h-10', 'h-10', or 'size-10' on any link/button, white text on faint yellow backgrounds, fake pricing or fake address.
+   - GREAT: Data from "@/content/site" with import { site } from "@/content/site", every clickable <a>, <Button>, and <button> uses 'min-h-11 min-w-11' (including links inside Button asChild and components under 'src/components/site/*'), hash navigation (href="#kontak" or href="#paket") or valid route links, high contrast text on all backgrounds.
 
 NOTE: Do not blindly copy these examples verbatim. Take smart initiative based on the specific business domain, target customers, and real user requirements.
 

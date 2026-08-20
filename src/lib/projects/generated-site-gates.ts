@@ -845,6 +845,24 @@ export function inspectReferenceCalibratedSiteSource(input: {
   };
 }
 
+export function normalizeGeneratedInteractiveTargets(
+  files: GeneratedProjectFile[],
+): GeneratedProjectFile[] {
+  return files.map((file) => {
+    if (!file.path.endsWith(".tsx")) {
+      return file;
+    }
+    return {
+      ...file,
+      content: normalizeGeneratedInteractiveContent(file.content),
+    };
+  });
+}
+
+export function normalizeGeneratedInteractiveContent(content: string): string {
+  return ensureButtonTouchTargets(ensureActionTouchTargets(content));
+}
+
 export function normalizeBatchedSiteAnchors(
   files: GeneratedProjectFile[],
   options?: {
@@ -1007,9 +1025,7 @@ export function normalizeBatchedSiteAnchors(
         options?.primaryCtaTarget,
       );
     }
-    if (isGeneratedRouteSource) {
-      content = ensureActionTouchTargets(content);
-    }
+    content = normalizeGeneratedInteractiveContent(content);
     content = ensureCtaTouchTarget(content, whatsappHref);
     return { ...file, content };
   });
@@ -1145,33 +1161,94 @@ function ensureGeneratedRoutePrimaryCta(
 }
 
 function ensureActionTouchTargets(content: string): string {
-  const actionPattern =
-    /<a([^>]*?)href=["'][^"']+["']([^>]*?)>([\s\S]{0,240}?)<\/a>/gi;
-  return content.replace(actionPattern, (match: string) =>
+  const anchorPattern =
+    /<a\b(?=[^>]*\bhref\s*=\s*(?:"[^"]*"|'[^']*'|\{[^>]*\}))[^>]*>[\s\S]{0,240}?<\/a>/gi;
+  return content.replace(anchorPattern, (match: string) =>
     makeTouchSafeAnchor(match),
   );
 }
 
+function ensureButtonTouchTargets(content: string): string {
+  const buttonPattern = /<(?:Button|button)\b[^>]*>/g;
+  return content.replace(buttonPattern, (match: string) =>
+    makeTouchSafeInteractiveElement(match),
+  );
+}
+
+function normalizeSmallTouchHeight(match: string): string {
+  return match.replace(/\bmin-h-(?:6|7|8|9|10)\b/g, "min-h-11");
+}
+
 function makeTouchSafeAnchor(match: string): string {
-  if (/min-h-11/.test(match) && /inline-flex|flex/.test(match)) {
-    if (/min-w-11/.test(match)) {
-      return match;
+  const normalized = normalizeSmallTouchHeight(match);
+  if (/className=\{[\s\S]*?\}/.test(normalized)) {
+    return addTouchSafeStyle(normalized, "a");
+  }
+  if (/min-h-11/.test(normalized) && /inline-flex|flex/.test(normalized)) {
+    if (/min-w-11/.test(normalized)) {
+      return normalized;
     }
-    return match.replace(
+    return normalized.replace(
       /className=["']([^"']*)["']/,
       (_classMatch, classes: string) => `className="min-w-11 ${classes}"`,
     );
   }
-  if (/className=["'][^"']*["']/.test(match)) {
-    return match.replace(
+  if (/className=["'][^"']*["']/.test(normalized)) {
+    return normalized.replace(
       /className=["']([^"']*)["']/,
       (_classMatch, classes: string) =>
         `className="inline-flex min-h-11 min-w-11 items-center justify-center ${classes}"`,
     );
   }
-  return match.replace(
+  return normalized.replace(
     "<a",
     '<a className="inline-flex min-h-11 min-w-11 items-center justify-center"',
+  );
+}
+
+function makeTouchSafeInteractiveElement(match: string): string {
+  const normalized = normalizeSmallTouchHeight(match);
+  const tagName = normalized.startsWith("<Button") ? "Button" : "button";
+  if (/className=\{[\s\S]*?\}/.test(normalized)) {
+    return addTouchSafeStyle(normalized, tagName);
+  }
+  if (/min-h-11/.test(normalized) && /min-w-11/.test(normalized)) {
+    return normalized;
+  }
+  const classNamePattern = /className=["']([^"']*)["']/;
+  if (classNamePattern.test(normalized)) {
+    return normalized.replace(
+      classNamePattern,
+      (_classMatch, classes: string) =>
+        `className="min-h-11 min-w-11 ${classes}"`,
+    );
+  }
+  return normalized.replace(
+    `<${tagName}`,
+    `<${tagName} className="min-h-11 min-w-11"`,
+  );
+}
+
+function addTouchSafeStyle(match: string, tagName: string): string {
+  const styleObjectPattern = /style=\{\{([\s\S]*?)\}\}/;
+  if (styleObjectPattern.test(match)) {
+    return match.replace(
+      styleObjectPattern,
+      (_styleMatch, properties: string) =>
+        `style={{ minHeight: "44px", minWidth: "44px",${properties} }}`,
+    );
+  }
+  const styleExpressionPattern = /style=\{([^{}]+)\}/;
+  if (styleExpressionPattern.test(match)) {
+    return match.replace(
+      styleExpressionPattern,
+      (_styleMatch, expression: string) =>
+        `style={{ minHeight: "44px", minWidth: "44px", ...(${expression}) }}`,
+    );
+  }
+  return match.replace(
+    `<${tagName}`,
+    `<${tagName} style={{ minHeight: "44px", minWidth: "44px" }}`,
   );
 }
 
