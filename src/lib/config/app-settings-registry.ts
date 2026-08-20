@@ -80,15 +80,7 @@ export const APP_SETTINGS: ConfigEntry[] = [
     fallback: "dark",
     enumOptions: ["dark", "light", "system"],
   },
-  {
-    key: "generation.engine",
-    category: "feature_flag",
-    tier: "basic",
-    type: "string",
-    label: "Mesin Generasi (Generation Engine)",
-    fallback: "single_shot",
-    enumOptions: ["agentic", "single_shot"],
-  },
+
   {
     key: "feature.composer_uploads_enabled",
     category: "feature_flag",

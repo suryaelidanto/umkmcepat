@@ -20,10 +20,6 @@ import { devLog } from "@/lib/dev-log";
 import { chargeEnergyForAiUsage } from "@/lib/payment/user-credits";
 import { prisma } from "@/lib/prisma";
 import { runAgenticGenerate } from "@/lib/projects/agentic-generator";
-import {
-  runBatchedGenerate,
-  runOneStreamedResponse,
-} from "@/lib/projects/batched-generator";
 import { briefToBuildPrompt, parseProjectBrief } from "@/lib/projects/brief";
 import {
   publishBuildProgress,
@@ -34,7 +30,6 @@ import {
   classifyBuildFailure,
   getIndonesianBuildFailureSummary,
 } from "@/lib/projects/build-logs";
-import { generateDiff } from "@/lib/projects/diff";
 import { createStepCharger } from "@/lib/projects/energy-step-charger";
 import { formatGeneratedSource } from "@/lib/projects/format-generated-source";
 import {
@@ -46,15 +41,10 @@ import { runGeneratedSiteBrowserGates } from "@/lib/projects/generated-site-brow
 import { compileGeneratedSiteContract } from "@/lib/projects/generated-site-contract";
 import { qualifyGeneratedSite } from "@/lib/projects/generated-site-qualification";
 import {
-  sanitizeGeneratedSiteQualityProofV2,
-  type GeneratedSiteQualityProofV2,
-} from "@/lib/projects/generated-site-quality-proof";
-import {
   selectGeneratedSiteGoldExample,
   selectGeneratedSiteRecipe,
 } from "@/lib/projects/generated-site-recipes";
 import { classifyGeneratedSiteRisk } from "@/lib/projects/generated-site-risk";
-import { resolveApprovedReferenceCalibratedMode } from "@/lib/projects/generated-site-rollout";
 import {
   buildGeneratedProject,
   createGeneratedSourceSnapshotMetadata,
@@ -174,9 +164,15 @@ export async function runBuildAttempt({
       event === "operation" && typeof data.type === "string"
         ? data.type
         : undefined;
+    const isWrite = toolType === "write_file" || toolType === "replace_in_file";
+    const diff =
+      isWrite && Array.isArray(data.diff) && data.diff.length > 0
+        ? data.diff
+        : undefined;
     publishBuildProgress(attemptId, {
       ...data,
       ...(toolType ? { tool: toolType } : {}),
+      ...(diff ? { diff } : {}),
       type: event,
     });
 
@@ -663,8 +659,6 @@ export async function runBuildAttempt({
     let generatedSiteExample: ReturnType<
       typeof selectGeneratedSiteGoldExample
     > | null = null;
-    let referenceCalibratedQualityProof: GeneratedSiteQualityProofV2 | null =
-      null;
 
     if (useGeneratedSiteQuality && acceptedHandoff) {
       generatedSiteRecipe = selectGeneratedSiteRecipe(
@@ -728,276 +722,37 @@ export async function runBuildAttempt({
       onFilesChanged([...batchedStageFiles.values()]);
     };
 
-    const referenceCalibratedMode =
-      useGeneratedSiteQuality && acceptedHandoff
-        ? resolveApprovedReferenceCalibratedMode()
-        : "off";
-    let referenceCalibratedCandidate: Awaited<
-      ReturnType<
-        (typeof import("@/lib/projects/generated-site-shadow"))["runGeneratedSiteShadowCandidate"]
-      >
-    > | null = null;
-    if (
-      referenceCalibratedMode !== "off" &&
-      acceptedHandoff &&
-      generatedSiteContract
-    ) {
-      send("progress", {
-        label: "Menguji kualitas tampilan",
-        detail: "Menjalankan pemeriksaan referensi secara terpisah.",
-      });
-      try {
-        const { runGeneratedSiteShadowCandidate } =
-          await import("@/lib/projects/generated-site-shadow");
-        referenceCalibratedCandidate = await runGeneratedSiteShadowCandidate({
-          abortSignal,
-          attemptId,
-          buildId: runtimeBuildId,
-          projectId,
-          userId,
-          brief,
-          briefSnapshot: acceptedHandoff.briefSnapshot,
-          handoff: acceptedHandoff,
-          schema: finalSchema,
-          photoEnabled: Boolean(
-            getSettingSync("feature.composer_uploads_enabled", true),
-          ),
-          browserContract: generatedSiteContract,
-          creativeDirection: acceptedHandoff.creativeDirection,
-          build: (files, workspaceProjectId) =>
-            buildGeneratedProject(files, {
-              workspaceKey: `${workspaceProjectId}-reference-shadow`,
-            }),
-          runBrowser: (browserInput) =>
-            runGeneratedSiteBrowserGates(
-              { ...browserInput, timeoutMs: 10_000 },
-              {
-                storeEvidence: async (evidence) => {
-                  const refs = [
-                    await storeGateEvidence({
-                      projectId: evidence.projectId,
-                      candidateId: evidence.candidateId,
-                      kind: "report",
-                      route: evidence.route,
-                      viewport: evidence.viewport,
-                      value: evidence.value,
-                    }),
-                  ];
-                  if (evidence.screenshot) {
-                    refs.push(
-                      await storeGateScreenshotEvidence({
-                        projectId: evidence.projectId,
-                        candidateId: evidence.candidateId,
-                        route: evidence.route,
-                        viewport: evidence.viewport,
-                        bytes: evidence.screenshot,
-                      }),
-                    );
-                  }
-                  return refs;
-                },
-              },
-            ),
-          loadVisualEvidence: async (report) => {
-            const screenshots = await Promise.all(
-              report.evidenceIds
-                .filter((ref) => ref.endsWith(".jpg"))
-                .map((ref) => readGateEvidence<{ screenshot?: string }>(ref)),
-            );
-            return screenshots.flatMap((value) =>
-              value?.screenshot
-                ? [Buffer.from(value.screenshot, "base64")]
-                : [],
-            );
-          },
-        });
-        referenceCalibratedQualityProof = sanitizeGeneratedSiteQualityProofV2(
-          referenceCalibratedCandidate.proof,
-        );
-        devLog("generate", "reference_calibrated.shadow", {
-          calls: referenceCalibratedQualityProof.calls,
-          failureClass: referenceCalibratedCandidate.ok
-            ? null
-            : referenceCalibratedCandidate.failureClass,
-          gates: referenceCalibratedQualityProof.gates,
-          kitId: referenceCalibratedQualityProof.kitId,
-          outcome: referenceCalibratedQualityProof.outcome,
-          output: referenceCalibratedQualityProof.output,
-          projectId,
-          reason: referenceCalibratedCandidate.ok
-            ? null
-            : referenceCalibratedCandidate.safeMessage.slice(0, 1_000),
-          // "browser qualification failed" alone cannot be acted on; the
-          failedAssertions: referenceCalibratedCandidate.ok
-            ? null
-            : (referenceCalibratedCandidate.failedAssertions ?? []).slice(
-                0,
-                12,
-              ),
-        });
-      } catch (error) {
-        devLog("generate", "reference_calibrated.shadow_error", {
-          error: error instanceof Error ? error.message : "unknown error",
-          projectId,
-        });
-      }
-    }
-
-    if (
-      referenceCalibratedMode === "replace" &&
-      (!referenceCalibratedCandidate || !referenceCalibratedCandidate.ok)
-    ) {
-      throw new Error(
-        "reference-calibrated replacement candidate did not qualify; last-known-good source is retained",
-      );
-    }
-
-    const engine = getSettingSync("generation.engine", "single_shot") as string;
-    const isAgentic = engine === "agentic" && !referenceCalibratedCandidate?.ok;
-
     const agentStartedAt = Date.now();
-    let generationOutput: {
-      files: GeneratedProjectFile[];
-      generationMode: "agent-custom" | "agentic";
-      operationTrace: Array<{
-        detail: string;
-        state: string;
-        title: string;
-        type: string;
-      }>;
-      repairAttempts: number;
-      summary: string;
-      touchedFiles: string[];
-      energyExhausted: boolean;
-      buildSpec: string;
-      referenceCalibratedQualityProof?: GeneratedSiteQualityProofV2;
+    send("progress", {
+      label: "Menyiapkan pembuatan website",
+      detail: "AI sedang merancang arsitektur dan komponen website.",
+    });
+
+    const agenticResult = await runAgenticGenerate({
+      abortSignal,
+      attemptId,
+      brief,
+      buildId: runtimeBuildId,
+      onEvent: (type, data) => send(type, data),
+      onFileStaged: persistBatchedStage,
+      operationToken,
+      projectId,
+      schema: finalSchema,
+      stepCharger: sourceStepCharger,
+      userId,
+    });
+
+    const generationOutput = {
+      buildSpec: buildPrompt,
+      energyExhausted: sourceStepCharger.isExhausted(),
+      files: agenticResult.files,
+      generationMode: "agentic" as const,
+      operationTrace: agenticResult.operationTrace,
+      repairAttempts: 0,
+      summary: agenticResult.summary,
+      touchedFiles: agenticResult.touchedFiles,
+      referenceCalibratedQualityProof: undefined,
     };
-
-    if (isAgentic) {
-      send("progress", {
-        label: "Membuat website interaktif",
-        detail: "AI Agent sedang menulis dan merancang struktur landing page.",
-      });
-      const agenticResult = await runAgenticGenerate({
-        abortSignal,
-        attemptId,
-        brief,
-        buildId: runtimeBuildId,
-        onEvent: (type, data) => send(type, data),
-        onFileStaged: persistBatchedStage,
-        projectId,
-        schema: finalSchema,
-        stepCharger: sourceStepCharger,
-        userId,
-      });
-
-      generationOutput = {
-        buildSpec: buildPrompt,
-        energyExhausted: sourceStepCharger.isExhausted(),
-        files: agenticResult.files,
-        generationMode: "agentic",
-        operationTrace: agenticResult.operationTrace,
-        repairAttempts: 0,
-        summary: agenticResult.summary,
-        touchedFiles: agenticResult.touchedFiles,
-      };
-    } else {
-      const batched =
-        referenceCalibratedMode === "replace" &&
-        referenceCalibratedCandidate?.ok
-          ? {
-              ok: true as const,
-              files: referenceCalibratedCandidate.files,
-              designPlan: null,
-              designPlanV2: referenceCalibratedCandidate.designPlan,
-              repairRounds: 0,
-              summary: "Reference-calibrated candidate qualified.",
-              writtenPaths: referenceCalibratedCandidate.files
-                .filter((file) => file.path.startsWith("src/routes/"))
-                .map((file) => file.path),
-            }
-          : await runBatchedGenerate({
-              abortSignal,
-              attemptId,
-              brief,
-              buildId: runtimeBuildId,
-              implementationSpec,
-              ...(generatedSiteContract &&
-              generatedSiteRecipe &&
-              generatedSiteExample
-                ? {
-                    contract: generatedSiteContract,
-                    recipe: generatedSiteRecipe,
-                    example: generatedSiteExample,
-                  }
-                : {}),
-              onEvent(type, data) {
-                if (
-                  type === "operation" &&
-                  data &&
-                  typeof data === "object" &&
-                  (data as { type?: string }).type === "write_file" &&
-                  typeof (data as { path?: unknown }).path === "string"
-                ) {
-                  const op = data as {
-                    path: string;
-                    diff?: unknown;
-                    type: string;
-                    title: string;
-                    detail: string;
-                  };
-                  if (!Array.isArray(op.diff) || op.diff.length === 0) {
-                    const newFile = batchedStageFiles.get(op.path);
-                    if (newFile) {
-                      const oldContent =
-                        persistedSourceFiles.find((f) => f.path === op.path)
-                          ?.content ?? "";
-                      try {
-                        const diff = generateDiff(oldContent, newFile.content);
-                        const maxLines = 120;
-                        const sliced =
-                          diff.length > maxLines
-                            ? diff.slice(0, maxLines)
-                            : diff;
-                        (data as { diff?: typeof diff }).diff = sliced;
-                      } catch {
-                        // diff is best-effort
-                      }
-                    }
-                  }
-                }
-                send(type, data);
-              },
-              onFileStaged: persistBatchedStage,
-              projectId,
-              schema: finalSchema,
-              stepCharger: sourceStepCharger,
-              userId,
-            });
-
-      if (!batched.ok) {
-        devLog("generate", "batched.failed", {
-          projectId,
-          reason: batched.reason,
-          repairRounds: batched.repairRounds,
-        });
-        throw new Error(batched.reason || "Batched generation failed.");
-      }
-
-      generationOutput = {
-        buildSpec: buildPrompt,
-        energyExhausted: sourceStepCharger.isExhausted(),
-        files: batched.files,
-        generationMode: "agent-custom",
-        operationTrace: [],
-        repairAttempts: batched.repairRounds,
-        ...(referenceCalibratedQualityProof
-          ? { referenceCalibratedQualityProof }
-          : {}),
-        summary: batched.summary,
-        touchedFiles: batched.writtenPaths,
-      };
-    }
 
     const sourceGeneration = generationOutput;
     agentMs = Date.now() - agentStartedAt;
@@ -1122,12 +877,16 @@ export async function runBuildAttempt({
     if (
       buildResult.ok &&
       useGeneratedSiteQuality &&
-      referenceCalibratedMode !== "replace" &&
       generatedSiteContract &&
       generatedSiteRecipe &&
       acceptedHandoff
     ) {
       const initialSourceFiles = sourceFiles;
+      send("progress", {
+        label: "Memeriksa tampilan website",
+        detail:
+          "Memeriksa kontras warna, ukuran tombol, dan kenyamanan navigasi.",
+      });
       const qualification = await qualifyGeneratedSite(sourceFiles, {
         runBrowser: async (candidateFiles) => {
           const candidateBuild =
@@ -1209,35 +968,7 @@ export async function runBuildAttempt({
             screenshots,
           });
         },
-        repair: async (candidateFiles, criticReport) => {
-          const implicatedPaths = ["src/routes/index.tsx"].filter((path) =>
-            candidateFiles.some((file) => file.path === path),
-          );
-          const repairCall = await runOneStreamedResponse({
-            abortSignal,
-            attemptId,
-            buildId: runtimeBuildId,
-            phase: "visual-repair",
-            projectId,
-            retryCount: 1,
-            stepCharger: sourceStepCharger,
-            system:
-              "Emit only full <file> blocks for implicated editable files, then one <done>. Do not change facts, routes, theme, or platform-owned files.",
-            user: `Visual findings:\n${JSON.stringify(criticReport.findings)}\n\nFiles:\n${implicatedPaths
-              .map(
-                (path) =>
-                  `<file path="${path}">${candidateFiles.find((file) => file.path === path)?.content ?? ""}</file>`,
-              )
-              .join("\n")}`,
-          });
-          if (repairCall.parseError || repairCall.response.files.size === 0) {
-            return candidateFiles;
-          }
-          const replacements = repairCall.response.files;
-          return candidateFiles.map(
-            (file) => replacements.get(file.path) ?? file,
-          );
-        },
+        repair: async (candidateFiles) => candidateFiles,
       });
       qualityProof = {
         version: 1,
