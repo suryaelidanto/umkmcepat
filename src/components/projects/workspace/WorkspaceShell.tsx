@@ -1672,15 +1672,27 @@ export function WorkspaceShell({
   }, [workspaceCard]);
 
   useEffect(() => {
-    if (!buildComplete || !heldBuildRecommendationSignature) {
+    if (!heldBuildRecommendationSignature) {
       return;
     }
-    window.localStorage.removeItem(buildRecommendationStorageKey);
-    setHeldBuildRecommendationSignature(null);
+    const signature = getBuildRecommendationHoldSignature(workspaceCard);
+    const consumed =
+      Boolean(signature) &&
+      consumedBuildRecommendationSignatures.has(signature);
+    if (
+      workspaceCard.type !== "build_recommendation" ||
+      consumed ||
+      !signature ||
+      heldBuildRecommendationSignature !== signature
+    ) {
+      window.localStorage.removeItem(buildRecommendationStorageKey);
+      setHeldBuildRecommendationSignature(null);
+    }
   }, [
-    buildComplete,
     buildRecommendationStorageKey,
+    consumedBuildRecommendationSignatures,
     heldBuildRecommendationSignature,
+    workspaceCard,
   ]);
 
   useEffect(() => {
@@ -2748,6 +2760,7 @@ export function WorkspaceShell({
       buildRecommendationSignature,
     );
     setHeldBuildRecommendationSignature(buildRecommendationSignature);
+    setPostBuildChatOpen(true);
     setMode("discuss");
   }, [buildRecommendationSignature, buildRecommendationStorageKey]);
 
