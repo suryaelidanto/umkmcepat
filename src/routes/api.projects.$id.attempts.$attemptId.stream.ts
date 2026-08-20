@@ -45,10 +45,6 @@ export async function handleAttemptStreamGet(
     );
   }
 
-  if (readBuildProgressState(attemptId) === "live") {
-    return createReadStreamFromChannel(attemptId);
-  }
-
   const attempt = await prisma.projectEditAttempt.findFirst({
     where: { id: attemptId, projectId: project.id, userId: session.user.id },
     select: { id: true, status: true, buildId: true },
@@ -60,8 +56,8 @@ export async function handleAttemptStreamGet(
     );
   }
 
-  // Stream live progress while attempt is actively running in background.
   if (
+    readBuildProgressState(attemptId) === "live" ||
     attempt.status === "generating" ||
     attempt.status === "building" ||
     attempt.status === "repairing"
