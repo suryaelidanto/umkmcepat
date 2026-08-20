@@ -1675,24 +1675,12 @@ export function WorkspaceShell({
     if (!buildComplete || !heldBuildRecommendationSignature) {
       return;
     }
-    const signature = getBuildRecommendationHoldSignature(workspaceCard);
-    const consumed =
-      Boolean(signature) &&
-      consumedBuildRecommendationSignatures.has(signature);
-    if (
-      workspaceCard.type !== "build_recommendation" ||
-      consumed ||
-      !signature
-    ) {
-      window.localStorage.removeItem(buildRecommendationStorageKey);
-      setHeldBuildRecommendationSignature(null);
-    }
+    window.localStorage.removeItem(buildRecommendationStorageKey);
+    setHeldBuildRecommendationSignature(null);
   }, [
     buildComplete,
     buildRecommendationStorageKey,
-    consumedBuildRecommendationSignatures,
     heldBuildRecommendationSignature,
-    workspaceCard,
   ]);
 
   useEffect(() => {
@@ -2768,6 +2756,32 @@ export function WorkspaceShell({
     setHeldBuildRecommendationSignature(null);
   }, [buildRecommendationStorageKey]);
 
+  const dismissBuildRecommendation = useCallback(() => {
+    window.localStorage.removeItem(buildRecommendationStorageKey);
+    setHeldBuildRecommendationSignature(null);
+    const signature = getBuildRecommendationHoldSignature(
+      workspaceCardRef.current,
+    );
+    if (signature) {
+      setConsumedBuildRecommendationSignatures((prev) => {
+        if (prev.has(signature)) {
+          return prev;
+        }
+        const next = new Set(prev);
+        next.add(signature);
+        try {
+          window.localStorage.setItem(
+            buildRecommendationConsumedKey,
+            JSON.stringify([...next]),
+          );
+        } catch {
+          // ignore
+        }
+        return next;
+      });
+    }
+  }, [buildRecommendationConsumedKey, buildRecommendationStorageKey]);
+
   function handleMessageSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     submitChatText(message);
@@ -3633,7 +3647,29 @@ export function WorkspaceShell({
                           }
                           className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none [scrollbar-width:none] placeholder:text-surface-warm-white/38 disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
                         />
-                        <div className="flex items-center justify-end gap-spacing-4">
+                        <div className="flex items-center justify-between gap-spacing-4">
+                          <div className="flex items-center gap-spacing-2">
+                            {!buildComplete && !isBuilding && !isProcessing ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                  if (canStartBuildNow) {
+                                    void handleStartBuild();
+                                  } else {
+                                    submitChatText("Buat website sekarang");
+                                  }
+                                }}
+                                disabled={
+                                  sessionExpired ||
+                                  authStatus !== "authenticated"
+                                }
+                                className="h-8 rounded-full border-surface-warm-white/12 bg-transparent px-spacing-3 text-xs font-medium text-surface-warm-white hover:bg-surface-warm-white/10"
+                              >
+                                Buat website
+                              </Button>
+                            ) : null}
+                          </div>
                           <div className="flex items-center gap-spacing-2">
                             {composerUploadsEnabled ? (
                               <ComposerAttachButton
@@ -3748,6 +3784,7 @@ export function WorkspaceShell({
                   <HeldBuildRecommendationNotice
                     canBuild={canStartBuildNow}
                     onBuild={() => void handleStartBuild()}
+                    onDismiss={dismissBuildRecommendation}
                     onOpen={openBuildRecommendation}
                   />
                 ) : null}
@@ -3791,7 +3828,31 @@ export function WorkspaceShell({
                     className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-foreground outline-none [scrollbar-width:none] placeholder:text-muted-foreground disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
                     disabled={sessionExpired || authStatus !== "authenticated"}
                   />
-                  <div className="flex items-center justify-end gap-spacing-4">
+                  <div className="flex items-center justify-between gap-spacing-4">
+                    <div className="flex items-center gap-spacing-2">
+                      {!buildComplete &&
+                      !isBuilding &&
+                      !isProcessing &&
+                      composerState !== "held_build_recommendation" ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            if (canStartBuildNow) {
+                              void handleStartBuild();
+                            } else {
+                              submitChatText("Buat website sekarang");
+                            }
+                          }}
+                          disabled={
+                            sessionExpired || authStatus !== "authenticated"
+                          }
+                          className="h-8 rounded-full border-border bg-transparent px-spacing-3 text-xs font-medium text-foreground hover:bg-muted"
+                        >
+                          Buat website
+                        </Button>
+                      ) : null}
+                    </div>
                     <div className="flex items-center gap-spacing-2">
                       {composerUploadsEnabled ? (
                         <ComposerAttachButton

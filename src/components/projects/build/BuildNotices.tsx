@@ -1,19 +1,23 @@
 "use client";
 
+import { X } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 
 export function HeldBuildRecommendationNotice({
   canBuild = true,
   onBuild,
+  onDismiss,
   onOpen,
 }: {
   canBuild?: boolean;
   onBuild: () => void;
+  onDismiss?: () => void;
   onOpen: () => void;
 }) {
   return (
-    <div className="rounded-[22px] border border-border bg-card px-spacing-5 py-spacing-4 shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-spacing-4">
+    <div className="relative rounded-[22px] border border-border bg-card px-spacing-5 py-spacing-4 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-spacing-4 pr-spacing-6">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-foreground">
             Rancangan website disimpan
@@ -42,6 +46,16 @@ export function HeldBuildRecommendationNotice({
           </Button>
         </div>
       </div>
+      {onDismiss ? (
+        <button
+          type="button"
+          onClick={onDismiss}
+          aria-label="Tutup pemberitahuan rancangan"
+          className="absolute right-spacing-3 top-spacing-3 inline-flex size-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <X className="size-4" />
+        </button>
+      ) : null}
     </div>
   );
 }
