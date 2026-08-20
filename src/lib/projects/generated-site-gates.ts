@@ -863,6 +863,64 @@ export function normalizeGeneratedInteractiveContent(content: string): string {
   return ensureButtonTouchTargets(ensureActionTouchTargets(content));
 }
 
+export function normalizeGeneratedSiteContent(content: string): string {
+  const withoutRemoteFonts = content.replace(
+    /@import\s+url\(\s*["']https:\/\/fonts\.googleapis\.com\/[^)]*["']\s*\)\s*;?/gi,
+    "",
+  );
+  return normalizeGeneratedContrastSurfaces(
+    normalizeGeneratedInteractiveContent(withoutRemoteFonts),
+  );
+}
+
+function normalizeGeneratedContrastSurfaces(content: string): string {
+  const classNamePattern = /className=["']([^"']*)["']/g;
+  return content.replace(
+    classNamePattern,
+    (_match, classes: string) =>
+      `className="${normalizeGeneratedSurfaceClasses(classes)}"`,
+  );
+}
+
+function normalizeGeneratedSurfaceClasses(classes: string): string {
+  const hasOrangeSurface = /\bbg-(?:accent|terra)(?:\/\d{1,3})?\b/.test(
+    classes,
+  );
+  const hasGreenSurface = /\bbg-\[#(?:25D366|1fb457)\]/i.test(classes);
+  const hasWhiteSurface = /\bbg-white(?:\/\d{1,3})?\b/.test(classes);
+  let normalized = classes;
+
+  if (hasOrangeSurface) {
+    normalized = normalized.replace(
+      /\btext-(?:white|accent(?!-)|forest-foreground)(\/\d{1,3})?\b/g,
+      (_match, opacity: string | undefined) =>
+        `text-foreground${opacity ?? ""}`,
+    );
+    if (
+      !/\btext-(?:foreground|background|accent-foreground|primary-foreground)\b/.test(
+        normalized,
+      )
+    ) {
+      normalized = `${normalized} text-foreground`;
+    }
+  }
+  if (hasGreenSurface) {
+    normalized = normalized.replace(
+      /\btext-white(\/\d{1,3})?\b/g,
+      (_match, opacity: string | undefined) =>
+        `text-foreground${opacity ?? ""}`,
+    );
+  }
+  if (hasWhiteSurface) {
+    normalized = normalized.replace(
+      /\btext-accent(?!-)(\/\d{1,3})?\b/g,
+      (_match, opacity: string | undefined) =>
+        `text-foreground${opacity ?? ""}`,
+    );
+  }
+  return normalized;
+}
+
 export function normalizeBatchedSiteAnchors(
   files: GeneratedProjectFile[],
   options?: {
@@ -1025,7 +1083,7 @@ export function normalizeBatchedSiteAnchors(
         options?.primaryCtaTarget,
       );
     }
-    content = normalizeGeneratedInteractiveContent(content);
+    content = normalizeGeneratedSiteContent(content);
     content = ensureCtaTouchTarget(content, whatsappHref);
     return { ...file, content };
   });

@@ -6,6 +6,7 @@ import {
   inspectReferenceCalibratedSiteSource,
   normalizeBatchedSiteAnchors,
   normalizeGeneratedInteractiveTargets,
+  normalizeGeneratedSiteContent,
 } from "./generated-site-gates";
 
 import type { WriterDesignPlanV1 } from "./batched-response";
@@ -589,6 +590,25 @@ describe("normalizeGeneratedInteractiveTargets", () => {
       /className=.*className=/,
     );
     expect(file?.content).toContain('style={{ minHeight: "44px"');
+  });
+
+  it("repairs contrast on generated component surfaces and action colors", () => {
+    const normalized = normalizeGeneratedSiteContent(
+      '<div className="bg-accent p-8"><h3>Masih ragu?</h3></div><a href={link} className="bg-white text-accent">Tanya Admin</a><Button className="bg-[#25D366] text-white">Chat</Button>',
+    );
+
+    expect(normalized).toContain("bg-accent p-8 text-foreground");
+    expect(normalized).toContain("bg-white text-foreground");
+    expect(normalized).toContain("bg-[#25D366] text-foreground");
+  });
+
+  it("removes remote font imports from generated CSS", () => {
+    const normalized = normalizeGeneratedSiteContent(
+      '@import url("https://fonts.googleapis.com/css2?family=Fraunces");\n@import "tailwindcss";',
+    );
+
+    expect(normalized).not.toContain("fonts.googleapis.com");
+    expect(normalized).toContain('@import "tailwindcss";');
   });
 });
 

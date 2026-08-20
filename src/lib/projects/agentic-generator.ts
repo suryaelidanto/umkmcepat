@@ -14,7 +14,7 @@ import { getGenerationModel } from "@/lib/ai/ai-models";
 import { getSettingSync } from "@/lib/config/app-settings";
 import { devLog } from "@/lib/dev-log";
 import { generateDiff, type DiffLine } from "@/lib/projects/diff";
-import { normalizeGeneratedInteractiveContent } from "@/lib/projects/generated-site-gates";
+import { normalizeGeneratedSiteContent } from "@/lib/projects/generated-site-gates";
 import {
   buildGeneratedProject,
   createGeneratedViteTanStackStarterFiles,
@@ -260,9 +260,10 @@ export async function runAgenticGenerate(input: {
           };
         }
         const oldContent = fileMap.get(path) ?? "";
-        const normalizedContent = path.endsWith(".tsx")
-          ? normalizeGeneratedInteractiveContent(content)
-          : content;
+        const normalizedContent =
+          path.endsWith(".tsx") || path.endsWith(".css")
+            ? normalizeGeneratedSiteContent(content)
+            : content;
         const diff = generateDiff(oldContent, normalizedContent);
         fileMap.set(path, normalizedContent);
         touched.add(path);
