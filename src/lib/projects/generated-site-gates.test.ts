@@ -800,17 +800,6 @@ describe("normalizeGeneratedInteractiveTargets", () => {
 });
 
 describe("normalizeBatchedSiteAnchors", () => {
-  it("anchors the accepted composition pattern on the home route", () => {
-    const [file] = normalizeBatchedSiteAnchors(
-      [{ path: "src/routes/index.tsx", content: "<main><h1>Home</h1></main>" }],
-      { compositionPatternId: "split-commerce-hero" },
-    );
-
-    expect(file?.content).toContain(
-      '<main data-pattern="split-commerce-hero">',
-    );
-  });
-
   it("maps accepted palette literals onto compiled semantic tokens", () => {
     const [file] = normalizeBatchedSiteAnchors(
       [

@@ -355,7 +355,6 @@ describe("professional site prompts", () => {
     });
     expect(prompt.system).toContain("data-first-view");
     expect(prompt.system).toContain("data-primary-action");
-    expect(prompt.system).toContain("data-signature");
     expect(prompt.system).toContain("site.primaryCta.href");
     expect(prompt.system).toContain("no model tools");
     expect(prompt.system).toContain("maxRetries: 0");
@@ -383,7 +382,6 @@ describe("professional site prompts", () => {
     expect(prompt.system).toContain('target="_blank"');
     expect(prompt.system).toContain('rel="noopener noreferrer"');
     expect(prompt.system).toContain('data-section-id="');
-    expect(prompt.system).toContain('data-pattern="');
     expect(prompt.system).toContain("min-h-11");
     expect(prompt.system).toContain("text-muted-foreground");
     for (const path of professionalPopulatedContentPaths(

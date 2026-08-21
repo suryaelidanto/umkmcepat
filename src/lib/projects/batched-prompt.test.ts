@@ -145,8 +145,6 @@ describe("buildReferenceCalibratedWriterPrompt", () => {
       compositionPatternId: "full-field-lockup",
     });
 
-    expect(prompt.system).toContain("data-pattern");
-    expect(prompt.system).toContain("full-field-lockup");
     expect(prompt.system).toContain(
       contract.business.primaryCta.target.replace(/\D/g, ""),
     );
@@ -197,8 +195,6 @@ describe("buildReferenceCalibratedWriterPrompt", () => {
       projectId: "benchmark-project",
       schema: {} as never,
     });
-    expect(prompt.system).toContain("bold-typographic");
-    expect(prompt.system).toContain("full-field-lockup");
     expect(prompt.system).toContain("DESIGN STANDARDS");
     expect(prompt.system).toContain("meaningful inline SVG");
     expect(prompt.system).toContain(

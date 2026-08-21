@@ -28,6 +28,15 @@ interface Violation {
 
 const violations: Violation[] = [];
 
+const TASTE_PINNING_ASSERTION =
+  /expect\([\s\S]{0,160}?\)\.(?:toBe|toEqual|toContain|toMatch)\([\s\S]{0,120}?(?:editorial-airy|warm-commerce|bold-typographic|menu-led-editorial|catalog-story|data-pattern|data-signature|split-commerce-hero|asymmetric-hero)/gi;
+
+export function findTastePinningAssertions(content: string): number[] {
+  return [...content.matchAll(TASTE_PINNING_ASSERTION)].map(
+    (match) => content.slice(0, match.index).split("\n").length,
+  );
+}
+
 function checkDirectoryNames(dir: string) {
   if (dir === VENDORED_SOURCE_DIRECTORY) {
     return;
@@ -72,6 +81,22 @@ function checkCommentsAndTypes(filePath: string, content: string) {
 
   const lines = content.split("\n");
   let consecutiveComments = 0;
+
+  if (
+    relPath.startsWith("src/lib/projects/") &&
+    relPath.endsWith(".test.ts") &&
+    !relPath.includes("check-codebase-discipline")
+  ) {
+    for (const line of findTastePinningAssertions(content)) {
+      violations.push({
+        detail:
+          "Generated-output tests must enforce truth, safety, operability, or review evidence, never exact visual taste.",
+        file: relPath,
+        line,
+        rule: "no-generated-taste-pinning",
+      });
+    }
+  }
 
   for (let i = 0; i < lines.length; i++) {
     const lineNum = i + 1;
