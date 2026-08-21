@@ -1,4 +1,4 @@
-import { generateText } from "ai";
+import { generateObject } from "ai";
 import { z } from "zod";
 
 import type { OutcomeDirectedSiteContractV1 } from "./outcome-site-contract";
@@ -119,10 +119,11 @@ CRITICAL RULES:
   const prompt = `Produce creative direction for this accepted contract:
 ${JSON.stringify(input.contract, null, 2)}`;
 
-  const result = await generateText({
+  const result = await generateObject({
     abortSignal: input.abortSignal,
     model: getAiModel(modelId),
     prompt,
+    schema: CreativeDirectionSchema,
     system: systemPrompt,
     telemetry: getAiTelemetry("project-outcome-creative-direction", {
       projectId: input.projectId,
@@ -130,15 +131,8 @@ ${JSON.stringify(input.contract, null, 2)}`;
     }),
   });
 
-  const parsedJson = JSON.parse(result.text || "{}") as unknown;
-  const validatedOutput = CreativeDirectionSchema.safeParse(parsedJson);
-
-  if (!validatedOutput.success) {
-    throw new Error("Creative direction response was malformed.");
-  }
-
   const outputWithHash: CreativeDirectionV1 = {
-    ...validatedOutput.data,
+    ...result.object,
     contractHash: input.contract.contractHash,
     schemaVersion: 1,
   };
