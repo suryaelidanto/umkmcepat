@@ -4488,6 +4488,22 @@ async function rateLimitAwareFetch(
     }
   }
 
+  if (response.status === 409) {
+    const clone = response.clone();
+    const body = (await clone.json().catch(() => null)) as {
+      code?: string;
+      message?: string;
+    } | null;
+    if (body?.code === "project_chat_in_progress") {
+      const error = new Error(
+        body.message || "Obrolan masih berjalan untuk proyek ini.",
+      ) as ChatError;
+      error.status = 409;
+      error.code = "project_chat_in_progress";
+      throw error;
+    }
+  }
+
   if (response.status === 413) {
     const clone = response.clone();
     const body = (await clone.json().catch(() => null)) as {

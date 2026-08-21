@@ -277,7 +277,7 @@ For behavior changes:
 4. Run the targeted test.
 5. Run `bun run check`.
 
-Generated AI output tests must not pin taste or stochastic wording. Never assert exact model prose, palette hues, font choices, layout structure, card counts, section order, visual-kit or recipe selection, decorative elements, or snapshots of generated source. Test accepted facts, omissions, CTA destinations, routes, package/path policy, compilation, accessibility, browser operability, bounded call budgets, review completeness, and last-known-good preservation. Rendered quality belongs to calibrated visual review and blind corpus evaluation, not exact-response fixtures.
+Never write TDD or unit tests for AI responses or stochastic model output. Never assert exact model prose, Indonesian phrasing, palette hues, font choices, layout structure, card counts, section order, visual-kit or recipe selection, decorative elements, or snapshots of generated source. Doing TDD on model wording or taste is forbidden. Test deterministic boundaries only: accepted facts, omissions, CTA destinations, routes, package/path policy, compilation, accessibility, browser operability, bounded call budgets, review completeness, and last-known-good preservation. Rendered quality belongs to calibrated visual review and blind corpus evaluation, not exact-response unit tests.
 
 Test behavior boundaries and non-trivial logic, not private implementation details.
 
