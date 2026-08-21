@@ -10,8 +10,9 @@ Use this skill whenever you need to push local changes to `dev` and wait for rem
 ## Workflow Steps
 
 ### 1. Atomic Commit (Sub-skill)
-If there are uncommitted working tree changes, invoke `atomic-commit` first:
-- Stage only files related to the completed task (or all files if no specific task context exists).
+If there are uncommitted working tree changes from the current task, invoke `atomic-commit` first:
+- Stage ONLY files modified for the current task.
+- NEVER discard, revert, stash, or stage uncommitted changes belonging to other agents/tasks.
 - Create local Conventional Commit.
 - Verify working tree status:
 ```bash
