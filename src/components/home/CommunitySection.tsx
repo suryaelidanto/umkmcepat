@@ -35,9 +35,9 @@ Saya tertarik menjadi sponsor UMKM Cepat:
 
 - Nama / Perusahaan: 
 - Website / Profil: 
-- Jenis sponsor: [Donasi murni / Iklan website / Dukungan domain-infra]
-- Nilai / Budget dukungan: Rp 
-- Catatan / Penempatan yang diinginkan: 
+- Bentuk dukungan / sponsor: 
+- Nilai / Budget dukungan: 
+- Pesan / Catatan tambahan: 
 
 Terima kasih.`,
 )}`;
@@ -85,9 +85,9 @@ function SponsorModal() {
             <pre className="mt-spacing-2 whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-[#5f5f5d] dark:text-surface-warm-white/80">
               {`- Nama / Perusahaan:
 - Website / Profil:
-- Jenis sponsor: [Donasi murni / Iklan website / Dukungan domain-infra]
-- Nilai / Budget dukungan: Rp
-- Catatan / Penempatan yang diinginkan:`}
+- Bentuk dukungan / sponsor:
+- Nilai / Budget dukungan:
+- Pesan / Catatan tambahan:`}
             </pre>
           </div>
 
