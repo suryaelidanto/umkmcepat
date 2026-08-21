@@ -337,7 +337,6 @@ Expected: PASS.
 
 ```bash
 git add src/lib/admin-project-observer.ts src/lib/admin-project-observer.test.ts
-git commit -m "feat(admin): add project observer access loader" -m "Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -593,7 +592,6 @@ Expected: PASS.
 
 ```bash
 git add src/components/projects/AdminProjectObserver.tsx src/routes/_main.projects.$id.tsx
-git commit -m "feat(admin): render project observer for non-owner admins" -m "Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -633,7 +631,6 @@ Expected: PASS.
 
 ```bash
 git add src/routes/_main.admin.projects.tsx
-git commit -m "feat(admin): link project list to observer view" -m "Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---

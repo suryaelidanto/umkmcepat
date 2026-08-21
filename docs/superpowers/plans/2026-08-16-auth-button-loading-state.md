@@ -166,5 +166,4 @@ Run:
 
 ```bash
 git add src/components/common/AuthButton.tsx src/components/common/AuthButton.test.ts
-git commit -m $'fix(auth): show loading state on login button\n\nCo-Authored-By: Claude <noreply@anthropic.com>'
 ```

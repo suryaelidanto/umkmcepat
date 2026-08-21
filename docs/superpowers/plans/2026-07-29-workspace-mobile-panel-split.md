@@ -12,7 +12,6 @@
 
 ## Global Constraints
 
-- Atomic commits to `dev`; conventional-commit; body ≤100 chars; `Co-Authored-By: Claude <noreply@anthropic.com>`.
 - Visible product copy Indonesian; code/comments English. PRINCIPLES.md self-explanatory-code rule.
 - TDD for non-trivial logic; UI-only changes (composer safe-area, iframe cap) skip test-gate and rely on tier-2 Playwright/dev captures.
 - Pre-commit runs `bun run check:commit`; CI runs `bun run verify`. Never bypass a failing gate.
@@ -157,7 +156,6 @@ SSR-safe matchMedia hook for (min-width: 1024px). Returns false
 during SSR and on mobile, true on desktop. Used by workspace shell
 to conditionally render ResizablePanelGroup only on >=lg.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -281,7 +279,6 @@ Extract chat/preview JSX into variables. Render plain full-screen
 toggle on <lg via mobileSurface state, ResizablePanelGroup only on
 >=lg. No more CSS overrides fighting the library's inline styles.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -424,7 +421,6 @@ picker, annotation toggle, Support link, History, Energy, and Runtime
 controls — the same controls permanently visible on the desktop
 cluster, now accessible from the mobile collapsed top bar.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -491,7 +487,6 @@ mobile full-screen tree renders and the desktop ResizablePanelGroup
 is absent from the DOM — prevents the double-mount regression that
 the previous CSS-override approach caused.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---

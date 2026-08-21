@@ -9,6 +9,7 @@ node_modules
 .omc
 graphify-out
 .data
+.cache
 .lighthouseci
 .lighthouse-auth
 coverage

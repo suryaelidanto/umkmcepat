@@ -322,7 +322,6 @@ Contact, social link, payment method, certification, hours,
 testimonial, and product/service item. Each parser accepts
 unknown and returns null on missing or malformed input.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -469,7 +468,6 @@ Six UMKM types. Always-on fields: contact, tagline, USP, visuals.
 F&B, retail, jasa_lokal, jasa_online, kursus, other each carry
 their own applicable set.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -738,7 +736,6 @@ Single-word generic business names, malformed phone numbers,
 and obviously empty price ranges are dropped to null. Validator
 returns a cleaned brief plus a list of dropped field ids.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -895,7 +892,6 @@ git commit -m "feat(brief): add typed rich fields and readyForBuild gate
 Brief now carries the 18-field catalog, readyForBuild is a
 boolean, validator flow lives behind applyBriefValidator.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -1073,7 +1069,6 @@ Covers voice, language, greeting, mandatory, 16 soft fields,
 applicability per UMKM type, confidence rule, anti-hallucination,
 re-discussion, build handoff, empty businessName, multi-product.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -1245,7 +1240,6 @@ git commit -m "feat(chat-memory): track per-field state and dominant language
 asked / answered / declined / explicitly_empty per soft field.
 detectDominantLanguage over the last 6 user messages.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -1316,7 +1310,6 @@ Appends DISCUSS_SYSTEM_PROMPT to chat, card, and one-call
 prompts. Extraction schema accepts readyForBuild. Validator
 scrubs hallucinated field values before storage.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -1466,7 +1459,6 @@ git commit -m "feat(brief): build handoff one-liner
 Names the business, primary product, and contact. Trailing
 'sisanya bisa lo tambahin nanti' is always present.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -1548,7 +1540,6 @@ Mulai build button only enables when brief.readyForBuild is
 true and mandatory fields are present. On click, a one-liner
 lists the filled fields and promises more is editable later.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -1677,7 +1668,6 @@ currentPromo, testimonials, certifications. Multi-product
 list under the hero. Every section hides cleanly when its
 value is empty — no placeholders.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -1757,7 +1747,6 @@ Brief with mandatory only is not ready. With readyForBuild
 flag, it is. Hallucinated contact is dropped, gate still
 opens with mandatory + flag.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---

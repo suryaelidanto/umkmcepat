@@ -15,7 +15,6 @@
 - **Non-negotiable: behavior + output MUST NOT change.** `bun run check` green before + after every change. A refactor that breaks the gate → revert, don't ship. `bun run verify` before handoff.
 - Comment hygiene per `DEV.md` line 8: delete restating/obvious/now-unnecessary comments; keep only non-obvious-why (invariants, guarded edge cases). One-liner preferred.
 - No new dependencies. No abstraction for a single implementation. No config for a value that never changes. Prefer deletion over addition.
-- Each refactor is its own atomic commit to `dev`. Conventional-commit, body ≤100 chars, `Co-Authored-By: Claude <noreply@anthropic.com>`.
 - Graphify: **live + working** (`~/.local/bin/graphify`, `bun run graph:update` confirmed 2026-07-25: 4269 nodes, 10364 edges). Use `bun run graph:update` to refresh + read `graphify-out/GRAPH_REPORT.md` / `graphify-out/GRAPH_TREE.html` for discovery. Do NOT add Graphify as a project dependency (per `CLAUDE.md`). (`.sql` migrations excluded unless `pip install "graphifyy[sql]"`.)
 - Visible product copy Indonesian; code/comments English.
 

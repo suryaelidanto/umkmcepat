@@ -17,7 +17,6 @@
 - Cached: `--cache --cache-location <artifactDir>/.prettiercache` so unchanged files are skipped. The cache is a gitignored build artifact under `.data/project-artifacts/`.
 - Bounded: a 30s timeout so a pathological large project can't hang the post-commit side-effect.
 - Visible product copy Indonesian; code/comments English. `.env`/`.env.example` 1:1 (no new env vars).
-- TDD + frequent atomic commits to `dev`. Conventional-commit, body ≤100 chars, `Co-Authored-By: Claude <noreply@anthropic.com>`.
 
 ---
 

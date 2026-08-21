@@ -46,7 +46,6 @@
 
 ```bash
 git add src/lib/admin-project-observer.ts src/lib/admin-project-observer.test.ts
-git commit -m "test(admin): cover project observer access modes" -m "Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -73,7 +72,6 @@ git commit -m "test(admin): cover project observer access modes" -m "Co-Authored
 
 ```bash
 git add src/components/projects/WorkspaceShell.tsx src/routes/_main.projects.\$id.tsx src/components/projects/AdminProjectObserver.tsx
-git commit -m "feat(admin): add read-only workspace mode" -m "Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -94,7 +92,6 @@ git commit -m "feat(admin): add read-only workspace mode" -m "Co-Authored-By: Cl
 
 ```bash
 git add src/routes/api.projects.\$id.workspace.ts src/routes/api.projects.\$id.runtime.ts src/routes/api.projects.\$id.source.ts src/routes/api.projects.\$id.preview.\$.ts src/routes/api.projects.\$id.thumbnail.ts src/routes/api.projects.\$id.chat.ts
-git commit -m "feat(admin): allow read-only project workspace endpoints" -m "Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---

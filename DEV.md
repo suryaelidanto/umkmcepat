@@ -253,7 +253,7 @@ Run before handoff or PR:
 bun run check
 ```
 
-This runs lockfile guard, Prettier, ESLint, TypeScript, changed Vitest unit tests, Knip, and doc-link checks in parallel.
+This runs the lockfile guard, cached route generation, and cached Prettier, ESLint, TypeScript, changed Vitest unit tests, Knip, discipline, and doc-link checks in parallel. Each successful task is keyed by its source, config, lockfile, tool version, and relevant environment. Use `bun run check:uncached` to bypass the local result cache.
 
 The pre-commit hook (`scripts/check-staged-fix.ts`) **auto-fixes staged files** before a commit: it runs `prettier --write` + `eslint --fix` on the staged content, re-stages the result, then runs the read-only Prettier + ESLint check. If an unfixable lint error remains, the commit is blocked. It only ever touches staged content — unstaged working-tree changes are snapshotted and restored, so half-written edits never leak into a commit. To run the read-only gate manually (no auto-fix), use `bun scripts/check-staged.ts`.
 

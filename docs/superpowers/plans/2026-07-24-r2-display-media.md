@@ -18,7 +18,6 @@
 - Mock/proxy providers fail loudly if a required var is missing in the configured provider; never fabricate success at a trust boundary.
 - User-facing copy in Indonesian; code/comments/logs/errors in English.
 - TDD: failing test first, minimal code, targeted test, then `bun run check`. Frequent atomic commits to `dev`.
-- Conventional-commit messages, body lines ≤ 100 chars, end with `Co-Authored-By: Claude <noreply@anthropic.com>`.
 
 ---
 

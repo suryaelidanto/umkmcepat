@@ -19,7 +19,6 @@
 - **Prompt copy in Bahasa Indonesia** for user-visible text; prompt instructions in English.
 - **Cap 3 questions per batch.** Server enforces via slice.
 - **Prettier gotcha:** older babel parser in this repo crashes on template literals containing `${...}` followed by `{` and on backtick spans inside JSDoc that contain `(`. Build regex/pattern strings with concatenation and use single-quotes in JSDoc when the span contains `(` or `{`. Do NOT reintroduce that pattern.
-- **Commit messages:** conventional commits. End with `Co-Authored-By: Claude <noreply@anthropic.com>`. Footer needs a leading blank line.
 - **Test runner:** `bun test <path>`.
 
 **Spec:** `docs/superpowers/specs/2026-07-18-workspace-card-rounds-design.md`
@@ -127,7 +126,6 @@ Expected: FAIL — type compiles but `normalizeWorkspaceCard` still collapses to
 git add src/lib/projects/brief.ts src/lib/projects/brief-flow.test.ts
 git commit -m "feat(discuss): add WorkspaceCard questions[] variant type
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -320,7 +318,6 @@ git commit -m "feat(discuss): validate questions[] in normalizeWorkspaceCard
 Per-question validation drops invalid items, dedupes by id, caps at 3,
 and collapses a single valid question to the existing type:question card.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -424,7 +421,6 @@ Expected: PASS — all existing single-question tests + new batch tests green.
 git add src/lib/projects/workspace-answers.ts src/lib/projects/workspace-answers.test.ts
 git commit -m "feat(discuss): apply workspace answers for a questions[] card
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -555,7 +551,6 @@ Expected: PASS.
 git add src/lib/projects/workspace-sync.ts src/lib/projects/workspace-sync-rounds.test.ts
 git commit -m "feat(discuss): workspace-sync handles questions[] card
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -640,7 +635,6 @@ Run: `bunx tsc --noEmit -p tsconfig.json 2>&1 | grep -E "preview.ts|discuss-syst
 git add src/lib/projects/prompts/discuss-system.md src/routes/api.projects.preview.ts
 git commit -m "feat(discuss): prompt rounds + relentless tone
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -690,7 +684,6 @@ Expected: PASS (no behavioral change; schema only widens accepted input).
 git add src/routes/api.projects.preview.ts
 git commit -m "feat(discuss): shape presentWorkspaceCard questions[] schema
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -756,7 +749,6 @@ Agent loop gives the model one self-correct step if it streams chat text
 without calling presentWorkspaceCard. Also raises maxRetries 1->2 for
 transient API errors. Targets ~99% tool-invocation reliability.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -791,7 +783,6 @@ Expected: either PASS or "no ai-timeouts test" (no assertion on the old constant
 git add src/lib/ai-timeouts.ts
 git commit -m "fix(discuss): repair attempts 2->3 (deadline 135s)
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -993,7 +984,6 @@ When every AI path (primary + repair) yields type:none, the server derives
 a questions card from empty required brief fields so the user is never stuck
 without a clickable card.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -1149,7 +1139,6 @@ Then: `bun run check:commit` (dry — stage first if it requires staged files).
 git add src/components/projects/WorkspacePrimitives.tsx src/components/projects/WorkspaceShell.tsx
 git commit -m "feat(discuss): QuestionsComposer renders a batch with one submit
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -1197,7 +1186,6 @@ Expected: clean.
 git add src/routes/api.projects.preview.ts
 git commit -m "fix(discuss): repair prompt emits questions[] or single question
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -1225,7 +1213,6 @@ Run: `bunx storybook build --test 2>&1 | tail -5` or skip if storybook isn't par
 git add src/stories/WorkspaceDecisionCards.stories.tsx
 git commit -m "docs(story): add questions[] batch fixture
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---

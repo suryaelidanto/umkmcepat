@@ -43,7 +43,6 @@ Every commit message must follow the Conventional Commits v1.0.0 specification w
 [optional body: explain WHAT changed, WHY, and technical rationale]
 
 [optional footer: BREAKING CHANGE, Closes #123, refs]
-Co-Authored-By: Claude <noreply@anthropic.com>
 ```
 
 ### Type Taxonomy
@@ -68,29 +67,22 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 - **Precise scope**: Scope must be a clean noun targeting the module, feature, or directory touched (e.g. `(projects)`, `(api)`, `(skills)`, `(ui)`, `(auth)`).
 - **Breaking changes**: Append `!` after type/scope (e.g. `feat(auth)!: ...` or `refactor(db)!: ...`) AND include `BREAKING CHANGE: <explanation>` in the footer.
 - **Detailed body when non-trivial**: If the change has architectural implications, complex bug fixes, or behavioral subtleties, explain *why* in the body paragraphs.
-- **Always include Co-Author**: Append `Co-Authored-By: Claude <noreply@anthropic.com>`.
 
 ### Reference Examples
 
 ```bash
 # Feature with scope
-git commit -m "feat(projects): add batch generator retry handler
-
-Co-Authored-By: Claude <noreply@anthropic.com>"
+git commit -m "feat(projects): add batch generator retry handler"
 
 # Bug fix with explanation body
 git commit -m "fix(ui): correct dialog close button alignment on mobile
 
-Flex wrap caused the close button to push down beneath the modal header on screens < 640px.
-
-Co-Authored-By: Claude <noreply@anthropic.com>"
+Flex wrap caused the close button to push down beneath the modal header on screens < 640px."
 
 # Breaking change
 git commit -m "feat(auth)!: migrate token verification to header bearer scheme
 
-BREAKING CHANGE: Query parameter token authentication is now rejected.
-
-Co-Authored-By: Claude <noreply@anthropic.com>"
+BREAKING CHANGE: Query parameter token authentication is now rejected."
 ```
 
 ---
@@ -113,9 +105,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
    ```bash
    git commit -m "type(scope): concise description
 
-   [optional body]
-
-   Co-Authored-By: Claude <noreply@anthropic.com>"
+   [optional body]"
    ```
 
 4. **Verify commit record**:
