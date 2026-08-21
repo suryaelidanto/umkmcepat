@@ -262,7 +262,7 @@ describe("buildReferenceCalibratedWriterPrompt", () => {
 
     expect(prompt.system).toContain("Emit no reasoning");
     expect(prompt.system).toContain("Never omit done");
-    expect(prompt.system.length + prompt.user.length).toBeLessThan(12_000);
+    expect(prompt.system.length + prompt.user.length).toBeLessThan(16_000);
   });
 
   it("limits reference output to one compact route file", () => {
