@@ -1,14 +1,14 @@
 ---
 name: atomic-commit
-description: Stage and commit isolated changes locally with Conventional Commits. No git push. Use when committing code progress, completing a task, or when staged changes need an atomic commit before pushing.
+description: Stage isolated task changes locally and create standardized Conventional Commits. Never push to remote. Never touch or discard other agents' uncommitted files.
 ---
 
 # Atomic Commit
 
-Use this skill to create isolated, well-scoped commits locally on the current branch.
+Use this skill to isolate, stage, validate, and commit changes locally on the current branch using the Conventional Commits specification.
 **Rule: Do not push to remote inside this skill.**
 
-## Staging Policy
+## 1. Staging Policy
 
 1. **Active Agent Task Context (DEFAULT - STRICT ISOLATION)**:
    - Stage **ONLY** files explicitly created or modified for your current assigned task:
@@ -27,21 +27,51 @@ Use this skill to create isolated, well-scoped commits locally on the current br
      git add -A
      ```
 
-## Commit Message Format
+## 2. Commit Message Structure (Conventional Commits)
 
-Use the Conventional Commits specification in imperative mood:
-`type(scope): concise description`
+Format: `<type>(<scope>): <description>`
 
-Allowed types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`.
+```
+<type>(<scope>): <short imperative description>
 
-Append co-author attribution on every commit:
-`Co-Authored-By: Claude <noreply@anthropic.com>`
+[optional body: detailed explanation of what changed and why]
 
-## Execution
+[optional footer: BREAKING CHANGE: details, or issue refs]
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
 
-1. Check diff and verify staged files:
+### Allowed Types
+- `feat`: New feature or capability
+- `fix`: Bug fix
+- `docs`: Documentation only changes
+- `style`: Formatting, missing semi colons, white-space (no code logic changes)
+- `refactor`: Code change that neither fixes a bug nor adds a feature
+- `perf`: Performance improvement
+- `test`: Adding or correcting tests
+- `build`: Build system or external dependency changes
+- `ci`: CI configuration and script changes
+- `chore`: Maintenance tasks, meta files
+- `revert`: Reverting previous commit
+
+### Rules & Validation
+- **Type**: Must be one of the allowed types. Use `feat!` or `fix!` with breaking changes.
+- **Scope**: Lowercase noun describing module/feature touched (e.g., `(projects)`, `(api)`, `(skills)`, `(ui)`). Optional but recommended.
+- **Description**: Imperative mood ("add", "fix", "update", not "added" or "fixes"), lowercase start, no period at the end.
+- **Footer**: Include `Co-Authored-By: Claude <noreply@anthropic.com>` on every commit.
+
+### Examples
+- `feat(projects): add batch generator retry handler`
+- `fix(ui): correct dialog close button alignment`
+- `docs(skills): merge conventional commit into atomic commit`
+- `refactor(db): streamline query caching logic`
+- `feat(auth)!: require email verification on registration`
+
+## 3. Execution Workflow
+
+1. Inspect modified files and staged diff:
    ```bash
    git status --short
+   git add <only-task-files>
    git diff --staged --stat
    ```
 
@@ -49,10 +79,12 @@ Append co-author attribution on every commit:
    ```bash
    git commit -m "type(scope): concise description
 
+   [optional body]
+
    Co-Authored-By: Claude <noreply@anthropic.com>"
    ```
 
-3. Confirm commit was created:
+3. Confirm commit creation:
    ```bash
    git log -n 1 --oneline
    ```
