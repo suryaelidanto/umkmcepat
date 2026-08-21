@@ -10,13 +10,15 @@ Use this skill to create isolated, well-scoped commits locally on the current br
 
 ## Staging Policy
 
-1. **Active Agent Task Context (DEFAULT)**:
-   - Stage ONLY files explicitly created or modified for the current task:
+1. **Active Agent Task Context (DEFAULT - STRICT ISOLATION)**:
+   - Stage **ONLY** files explicitly created or modified for your current assigned task:
      ```bash
-     git add src/path/to/file1.ts src/path/to/file2.test.ts
+     git add src/path/to/my-file1.ts src/path/to/my-file2.test.ts
      ```
-   - **NEVER** stage, revert, discard, or clean unrelated dirty files from other agents or user work. Leave unmanaged files untouched in working tree.
-   - **NEVER** run `git add -A`, `git add .`, `git reset --hard`, `git restore .`, or `git clean` unless explicitly ordered by user.
+   - **STRICTLY FORBIDDEN:**
+     - **NEVER** run `git checkout -- .`, `git checkout HEAD -- <dir>`, `git restore .`, or `git reset --hard` to revert untracked/modified files created by other agents or skills (such as `.agents/skills/*`, user edits, or parallel agent worktrees).
+     - **NEVER** touch, overwrite, discard, or clean unrelated dirty files. Leave all other files untouched in the working tree.
+     - **NEVER** run `git add -A` or `git add .` unless explicitly requested by the user.
 
 2. **Explicit User Request to Stage All**:
    - Only when user explicitly says "commit everything" or "stage all":
