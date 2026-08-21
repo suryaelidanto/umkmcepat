@@ -98,9 +98,7 @@ ${JSON.stringify(input.contract, null, 2)}`;
   const primaryAction = input.contract.actions.find(
     (action) => action.priority === "primary",
   );
-  const anchorFactId = input.contract.routes
-    .flatMap((route) => route.requiredFactIds)
-    .find(Boolean);
+  const anchorFactId = input.contract.offers[0]?.factId;
   if (!primaryJob || !primaryAction || !anchorFactId) {
     throw new Error("Creative direction requires accepted business anchors.");
   }

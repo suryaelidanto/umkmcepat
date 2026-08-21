@@ -41,6 +41,7 @@ const contract: OutcomeDirectedSiteContractV1 = {
   offers: [
     {
       description: "Cuci dan setrika harian",
+      factId: "offer-1",
       isPrimary: true,
       name: "Laundry reguler",
       priceRange: null,

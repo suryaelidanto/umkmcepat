@@ -5,7 +5,6 @@ import {
   type HoursValue,
   type PaymentMethodValue,
   type PriceValue,
-  type ProductOrServiceItem,
   type PromotionValue,
   type ServiceAreaValue,
   type SocialLinkValue,
@@ -67,6 +66,7 @@ export type OutcomeDirectedSiteContractV1 = {
     priority: "primary" | "secondary";
   }>;
   offers: Array<{
+    factId: string;
     name: string;
     description: string | null;
     priceRange: string | null;
@@ -174,11 +174,12 @@ export function compileOutcomeDirectedSiteContract(
     );
   }
 
-  const offerFacts = factArray<ProductOrServiceItem>(
-    handoff.contract.facts,
-    "offer",
+  const offerFact = handoff.contract.facts.find(
+    (fact) => fact.kind === "offer",
   );
-  if (!offerFacts.length) {
+  const offerFacts =
+    offerFact && offerFact.kind === "offer" ? offerFact.value : [];
+  if (!offerFact || !offerFacts.length) {
     throw new OutcomeContractCompileError(
       "offer",
       "at least one accepted offer is required",
@@ -337,6 +338,7 @@ export function compileOutcomeDirectedSiteContract(
     },
     offers: offerFacts.map((offer) => ({
       description: offer.description ?? null,
+      factId: offerFact.id,
       isPrimary: Boolean(offer.isPrimary),
       name: offer.name,
       priceRange: offer.priceRange ?? null,
