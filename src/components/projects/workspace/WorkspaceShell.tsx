@@ -3708,7 +3708,7 @@ export function WorkspaceShell({
                           disabled={
                             sessionExpired || authStatus !== "authenticated"
                           }
-                          className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none [scrollbar-width:none] placeholder:text-surface-warm-white/38 disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
+                          className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-foreground outline-none [scrollbar-width:none] placeholder:text-muted-foreground disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
                         />
                         <div className="flex items-center justify-between gap-spacing-4">
                           <div className="flex items-center gap-spacing-2">
@@ -3731,7 +3731,7 @@ export function WorkspaceShell({
                                   sessionExpired ||
                                   authStatus !== "authenticated"
                                 }
-                                className="h-8 rounded-full border-surface-warm-white/12 bg-transparent px-spacing-3 text-xs font-medium text-surface-warm-white hover:bg-surface-warm-white/10"
+                                className="h-8 rounded-full border-border bg-transparent px-spacing-3 text-xs font-medium text-foreground hover:bg-muted"
                               >
                                 {buildComplete
                                   ? "Perbarui website"

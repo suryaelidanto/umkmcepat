@@ -40,17 +40,20 @@ export function QuestionComposer({
   const isMultiple = question.selectionMode === "multiple";
   const modeTone = isMultiple
     ? {
-        accent: "#8fd3ff",
+        accent: "var(--accent, #8fd3ff)",
         helper: "Pilih beberapa yang berlaku.",
-        option: "border-surface-warm-white/8 hover:bg-[#8fd3ff]/[0.055]",
-        selected: "border-[#8fd3ff]/24 bg-[#8fd3ff]/10",
+        option:
+          "border-black/8 hover:bg-black/[0.03] dark:border-surface-warm-white/8 dark:hover:bg-surface-warm-white/[0.045]",
+        selected:
+          "border-primary/30 bg-primary/5 dark:border-[#8fd3ff]/24 dark:bg-[#8fd3ff]/10",
       }
     : {
-        accent: "#8ce99a",
+        accent: "var(--accent, #8ce99a)",
         helper: "Pilih satu arah utama.",
         option:
-          "border-surface-warm-white/8 hover:bg-surface-warm-white/[0.045]",
-        selected: "border-[#8ce99a]/24 bg-[#8ce99a]/10",
+          "border-black/8 hover:bg-black/[0.03] dark:border-surface-warm-white/8 dark:hover:bg-surface-warm-white/[0.045]",
+        selected:
+          "border-primary/30 bg-primary/5 dark:border-[#8ce99a]/24 dark:bg-[#8ce99a]/10",
       };
   const answer = isTextQuestion
     ? customAnswer.trim()
@@ -172,29 +175,16 @@ export function QuestionComposer({
                   ) : null}
                 </span>
                 <span
-                  className={`mt-1 grid size-5 shrink-0 place-items-center border-2 transition ${isMultiple ? "rounded-[4px]" : "rounded-full"} ${isSelected ? "" : "border-surface-warm-white/24 bg-transparent group-hover:border-surface-warm-white/48"}`}
-                  style={
-                    isSelected
-                      ? {
-                          backgroundColor: isMultiple
-                            ? modeTone.accent
-                            : "transparent",
-                          borderColor: modeTone.accent,
-                        }
-                      : undefined
-                  }
+                  className={`mt-1 grid size-5 shrink-0 place-items-center border-2 transition ${isMultiple ? "rounded-[4px]" : "rounded-full"} ${isSelected ? "border-primary bg-primary text-primary-foreground dark:border-[#8ce99a] dark:bg-[#8ce99a]" : "border-black/30 bg-black/[0.02] group-hover:border-black/60 dark:border-surface-warm-white/24 dark:bg-transparent dark:group-hover:border-surface-warm-white/48"}`}
                 >
                   {isSelected ? (
                     isMultiple ? (
                       <Check
-                        className="size-3 text-[#10100f]"
+                        className="size-3 text-primary-foreground dark:text-[#10100f]"
                         strokeWidth={3}
                       />
                     ) : (
-                      <span
-                        className="size-2.5 rounded-full"
-                        style={{ backgroundColor: modeTone.accent }}
-                      />
+                      <span className="size-2 rounded-full bg-primary-foreground dark:bg-[#10100f]" />
                     )
                   ) : null}
                 </span>
@@ -223,26 +213,16 @@ export function QuestionComposer({
               </span>
             </span>
             <span
-              className={`mt-1 grid size-5 shrink-0 place-items-center rounded-full border-2 transition ${customAnswerSelected ? "" : "border-surface-warm-white/24 bg-transparent group-hover:border-surface-warm-white/48"}`}
-              style={
-                customAnswerSelected
-                  ? {
-                      backgroundColor: isMultiple
-                        ? modeTone.accent
-                        : "transparent",
-                      borderColor: modeTone.accent,
-                    }
-                  : undefined
-              }
+              className={`mt-1 grid size-5 shrink-0 place-items-center rounded-full border-2 transition ${customAnswerSelected ? "border-primary bg-primary text-primary-foreground dark:border-[#8ce99a] dark:bg-[#8ce99a]" : "border-black/30 bg-black/[0.02] group-hover:border-black/60 dark:border-surface-warm-white/24 dark:bg-transparent dark:group-hover:border-surface-warm-white/48"}`}
             >
               {customAnswerSelected ? (
                 isMultiple ? (
-                  <Check className="size-3 text-[#10100f]" strokeWidth={3} />
-                ) : (
-                  <span
-                    className="size-2.5 rounded-full"
-                    style={{ backgroundColor: modeTone.accent }}
+                  <Check
+                    className="size-3 text-primary-foreground dark:text-[#10100f]"
+                    strokeWidth={3}
                   />
+                ) : (
+                  <span className="size-2 rounded-full bg-primary-foreground dark:bg-[#10100f]" />
                 )
               ) : null}
             </span>
