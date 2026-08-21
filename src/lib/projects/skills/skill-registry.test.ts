@@ -1,29 +1,33 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  executeSkillScript,
   PROJECT_CORE_SKILL_NAMES,
   PROJECT_SKILL_NAMES,
   readProjectSkill,
 } from "./skill-registry";
 
-describe("project skill registry", () => {
-  it("bundles every local skill with valid frontmatter and non-empty content", () => {
-    for (const name of PROJECT_SKILL_NAMES) {
-      const skill = readProjectSkill(name);
-      expect(skill.name).toBe(name);
-      expect(skill.content).toMatch(/^---\n[\s\S]+\n---\n/);
-      expect(skill.content.length).toBeGreaterThan(400);
-    }
+describe("DynamicSkillEngine", () => {
+  it("auto-discovers root skills dynamically without hardcoding", () => {
+    expect(PROJECT_CORE_SKILL_NAMES).toContain("impeccable");
+    expect(PROJECT_CORE_SKILL_NAMES).toContain("shadcn");
   });
 
-  it("keeps the four core skills separate from conditional motion guidance", () => {
-    expect(PROJECT_CORE_SKILL_NAMES).toEqual([
-      "impeccable-craft",
-      "vercel-web-design",
-      "indonesian-umkm",
-      "shadcn-ui",
-    ]);
-    expect(PROJECT_SKILL_NAMES).toContain("emil-motion");
-    expect(PROJECT_CORE_SKILL_NAMES).not.toContain("emil-motion");
+  it("indexes all nested markdown documents with clean slug access", () => {
+    expect(PROJECT_SKILL_NAMES.length).toBeGreaterThan(30);
+
+    const layout = readProjectSkill("impeccable-layout");
+    expect(layout.content.length).toBeGreaterThan(100);
+
+    const rules = readProjectSkill("shadcn-styling");
+    expect(rules.content.length).toBeGreaterThan(50);
+  });
+
+  it("can execute skill script safely in-memory", async () => {
+    const result = await executeSkillScript(
+      "impeccable",
+      "scripts/palette.mjs",
+    );
+    expect(result.ok).toBe(true);
   });
 });

@@ -15,6 +15,7 @@ const eslintConfig = [
       ".tanstack/**",
       ".pi/**",
       ".agents/**",
+      "src/lib/projects/skills/impeccable/scripts/**",
       "graphify-out/**",
       "node_modules/**",
       "coverage/**",

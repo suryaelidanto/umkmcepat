@@ -26,6 +26,8 @@ import {
   buildGeneratedProject,
   createGeneratedViteTanStackStarterFiles,
 } from "@/lib/projects/generated-source";
+import { runDesignAuditInMemory } from "@/lib/projects/impeccable/audit";
+import { generatePaletteInMemory } from "@/lib/projects/impeccable/palette";
 import { renewProjectOperation } from "@/lib/projects/project-operation";
 import { getFormattedShadcnRegistryPrompt } from "@/lib/projects/scaffold/component-catalog";
 import { isProtectedScaffoldPath } from "@/lib/projects/scaffold/protected-paths";
@@ -516,26 +518,91 @@ export async function runAgenticGenerate(input: {
         };
       },
     }),
+
+    run_design_audit: tool({
+      description:
+        "Scan generated components for design anti-patterns, low contrast, layout monotony, and unstyled defaults using the Impeccable detector.",
+      inputSchema: z.object({
+        path: z
+          .string()
+          .optional()
+          .describe(
+            "Optional target component path, e.g. 'src/components/site/Hero.tsx'. Omit to audit all components.",
+          ),
+        label: z
+          .string()
+          .optional()
+          .describe("User-friendly Indonesian progress title"),
+        detail: z
+          .string()
+          .optional()
+          .describe("User-friendly Indonesian progress detail"),
+      }),
+      execute: async ({
+        path: targetPath,
+        label,
+        detail,
+      }: {
+        path?: string;
+        label?: string;
+        detail?: string;
+      }) => {
+        opSeq++;
+        const audit = await runDesignAuditInMemory(fileMap, targetPath);
+        const op = {
+          detail:
+            detail?.trim() ||
+            (audit.ok
+              ? "Semua komponen memenuhi standar Impeccable"
+              : `Ditemukan ${audit.issuesCount} catatan perbaikan visual`),
+          id: `op-${opSeq}`,
+          path: targetPath,
+          state: (audit.ok ? "succeeded" : "failed") as "succeeded" | "failed",
+          title: label?.trim() || "Audit Kualitas Desain Impeccable",
+          type: "design_audit",
+        };
+        operationTrace.push(op);
+        if (onEvent) {
+          onEvent("operation", op);
+        }
+        return audit;
+      },
+    }),
+
+    generate_palette: tool({
+      description:
+        "Generate contrast-safe OKLCH color formulas and mood guidance based on brand seed.",
+      inputSchema: z.object({
+        seedKey: z
+          .string()
+          .optional()
+          .describe(
+            "Seed key or brand hex code, e.g. '#f05a28' or business name",
+          ),
+      }),
+      execute: async ({ seedKey }: { seedKey?: string }) => {
+        return generatePaletteInMemory(seedKey);
+      },
+    }),
   };
 
   const systemPrompt = `You are the implementation agent for a portable static Vite + React + TanStack Router website.
 
-Your job is to turn the accepted business data into a credible, editable customer-facing site. You are not building a backend, SaaS dashboard, checkout, login, payment flow, persistence layer, or fake interactive demo.
+Your job is to turn the accepted business data into a credible, distinctive, editable customer-facing Indonesian UMKM website. You are not building a backend, SaaS dashboard, checkout, login, payment flow, persistence layer, or fake interactive demo.
 
 CREATIVE AUTHORITY:
-- Read impeccable-craft first. It owns visual direction, hierarchy, anti-slop, and the final taste decision.
-- Read vercel-web-design for semantic HTML, responsive behavior, accessibility, and applicable client-side React quality.
-- Read indonesian-umkm for factual Indonesian copy and local visitor actions.
-- Read shadcn-ui for source-copied component composition and semantic Tailwind v4 tokens.
-- Read emil-motion only when the chosen interface contains or requests motion. Delete motion that has no user benefit.
-- These skills are guidance, not facts. The accepted src/content/site.ts snapshot and protected scaffold always outrank a design suggestion.
+- Read impeccable first. It owns visual direction, hierarchy, typography, spatial rhythm, and anti-slop rules.
+- Read shadcn for component composition, Radix accessibility, and semantic Tailwind v4 tokens.
+- These skills provide high-level design intelligence. The accepted src/content/site.ts snapshot and protected scaffold always outrank design suggestions.
 
 REQUIRED WORKFLOW:
-1. Call read_skill for all four core skills before calling write_file or check_app. Call emil-motion when motion is needed.
+1. Call read_skill for both core skills ("impeccable", "shadcn") before writing. Call deep references (impeccable-craft-floor, impeccable-layout, impeccable-typeset, impeccable-adapt) when shaping complex responsive layouts.
 2. Call list_files, then read_file for the relevant starter files and any bundled shadcn component source before importing it.
-3. Compose one clear business-specific direction around the visitor's real job. Do not use a generic hero/card/testimonial skeleton.
-4. Write the real home route in src/routes/index.tsx and modular components under src/components/. The router is protected, so do not create unregistered extra routes. Use site.* for every customer-facing value. Omitted facts stay omitted.
-5. Call check_app. If it fails, fix the actual source with write_file and call check_app again. Finish only after the last check_app returns ok: true.
+3. Compose one clear business-specific visual direction around the visitor's real job. Do not use generic AI templates or equal-card soup.
+4. Write the real home route in src/routes/index.tsx and modular components under src/components/. Use site.* for every customer-facing value. Omitted facts stay omitted.
+5. Write natural, warm, active Indonesian copy. Avoid AI puffery, filler buzzwords ("solusi terbaik", "kualitas terdepan", "revolusioner"), em-dashes (—), and decorative badge soup.
+6. Call run_design_audit to inspect your UI against Impeccable anti-patterns, contrast rules, and layout monotony. Fix any reported errors.
+7. Call check_app. If it fails, fix the actual source with write_file and call check_app again. Finish only after the last check_app returns ok: true.
 
 FACT AND SAFETY RULES:
 - src/content/site.ts is read-only and is the sole customer-facing fact source.

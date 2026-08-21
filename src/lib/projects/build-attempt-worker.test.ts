@@ -239,12 +239,7 @@ vi.mock("@/lib/projects/agentic-generator", async () => {
         touchedFiles: ["src/routes/index.tsx"],
         repairAttempts: 0,
         operationTrace: [],
-        skillsRead: [
-          "impeccable-craft",
-          "vercel-web-design",
-          "indonesian-umkm",
-          "shadcn-ui",
-        ],
+        skillsRead: ["impeccable", "shadcn"],
       };
     }),
   };

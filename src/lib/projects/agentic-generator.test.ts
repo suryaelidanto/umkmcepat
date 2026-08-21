@@ -94,12 +94,7 @@ function createInput(
 }
 
 async function readCoreSkills(tools: Record<string, AgentTool>) {
-  for (const name of [
-    "impeccable-craft",
-    "vercel-web-design",
-    "indonesian-umkm",
-    "shadcn-ui",
-  ]) {
+  for (const name of ["impeccable", "shadcn"]) {
     await tools.read_skill.execute({ name });
   }
 }
@@ -169,12 +164,12 @@ describe("runAgenticGenerate", () => {
     generateTextMock.mockImplementationOnce(async (args: unknown) => {
       const tools = getTools(args);
       const skill = await tools.read_skill.execute({
-        name: "impeccable-craft",
+        name: "impeccable",
       });
-      expect(skill).toMatchObject({ name: "impeccable-craft" });
+      expect(skill).toMatchObject({ name: "impeccable" });
       expect(skill).toEqual(
         expect.objectContaining({
-          content: expect.stringContaining("# Impeccable craft"),
+          content: expect.stringContaining("name: impeccable"),
         }),
       );
       await completeAgentWorkflow(tools);
@@ -183,8 +178,8 @@ describe("runAgenticGenerate", () => {
 
     const result = await runAgenticGenerate(createInput());
 
-    expect(result.skillsRead).toContain("impeccable-craft");
-    expect(result.skillsRead).toContain("shadcn-ui");
+    expect(result.skillsRead).toContain("impeccable");
+    expect(result.skillsRead).toContain("shadcn");
     expect(
       result.operationTrace.some(
         (operation) => operation.type === "read_skill",
@@ -201,7 +196,7 @@ describe("runAgenticGenerate", () => {
       });
       expect(result).toEqual(
         expect.objectContaining({
-          error: expect.stringContaining("impeccable-craft"),
+          error: expect.stringContaining("impeccable"),
         }),
       );
       return { text: "Done", steps: [] };
