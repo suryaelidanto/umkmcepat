@@ -192,6 +192,7 @@ export function compileOutcomeDesignSystem(
 
 @layer base {
   * { @apply border-border outline-ring/50; }
+  html, body { overflow-x: clip; }
   body { @apply bg-background text-foreground font-body; }
 }
 `;
