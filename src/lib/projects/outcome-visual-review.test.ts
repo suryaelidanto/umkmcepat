@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   OUTCOME_REVIEW_CATEGORIES,
   deriveOutcomeReviewVerdict,
+  parseOutcomeReviewResponse,
   type OutcomeVisualReviewV1,
 } from "./outcome-visual-review";
 
@@ -21,6 +22,16 @@ function completeReview(rating = 3): OutcomeVisualReviewV1 {
     status: "complete",
   };
 }
+
+describe("parseOutcomeReviewResponse", () => {
+  it("extracts JSON from a fenced model response", () => {
+    const parsed = parseOutcomeReviewResponse(
+      `Review:\n\`\`\`json\n${JSON.stringify({ assessments: completeReview().assessments })}\n\`\`\``,
+      "model",
+    );
+    expect(parsed.status).toBe("complete");
+  });
+});
 
 describe("deriveOutcomeReviewVerdict", () => {
   it("passes only a complete category review at rating 3 or higher", () => {

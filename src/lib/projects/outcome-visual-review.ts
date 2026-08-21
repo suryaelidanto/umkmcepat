@@ -75,6 +75,44 @@ export function deriveOutcomeReviewVerdict(review: OutcomeVisualReviewV1):
   return { ok: true };
 }
 
+export function parseOutcomeReviewResponse(
+  text: string,
+  modelId: string,
+): OutcomeVisualReviewV1 {
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start < 0 || end <= start) {
+    return { assessments: [], modelId: null, status: "unknown" };
+  }
+  try {
+    const parsed = JSON.parse(text.slice(start, end + 1)) as {
+      assessments?: unknown;
+    };
+    if (!Array.isArray(parsed.assessments)) {
+      return { assessments: [], modelId: null, status: "unknown" };
+    }
+    const assessments = parsed.assessments.filter(
+      (item): item is OutcomeVisualAssessment =>
+        Boolean(item) &&
+        typeof item === "object" &&
+        OUTCOME_REVIEW_CATEGORIES.includes(
+          (item as OutcomeVisualAssessment).category,
+        ),
+    );
+    const review: OutcomeVisualReviewV1 = {
+      assessments,
+      modelId,
+      status: "complete",
+    };
+    const verdict = deriveOutcomeReviewVerdict(review);
+    return !verdict.ok && verdict.reason === "incomplete"
+      ? { assessments: [], modelId: null, status: "unknown" }
+      : review;
+  } catch {
+    return { assessments: [], modelId: null, status: "unknown" };
+  }
+}
+
 const REVIEW_SYSTEM = `You are the final independent reviewer for an Indonesian small-business website. Judge rendered evidence, not compliance with a template. Return JSON only with exactly {"assessments":[...]}. Assess every category exactly once across the supplied mobile and desktop screenshots.
 
 Categories: ${OUTCOME_REVIEW_CATEGORIES.join(", ")}.
@@ -124,27 +162,10 @@ export async function runOutcomeVisualReview(input: {
       telemetry: getAiTelemetry("outcome-site-visual-review"),
       ...getNoReasoningCallOptions(),
     });
-    const parsed = JSON.parse(result.text) as { assessments?: unknown };
-    if (!Array.isArray(parsed.assessments)) {
-      return { assessments: [], modelId: null, status: "unknown" };
-    }
-    const assessments = parsed.assessments.filter(
-      (item): item is OutcomeVisualAssessment =>
-        Boolean(item) &&
-        typeof item === "object" &&
-        OUTCOME_REVIEW_CATEGORIES.includes(
-          (item as OutcomeVisualAssessment).category,
-        ),
+    return parseOutcomeReviewResponse(
+      result.text,
+      result.response.modelId ?? requestedModel,
     );
-    const review: OutcomeVisualReviewV1 = {
-      assessments,
-      modelId: result.response.modelId ?? requestedModel,
-      status: "complete",
-    };
-    const verdict = deriveOutcomeReviewVerdict(review);
-    return !verdict.ok && verdict.reason === "incomplete"
-      ? { assessments: [], modelId: null, status: "unknown" }
-      : review;
   } catch {
     return { assessments: [], modelId: null, status: "unavailable" };
   }
