@@ -218,7 +218,7 @@ describe("SHADCN_COMPONENT_FILES (full shadcn seed)", () => {
       "dropdown-menu",
       "tooltip",
       "table",
-      "form",
+      "field",
       "select",
       "checkbox",
       "command",
@@ -231,7 +231,7 @@ describe("SHADCN_COMPONENT_FILES (full shadcn seed)", () => {
     }
   });
 
-  it("uses split @radix-ui/react-* imports, never unified radix-ui", () => {
+  it("uses the official Base UI source without a unified radix package", () => {
     for (const f of SHADCN_COMPONENT_FILES) {
       if (!f.path.endsWith(".tsx")) {
         continue;

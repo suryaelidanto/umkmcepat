@@ -31,7 +31,10 @@ import { generatePaletteInMemory } from "@/lib/projects/impeccable/palette";
 import { renewProjectOperation } from "@/lib/projects/project-operation";
 import { getFormattedShadcnRegistryPrompt } from "@/lib/projects/scaffold/component-catalog";
 import { isProtectedScaffoldPath } from "@/lib/projects/scaffold/protected-paths";
-import { SHADCN_COMPONENT_BY_NAME } from "@/lib/projects/scaffold/shadcn-components";
+import {
+  resolveShadcnDeps,
+  SHADCN_COMPONENT_BY_NAME,
+} from "@/lib/projects/scaffold/shadcn-components";
 import {
   PROJECT_CORE_SKILL_NAMES,
   PROJECT_SKILL_NAMES,
@@ -318,6 +321,69 @@ export async function runAgenticGenerate(input: {
       },
     }),
 
+    copy_shadcn_component: tool({
+      description:
+        "Copy one official bundled shadcn/ui component and its local dependencies into the project.",
+      inputSchema: z.object({
+        name: z
+          .string()
+          .describe("Official shadcn component name, e.g. accordion or sheet"),
+        label: z.string().optional(),
+        detail: z.string().optional(),
+      }),
+      execute: async ({
+        name,
+        label,
+        detail,
+      }: {
+        name: string;
+        label?: string;
+        detail?: string;
+      }) => {
+        const component = SHADCN_COMPONENT_BY_NAME.get(name);
+        if (!component) {
+          return {
+            error: `Unknown shadcn component: ${name}`,
+            available: Array.from(SHADCN_COMPONENT_BY_NAME.keys()).sort(),
+          };
+        }
+
+        const currentFiles = Array.from(fileMap, ([path, content]) => ({
+          content,
+          path,
+        }));
+        const filesToCopy = [
+          ...resolveShadcnDeps(component, currentFiles),
+          component,
+        ];
+        const copiedPaths: string[] = [];
+
+        for (const file of filesToCopy) {
+          if (!fileMap.has(file.path)) {
+            fileMap.set(file.path, file.content);
+            touched.add(file.path);
+            copiedPaths.push(file.path);
+          }
+        }
+
+        opSeq++;
+        const operation = {
+          detail:
+            detail?.trim() ||
+            `Menyalin sumber resmi beserta ${Math.max(0, copiedPaths.length - 1)} dependensi lokal`,
+          id: `op-${opSeq}`,
+          path: component.path,
+          state: "succeeded" as const,
+          title: label?.trim() || `Menyiapkan komponen ${name}`,
+          type: "copy_component",
+        };
+        operationTrace.push(operation);
+        onEvent?.("operation", operation);
+
+        return { copiedPaths, name };
+      },
+    }),
+
     write_file: tool({
       description:
         "Create or overwrite a source file in the project (routes, components, utilities).",
@@ -597,7 +663,7 @@ CREATIVE AUTHORITY:
 
 REQUIRED WORKFLOW:
 1. Call read_skill for both core skills ("impeccable", "shadcn") before writing. Call deep references (impeccable-craft-floor, impeccable-layout, impeccable-typeset, impeccable-adapt) when shaping complex responsive layouts.
-2. Call list_files, then read_file for the relevant starter files and any bundled shadcn component source before importing it.
+2. Call list_files and read the relevant starter files. Use copy_shadcn_component to add official UI primitives and their local dependencies before importing them.
 3. Compose one clear business-specific visual direction around the visitor's real job. Do not use generic AI templates or equal-card soup.
 4. Write the real home route in src/routes/index.tsx and modular components under src/components/. Use site.* for every customer-facing value. Omitted facts stay omitted.
 5. Write natural, warm, active Indonesian copy. Avoid AI puffery, filler buzzwords ("solusi terbaik", "kualitas terdepan", "revolusioner"), em-dashes (—), and decorative badge soup.

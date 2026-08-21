@@ -70,22 +70,13 @@ export const COMPLETE_COMPONENT_REGISTRY: ComponentDocumentation[] = Array.from(
   }));
 
 export function getFormattedShadcnRegistryPrompt(): string {
-  const entries = COMPLETE_COMPONENT_REGISTRY.slice(0, 18)
-    .map(
-      (component) =>
-        `- src/components/ui/${component.name}.tsx (${component.module}): ${component.description}`,
-    )
-    .join("\n");
+  const names = COMPLETE_COMPONENT_REGISTRY.map(
+    (component) => component.name,
+  ).join(", ");
 
   return `LOCAL SHADCN/UI SOURCE REGISTRY:
-The generated scaffold pre-seeds src/components/ui/button.tsx and src/components/ui/card.tsx. The remaining entries below are bundled source files, not installed runtime modules. In the agentic tool loop, use read_file for a source and write_file to copy a needed component before importing it. In a batched response, use only the components present in the supplied manifest or emit the required source through the existing response contract.
-
-components.json and src/index.css define the local aliases and semantic Tailwind v4 tokens. Use cn() from src/lib/utils. Use the existing source before writing a new primitive. Never run a CLI, call MCP, fetch a registry, add a dependency, or assume a component exists without reading its source or receiving it in the supplied scaffold.
-
-AVAILABLE BUNDLED COMPONENTS:
-${entries}
-
-The agentic read_file and write_file tools are the only component discovery/composition path in that tool loop; the batched writer must stay within its supplied source contract.`;
+Prefer official shadcn/ui Base Nova primitives over hand-rolled controls. Button and Card are pre-seeded. Use copy_shadcn_component to add any other component with its local dependencies. Use semantic Tailwind tokens and cn() from @/lib/utils.
+Available: ${names}`;
 }
 
 function toPascalCase(value: string) {

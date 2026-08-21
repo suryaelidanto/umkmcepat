@@ -98,7 +98,7 @@ describe("deriveScaffoldManifest", () => {
         componentCount: manifest.availableComponents.length,
       }).toMatchInlineSnapshot(`
         {
-          "componentCount": 45,
+          "componentCount": 61,
           "fileCount": 21,
           "preSeeded": [
             "button",
