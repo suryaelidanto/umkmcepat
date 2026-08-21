@@ -696,7 +696,7 @@ export function HomeRouteComponent() {
           <p className="mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-muted-foreground">{site.subheadline}</p>
           <p className="mt-6 max-w-xl rounded-2xl border border-border bg-muted/40 p-4 text-sm leading-relaxed text-muted-foreground">Temukan {site.offer.toLowerCase()} pilihan, pahami detailnya, lalu pesan dari rumah lewat WhatsApp.</p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Button asChild size="lg">
+            <Button size="lg" render={<a href="${primaryActionHref}" target="_blank" rel="noreferrer" />}>
               <a href="${primaryActionHref}" target="_blank" rel="noreferrer">{site.primaryCta}</a>
             </Button>
             <a className="inline-flex min-h-11 items-center justify-center rounded-md border border-border px-5 text-sm font-medium text-foreground transition hover:bg-muted" href="#catalog">{site.secondaryCta}</a>
@@ -715,12 +715,12 @@ export function HomeRouteComponent() {
         <div className="mx-auto w-full max-w-6xl">
           {site.sections.map((section) => <article key={section.title} className="mb-10 max-w-2xl"><h2 className="text-3xl font-semibold tracking-[-0.03em]">{section.title}</h2><p className="mt-3 leading-relaxed text-muted-foreground">{section.body}</p></article>)}
           <div className="grid gap-5 sm:grid-cols-2">
-            {site.products.map((product) => <article key={product.name} className="rounded-3xl border border-border bg-card p-6 shadow-sm"><p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent">Koleksi pilihan</p><h3 className="mt-3 text-xl font-semibold">{product.name}</h3><p className="mt-2 leading-relaxed text-muted-foreground">{product.description}</p>{product.priceRange ? <p className="mt-4 text-sm font-medium">{product.priceRange}</p> : null}<Button asChild size="lg" className="mt-6"><a href="${primaryActionHref}" target="_blank" rel="noreferrer">{site.primaryCta}</a></Button></article>)}
+            {site.products.map((product) => <article key={product.name} className="rounded-3xl border border-border bg-card p-6 shadow-sm"><p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent">Koleksi pilihan</p><h3 className="mt-3 text-xl font-semibold">{product.name}</h3><p className="mt-2 leading-relaxed text-muted-foreground">{product.description}</p>{product.priceRange ? <p className="mt-4 text-sm font-medium">{product.priceRange}</p> : null}<Button size="lg" className="mt-6" render={<a href="${primaryActionHref}" target="_blank" rel="noreferrer" />}>{site.primaryCta}</Button></article>)}
           </div>
           <div className="mt-12 grid gap-4 rounded-3xl border border-border bg-muted/40 p-6 sm:grid-cols-3">
             {site.trustPoints.map((point) => <p key={point} className="text-sm font-medium leading-relaxed">{point}</p>)}
           </div>
-          <div className="mt-12 rounded-3xl bg-primary p-8 text-primary-foreground md:p-12"><p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary-foreground/70">Langkah berikutnya</p><h2 className="mt-3 max-w-2xl text-3xl font-semibold tracking-[-0.03em]">Pilih yang kamu suka, lalu tanyakan detailnya.</h2><Button asChild size="lg" variant="secondary" className="mt-6"><a href="${primaryActionHref}" target="_blank" rel="noreferrer">{site.primaryCta}</a></Button></div>
+          <div className="mt-12 rounded-3xl bg-primary p-8 text-primary-foreground md:p-12"><p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary-foreground/70">Langkah berikutnya</p><h2 className="mt-3 max-w-2xl text-3xl font-semibold tracking-[-0.03em]">Pilih yang kamu suka, lalu tanyakan detailnya.</h2><Button size="lg" variant="secondary" className="mt-6" render={<a href="${primaryActionHref}" target="_blank" rel="noreferrer" />}>{site.primaryCta}</Button></div>
           <div className="mt-12"><h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">Alasan memilih kami</h2><div className="mt-4 grid gap-3 sm:grid-cols-3">{site.usp.map((item) => <p key={item} className="rounded-2xl border border-border px-5 py-4 text-sm text-muted-foreground">{item}</p>)}</div></div>
         </div>
       </section>

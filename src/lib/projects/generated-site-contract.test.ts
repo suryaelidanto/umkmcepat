@@ -9,6 +9,7 @@ import {
 } from "./generated-site-contract";
 import { selectGeneratedSiteDesignKit } from "./generated-site-design-kits/catalog";
 import { selectGeneratedSiteRecipe } from "./generated-site-recipes";
+import { createProjectSiteSchemaFromGeneratedContract } from "./site-schema";
 
 import type { ProjectBrief } from "./brief";
 import type { BuildContractV1 } from "./build-contract";
@@ -258,6 +259,43 @@ describe("compileGeneratedSiteContract", () => {
     expect(result.content.trustPoints).toEqual(
       expect.arrayContaining(["Kondisi unit tercatat"]),
     );
+  });
+
+  it("routes internal contact actions through home on multi-page sites", () => {
+    const values = fixtures();
+    const compiled = compileGeneratedSiteContract({
+      contract: values.contract,
+      plan: values.plan,
+      briefSnapshot: values.briefSnapshot,
+      photoEnabled: false,
+      recipe: selectGeneratedSiteRecipe(values.plan.archetype),
+    });
+    const contract = {
+      ...compiled,
+      business: {
+        ...compiled.business,
+        primaryCta: {
+          kind: "browse" as const,
+          label: "Lihat kontak",
+          target: "#kontak",
+        },
+      },
+      page: {
+        ...compiled.page,
+        routes: [
+          ...compiled.page.routes,
+          {
+            path: "/lokasi",
+            purpose: "Informasi lokasi",
+            requiredContent: [],
+          },
+        ],
+      },
+    };
+
+    expect(
+      createProjectSiteSchemaFromGeneratedContract({ contract }).contact,
+    ).toEqual({ channel: "browse", value: "#/#kontak" });
   });
 
   it("maps accepted facts, routes, CTA, and customer-facing sections", () => {

@@ -157,7 +157,7 @@ describe("WorkspaceCardView action copy", () => {
       createElement(WorkspaceCardView, {
         card: {
           type: "build_recommendation",
-          engine: "contract-v1",
+          engine: "contract",
           title: "Siap dibuat",
           summary: ["Halaman utama"],
         },

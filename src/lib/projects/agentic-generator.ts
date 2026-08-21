@@ -687,7 +687,21 @@ The platform owns src/content/site.ts, src/index.css, src/main.tsx, src/router.t
 
 ${getFormattedShadcnRegistryPrompt()}
 
-Every tool call must include a clear natural Indonesian label and detail. Keep the operation trace honest: describe the file or skill you actually inspected or wrote. Do not claim a browser, remote design detector, CLI, MCP, or visual service ran.`;
+USER-FRIENDLY PROGRESS REPORTING RULES:
+The website owner is a non-technical Indonesian business owner (UMKM). They watch every progress step live on their screen.
+- \`label\` and \`detail\` in EVERY tool call MUST be plain, warm, friendly Indonesian describing customer-facing store features.
+- Frame actions around the store and visitor experience:
+  - Good label examples: "Menata bagian menu dan harga", "Menyambungkan tombol WhatsApp", "Menyiapkan info lokasi & jam buka", "Menata tampilan utama (Hero)", "Memeriksa kerapian tampilan website".
+  - Good detail examples: "Menampilkan daftar produk kopi beserta harga dan catatan rasa", "Memastikan tombol pesan langsung membuka obrolan WhatsApp", "Memeriksa agar tata letak pas dan nyaman dibaca di HP".
+- STRICTLY FORBIDDEN in label/detail (will intimidate the owner):
+  - No file names or file extensions: \`.tsx\`, \`.css\`, \`.json\`, \`.d.ts\`, \`index.tsx\`, \`site.ts\`, \`button.tsx\`, \`tsconfig\`.
+  - No developer/compiler jargon: \`TypeScript\`, \`augmentasi\`, \`props\`, \`interface\`, \`AST\`, \`Vite\`, \`bundler\`, \`scaffold\`, \`component tree\`, \`import\`, \`export\`.
+  - Never show raw error traces in progress detail. When checking or repairing, state what visual part is being polished.`;
+
+  const routesInstruction =
+    schema.routes && schema.routes.length > 1
+      ? `\nREQUIRED ROUTES TO IMPLEMENT:\nThis project has multiple accepted pages. You MUST write and render all required routes:\n${schema.routes.map((r) => `- "${r.path}" (${r.title}) -> write component or route for it`).join("\n")}`
+      : `\nREQUIRED ROUTES:\nThis project is a single-page storefront. Implement the complete home page in src/routes/index.tsx with all relevant sections.`;
 
   const userPrompt = `Build the complete static website from the accepted project data below.
 
@@ -698,6 +712,7 @@ Primary offer from brief: ${formatPromptValue(brief.offer)}
 Address from brief: ${formatPromptValue(brief.address)}
 Hours from brief: ${formatPromptValue(brief.hours)}
 Price range from brief: ${formatPromptValue(brief.priceRange)}
+${routesInstruction}
 
 AUTHORITATIVE SITE SNAPSHOT:
 <site-data>

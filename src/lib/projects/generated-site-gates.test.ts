@@ -589,6 +589,30 @@ describe("generated internal link gates", () => {
     ).toEqual(["src/routes/index.tsx: primary CTA must be an anchor action"]);
   });
 
+  it("routes shared section links through home in a multi-page site", () => {
+    expect(
+      normalizeGeneratedInternalLinks([
+        {
+          path: "src/routes/index.tsx",
+          content: '<main id="layanan">Home</main>',
+        },
+        {
+          path: "src/routes/lokasi.tsx",
+          content: '<main><a href="#layanan">Layanan</a></main>',
+        },
+      ]),
+    ).toEqual([
+      {
+        path: "src/routes/index.tsx",
+        content: '<main id="layanan">Home</main>',
+      },
+      {
+        path: "src/routes/lokasi.tsx",
+        content: '<main><a href="#/#layanan">Layanan</a></main>',
+      },
+    ]);
+  });
+
   it("resolves common generated anchor aliases against IDs across files", () => {
     const [suffixRoute] = normalizeGeneratedInternalLinks([
       {
@@ -704,7 +728,7 @@ describe("normalizeGeneratedInteractiveTargets", () => {
 
   it("only adds touch target classes to opening anchor and button tags, not child icons or nested elements", () => {
     const normalized = normalizeGeneratedSiteContent(
-      '<Button asChild size="lg"><a href="https://wa.me/628123"><MessageCircle className="size-4 text-primary" />Pilih Paket</a></Button>',
+      '<Button size="lg" render={<a href="https://wa.me/628123" />}><MessageCircle className="size-4 text-primary" />Pilih Paket</Button>',
     );
 
     expect(normalized).toContain('className="size-4 text-primary"');

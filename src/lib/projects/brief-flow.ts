@@ -649,10 +649,10 @@ function normalizeWorkspaceCard(
     return normalizeQuestionsArray(value.questions, brief);
   }
 
-  // Contract-v1 recommendation cards carry server-owned handoff proof. Pass
+  // Contract recommendation cards carry server-owned handoff proof. Pass
   if (
     value.type === "build_recommendation" &&
-    value.engine === "contract-v1" &&
+    (value.engine === "contract" || value.engine === "contract-v1") &&
     typeof value.handoffId === "string" &&
     typeof value.reviewHash === "string"
   ) {
@@ -663,7 +663,7 @@ function normalizeWorkspaceCard(
 
     return {
       type: "build_recommendation",
-      engine: "contract-v1" as const,
+      engine: "contract" as const,
       title:
         typeof value.title === "string" ? value.title : "Website siap dibuat",
       summary: Array.isArray(value.summary)
@@ -993,7 +993,7 @@ function buildRecommendationCard(
 ): WorkspaceCard {
   return {
     type: "build_recommendation",
-    engine: "contract-v1" as const,
+    engine: "contract" as const,
     title: friendlyBuildRecommendationTitle(title),
     summary: buildCardSummary(brief, summary),
   };

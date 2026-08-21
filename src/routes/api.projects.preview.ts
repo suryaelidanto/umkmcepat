@@ -619,7 +619,7 @@ async function repairWorkspaceCard({
     const prepared = await prepareBuildHandoff({
       projectId: project.id,
       userId,
-      engine: "contract-v1",
+      engine: "contract",
       brief: turn.brief,
       messages,
     });
@@ -631,7 +631,7 @@ async function repairWorkspaceCard({
       };
       finalWorkspaceCard = {
         type: "build_recommendation",
-        engine: "contract-v1" as const,
+        engine: "contract" as const,
         title: base.title,
         summary: describeBuildRecommendation(prepared.contract, prepared.plan),
         handoffId: prepared.handoffId,

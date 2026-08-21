@@ -16,7 +16,7 @@ export type WritePolicyResult = { ok: true } | { ok: false; reasons: string[] };
 export function enforceGeneratedWritePolicy(
   input: WritePolicyInput,
 ): WritePolicyResult {
-  if (input.engine !== "contract-v1") {
+  if (input.engine !== "contract" && input.engine !== "contract-v1") {
     return { ok: true };
   }
   const allowList = buildAllowList(input.plan);
@@ -30,7 +30,7 @@ export function enforceGeneratedWritePolicy(
   if (!allowed) {
     return {
       ok: false,
-      reasons: [`path ${input.filePath} outside contract-v1 allow-list`],
+      reasons: [`path ${input.filePath} outside contract allow-list`],
     };
   }
   const claims = scanSourceClaims(input.content, { file: input.filePath });

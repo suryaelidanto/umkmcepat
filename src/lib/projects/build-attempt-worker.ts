@@ -1294,7 +1294,7 @@ export async function runBuildAttempt({
       // Never surface raw exception text to the end user (may contain
       detail: emptyAgent
         ? "Belum ada bagian website yang berhasil ditulis. Coba buat ulang website — biasanya berhasil di percobaan berikutnya."
-        : "Coba buat ulang website atau perbaiki deskripsi usahanya dulu.",
+        : "Coba buat ulang website.",
     });
   } finally {
     // Always debit if AI already ran (success or failure).

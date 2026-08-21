@@ -124,7 +124,7 @@ export type WorkspaceCard =
 
 export type ContractBuildRecommendationCard = {
   type: "build_recommendation";
-  engine?: "contract-v1";
+  engine?: "contract";
   title: string;
   summary: string[];
   handoffId?: string;

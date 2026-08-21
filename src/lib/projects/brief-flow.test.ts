@@ -970,7 +970,7 @@ describe("normalizeWorkspaceTurn", () => {
     expect(turn.readyForBuild).toBe(true);
     expect(turn.workspaceCard).toEqual({
       type: "build_recommendation",
-      engine: "contract-v1",
+      engine: "contract",
       title: "Website Jamu Surya siap dibuat",
       summary: ["Fokus produk jamu herbal", "CTA utama WhatsApp"],
     });

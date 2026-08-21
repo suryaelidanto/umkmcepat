@@ -877,7 +877,7 @@ export function findGeneratedPrimaryActionIssues(
     return [];
   }
   const actionAnchor =
-    /<a\b[\s\S]{0,400}?\b(?:site\.primaryCta|pesan|chat|hubungi|sedekah|konsultasi)[\s\S]{0,200}<\/a>/i;
+    /<a\b[\s\S]{0,800}?\b(?:site\.primaryCta|primaryCta|primaryCtaTarget|pesan|chat|hubungi|sedekah|konsultasi|whatsapp)[\s\S]{0,400}<\/a>/i;
   return actionAnchor.test(source)
     ? []
     : ["src/routes/index.tsx: primary CTA must be an anchor action"];
@@ -899,6 +899,15 @@ export function normalizeGeneratedInternalLinks(
   files: GeneratedProjectFile[],
 ): GeneratedProjectFile[] {
   const ids = collectGeneratedStaticIds(files);
+  const pageRouteCount = files.filter(
+    (file) =>
+      file.path.startsWith("src/routes/") &&
+      file.path.endsWith(".tsx") &&
+      !file.path.endsWith("/__root.tsx") &&
+      !file.path.endsWith("/not-found.tsx"),
+  ).length;
+  const homeAnchor = (target: string) =>
+    pageRouteCount > 1 ? `#/#${target}` : `#${target}`;
   const aliases = [
     "-section",
     "-anchor",
@@ -915,14 +924,14 @@ export function normalizeGeneratedInternalLinks(
       /(href\s*(?:=|:)\s*)(["'])#([a-z0-9-]+)\2/gi,
       (match: string, prefix: string, quote: string, target: string) => {
         if (ids.has(target)) {
-          return match;
+          return `${prefix}${quote}${homeAnchor(target)}${quote}`;
         }
         const suffixAlias = aliases.find(
           (suffix) =>
             target.endsWith(suffix) && ids.has(target.slice(0, -suffix.length)),
         );
         if (suffixAlias) {
-          return `${prefix}${quote}#${target.slice(0, -suffixAlias.length)}${quote}`;
+          return `${prefix}${quote}${homeAnchor(target.slice(0, -suffixAlias.length))}${quote}`;
         }
         const targetTokens = new Set(
           target.split("-").filter((token) => token.length > 2),
@@ -933,7 +942,7 @@ export function normalizeGeneratedInternalLinks(
             .some((token) => token.length > 2 && targetTokens.has(token)),
         );
         return tokenAliases.length === 1
-          ? `${prefix}${quote}#${tokenAliases[0]}${quote}`
+          ? `${prefix}${quote}${homeAnchor(tokenAliases[0])}${quote}`
           : match;
       },
     );

@@ -461,8 +461,7 @@ export function collectBatchedGateIssues(
   }
 
   // Touch-target gate (deterministic source-side mirror of the browser
-  const WRAPPED_CTA =
-    /<Button\b[^>]*>\s*<a[^>]*\bhref=["']https?:\/\/(?:wa\.me|api\.whatsapp\.com)/;
+  const WRAPPED_CTA = /<Button\b[\s\S]*?(?:render=\{<a\b|<a\b)/;
   const ANY_WA_CTA =
     /<a[^>]*\bhref=["']https?:\/\/(?:wa\.me|api\.whatsapp\.com)/;
   const CTA_TEXT =
@@ -474,11 +473,13 @@ export function collectBatchedGateIssues(
     const hasBareWaCta =
       ANY_WA_CTA.test(file.content) && !WRAPPED_CTA.test(file.content);
     // A bare CTA-text anchor is only flagged when it is NOT already inside a
-    const hasButtonWrap = /<Button\b[^>]*>\s*<a/.test(file.content);
+    const hasButtonWrap = /<Button\b[\s\S]*?(?:render=\{<a|<a)/.test(
+      file.content,
+    );
     const hasBareTextCta = CTA_TEXT.test(file.content) && !hasButtonWrap;
     if (hasBareWaCta || hasBareTextCta) {
       issues.push(
-        `${file.path}: a call-to-action anchor is a bare <a> — wrap it in <Button asChild><a href=... >...</a></Button> so it meets the 44px touch-target minimum.`,
+        `${file.path}: a call-to-action anchor is a bare <a> — wrap it in <Button render={<a href=... />}>...</Button> so it meets the 44px touch-target minimum.`,
       );
     }
   }

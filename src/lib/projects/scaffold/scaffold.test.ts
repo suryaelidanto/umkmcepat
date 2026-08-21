@@ -162,6 +162,26 @@ describe("createViteTanStackShadcnStarterFiles", () => {
     expect(index).not.toContain("primaryCta");
   });
 
+  it("seeds type-safe placeholders for every accepted route", () => {
+    const multiPageFiles = createViteTanStackShadcnStarterFiles("project-1", {
+      ...schema(),
+      routes: [
+        { path: "/", title: "Beranda" },
+        { path: "/lokasi", title: "Lokasi" },
+      ],
+    });
+    const router =
+      multiPageFiles.find((file) => file.path === "src/router.tsx")?.content ??
+      "";
+    const locationRoute = multiPageFiles.find(
+      (file) => file.path === "src/routes/lokasi.tsx",
+    );
+
+    expect(router).toContain('from "./routes/lokasi"');
+    expect(locationRoute?.content).toContain("LokasiRouteComponent");
+    expect(locationRoute?.content).toContain("data-generated-site-starter");
+  });
+
   it("not-found route uses Button and links home", () => {
     const notFound =
       files.find((f) => f.path === "src/routes/not-found.tsx")?.content ?? "";

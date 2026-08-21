@@ -524,7 +524,7 @@ Rules:
 - Never emit platform-owned files, package/config files, extra routes, prose, markdown fences, or propose blocks.
 - Use only imports from the seeded scaffold: @/content/site, @/lib/preview-ready, @/components/ui/button, @/components/ui/card.
 - Call usePreviewReady() in HomeRouteComponent. Render every populated site field visibly: headline, subheadline, primaryCta, secondaryCta, offer, trustPoints, sections, products, testimonials, faq, socialLinks, currentPromo.
-- Primary CTA must be a real WhatsApp link using the accepted target, wrapped with <Button asChild size="lg">. Secondary CTA must use <Link to="/" hash="..."> or a real section id. No raw href="#...".
+- Primary CTA must be a real WhatsApp link using the accepted target, wrapped with <Button render={<a href="..." target="_blank" rel="noreferrer" />} size="lg"> or direct <a className="... min-h-11 min-w-11">. Secondary CTA must use <Link to="/" hash="..."> or a real section id. No raw href="#...".
 - Use Tailwind semantic tokens only. No custom CSS, images, placeholders, external URLs, invented facts, or technical headings. No data-generated-site-starter marker.
 - Keep the file compact enough to finish below the output limit.
 
@@ -675,7 +675,7 @@ RENDER COMPLETENESS RULE (enforced by the gate — read carefully):
 - If a field is empty/undefined, SKIP its section. Do not invent data.
 - NEVER ship starter boilerplate: no "Read the Blog", no "View on GitHub", no "⚡ Fast / 🎨 Beautiful / 📝 MDX Ready", no "Welcome to the home page", no "Your new project is ready". The gate rejects these.
 - NEVER hardcode href="/blog" or href="https://github.com". CTAs link to WhatsApp, #kontak, or real business actions.
-- EVERY call-to-action <Button asChild><a> MUST use size="lg" (44px min height). NEVER use size="sm" or size="default" on a CTA — the browser gate rejects any CTA under 44px and every CTA is checked, not just the hero. Nav/header chat buttons count too.
+- EVERY call-to-action button or link MUST have min-h-11 min-w-11 (≥44px touch target) or use <Button size="lg">. NEVER use size="sm" or size="default" on a primary CTA — the browser gate rejects any CTA under 44px and every CTA is checked, not just the hero. Nav/header chat buttons count too.
 - Use theme token utilities ONLY (bg-background, text-foreground, text-accent, border-border, bg-card, bg-accent). NEVER use arbitrary hex colors like bg-[#0b0b0d] or text-[#d4af37] — they bypass the compiled WCAG theme and re-theming will not propagate.
 
 EXACT FIELD NAMES (tsc fails on any mismatch — use these EXACT property names):

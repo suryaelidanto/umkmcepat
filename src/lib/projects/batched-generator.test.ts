@@ -94,11 +94,9 @@ export function HomeRouteComponent() {
       <p className="text-sm font-medium text-muted-foreground">{site.eyebrow}</p>
       <h1 className="text-4xl font-semibold tracking-tight text-foreground">{site.headline}</h1>
       <p className="text-muted-foreground">{site.subheadline}</p>
-      <Button size="lg" asChild>
-        <Link to="/" hash="kontak">
-          {site.primaryCta}
-          <ArrowRight className="size-4" />
-        </Link>
+      <Button size="lg" render={<Link to="/" hash="kontak" />}>
+        {site.primaryCta}
+        <ArrowRight className="size-4" />
       </Button>
       <Card><CardContent>{site.offer}</CardContent></Card>
       <section>
@@ -945,7 +943,7 @@ describe("collectBatchedGateIssues", () => {
         {
           path: "src/routes/index.tsx",
           content:
-            'import { site } from "@/content/site";\nimport { usePreviewReady } from "@/lib/preview-ready";\nimport { Button } from "@/components/ui/button";\nexport function HomeRouteComponent() {\n  usePreviewReady();\n  return (<main><Button asChild><a href="https://wa.me/6281234567890">{site.primaryCta}</a></Button></main>);\n}',
+            'import { site } from "@/content/site";\nimport { usePreviewReady } from "@/lib/preview-ready";\nimport { Button } from "@/components/ui/button";\nexport function HomeRouteComponent() {\n  usePreviewReady();\n  return (<main><Button render={<a href="https://wa.me/6281234567890" />}>{site.primaryCta}</Button></main>);\n}',
         },
       ] as GeneratedProjectFile[],
       {

@@ -59,6 +59,10 @@ export type ProjectSiteSchema = {
     channel: string;
     value: string;
   };
+  routes?: Array<{
+    path: string;
+    title: string;
+  }>;
 };
 
 const MAX_TEXT = 220;
@@ -309,6 +313,10 @@ export function createProjectSiteSchemaFromGeneratedContract(input: {
     priceRange: c.content.priceRange || undefined,
     address: c.content.address || undefined,
     deliveryArea: c.content.deliveryArea || undefined,
+    routes: c.page.routes.map((r) => ({
+      path: r.path,
+      title: r.purpose,
+    })),
     primaryCtaTarget:
       c.business.primaryCta.kind === "whatsapp" && c.business.primaryCta.target
         ? c.business.primaryCta.target.startsWith("http")
@@ -319,7 +327,12 @@ export function createProjectSiteSchemaFromGeneratedContract(input: {
       c.business.primaryCta.kind && c.business.primaryCta.target
         ? {
             channel: c.business.primaryCta.kind,
-            value: c.business.primaryCta.target,
+            value:
+              c.page.routes.length > 1 &&
+              c.business.primaryCta.target.startsWith("#") &&
+              !c.business.primaryCta.target.startsWith("#/")
+                ? `#/#${c.business.primaryCta.target.slice(1)}`
+                : c.business.primaryCta.target,
           }
         : undefined,
   };
