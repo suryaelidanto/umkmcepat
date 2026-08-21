@@ -198,10 +198,10 @@ export function WorkspaceHistoryDrawer({
               return (
                 <li
                   key={snapshot.id}
-                  className="flex items-center justify-between gap-spacing-4 rounded-radius-md border border-white/[0.08] bg-white/[0.03] px-spacing-6 py-spacing-5"
+                  className="flex items-center justify-between gap-spacing-4 rounded-radius-md border border-border bg-muted/40 px-spacing-6 py-spacing-5 dark:border-white/[0.08] dark:bg-white/[0.03]"
                 >
                   <div className="flex min-w-0 flex-col gap-spacing-1">
-                    <span className="flex flex-wrap items-center gap-spacing-2 text-body-small font-[480] text-surface-warm-white">
+                    <span className="flex flex-wrap items-center gap-spacing-2 text-body-small font-[480] text-foreground dark:text-surface-warm-white">
                       <span>
                         {label}
                         {snapshot.fileCount != null
@@ -214,7 +214,7 @@ export function WorkspaceHistoryDrawer({
                         </span>
                       ) : null}
                     </span>
-                    <span className="text-body-small text-surface-warm-white/55">
+                    <span className="text-body-small text-muted-foreground dark:text-surface-warm-white/55">
                       {formatDate(snapshot.createdAt)} · {buildLabel}
                     </span>
                     {!snapshot.restorable ? (
@@ -226,7 +226,6 @@ export function WorkspaceHistoryDrawer({
                   <Button
                     size="sm"
                     variant="outline"
-                    className="border-white/15 bg-transparent text-surface-warm-white/80 hover:bg-white/5 hover:text-surface-warm-white"
                     disabled={
                       !snapshot.restorable ||
                       restoringId === snapshot.id ||

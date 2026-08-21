@@ -107,7 +107,7 @@ function FileTree({
 
   if (!files.length) {
     return (
-      <p className="px-spacing-4 py-spacing-3 text-sm text-surface-warm-white/50">
+      <p className="px-spacing-4 py-spacing-3 text-sm text-muted-foreground">
         Source belum tersedia.
       </p>
     );
@@ -152,7 +152,7 @@ function FileTreeItem({
       <button
         type="button"
         onClick={() => onSelect(node.path)}
-        className={`block w-full truncate px-spacing-4 py-spacing-1.5 text-left text-sm transition ${selected ? "bg-surface-warm-white/12 text-surface-warm-white" : "text-surface-warm-white/62 hover:bg-surface-warm-white/7 hover:text-surface-warm-white"}`}
+        className={`block w-full truncate px-spacing-4 py-spacing-1.5 text-left text-sm transition ${selected ? "bg-black/10 font-semibold text-foreground dark:bg-surface-warm-white/12 dark:text-surface-warm-white" : "text-muted-foreground hover:bg-black/5 hover:text-foreground dark:text-surface-warm-white/62 dark:hover:bg-surface-warm-white/7 dark:hover:text-surface-warm-white"}`}
         title={node.path}
       >
         <span className="pl-spacing-6">{name}</span>
@@ -168,17 +168,17 @@ function FileTreeItem({
       <button
         type="button"
         onClick={() => onToggle(node.path)}
-        className="flex w-full cursor-pointer items-center px-spacing-4 py-spacing-1.5 text-left text-sm font-medium text-surface-warm-white/72 hover:bg-surface-warm-white/7 hover:text-surface-warm-white"
+        className="flex w-full cursor-pointer items-center px-spacing-4 py-spacing-1.5 text-left text-sm font-medium text-foreground/80 hover:bg-black/5 hover:text-foreground dark:text-surface-warm-white/72 dark:hover:bg-surface-warm-white/7 dark:hover:text-surface-warm-white"
       >
         <span
-          className={`mr-spacing-2 inline-block text-surface-warm-white/38 transition-transform ${isOpen ? "rotate-90" : ""}`}
+          className={`mr-spacing-2 inline-block text-muted-foreground/60 transition-transform ${isOpen ? "rotate-90" : ""}`}
         >
           ›
         </span>
         {name}
       </button>
       {isOpen ? (
-        <div className="ml-spacing-5 border-l border-surface-warm-white/8 pl-spacing-3">
+        <div className="ml-spacing-5 border-l border-border/70 dark:border-surface-warm-white/8 pl-spacing-3">
           {children.map(([childName, child]) => (
             <FileTreeItem
               key={child.path || `${node.path}/${childName}`}
@@ -443,14 +443,14 @@ export function CodeView({
     return (
       <div
         role="status"
-        className="flex h-full min-h-0 flex-col items-center justify-center gap-spacing-4 bg-[#10100f] p-spacing-6 text-center text-surface-warm-white"
+        className="flex h-full min-h-0 flex-col items-center justify-center gap-spacing-4 bg-background p-spacing-6 text-center text-foreground"
       >
-        <Loader2 className="size-8 animate-spin text-surface-warm-white/70" />
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
         <div className="max-w-sm">
-          <p className="text-sm font-semibold text-surface-warm-white">
+          <p className="text-sm font-semibold text-foreground">
             Sedang meracik kode website...
           </p>
-          <p className="mt-spacing-2 text-xs leading-5 text-surface-warm-white/54">
+          <p className="mt-spacing-2 text-xs leading-5 text-muted-foreground">
             Kode terbaru akan otomatis muncul begitu proses pembuatan website
             selesai.
           </p>
@@ -463,22 +463,22 @@ export function CodeView({
     return (
       <div
         role="status"
-        className="flex h-full min-h-0 flex-col items-center justify-center gap-spacing-4 bg-[#10100f] p-spacing-6 text-center text-surface-warm-white"
+        className="flex h-full min-h-0 flex-col items-center justify-center gap-spacing-4 bg-background p-spacing-6 text-center text-foreground"
       >
-        <Loader2 className="size-8 animate-spin text-surface-warm-white/70" />
-        <p className="text-sm text-surface-warm-white/64">
-          Memuat kode website...
-        </p>
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">Memuat kode website...</p>
       </div>
     );
   }
 
   if (!sortedFiles.length && error) {
     return (
-      <div className="grid h-full min-h-0 place-items-center bg-[#10100f] p-spacing-6 text-center text-surface-warm-white">
-        <div className="max-w-sm rounded-[24px] border border-[#ffb4a6]/25 bg-[#ffb4a6]/8 px-spacing-6 py-spacing-6">
-          <p className="text-sm font-semibold">Kode belum bisa dimuat</p>
-          <p className="mt-spacing-2 text-sm leading-6 text-surface-warm-white/64">
+      <div className="grid h-full min-h-0 place-items-center bg-background p-spacing-6 text-center text-foreground">
+        <div className="max-w-sm rounded-[24px] border border-destructive-border bg-destructive-subtle px-spacing-6 py-spacing-6">
+          <p className="text-sm font-semibold text-destructive">
+            Kode belum bisa dimuat
+          </p>
+          <p className="mt-spacing-2 text-sm leading-6 text-muted-foreground">
             {error}
           </p>
           <Button type="button" onClick={onRetry} className="mt-spacing-4">
@@ -494,9 +494,9 @@ export function CodeView({
   }
 
   return (
-    <div className="grid h-full min-h-0 grid-rows-[auto_1fr] overflow-hidden border-t border-surface-warm-white/10 bg-[#10100f] text-surface-warm-white md:grid-cols-[280px_1fr] md:grid-rows-1">
+    <div className="grid h-full min-h-0 grid-rows-[auto_1fr] overflow-hidden border-t border-border bg-background text-foreground md:grid-cols-[280px_1fr] md:grid-rows-1">
       {/* Mobile: sticky file-dropdown strip */}
-      <div className="flex items-center justify-between gap-spacing-2 border-b border-surface-warm-white/10 bg-[#111110] px-spacing-4 py-spacing-3 text-sm md:hidden">
+      <div className="flex items-center justify-between gap-spacing-2 border-b border-border bg-card px-spacing-4 py-spacing-3 text-sm md:hidden">
         <label htmlFor="workspace-code-file-mobile" className="sr-only">
           File
         </label>
@@ -504,7 +504,7 @@ export function CodeView({
           id="workspace-code-file-mobile"
           value={selectedFile?.path || ""}
           onChange={(event) => setSelectedPath(event.target.value)}
-          className="min-w-0 flex-1 rounded-radius-md border border-surface-warm-white/12 bg-[#1d1d1a] px-spacing-3 py-spacing-2 text-sm text-surface-warm-white outline-none focus:border-surface-warm-white/30"
+          className="min-w-0 flex-1 rounded-radius-md border border-border bg-muted/60 px-spacing-3 py-spacing-2 text-sm text-foreground outline-none focus:border-border/80"
         >
           {sortedFiles.map((file) => (
             <option key={file.path} value={file.path}>
@@ -515,19 +515,19 @@ export function CodeView({
       </div>
 
       {/* Desktop: existing sidebar */}
-      <aside className="hidden overflow-y-auto border-r border-surface-warm-white/10 bg-[#181816] py-spacing-3 md:block">
-        <div className="border-b border-surface-warm-white/8 px-spacing-4 pb-spacing-3">
-          <p className="text-[11px] uppercase tracking-[0.16em] text-surface-warm-white/34">
+      <aside className="hidden overflow-y-auto border-r border-border bg-[#eceae4] dark:bg-[#181816] py-spacing-3 md:block">
+        <div className="border-b border-border/80 px-spacing-4 pb-spacing-3">
+          <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
             Explorer
           </p>
-          <p className="mt-spacing-2 text-xs text-surface-warm-white/44">
+          <p className="mt-spacing-2 text-xs text-muted-foreground">
             Build: {buildStatus}
           </p>
           {error ? (
             <button
               type="button"
               onClick={onRetry}
-              className="mt-spacing-2 text-left text-xs leading-5 text-[#ffb4a6] underline underline-offset-4"
+              className="mt-spacing-2 text-left text-xs leading-5 text-destructive underline underline-offset-4"
             >
               Kode lama tetap ditampilkan. Coba muat ulang.
             </button>
@@ -537,7 +537,7 @@ export function CodeView({
             size="sm"
             onClick={exportProjectZip}
             disabled={!sortedFiles.length}
-            className="mt-spacing-3 h-8 w-full justify-start rounded-radius-md bg-surface-warm-white text-xs text-foreground-primary hover:bg-surface-warm-white/90"
+            className="mt-spacing-3 h-8 w-full justify-start rounded-radius-md text-xs font-semibold shadow-xs"
           >
             Export semua (.zip)
           </Button>
@@ -551,9 +551,9 @@ export function CodeView({
         </div>
       </aside>
       <section className="flex min-h-0 min-w-0 flex-col">
-        <div className="flex items-center justify-between gap-spacing-4 border-b border-surface-warm-white/10 bg-[#111110] px-spacing-5 py-spacing-3 text-sm text-surface-warm-white/58">
+        <div className="flex items-center justify-between gap-spacing-4 border-b border-border bg-[#f7f4ed] dark:bg-[#111110] px-spacing-5 py-spacing-3 text-sm text-muted-foreground">
           <span
-            className="min-w-0 truncate"
+            className="min-w-0 truncate font-medium text-foreground"
             title={selectedFile?.path || undefined}
           >
             {selectedFile?.path || "Belum ada file"}
@@ -564,7 +564,7 @@ export function CodeView({
             variant="outline"
             onClick={exportCurrentFile}
             disabled={!selectedFile}
-            className="h-8 shrink-0 rounded-radius-md border-surface-warm-white/14 bg-transparent text-xs text-surface-warm-white hover:bg-surface-warm-white/8"
+            className="h-8 shrink-0 rounded-radius-md border-border bg-transparent text-xs text-foreground hover:bg-muted"
           >
             Export file ini
           </Button>

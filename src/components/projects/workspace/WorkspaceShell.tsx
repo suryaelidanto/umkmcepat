@@ -3357,7 +3357,7 @@ export function WorkspaceShell({
                 size="sm"
                 onClick={() => void loadOlderChat()}
                 disabled={isLoadingOlderChat}
-                className="rounded-radius-lg border-surface-warm-white/14 bg-surface-warm-white/8 text-surface-warm-white hover:bg-surface-warm-white/12"
+                className="rounded-radius-lg border border-black/10 bg-black/5 text-[#1c1c1c] hover:bg-black/10 dark:border-surface-warm-white/14 dark:bg-surface-warm-white/8 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/12"
               >
                 {isLoadingOlderChat ? "Memuat..." : "Muat chat lama"}
               </Button>
