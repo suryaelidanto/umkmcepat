@@ -54,6 +54,11 @@ export type ProjectSiteSchema = {
   priceRange?: string;
   address?: string;
   deliveryArea?: string;
+  primaryCtaTarget?: string;
+  contact?: {
+    channel: string;
+    value: string;
+  };
 };
 
 const MAX_TEXT = 220;
@@ -242,6 +247,17 @@ export function createProjectSiteSchemaFromBrief(
     priceRange: brief.priceRange?.trim() || undefined,
     address: brief.address?.trim() || undefined,
     deliveryArea: brief.deliveryArea?.trim() || undefined,
+    primaryCtaTarget:
+      brief.contact?.channel === "whatsapp" && brief.contact?.value
+        ? `https://wa.me/${brief.contact.value.replace(/\D/g, "").startsWith("0") ? `62${brief.contact.value.replace(/\D/g, "").slice(1)}` : brief.contact.value.replace(/\D/g, "")}?text=Halo`
+        : undefined,
+    contact:
+      brief.contact?.channel && brief.contact?.value
+        ? {
+            channel: brief.contact.channel,
+            value: brief.contact.value,
+          }
+        : undefined,
   };
 }
 
@@ -293,6 +309,19 @@ export function createProjectSiteSchemaFromGeneratedContract(input: {
     priceRange: c.content.priceRange || undefined,
     address: c.content.address || undefined,
     deliveryArea: c.content.deliveryArea || undefined,
+    primaryCtaTarget:
+      c.business.primaryCta.kind === "whatsapp" && c.business.primaryCta.target
+        ? c.business.primaryCta.target.startsWith("http")
+          ? c.business.primaryCta.target
+          : `https://wa.me/${c.business.primaryCta.target.replace(/\D/g, "").startsWith("0") ? `62${c.business.primaryCta.target.replace(/\D/g, "").slice(1)}` : c.business.primaryCta.target.replace(/\D/g, "")}?text=Halo`
+        : undefined,
+    contact:
+      c.business.primaryCta.kind && c.business.primaryCta.target
+        ? {
+            channel: c.business.primaryCta.kind,
+            value: c.business.primaryCta.target,
+          }
+        : undefined,
   };
 }
 

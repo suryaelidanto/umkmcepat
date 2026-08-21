@@ -542,7 +542,7 @@ FACT AND SAFETY RULES:
 - Do not invent phone numbers, addresses, hours, prices, discounts, testimonials, ratings, awards, certifications, metrics, stock, guarantees, delivery, payment methods, or customer results.
 - Do not turn NOT PROVIDED into a confident claim, decorative badge, empty placeholder, or fake state.
 - Use only hash links and routes that exist in the scaffold or that you write and register safely.
-- Keep the primary action obvious and use the accepted contact value for WhatsApp only when one exists.
+- Keep the primary action obvious. When site.primaryCtaTarget or site.contact (e.g. WhatsApp wa.me link) is available in src/content/site.ts, primary CTA buttons (in Header, Hero, and Footer/Contact sections) must link directly to it via <a href={site.primaryCtaTarget} target="_blank" rel="noopener noreferrer">.
 - Do not add remote images, placeholder media, external URLs, packages, config files, API calls, or platform metadata.
 - Keep interactive parent controls at least 44px without enlarging their inner SVG icons. Preserve focus-visible states and reduced motion.
 - Avoid nested cards, equal-card soup, gradient-tech styling, technical headings, starter residue, fake progress, and decorative interaction.

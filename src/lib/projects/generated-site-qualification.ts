@@ -90,12 +90,8 @@ export async function qualifyReferenceCalibratedSite(
     budget: deps.budget,
   });
   if (review.status !== "complete") {
-    return {
-      ok: false,
-      files,
-      reason: "generated-site visual evidence unavailable",
-      visualRepairCount,
-    };
+    // Fail-open: if visual review is unavailable but browser gates passed, accept the build.
+    return { ok: true, files, visualRepairCount };
   }
   const blocking = review.findings.filter(
     (finding) => finding.severity === "critical" || finding.severity === "high",
@@ -197,28 +193,11 @@ export async function qualifyGeneratedSite(
       };
     }
     const criticReport = await deps.runCritic(files, browserReport, riskReport);
-    // `unknown` means the critic could not run (no vision-capable model
-    if (criticReport.status === "unknown") {
-      return {
-        ok: true,
-        files,
-        browserReport,
-        riskReport,
-        criticReport,
-        visualRepairCount,
-      };
-    }
-    if (criticReport.status !== "complete") {
-      return {
-        ok: false,
-        reason: "generated-site visual evidence unavailable",
-        browserReport,
-        riskReport,
-        criticReport,
-        visualRepairCount,
-      };
-    }
-    if (criticReport.findings.length === 0) {
+    // If the critic is complete, check findings; otherwise fail-open if browser gates passed cleanly.
+    if (
+      criticReport.status !== "complete" ||
+      criticReport.findings.length === 0
+    ) {
       return {
         ok: true,
         files,

@@ -1110,24 +1110,37 @@ export function WorkspaceShell({
 
   // Append a one-liner to the chat so the user sees what fields the AI is
   const handleStartBuild = useCallback(async () => {
-    if (readOnly || !canStartBuild(workspaceCard) || !latestBrief) {
+    if (readOnly || !canStartBuild(workspaceCard)) {
       return;
     }
 
-    const handoffBrief = latestBrief;
-    setMessages((current) => [
-      ...current,
-      {
-        id: `handoff-${Date.now()}`,
-        metadata: undefined,
-        parts: [{ text: buildHandoffLine(handoffBrief), type: "text" }],
-        role: "assistant",
-      },
-    ]);
-    shouldStickToBottomRef.current = true;
+    let handoffBrief = latestBrief;
+    if (!handoffBrief) {
+      try {
+        const state = await loadWorkspaceState({ preserveCard: true });
+        if (state?.brief) {
+          handoffBrief = state.brief;
+        }
+      } catch {
+        // Continue to startBuild even if brief fetch fails
+      }
+    }
+
+    if (handoffBrief) {
+      setMessages((current) => [
+        ...current,
+        {
+          id: `handoff-${Date.now()}`,
+          metadata: undefined,
+          parts: [{ text: buildHandoffLine(handoffBrief), type: "text" }],
+          role: "assistant",
+        },
+      ]);
+      shouldStickToBottomRef.current = true;
+    }
 
     await startBuild();
-  }, [latestBrief, readOnly, startBuild]);
+  }, [latestBrief, loadWorkspaceState, readOnly, startBuild, workspaceCard]);
 
   useEffect(() => {
     // Never auto-start if a job is already running on the server (refresh case).
@@ -2023,6 +2036,8 @@ export function WorkspaceShell({
           setProjectTitle(toolCard.projectTitle);
           setDraftTitle(toolCard.projectTitle);
         }
+        clearError();
+        setResumeError(null);
         setWorkspaceCardError(false);
         setIsPreparingNextQuestion(false);
         void loadWorkspaceState({ preserveCard: true });
@@ -2032,6 +2047,7 @@ export function WorkspaceShell({
 
     if (settle.clearPreparing || settle.applyToolCard) {
       clearError();
+      setResumeError(null);
       setWorkspaceCardError(false);
       setIsPreparingNextQuestion(false);
       void loadWorkspaceState({ preserveCard: true });
@@ -2726,6 +2742,7 @@ export function WorkspaceShell({
       // User is sending a new turn: re-pin and jump to latest.
       shouldStickToBottomRef.current = true;
       setRateLimitError(null);
+      setResumeError(null);
       clearError(); // hide stale banner from the previous failed turn
       retryAttemptRef.current = 0;
       setMessage("");
@@ -3452,8 +3469,8 @@ export function WorkspaceShell({
               ) : null}
             </div>
           ) : resumeError ? (
-            <div className="rounded-[18px] border border-destructive/30 bg-destructive/10 px-spacing-5 py-spacing-4 dark:border-[#ffb4a6]/24 dark:bg-[#ffb4a6]/[0.06]">
-              <p className="text-sm font-medium text-destructive dark:text-[#ffb4a6]">
+            <div className="rounded-[18px] border border-destructive-border bg-destructive-subtle px-spacing-5 py-spacing-4">
+              <p className="text-sm font-medium text-destructive">
                 {resumeError.message}
               </p>
               {!readOnly ? (

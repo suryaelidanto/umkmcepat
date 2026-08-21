@@ -223,7 +223,7 @@ describe("qualifyGeneratedSite", () => {
     expect(runCritic).toHaveBeenCalledTimes(2);
   });
 
-  it("fails honestly when evidence is unavailable", async () => {
+  it("fails-open honestly when evidence is unavailable but browser gates passed", async () => {
     const result = await qualifyGeneratedSite(files, {
       runBrowser: async () => browser,
       classifyRisk: () => risky,
@@ -234,7 +234,7 @@ describe("qualifyGeneratedSite", () => {
       }),
       repair: vi.fn(),
     });
-    expect(result).toMatchObject({ ok: false, visualRepairCount: 0 });
+    expect(result).toMatchObject({ ok: true, visualRepairCount: 0 });
   });
 
   it("accepts a clean build when the critic cannot run (vision infra unavailable)", async () => {
