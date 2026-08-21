@@ -251,8 +251,10 @@ describe("compileGeneratedSiteContract", () => {
       recipe: selectGeneratedSiteRecipe(values.plan.archetype),
     });
 
-    expect(result.content.headline).toBe("Pilih iPhone 13 dengan lebih mudah");
-    expect(result.content.subheadline).toContain("Lihat pilihan iPhone 13");
+    expect(result.content.headline).toBe("Koleksi iPhone 13 Pilihan Terbaik");
+    expect(result.content.subheadline).toContain(
+      "Temukan berbagai pilihan iPhone 13",
+    );
     expect(result.content.trustPoints).toEqual(
       expect.arrayContaining(["Kondisi unit tercatat"]),
     );

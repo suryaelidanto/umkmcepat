@@ -1481,11 +1481,18 @@ function publicHeadline(snapshot: ProjectBriefV2, archetype: string): string {
   if (tagline && !isInternalCopy(tagline)) {
     return tagline;
   }
-  const offer = snapshotPrimaryOffer(snapshot) ?? "pilihan utama";
-  if (archetype.startsWith("retail")) {
-    return `Pilih ${offer} dengan lebih mudah`;
+  const offer = snapshotPrimaryOffer(snapshot) ?? "Produk Pilihan";
+  const businessName = snapshot.business.name?.trim();
+  if (archetype.startsWith("fnb")) {
+    return `Nikmati ${offer} Spesial di ${businessName || "Kami"}`;
   }
-  return `${offer} yang mudah dipahami dan dipesan`;
+  if (archetype.startsWith("retail")) {
+    return `Koleksi ${offer} Pilihan Terbaik`;
+  }
+  if (archetype.startsWith("service") || archetype.startsWith("jasa")) {
+    return `Layanan ${offer} Profesional & Terpercaya`;
+  }
+  return `${offer} Berkualitas untuk Kebutuhan Anda`;
 }
 
 function publicSectionPurpose(purpose: string, id: string): string {
@@ -1502,10 +1509,12 @@ function publicSectionPurpose(purpose: string, id: string): string {
 }
 
 function publicSubheadline(snapshot: ProjectBriefV2, ctaLabel: string): string {
-  const offer = snapshotPrimaryOffer(snapshot) ?? "pilihan utama";
+  const offer = snapshotPrimaryOffer(snapshot) ?? "koleksi kami";
   const audience = snapshot.audience?.trim();
-  const audienceText = audience ? ` untuk ${audience.toLowerCase()}` : "";
-  return `Lihat pilihan ${offer}${audienceText}, pahami detailnya, lalu ${ctaLabel.toLowerCase()} saat sudah siap.`;
+  const audienceText = audience
+    ? ` khusus untuk ${audience.toLowerCase()}`
+    : "";
+  return `Temukan berbagai pilihan ${offer}${audienceText}. Hubungi kami langsung melalui ${ctaLabel} untuk pemesanan atau konsultasi.`;
 }
 
 function publicTrustPoints(
