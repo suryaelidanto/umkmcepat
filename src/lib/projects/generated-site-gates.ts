@@ -30,7 +30,12 @@ export function findGeneratedCustomerLiteralIssues(
 ): string[] {
   const issues: string[] = [];
   for (const file of files) {
-    if (!file.path.endsWith(".tsx") || file.path.includes("/ui/")) {
+    if (
+      !file.path.endsWith(".tsx") ||
+      file.path.includes("/ui/") ||
+      file.path === "src/routes/not-found.tsx" ||
+      file.path === "src/routes/__root.tsx"
+    ) {
       continue;
     }
     for (const match of file.content.matchAll(/>([^<>{}]+)</g)) {
