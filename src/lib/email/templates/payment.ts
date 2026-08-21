@@ -1,5 +1,5 @@
 import { sendEmail } from "@/lib/email";
-import { wrapEmail } from "@/lib/email/templates/wrapper";
+import { escapeHtml, wrapEmail } from "@/lib/email/templates/wrapper";
 
 const APP_URL = process.env.NEXTAUTH_URL || "http://localhost:3000";
 
@@ -45,15 +45,6 @@ export async function sendPaymentReceipt(
   });
 
   return sendEmail({ to, subject, html, text });
-}
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
 }
 
 function formatRupiah(amount: number): string {

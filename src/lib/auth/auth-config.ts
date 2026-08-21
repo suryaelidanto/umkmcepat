@@ -125,9 +125,13 @@ export const authConfig: AuthConfig = {
         const email = (user as { email?: string | null })?.email ?? null;
         const isAdmin = email ? isAdminEmail(email) : false;
         const shouldInstantGrant = !waitlistEnabled || isAdmin;
-        if (shouldInstantGrant) {
-          await grantSignupEnergy(user.id).catch(() => undefined);
-        }
+        const grantPromise = shouldInstantGrant
+          ? grantSignupEnergy(user.id).catch(() => undefined)
+          : Promise.resolve();
+        const welcomePromise = email
+          ? sendWelcomeEmail(email, user.name ?? "").catch(() => undefined)
+          : Promise.resolve();
+        await Promise.all([grantPromise, welcomePromise]);
       }
     },
   },

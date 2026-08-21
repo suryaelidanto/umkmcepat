@@ -1,6 +1,5 @@
-// src/lib/email/templates/waitlist.ts
 import { sendEmail } from "@/lib/email";
-import { wrapEmail } from "@/lib/email/templates/wrapper";
+import { escapeHtml, wrapEmail } from "@/lib/email/templates/wrapper";
 
 const APP_URL = process.env.NEXTAUTH_URL || "http://localhost:3000";
 
@@ -51,13 +50,4 @@ export async function sendWaitlistRejected(
   const { html, text } = wrapEmail(bodyHtml);
 
   return sendEmail({ to, subject, html, text });
-}
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
 }

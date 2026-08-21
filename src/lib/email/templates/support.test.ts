@@ -6,9 +6,35 @@ vi.mock("@/lib/email", () => ({
 }));
 
 import { sendEmail } from "@/lib/email";
-import { sendTicketResolved } from "@/lib/email/templates/support";
+import {
+  sendSupportReplyEmail,
+  sendTicketResolved,
+} from "@/lib/email/templates/support";
 
 const mockSendEmail = sendEmail as ReturnType<typeof vi.fn>;
+
+describe("sendSupportReplyEmail", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("sends support reply notification with ticket link and escaped reply body", async () => {
+    await sendSupportReplyEmail({
+      toEmail: "user@example.com",
+      ticketId: "ticket-abc-def",
+      subject: "Bantuan Domain",
+      replyBody: "Halo, domain sudah kami arahkan.",
+    });
+
+    expect(mockSendEmail).toHaveBeenCalledTimes(1);
+    const args = mockSendEmail.mock.calls[0][0];
+    expect(args.to).toBe("user@example.com");
+    expect(args.subject).toContain("Balasan Tiket #");
+    expect(args.subject).toContain("Bantuan Domain");
+    expect(args.html).toContain("Halo, domain sudah kami arahkan.");
+    expect(args.html).toContain("/support/ticket-abc-def");
+  });
+});
 
 describe("sendTicketResolved", () => {
   beforeEach(() => {
