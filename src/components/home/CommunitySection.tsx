@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { ScrollReveal } from "@/components/home/ScrollReveal";
 import { SponsorTable } from "@/components/home/SponsorTable";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -79,7 +80,7 @@ function SponsorModal() {
         <div className="space-y-spacing-4 text-xs text-[#5f5f5d] dark:text-surface-warm-white/70">
           <div className="rounded-lg border border-black/10 bg-black/[0.02] p-spacing-4 dark:border-white/10 dark:bg-white/[0.02]">
             <p className="font-semibold text-[#1c1c1c] dark:text-surface-warm-white">
-              Format Email:
+              Contoh Format Email:
             </p>
             <pre className="mt-spacing-2 whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-[#5f5f5d] dark:text-surface-warm-white/80">
               {`- Nama / Perusahaan:
@@ -91,21 +92,22 @@ function SponsorModal() {
           </div>
 
           <div className="flex flex-col gap-spacing-3 pt-spacing-2 sm:flex-row sm:items-center">
-            <a
-              href={SPONSOR_MAILTO}
-              className="inline-flex flex-1 items-center justify-center gap-spacing-2 rounded-md bg-[#1c1c1c] px-spacing-5 py-spacing-3.5 text-sm font-medium text-white transition hover:bg-black/80 dark:bg-surface-warm-white dark:text-[#161614] dark:hover:bg-white/90"
-            >
-              <Mail className="size-4" />
-              Kirim Email Sponsor
-            </a>
-            <button
+            <Button asChild size="sm" className="flex-1">
+              <a href={SPONSOR_MAILTO}>
+                <Mail className="size-4" />
+                Kirim Email Sponsor
+              </a>
+            </Button>
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={copyEmail}
-              className="inline-flex items-center justify-center gap-spacing-2 rounded-md border border-black/15 bg-transparent px-spacing-4 py-spacing-3.5 text-sm font-medium text-[#1c1c1c] transition hover:bg-black/5 dark:border-white/15 dark:text-surface-warm-white dark:hover:bg-white/5"
+              className="gap-spacing-2"
             >
               {copied ? (
                 <>
-                  <Check className="size-4 text-emerald-600 dark:text-emerald-400" />
+                  <Check className="size-4 text-status-success-light dark:text-status-success-dark" />
                   Email Tersalin
                 </>
               ) : (
@@ -114,7 +116,7 @@ function SponsorModal() {
                   Salin Email
                 </>
               )}
-            </button>
+            </Button>
           </div>
         </div>
       </DialogContent>
