@@ -189,6 +189,11 @@ export function compileOutcomeDesignSystem(
   --site-font-display: ${displayFont};
   --site-font-body: ${bodyFont};
 }
+
+@layer base {
+  * { @apply border-border outline-ring/50; }
+  body { @apply bg-background text-foreground font-body; }
+}
 `;
 
   return { ok: true, css, proposal };

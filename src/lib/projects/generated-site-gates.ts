@@ -1,15 +1,54 @@
 import ts from "typescript";
 
+import { type WriterDesignPlanV1 } from "./batched-response";
+import {
+  type GeneratedSiteContractV1,
+  type GeneratedSiteWriterContractV2,
+} from "./generated-site-contract";
+import { type GeneratedSiteDesignKitV1 } from "./generated-site-design-kits/types";
+import { type WriterDesignPlanV2 } from "./generated-site-design-plan";
+import { type GeneratedProjectFile } from "./generated-types";
 import { generatedRouteBinding } from "./professional-site-router";
 
-import type { WriterDesignPlanV1 } from "./batched-response";
-import type {
-  GeneratedSiteContractV1,
-  GeneratedSiteWriterContractV2,
-} from "./generated-site-contract";
-import type { GeneratedSiteDesignKitV1 } from "./generated-site-design-kits/types";
-import type { WriterDesignPlanV2 } from "./generated-site-design-plan";
-import type { GeneratedProjectFile } from "./generated-types";
+const ALLOWED_GENERATED_STRUCTURAL_LABELS = new Set([
+  "Beranda",
+  "Menu",
+  "Layanan",
+  "Lokasi",
+  "Kontak",
+  "Tentang",
+  "Kembali",
+  "Selanjutnya",
+  "Buka menu",
+  "Tutup menu",
+  "Navigasi utama",
+  "Langsung ke konten",
+]);
+
+export function findGeneratedCustomerLiteralIssues(
+  files: GeneratedProjectFile[],
+): string[] {
+  const issues: string[] = [];
+  for (const file of files) {
+    if (!file.path.endsWith(".tsx") || file.path.includes("/ui/")) {
+      continue;
+    }
+    for (const match of file.content.matchAll(/>([^<>{}]+)</g)) {
+      const literal = match[1].replace(/\s+/g, " ").trim();
+      if (
+        !literal ||
+        /^[\p{P}\p{S}\d\s]+$/u.test(literal) ||
+        ALLOWED_GENERATED_STRUCTURAL_LABELS.has(literal)
+      ) {
+        continue;
+      }
+      issues.push(
+        `${file.path}: unsupported customer-facing literal: ${literal}`,
+      );
+    }
+  }
+  return issues;
+}
 import type { ThemeContrastCheck } from "./scaffold/shadcn-theme";
 
 const SURFACE_TOKEN_AS_TEXT = /\btext-(?:muted|card|popover|secondary)\b(?!-)/;

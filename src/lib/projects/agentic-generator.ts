@@ -17,6 +17,7 @@ import { devLog } from "@/lib/dev-log";
 import { classifyBuildFailure } from "@/lib/projects/build-logs";
 import { generateDiff, type DiffLine } from "@/lib/projects/diff";
 import {
+  findGeneratedCustomerLiteralIssues,
   findGeneratedInternalLinkIssues,
   findGeneratedPrimaryActionIssues,
   normalizeGeneratedInternalLinks,
@@ -612,6 +613,7 @@ export async function runAgenticGenerate(input: {
           fileMap.set(file.path, file.content);
         }
         const preflightIssues = [
+          ...findGeneratedCustomerLiteralIssues(normalizedFiles),
           ...findGeneratedInternalLinkIssues(normalizedFiles),
           ...findGeneratedPrimaryActionIssues(normalizedFiles),
         ];
@@ -744,7 +746,7 @@ REQUIRED WORKFLOW:
 8. Call check_app. If it fails, fix the actual source with write_file and call check_app again. Finish only after the last check_app returns ok: true.
 
 FACT AND SAFETY RULES:
-- src/content/site.ts is read-only and is the sole customer-facing fact source.
+- src/content/site.ts is read-only and is the sole customer-facing fact source. Customer-facing JSX text must come from site.* bindings. Hard-coded prose, benefits, guarantees, badges, navigation marketing labels, or local display arrays fail check_app; only basic structural labels such as Beranda, Menu, Layanan, Lokasi, Kontak, Tentang, Kembali, and Buka/Tutup menu are allowed.
 - Do not invent phone numbers, addresses, hours, prices, discounts, testimonials, ratings, awards, certifications, metrics, stock, guarantees, delivery, payment methods, or customer results.
 - Do not turn NOT PROVIDED into a confident claim, decorative badge, empty placeholder, or fake state.
 - Strictly forbid fake interactive mechanisms: no mock shopping carts, no checkout modals, no dead search/filter bars, no fake booking calendars, and no fake urgency countdowns.

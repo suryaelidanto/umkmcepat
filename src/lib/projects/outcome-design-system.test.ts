@@ -31,6 +31,9 @@ describe("compileOutcomeDesignSystem", () => {
       expect(result.css).toContain("--background: #f8fafc;");
       expect(result.css).toContain("--primary: #0f172a;");
       expect(result.css).toContain("--site-font-display:");
+      expect(result.css).toContain(
+        "body { @apply bg-background text-foreground font-body;",
+      );
       expect(result.css).not.toContain("#f05a28");
     }
   });

@@ -6,6 +6,7 @@ import {
   inspectReferenceCalibratedSiteSource,
   normalizeBatchedSiteAnchors,
   normalizeGeneratedInteractiveTargets,
+  findGeneratedCustomerLiteralIssues,
   findGeneratedInternalLinkIssues,
   findGeneratedPrimaryActionIssues,
   normalizeGeneratedInternalLinks,
@@ -241,6 +242,34 @@ function _v2Plan(): WriterDesignPlanV2 {
     signatureElement: "full-field-lockup",
   };
 }
+
+describe("findGeneratedCustomerLiteralIssues", () => {
+  it("rejects invented customer-facing JSX copy", () => {
+    expect(
+      findGeneratedCustomerLiteralIssues([
+        {
+          content:
+            "export function Hero(){return <section><h1>{site.headline}</h1><p>Jaminan selesai tepat waktu</p></section>}",
+          path: "src/components/Hero.tsx",
+        },
+      ]),
+    ).toContain(
+      "src/components/Hero.tsx: unsupported customer-facing literal: Jaminan selesai tepat waktu",
+    );
+  });
+
+  it("allows contract bindings and closed structural labels", () => {
+    expect(
+      findGeneratedCustomerLiteralIssues([
+        {
+          content:
+            "export function Header(){return <nav><a>Beranda</a><a>{site.primaryCta}</a></nav>}",
+          path: "src/components/Header.tsx",
+        },
+      ]),
+    ).toEqual([]);
+  });
+});
 
 describe("reference-calibrated generated site source gates", () => {
   it.each([

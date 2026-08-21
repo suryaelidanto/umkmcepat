@@ -256,7 +256,7 @@ describe("runAgenticGenerate", () => {
         path: "src/components/site/Contact.tsx",
       });
       await tools.write_file.execute({
-        content: '<a href="#chat-box">Chat</a>',
+        content: '<a href="#chat-box">Kontak</a>',
         path: "src/routes/index.tsx",
       });
       await tools.check_app.execute({});
