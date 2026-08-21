@@ -98,14 +98,6 @@ export const APP_SETTINGS: ConfigEntry[] = [
     fallback: false,
   },
   {
-    key: "feature.direct_edit_enabled",
-    category: "feature_flag",
-    tier: "basic",
-    type: "boolean",
-    label: "Workspace Ubah (legacy alias)",
-    fallback: false,
-  },
-  {
     key: "quality.generated_site_critic_sample_rate",
     category: "ai",
     tier: "advanced",

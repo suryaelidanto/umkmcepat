@@ -23,7 +23,6 @@ describe("GET /api/flags", () => {
     getPublicFlagsMock.mockResolvedValue({
       "feature.composer_uploads_enabled": true,
       "feature.visual_edit_enabled": false,
-      "feature.direct_edit_enabled": false,
       "feature.default_theme": "dark",
     });
 
@@ -38,7 +37,6 @@ describe("GET /api/flags", () => {
     expect(body).toEqual({
       "feature.composer_uploads_enabled": true,
       "feature.visual_edit_enabled": false,
-      "feature.direct_edit_enabled": false,
       "feature.default_theme": "dark",
     });
   });

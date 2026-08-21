@@ -1,111 +1,94 @@
 ---
 name: push-main
-description: "Use when completed work on `dev` must be released to the protected `main` branch."
+description: "Use when completed work on `dev` must be released to protected `main` branch via individual PRs per task."
 ---
 
 # Push Main
 
-Use this skill when completed work on `dev` must be released to protected
-`main`. Always use a GitHub pull request; never merge `dev` locally and push
-`main` directly.
+Use this skill to release work from `dev` to protected `main`. Every distinct task/commit on `dev` is released as its own individual PR and squash-merged to `main`, maintaining clean, traceable PR history.
 
 ## Workflow Steps
 
-### 1. Push Dev first
+### 1. Ensure Local Commits and Dev CI Green (Sub-skills)
 
-Ensure `dev` is clean, committed, pushed, and green.
-**REQUIRED SUB-SKILL:** Use `push-dev` first. Do not continue if its CI fails.
+1. **Commit any uncommitted work**:
+   If uncommitted changes exist, invoke `atomic-commit` first.
+2. **Sync and verify `dev`**:
+   Invoke `push-dev` to push all pending commits to `origin dev` and ensure CI passes.
+   Do NOT proceed if `dev` CI is failing.
 
-If unrelated local commits are present on `dev`, resolve their scope before
-releasing. Do not silently include another job's work.
+### 2. Identify Tasks / Commits to Release
 
-### 2. Create or reuse the release PR
-
-Check for an open `dev` → `main` PR:
-
+Fetch latest remotes and list unmerged commits on `dev`:
 ```bash
-gh pr list --base main --head dev --state open --limit 1
+git fetch origin main dev
+COMMITS=$(git log --reverse --format="%H" origin/main..dev)
 ```
 
-The PR title becomes the commit subject on `main`, so it must be a concise
-Conventional Commit title in the imperative mood:
+If no commits found (`origin/main..dev` empty), `main` is already up to date. Exit cleanly.
 
-```text
-type(scope): imperative release summary
-```
+### 3. Release Each Task via Individual PR
 
-Use a real scope and describe the user-visible or engineering change. Never
-use generic titles such as `Dev`, `Release`, `Update`, or `Merge pull request`.
-Examples:
+For each commit hash `$SHA` in `$COMMITS`:
 
-```text
-fix(navigation): preserve loading through route transitions
-chore(ci): align protected branch release flow
-```
+1. **Extract commit info**:
+   ```bash
+   TITLE=$(git log -1 --format="%s" "$SHA")
+   BODY=$(git log -1 --format="%b" "$SHA")
+   SHORT_SHA=$(git rev-parse --short "$SHA")
+   BRANCH="release/${SHORT_SHA}"
+   ```
 
-If an existing release PR has a generic title, fix it before merging:
+2. **Create temporary topic branch from current `origin/main`**:
+   ```bash
+   git checkout -B "$BRANCH" origin/main
+   git cherry-pick "$SHA"
+   git push -u origin "$BRANCH" --force
+   ```
 
-```bash
-gh pr edit <PR_NUMBER> --title "type(scope): imperative release summary"
-```
+3. **Open individual PR targeting `main`**:
+   ```bash
+   PR_URL=$(gh pr create --base main --head "$BRANCH" --title "$TITLE" --body "${BODY:-$TITLE}")
+   PR_NUM=$(gh pr view "$BRANCH" --json number --jq .number)
+   ```
 
-If none exists, create one using the same title and a useful release body:
+4. **Gate on PR CI checks**:
+   ```bash
+   gh pr checks "$PR_NUM" --watch --interval 10
+   ```
+   If checks fail: stop, fix on `dev`, and restart flow.
 
-```bash
-gh pr create --base main --head dev \
-  --title "type(scope): imperative release summary" \
-  --body "<release summary>"
-```
+5. **Squash merge into `main` and delete remote topic branch**:
+   ```bash
+   gh pr merge "$PR_NUM" --squash --delete-branch
+   ```
 
-Do not check out `main`, merge locally, or push `origin main` in this skill.
+6. **Watch post-merge CI on `main`**:
+   ```bash
+   MAIN_SHA=$(git ls-remote origin refs/heads/main | cut -f1)
+   MAIN_RUN_ID=$(gh run list --branch main --limit 10 --json databaseId,headSha --jq ".[] | select(.headSha == \"$MAIN_SHA\") | .databaseId" | head -n 1)
+   if [ -n "$MAIN_RUN_ID" ]; then
+     gh run watch "$MAIN_RUN_ID" --exit-status
+   fi
+   ```
 
-### 3. Gate on PR checks
+7. **Update remote reference for next iteration**:
+   ```bash
+   git fetch origin main
+   ```
 
-Wait for every required PR check to finish and pass:
+### 4. Resync `dev` and Return
 
-```bash
-gh pr checks <PR_NUMBER> --watch --interval 10
-```
-
-If a check fails, use `fix-ci`, inspect the failing log, fix the issue on
-`dev`, push again, and update the PR. Never bypass required checks or merge
-with admin privileges.
-
-### 4. Merge through GitHub
-
-After the PR checks are green, squash-merge through GitHub and keep the `dev`
-branch:
-
-```bash
-gh pr merge <PR_NUMBER> --squash --delete-branch=false
-```
-
-Squash merging keeps `dev`'s detailed commit history while creating one clean
-release commit on `main`. GitHub derives its subject from the PR title and
-appends `(#PR_NUMBER)`, for example:
-`fix(navigation): preserve loading through route transitions (#27)`.
-Never use regular `--merge`, rebase locally, or bypass the required checks.
-
-### 5. Watch post-merge main CI
-
-The current Quality workflow also runs on pushes to `main`. Find the run whose
-`headSha` matches the PR merge commit, then block until it reaches a terminal
-state:
-
-```bash
-gh run watch <MAIN_RUN_ID> --exit-status
-```
-
-Do not stop at a pending status snapshot. If no push-to-main workflow exists,
-skip this step; deployment is separate and must not be assumed.
-
-If post-merge main CI fails, use `fix-ci`, fix the issue on `dev`, and repeat
-the PR release flow. Do not commit directly on protected `main`.
-
-### 6. Return to Dev
-
-Always leave the local worktree on the active development branch:
+After all individual PRs are merged into `main`:
 
 ```bash
 git checkout dev
+git fetch origin main
+git merge origin/main -m "chore(sync): sync main into dev"
+git push origin dev
+```
+
+Leave working tree clean on `dev`:
+```bash
+git status --short
 ```

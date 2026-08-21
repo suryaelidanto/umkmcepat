@@ -24,22 +24,10 @@ export function usePublicFlags() {
 }
 
 export function useFeatureFlag(
-  key:
-    | "feature.composer_uploads_enabled"
-    | "feature.visual_edit_enabled"
-    | "feature.direct_edit_enabled",
+  key: "feature.composer_uploads_enabled" | "feature.visual_edit_enabled",
 ): boolean {
   const { data } = usePublicFlags();
-  if (
-    key === "feature.visual_edit_enabled" ||
-    key === "feature.direct_edit_enabled"
-  ) {
-    const val =
-      data?.["feature.visual_edit_enabled"] ??
-      data?.["feature.direct_edit_enabled"];
-    return (val as boolean | undefined) ?? true;
-  }
-  return (data?.[key] as boolean | undefined) ?? true;
+  return (data?.[key] as boolean | undefined) ?? false;
 }
 
 export function useDefaultThemeSetting(initialTheme?: string): string {
