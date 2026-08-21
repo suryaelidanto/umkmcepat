@@ -1,5 +1,4 @@
-import { generateObject } from "ai";
-import { z } from "zod";
+import { generateText } from "ai";
 
 import type { OutcomeDirectedSiteContractV1 } from "./outcome-site-contract";
 
@@ -60,47 +59,6 @@ export function validateCreativeDirection(
   return { ok: true };
 }
 
-const CreativeDirectionSchema = z.object({
-  schemaVersion: z.literal(1),
-  visitorReading: z
-    .string()
-    .describe(
-      "What core problem or desire brings the visitor to this business?",
-    ),
-  visualThesis: z
-    .string()
-    .describe(
-      "The overarching creative metaphor and mood, without prescribing layout cards or CSS colors.",
-    ),
-  businessAnchors: z.array(
-    z.object({
-      source: z.enum([
-        "offer",
-        "process",
-        "place",
-        "product",
-        "craft",
-        "audience",
-      ]),
-      acceptedFactId: z.string(),
-      relevance: z.string(),
-    }),
-  ),
-  character: z.array(z.string()).describe("3-5 personality adjectives"),
-  firstViewPriority: z
-    .string()
-    .describe("What must be immediately obvious in the first 5 seconds?"),
-  mobileIntent: z
-    .string()
-    .describe("How the essence translates gracefully to a phone screen"),
-  genericityRisks: z
-    .array(z.string())
-    .describe("What generic AI landing page tropes must be avoided?"),
-  factualBoundaries: z
-    .array(z.string())
-    .describe("Important facts that are missing and must NEVER be fabricated"),
-});
-
 export async function runOutcomeCreativeDirection(input: {
   abortSignal?: AbortSignal;
   contract: OutcomeDirectedSiteContractV1;
@@ -119,22 +77,51 @@ CRITICAL RULES:
   const prompt = `Produce creative direction for this accepted contract:
 ${JSON.stringify(input.contract, null, 2)}`;
 
-  const result = await generateObject({
+  const result = await generateText({
     abortSignal: input.abortSignal,
     model: getAiModel(modelId),
     prompt,
-    schema: CreativeDirectionSchema,
     system: systemPrompt,
     telemetry: getAiTelemetry("project-outcome-creative-direction", {
       projectId: input.projectId,
       userId: input.userId,
     }),
   });
+  const thesis = result.text.trim();
+  if (!thesis) {
+    throw new Error("Creative direction response was empty.");
+  }
+
+  const primaryJob = input.contract.visitorJobs.find(
+    (job) => job.priority === "primary",
+  );
+  const primaryAction = input.contract.actions.find(
+    (action) => action.priority === "primary",
+  );
+  const anchorFactId = input.contract.routes
+    .flatMap((route) => route.requiredFactIds)
+    .find(Boolean);
+  if (!primaryJob || !primaryAction || !anchorFactId) {
+    throw new Error("Creative direction requires accepted business anchors.");
+  }
 
   const outputWithHash: CreativeDirectionV1 = {
-    ...result.object,
+    businessAnchors: [
+      {
+        acceptedFactId: anchorFactId,
+        relevance: input.contract.offers[0].name,
+        source: "offer",
+      },
+    ],
+    character: [],
     contractHash: input.contract.contractHash,
+    factualBoundaries: input.contract.omissions,
+    firstViewPriority: `${input.contract.business.name}: ${primaryAction.label}`,
+    genericityRisks: [],
+    mobileIntent: primaryJob.goal,
     schemaVersion: 1,
+    visitorReading: primaryJob.goal,
+    visualThesis: thesis,
   };
 
   const validation = validateCreativeDirection(outputWithHash, input.contract);
