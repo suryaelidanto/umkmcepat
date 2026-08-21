@@ -36,15 +36,12 @@ Do not run an open-ended taste loop. A review must end in a concrete change, a r
 
 ## Craft floor
 
-- Build around the business job, not a default section list.
-- Give the first viewport one dominant idea and one obvious next action.
-- Use a small number of differentiated sections. A section must earn its space through a real fact, visitor question, or supported action.
-- Let contrast come from warm surfaces, typography, spacing, borders, and composition before gradients or effects.
-- Use a restrained palette from the accepted theme. A gradient is not a substitute for a direction.
-- Keep body copy readable and bounded. Break long Indonesian words and let real content wrap.
-- Use asymmetry only when it improves scanability or emphasizes the primary offer.
-- Prefer one strong showcase to a grid of equal cards.
-- Preserve empty or unavailable states honestly. An omitted fact is not an invitation to invent a UI value.
+- **Hierarchy & Asymmetry:** Build around the business job, not a default section list. Use asymmetric bento rhythms, editorial splits, or focal showcases instead of repeating identical 3-column card grids.
+- **Typographic Scale:** Use high-contrast type scales (`text-3xl sm:text-5xl` for hero, `text-2xl sm:text-3xl` for sections). Cap line lengths at `max-w-2xl` (65-75ch). Never use artificial `01 / 02 / 03` number badges unless describing a real sequential workflow.
+- **Surface Rhythm & Spacing:** Alternate tight groupings (`gap-2` to `gap-3`) with generous section separations (`py-14 sm:py-20`).
+- **Contrast & Token Discipline:** Body text must hit ≥4.5:1 contrast ratio against its background. Only use semantic Tailwind tokens (`bg-background`, `bg-card`, `bg-muted`, `text-foreground`, `text-muted-foreground`, `text-primary`). No raw hex codes.
+- **Touch Targets:** All interactive links, buttons, and badges must strictly maintain `min-h-11 min-w-11` (≥44px) tap targets.
+- **Fact Grounding:** Preserve empty or unavailable states honestly. Sourced purely from `src/content/site.ts`. An omitted fact is not an invitation to invent a UI value.
 
 ## Never ship
 
