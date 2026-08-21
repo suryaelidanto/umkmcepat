@@ -175,7 +175,7 @@ export function QuestionComposer({
                   ) : null}
                 </span>
                 <span
-                  className={`mt-1 grid size-5 shrink-0 place-items-center border-2 transition ${isMultiple ? "rounded-[4px]" : "rounded-full"} ${isSelected ? "border-primary bg-primary text-primary-foreground dark:border-[#8ce99a] dark:bg-[#8ce99a]" : "border-black/30 bg-black/[0.02] group-hover:border-black/60 dark:border-surface-warm-white/24 dark:bg-transparent dark:group-hover:border-surface-warm-white/48"}`}
+                  className={`mt-1 grid size-5 shrink-0 place-items-center border-2 transition ${isMultiple ? "rounded-[4px]" : "rounded-full"} ${isSelected ? (isMultiple ? "border-primary bg-primary text-primary-foreground dark:border-[#8ce99a] dark:bg-[#8ce99a]" : "border-primary bg-transparent dark:border-[#8ce99a]") : "border-black/30 bg-black/[0.02] group-hover:border-black/60 dark:border-surface-warm-white/24 dark:bg-transparent dark:group-hover:border-surface-warm-white/48"}`}
                 >
                   {isSelected ? (
                     isMultiple ? (
@@ -184,7 +184,7 @@ export function QuestionComposer({
                         strokeWidth={3}
                       />
                     ) : (
-                      <span className="size-2 rounded-full bg-primary-foreground dark:bg-[#10100f]" />
+                      <span className="size-2.5 rounded-full bg-primary dark:bg-[#8ce99a]" />
                     )
                   ) : null}
                 </span>
@@ -213,7 +213,7 @@ export function QuestionComposer({
               </span>
             </span>
             <span
-              className={`mt-1 grid size-5 shrink-0 place-items-center rounded-full border-2 transition ${customAnswerSelected ? "border-primary bg-primary text-primary-foreground dark:border-[#8ce99a] dark:bg-[#8ce99a]" : "border-black/30 bg-black/[0.02] group-hover:border-black/60 dark:border-surface-warm-white/24 dark:bg-transparent dark:group-hover:border-surface-warm-white/48"}`}
+              className={`mt-1 grid size-5 shrink-0 place-items-center rounded-full border-2 transition ${customAnswerSelected ? (isMultiple ? "border-primary bg-primary text-primary-foreground dark:border-[#8ce99a] dark:bg-[#8ce99a]" : "border-primary bg-transparent dark:border-[#8ce99a]") : "border-black/30 bg-black/[0.02] group-hover:border-black/60 dark:border-surface-warm-white/24 dark:bg-transparent dark:group-hover:border-surface-warm-white/48"}`}
             >
               {customAnswerSelected ? (
                 isMultiple ? (
@@ -222,7 +222,7 @@ export function QuestionComposer({
                     strokeWidth={3}
                   />
                 ) : (
-                  <span className="size-2 rounded-full bg-primary-foreground dark:bg-[#10100f]" />
+                  <span className="size-2.5 rounded-full bg-primary dark:bg-[#8ce99a]" />
                 )
               ) : null}
             </span>
@@ -250,26 +250,16 @@ export function QuestionComposer({
                 </span>
               </button>
               <span
-                className={`mt-1 grid size-5 shrink-0 place-items-center rounded-full border-2 transition ${customAnswerSelected ? "" : "border-surface-warm-white/24 bg-transparent"}`}
-                style={
-                  customAnswerSelected
-                    ? {
-                        backgroundColor: isMultiple
-                          ? modeTone.accent
-                          : "transparent",
-                        borderColor: modeTone.accent,
-                      }
-                    : undefined
-                }
+                className={`mt-1 grid size-5 shrink-0 place-items-center rounded-full border-2 transition ${customAnswerSelected ? (isMultiple ? "border-primary bg-primary text-primary-foreground dark:border-[#8ce99a] dark:bg-[#8ce99a]" : "border-primary bg-transparent dark:border-[#8ce99a]") : "border-black/30 bg-black/[0.02] dark:border-surface-warm-white/24 dark:bg-transparent"}`}
               >
                 {customAnswerSelected ? (
                   isMultiple ? (
-                    <Check className="size-3 text-[#10100f]" strokeWidth={3} />
-                  ) : (
-                    <span
-                      className="size-2.5 rounded-full"
-                      style={{ backgroundColor: modeTone.accent }}
+                    <Check
+                      className="size-3 text-primary-foreground dark:text-[#10100f]"
+                      strokeWidth={3}
                     />
+                  ) : (
+                    <span className="size-2.5 rounded-full bg-primary dark:bg-[#8ce99a]" />
                   )
                 ) : null}
               </span>
