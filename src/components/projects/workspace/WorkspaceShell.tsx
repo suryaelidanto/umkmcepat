@@ -478,6 +478,23 @@ export function WorkspaceShell({
     return () => {
       document.body.style.cursor = "";
       document.documentElement.style.cursor = "";
+      // ponytail: clears any orphaned adoptedStyleSheets injected by third-party splitters
+      if (
+        document.adoptedStyleSheets &&
+        document.adoptedStyleSheets.length > 0
+      ) {
+        document.adoptedStyleSheets = document.adoptedStyleSheets.filter(
+          (sheet) => {
+            try {
+              return !Array.from(sheet.cssRules).some((rule) =>
+                rule.cssText.includes("cursor:"),
+              );
+            } catch {
+              return true;
+            }
+          },
+        );
+      }
     };
   }, []);
 
