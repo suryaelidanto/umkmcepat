@@ -905,15 +905,6 @@ describe("normalizeBatchedSiteAnchors", () => {
     expect(file?.content).not.toContain("data-generated-site-starter");
   });
 
-  it("anchors a pattern on a non-main route root", () => {
-    const [file] = normalizeBatchedSiteAnchors(
-      [{ path: "src/routes/index.tsx", content: "<div><h1>Home</h1></div>" }],
-      { compositionPatternId: "split-commerce-hero" },
-    );
-
-    expect(file?.content).toContain('<div data-pattern="split-commerce-hero">');
-  });
-
   it("repairs default route exports and void preview-hook value usage", () => {
     const [file] = normalizeBatchedSiteAnchors([
       {

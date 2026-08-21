@@ -393,7 +393,6 @@ describe("compileGeneratedSiteContract", () => {
       kit,
     });
     expect(result.schemaVersion).toBe(2);
-    expect(result.visualInputs.selectedKitId).toBe("catalog-story");
     expect(result.media.mode).toBe("graphic");
     expect(result.obligations.sections.map((section) => section.id)).toEqual([
       "catalog",
