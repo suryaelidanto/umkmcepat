@@ -207,6 +207,20 @@ describe("compileOutcomeDirectedSiteContract", () => {
     });
   });
 
+  it("blocks a secondary route with no accepted facts", () => {
+    expectMissing("route", (value) => {
+      value.plan.pages.push({
+        id: "location",
+        path: "/lokasi",
+        purpose: "Find the outlet",
+        requiredFactIds: [],
+        sections: [],
+        title: "Lokasi",
+        visitorJobIds: ["job-order"],
+      });
+    });
+  });
+
   it("blocks an unresolved primary action instead of guessing a target", () => {
     expectMissing("action", (value) => {
       value.contract.facts = value.contract.facts.filter(

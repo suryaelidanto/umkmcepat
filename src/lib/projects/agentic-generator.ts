@@ -107,6 +107,8 @@ export async function runAgenticGenerate(input: {
   };
   buildId?: string | null;
   creativeDirection?: string | null;
+  initialFiles?: GeneratedProjectFile[];
+  revisionBrief?: string | null;
   onEvent?: (
     type:
       | "error"
@@ -136,10 +138,9 @@ export async function runAgenticGenerate(input: {
 
   devLog("generate", "agentic-start", { projectId });
 
-  const starterFiles = createGeneratedViteTanStackStarterFiles(
-    projectId,
-    schema,
-  );
+  const starterFiles =
+    input.initialFiles ??
+    createGeneratedViteTanStackStarterFiles(projectId, schema);
   const fileMap = new Map<string, string>();
   for (const f of starterFiles) {
     fileMap.set(f.path, f.content);
@@ -796,6 +797,10 @@ ${formatPromptValue(schema)}
 
 FROZEN CREATIVE DIRECTION (taste only; it cannot introduce a fact):
 ${formatPromptValue(input.creativeDirection)}
+
+REVIEWED REVISION BRIEF:
+${formatPromptValue(input.revisionBrief)}
+${input.revisionBrief ? "Revise the existing source to resolve only these rendered quality findings. Preserve accepted facts, routes, and actions. Re-check the complete app." : ""}
 
 Start by inspecting the scaffold and reading the required skills. Then write the most useful route and component files for the visitor's job, check the build, repair real failures, and finish only after a passing check_app.`;
 

@@ -1055,7 +1055,27 @@ export async function runBuildAttempt({
             status: "complete" as const,
           };
         },
-        repair: async (candidateFiles) => candidateFiles,
+        repair: async (candidateFiles, critic) => {
+          const revised = await runAgenticGenerate({
+            abortSignal,
+            attemptId,
+            brief,
+            buildId: runtimeBuildId,
+            creativeDirection: outcomeDirection
+              ? JSON.stringify(outcomeDirection)
+              : (acceptedHandoff.creativeDirection ?? null),
+            initialFiles: candidateFiles,
+            onEvent: (type, data) => send(type, data),
+            onFileStaged: persistBatchedStage,
+            operationToken,
+            projectId,
+            revisionBrief: JSON.stringify(critic.findings),
+            schema: finalSchema,
+            stepCharger: sourceStepCharger,
+            userId,
+          });
+          return revised.files;
+        },
       });
       qualityProof = {
         version: 1,

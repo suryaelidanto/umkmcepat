@@ -16,7 +16,7 @@ import type { BuildContractV1, ContractFactV1 } from "./build-contract";
 import type { GeneratedSiteHandoffInput } from "./generated-site-contract";
 
 export type OutcomeContractRequiredField =
-  "identity" | "offer" | "visitor_job" | "action";
+  "identity" | "offer" | "visitor_job" | "action" | "route";
 
 export class OutcomeContractCompileError extends Error {
   constructor(
@@ -282,6 +282,16 @@ export function compileOutcomeDirectedSiteContract(
     .map((fact) => fact.value as string);
 
   const taglineFact = handoff.briefSnapshot.content.tagline?.trim() || null;
+
+  const unsupportedSecondaryRoute = handoff.plan.pages.find(
+    (page) => page.path !== "/" && page.requiredFactIds.length === 0,
+  );
+  if (unsupportedSecondaryRoute) {
+    throw new OutcomeContractCompileError(
+      "route",
+      `route ${unsupportedSecondaryRoute.path} has no accepted facts`,
+    );
+  }
 
   const routes: OutcomeSiteRoute[] = handoff.plan.pages.map((page) => ({
     path: page.path,
