@@ -178,11 +178,12 @@ describe("POST /api/projects/preview (discuss) — server-side turn flow", () =>
         _turnId: string,
         onEvent: (e: { type: string; [k: string]: unknown }) => void,
       ) => {
+        onEvent({ type: "activity", phase: "responding" });
         onEvent({ type: "text-start", id: "t1" });
         onEvent({
           type: "text-delta",
           id: "t1",
-          textDelta: "Halo balik!",
+          delta: "Halo balik!",
         });
         onEvent({ type: "text-end", id: "t1" });
         onEvent({ type: "finish" });
@@ -217,10 +218,11 @@ describe("POST /api/projects/preview (discuss) — server-side turn flow", () =>
       { replayBuffered: false },
     );
 
-    // The tail stream body emits the replayed deltas + finish.
+    // The tail stream body emits only valid UI message chunks.
     const text = await response.text();
     expect(text).toContain("Halo balik!");
     expect(text).toContain("finish");
+    expect(text).not.toContain('"type":"activity"');
   });
 
   it("finishes moderation before claiming and enqueueing a discuss turn", async () => {

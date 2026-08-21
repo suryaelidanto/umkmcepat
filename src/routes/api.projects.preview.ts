@@ -64,6 +64,19 @@ type PreviewRequest = {
   workspaceAnswers?: unknown;
 };
 
+const UI_MESSAGE_STREAM_EVENT_TYPES = new Set([
+  "start",
+  "finish",
+  "text-start",
+  "text-delta",
+  "text-end",
+  "tool-input-start",
+  "tool-input-delta",
+  "tool-input-available",
+  "tool-output-available",
+  "error",
+]);
+
 export const Route = createFileRoute("/api/projects/preview")({
   server: {
     handlers: {
@@ -495,6 +508,9 @@ async function handleDiscussTurnOneCall({
     stream: createUIMessageStream({
       execute: async ({ writer }) => {
         const writeSafe = (event: { type: string; [k: string]: unknown }) => {
+          if (!UI_MESSAGE_STREAM_EVENT_TYPES.has(event.type)) {
+            return;
+          }
           try {
             writer.write(event as never);
           } catch {
