@@ -1,5 +1,6 @@
 "use client";
 
+import { Loader2 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -370,12 +371,14 @@ export function CodeView({
   buildStatus,
   error,
   isLoading,
+  isBuilding,
   onRetry,
 }: {
   files: GeneratedProjectFile[];
   buildStatus: string;
   error: string | null;
   isLoading: boolean;
+  isBuilding?: boolean;
   onRetry: () => void;
 }) {
   const { resolvedTheme } = useTheme();
@@ -436,13 +439,36 @@ export function CodeView({
     );
   }, [sortedFiles]);
 
-  if (!sortedFiles.length && isLoading) {
+  if (isBuilding) {
     return (
       <div
         role="status"
-        className="grid h-full min-h-0 place-items-center bg-[#10100f] p-spacing-6 text-sm text-surface-warm-white/64"
+        className="flex h-full min-h-0 flex-col items-center justify-center gap-spacing-4 bg-[#10100f] p-spacing-6 text-center text-surface-warm-white"
       >
-        Memuat kode website...
+        <Loader2 className="size-8 animate-spin text-surface-warm-white/70" />
+        <div className="max-w-sm">
+          <p className="text-sm font-semibold text-surface-warm-white">
+            Sedang meracik kode website...
+          </p>
+          <p className="mt-spacing-2 text-xs leading-5 text-surface-warm-white/54">
+            Kode terbaru akan otomatis muncul begitu proses pembuatan website
+            selesai.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading || (!sortedFiles.length && buildStatus === "building")) {
+    return (
+      <div
+        role="status"
+        className="flex h-full min-h-0 flex-col items-center justify-center gap-spacing-4 bg-[#10100f] p-spacing-6 text-center text-surface-warm-white"
+      >
+        <Loader2 className="size-8 animate-spin text-surface-warm-white/70" />
+        <p className="text-sm text-surface-warm-white/64">
+          Memuat kode website...
+        </p>
       </div>
     );
   }

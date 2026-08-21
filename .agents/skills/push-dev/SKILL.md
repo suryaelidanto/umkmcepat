@@ -5,58 +5,34 @@ description: Use when changes on `dev` must be committed, pushed, and validated 
 
 # Push Dev
 
-Use this skill whenever you need to commit and push local changes to the `dev` branch.
+Use this skill whenever you need to push local changes to `dev` and wait for remote CI verification.
 
 ## Workflow Steps
 
-### 1. Verification
-Before staging or committing, run local checks to ensure the codebase compiles:
+### 1. Atomic Commit (Sub-skill)
+If there are uncommitted working tree changes, invoke `atomic-commit` first:
+- Stage only files related to the completed task (or all files if no specific task context exists).
+- Create local Conventional Commit.
+- Verify working tree status:
+```bash
+git status --short
+```
+
+### 2. Verification
+Run local checks before pushing to prevent broken CI runs:
 ```bash
 bun run check
 ```
-* **If it fails**: Fix the errors first. Do not bypass or push broken code.
-
-### 2. Stage
-
-**If you know exactly which files you worked on** — stage only those files. Never blindly stage everything when you have context:
-```bash
-git add src/components/foo.tsx src/lib/bar.ts   # only what you touched
-```
-
-**If you have no session context** (e.g. fresh agent, resumed session, or user asked to commit all) — inspect first, then stage all changed files:
-```bash
-git status --short   # review what is changed
-git add -A           # stage everything
-```
-
-When in doubt, run `git diff --stat` and use judgment. Do not silently stage unrelated files.
-
-Construct the commit message using the Conventional Commits specification.
-Format: `type(scope): description`
-All commits must end with:
-`Co-Authored-By: Claude <noreply@anthropic.com>`
-
-When `push-main` opens or reuses the release PR, its title must use the same
-Conventional Commit format because squash merging uses that title as the
-commit subject on `main`. Keep it specific and imperative; never use generic
-titles such as `Dev`, `Release`, `Update`, or `Merge pull request`.
-
-Example command:
-```bash
-git commit -m "feat(auth): add email verification
-
-Co-Authored-By: Claude <noreply@anthropic.com>"
-```
+* **If it fails**: Fix the errors first and commit the fix via `atomic-commit`. Do not bypass.
 
 ### 3. Push
-Push your branch to origin:
+Push local `dev` commits to origin:
 ```bash
 git push origin dev
 ```
 
-### 4. Watch CI (blocking — do not stop until green/red)
-After pushing, find the run for the exact pushed commit and **block on it** so
-you never watch another concurrent push or stop mid-run waiting for a re-prompt:
+### 4. Watch CI (blocking)
+Find the CI run for the exact commit SHA and block until terminal state:
 ```bash
 DEV_SHA=$(git rev-parse HEAD)
 RUN_ID=$(gh run list --branch dev --limit 20 --json databaseId,headSha --jq ".[] | select(.headSha == \"$DEV_SHA\") | .databaseId" | head -n 1)
@@ -64,13 +40,15 @@ if [ -z "$RUN_ID" ]; then
   echo "No dev CI run found for $DEV_SHA" >&2
   exit 1
 fi
-gh run watch "$RUN_ID" --exit-status      # blocks until run finishes; exits non-zero on failure
+gh run watch "$RUN_ID" --exit-status
 ```
-`gh run watch --exit-status` is the gate. Do not `gh run list` and stop — that snapshot returns while the run is still in progress and forces the user to re-prompt you. Always block until the run reports a terminal state.
 
-If the run failed, invoke `fix-ci` to view logs (`gh run view "$RUN_ID" --log-failed`), apply a minimal fix, push again, then **watch the new run to completion** — loop until green.
+If the run fails:
+1. View failing logs: `gh run view "$RUN_ID" --log-failed`.
+2. Apply minimal fix.
+3. Commit via `atomic-commit`.
+4. Push and watch new run until green.
 
-## Release handoff
+## Release Handoff
 
-A green `dev` run is the handoff to `push-main`. Do not check out, merge, or
-push `main` from this skill.
+Once `dev` CI is green, work is ready for `push-main`. Do not push or merge `main` from this skill.

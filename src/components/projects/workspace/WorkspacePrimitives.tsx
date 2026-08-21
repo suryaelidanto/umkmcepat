@@ -473,7 +473,9 @@ export function MobileMenuContent({
               }}
               aria-pressed={directEditActive}
               aria-label={
-                directEditActive ? "Nonaktifkan ubah" : "Aktifkan ubah"
+                directEditActive
+                  ? "Nonaktifkan mode tunjuk & ubah"
+                  : "Aktifkan mode tunjuk & ubah"
               }
               className={`inline-flex h-11 w-full items-center gap-spacing-3 rounded-radius-md px-spacing-3 text-sm cursor-pointer ${directEditActive ? "bg-[#8fd3ff]/12 text-[#d6f0ff]" : "text-[#1c1c1c] hover:bg-black/5 dark:text-surface-warm-white/82 dark:hover:bg-surface-warm-white/8"}`}
             >
@@ -481,7 +483,7 @@ export function MobileMenuContent({
                 className={`size-4 shrink-0 ${directEditActive ? "text-[#8fd3ff]" : "text-[#5f5f5d] dark:text-surface-warm-white/64"}`}
               />
               <span className="flex-1 text-left">
-                {directEditActive ? "Ubah aktif" : "Ubah"}
+                {directEditActive ? "Mode Tunjuk Aktif" : "Tunjuk & Ubah"}
               </span>
             </button>
           ) : null}
@@ -581,7 +583,7 @@ function RuntimeControl({
     return (
       <div className="flex w-full flex-col gap-spacing-2">
         {runtime.publishedPath && runtime.publishedState === "not_live" ? (
-          <span className="inline-flex h-11 w-full items-center justify-center rounded-radius-md border border-amber-400/20 bg-amber-400/10 px-spacing-4 text-sm font-semibold text-amber-200">
+          <span className="inline-flex h-11 w-full items-center justify-center rounded-radius-md border border-status-warning-border bg-status-warning-subtle px-spacing-4 text-sm font-semibold text-status-warning">
             Website tidak live
           </span>
         ) : runtime.publishedPath ? (
@@ -606,7 +608,7 @@ function RuntimeControl({
   return (
     <div className="flex min-w-0 items-center gap-spacing-1 sm:gap-spacing-2">
       {runtime.publishedPath && runtime.publishedState === "not_live" ? (
-        <span className="inline-flex h-9 items-center justify-center rounded-lg border border-amber-400/20 bg-amber-400/10 px-3 text-xs font-semibold text-amber-200">
+        <span className="inline-flex h-9 items-center justify-center rounded-lg border border-status-warning-border bg-status-warning-subtle px-3 text-xs font-semibold text-status-warning">
           Tidak live
         </span>
       ) : runtime.publishedPath ? (
@@ -834,7 +836,7 @@ export function WorkspaceCardView({
               ))}
             </ul>
             {!canBuild ? (
-              <p className="mt-spacing-4 rounded-[12px] border border-amber-500/24 bg-amber-500/[0.06] px-spacing-4 py-spacing-3 text-sm leading-6 text-[#1c1c1c] dark:text-surface-warm-white/82">
+              <p className="mt-spacing-4 rounded-[12px] border border-status-warning-border bg-status-warning-subtle px-spacing-4 py-spacing-3 text-sm leading-6 text-foreground">
                 Ada informasi yang masih perlu dilengkapi. Lanjutkan diskusi
                 dulu sebelum membuat website.
               </p>
@@ -867,7 +869,7 @@ export function WorkspaceCardView({
 
   if (card.type === "build_retry") {
     return (
-      <div className="rounded-2xl border border-amber-500/20 bg-[#fcfbf8] px-spacing-5 py-spacing-5 shadow-sm transition-colors duration-200 dark:border-amber-500/15 dark:bg-[#1b1b18] dark:shadow-none">
+      <div className="rounded-2xl border border-status-warning-border bg-[#fcfbf8] px-spacing-5 py-spacing-5 shadow-sm transition-colors duration-200 dark:border-status-warning-border dark:bg-[#1b1b18] dark:shadow-none">
         <div className="grid items-start gap-spacing-5 md:grid-cols-[minmax(0,1fr)_auto]">
           <div className="min-w-0 flex-1">
             <h2 className="text-base font-semibold leading-6 text-[#1c1c1c] dark:text-surface-warm-white">

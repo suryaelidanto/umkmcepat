@@ -66,7 +66,7 @@ describe("APP_SETTINGS registry", () => {
       )?.fallback,
     ).toBe(false);
     expect(
-      featureFlags.find((entry) => entry.key === "feature.direct_edit_enabled")
+      featureFlags.find((entry) => entry.key === "feature.visual_edit_enabled")
         ?.fallback,
     ).toBe(false);
   });

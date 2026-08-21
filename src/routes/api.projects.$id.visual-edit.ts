@@ -50,9 +50,10 @@ export async function handleVisualEditPost(request: Request, routeId: string) {
     );
   }
 
-  const visualEditEnabled =
-    (await getSetting("feature.visual_edit_enabled", true)) ??
-    (await getSetting("feature.direct_edit_enabled", true));
+  const visualEditEnabled = await getSetting(
+    "feature.visual_edit_enabled",
+    false,
+  );
   if (!visualEditEnabled) {
     return new Response("Not Found", { status: 404 });
   }

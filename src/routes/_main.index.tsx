@@ -54,6 +54,7 @@ const loadHome = createServerFn({ method: "GET" }).handler(async () => {
               id: true,
               thumbnailBuildId: true,
               thumbnailRef: true,
+              thumbnailUpdatedAt: true,
               title: true,
               updatedAt: true,
             },

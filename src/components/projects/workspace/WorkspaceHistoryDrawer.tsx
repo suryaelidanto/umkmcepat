@@ -209,7 +209,7 @@ export function WorkspaceHistoryDrawer({
                           : ""}
                       </span>
                       {snapshot.published ? (
-                        <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2 py-0.5 text-[11px] font-medium text-emerald-200">
+                        <span className="rounded-full border border-status-success-border bg-status-success-subtle px-2 py-0.5 text-[11px] font-medium text-status-success">
                           Produksi
                         </span>
                       ) : null}
@@ -218,7 +218,7 @@ export function WorkspaceHistoryDrawer({
                       {formatDate(snapshot.createdAt)} · {buildLabel}
                     </span>
                     {!snapshot.restorable ? (
-                      <span className="text-body-small text-red-400">
+                      <span className="text-body-small text-destructive">
                         Sumber tidak tersimpan — tidak bisa dipulihkan.
                       </span>
                     ) : null}

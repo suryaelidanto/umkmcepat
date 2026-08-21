@@ -24,9 +24,6 @@ describe("getPublicFlags", () => {
         if (key === "feature.visual_edit_enabled") {
           return true;
         }
-        if (key === "feature.direct_edit_enabled") {
-          return true;
-        }
         if (key === "feature.default_theme") {
           return "light";
         }
@@ -39,7 +36,6 @@ describe("getPublicFlags", () => {
     expect(flags).toEqual({
       "feature.composer_uploads_enabled": false,
       "feature.visual_edit_enabled": true,
-      "feature.direct_edit_enabled": true,
       "feature.default_theme": "light",
     });
   });
@@ -50,9 +46,8 @@ describe("getPublicFlags", () => {
     const flags = await getPublicFlags();
 
     expect(flags).toEqual({
-      "feature.composer_uploads_enabled": true,
-      "feature.visual_edit_enabled": true,
-      "feature.direct_edit_enabled": true,
+      "feature.composer_uploads_enabled": false,
+      "feature.visual_edit_enabled": false,
       "feature.default_theme": "dark",
     });
   });
@@ -62,14 +57,14 @@ describe("getPublicFlags", () => {
 
     await getPublicFlags();
 
-    expect(getSettingMock).toHaveBeenCalledTimes(4);
+    expect(getSettingMock).toHaveBeenCalledTimes(3);
     expect(getSettingMock).toHaveBeenCalledWith(
       "feature.composer_uploads_enabled",
-      true,
+      false,
     );
     expect(getSettingMock).toHaveBeenCalledWith(
-      "feature.direct_edit_enabled",
-      true,
+      "feature.visual_edit_enabled",
+      false,
     );
     expect(getSettingMock).toHaveBeenCalledWith(
       "feature.default_theme",

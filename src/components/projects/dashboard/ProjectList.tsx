@@ -168,7 +168,7 @@ export function ProjectList({
           Total: {count}/{limit} Website
         </span>
         {overLimit ? (
-          <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
+          <span className="text-xs font-medium text-status-warning">
             Batas tercapai — hapus website lama untuk buat baru
           </span>
         ) : null}
@@ -259,19 +259,14 @@ function ProjectCard({
         />
       </Link>
       <div className="flex flex-1 flex-col p-4 sm:p-5">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="line-clamp-1 text-base font-semibold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white">
-            <Link
-              href={`/projects/${project.id}`}
-              className="rounded-radius-sm outline-none hover:underline focus-visible:ring-2 focus-visible:ring-black/50 dark:focus-visible:ring-surface-warm-white"
-            >
-              {project.title}
-            </Link>
-          </h3>
-          <span className="shrink-0 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-            Aktif
-          </span>
-        </div>
+        <h3 className="line-clamp-1 text-base font-semibold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white">
+          <Link
+            href={`/projects/${project.id}`}
+            className="rounded-radius-sm outline-none hover:underline focus-visible:ring-2 focus-visible:ring-black/50 dark:focus-visible:ring-surface-warm-white"
+          >
+            {project.title}
+          </Link>
+        </h3>
         <p className="mt-1 text-xs text-[#5f5f5d] dark:text-surface-warm-white/54">
           Diubah {formatDate(project.updatedAt)}
         </p>
@@ -279,16 +274,16 @@ function ProjectCard({
           <Button
             asChild
             size="sm"
-            className="h-8 w-full rounded-lg bg-[#1c1c1c] text-xs font-semibold text-white shadow-xs transition hover:bg-black active:scale-95 dark:bg-surface-warm-white dark:text-[#1c1c1c] dark:hover:bg-white"
+            className="h-8 w-full rounded-lg text-xs font-semibold shadow-xs"
           >
             <Link href={`/projects/${project.id}`}>Buka</Link>
           </Button>
           <Button
             type="button"
-            variant="ghost"
+            variant="destructive"
             size="sm"
             onClick={() => onDelete(project)}
-            className="h-8 w-full rounded-lg bg-red-500/10 text-xs font-semibold text-red-600 shadow-xs transition hover:bg-red-500/20 active:scale-95 dark:bg-red-500/15 dark:text-red-400 dark:hover:bg-red-500/25"
+            className="h-8 w-full rounded-lg text-xs font-semibold shadow-xs"
           >
             Hapus
           </Button>
@@ -308,7 +303,7 @@ function ProjectPreviewThumb({
   const mark = useMemo(() => createProjectMark(project.title), [project.title]);
   const version = project.thumbnailUpdatedAt
     ? new Date(project.thumbnailUpdatedAt).getTime()
-    : 0;
+    : new Date(project.updatedAt).getTime();
 
   if (project.thumbnailRef) {
     return (

@@ -47,7 +47,12 @@ const {
   stopSupersededPreviewDeploymentsMock: vi.fn(async () => []),
   writeProjectDistArtifactMock: vi.fn(),
   writeProjectSourceArtifactMock: vi.fn(),
-  getSettingMock: vi.fn(async (_key: string, fallback: boolean) => fallback),
+  getSettingMock: vi.fn(async (key: string, fallback: boolean) => {
+    if (key === "feature.visual_edit_enabled") {
+      return true;
+    }
+    return fallback;
+  }),
 }));
 
 vi.mock("@/lib/auth/auth", () => ({ auth: authMock }));
@@ -223,6 +228,14 @@ describe("project edit route", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    getSettingMock.mockImplementation(
+      async (key: string, fallback: boolean) => {
+        if (key === "feature.visual_edit_enabled") {
+          return true;
+        }
+        return fallback;
+      },
+    );
     authMock.mockResolvedValue({
       user: { id: "user_1" },
       expires: new Date().toISOString(),
@@ -461,7 +474,7 @@ data: ${JSON.stringify({ attemptId, buildId: "build_edit", buildStatus: "succeed
     expect(prismaProjectSnapshotCreateMock).not.toHaveBeenCalled();
   });
 
-  it("returns 404 when feature.direct_edit_enabled is off", async () => {
+  it("returns 404 when feature.visual_edit_enabled is off", async () => {
     getSettingMock.mockResolvedValueOnce(false);
 
     const response = await POST(request([], "ubah judul website"), {

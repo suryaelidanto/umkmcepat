@@ -497,9 +497,7 @@ export function ImageUploadComposer({
               : "Pilih gambar (PNG, JPEG, WEBP)"}
         </button>
         {error ? (
-          <p className="mt-spacing-2 text-xs text-red-500 dark:text-red-300">
-            {error}
-          </p>
+          <p className="mt-spacing-2 text-xs text-destructive">{error}</p>
         ) : null}
 
         {uploads.length > 0 ? (

@@ -88,6 +88,7 @@ export const Route = createFileRoute("/api/projects")({
               id: true,
               thumbnailBuildId: true,
               thumbnailRef: true,
+              thumbnailUpdatedAt: true,
               title: true,
               updatedAt: true,
             },

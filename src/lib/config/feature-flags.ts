@@ -14,12 +14,12 @@ export async function getPublicFlags(): Promise<
         if (key === "feature.default_theme") {
           return [key, await getSetting(key, "dark")] as const;
         }
-        return [key, await getSetting(key, true)] as const;
+        return [key, await getSetting(key, false)] as const;
       } catch {
         if (key === "feature.default_theme") {
           return [key, "dark"] as const;
         }
-        return [key, true] as const;
+        return [key, false] as const;
       }
     }),
   );
