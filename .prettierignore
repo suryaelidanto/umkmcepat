@@ -23,6 +23,7 @@ skills-lock.json
 .nitro/
 .tanstack/
 src/routeTree.gen.ts
+src/lib/projects/scaffold/shadcn-registry/
 .claude/
 .superpowers/
 docs/superpowers/

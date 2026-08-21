@@ -25,5 +25,10 @@
     "vite.config.ts",
     "vitest.config.ts"
   ],
-  "exclude": ["node_modules", ".output", ".nitro"]
+  "exclude": [
+    "node_modules",
+    ".output",
+    ".nitro",
+    "src/lib/projects/scaffold/shadcn-registry"
+  ]
 }

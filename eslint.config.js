@@ -16,6 +16,7 @@ const eslintConfig = [
       ".pi/**",
       ".agents/**",
       "src/lib/projects/skills/impeccable/scripts/**",
+      "src/lib/projects/scaffold/shadcn-registry/**",
       "graphify-out/**",
       "node_modules/**",
       "coverage/**",

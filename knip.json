@@ -8,7 +8,11 @@
     ".husky/commit-msg",
     "scripts/capture-project-thumbnail.ts"
   ],
-  "project": ["src/**/*.{ts,tsx}"],
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "!src/lib/projects/scaffold/shadcn-registry/**"
+  ],
+  "ignore": ["src/lib/projects/scaffold/shadcn-registry/**"],
   "ignoreBinaries": ["graphify", "netstat"],
   "ignoreDependencies": ["tailwindcss"],
   "ignoreExportsUsedInFile": true,

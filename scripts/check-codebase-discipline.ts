@@ -4,6 +4,10 @@ import path from "node:path";
 const ROOT = process.cwd();
 
 const ALLOWED_GENERATED = new Set(["src/routeTree.gen.ts"]);
+const VENDORED_SOURCE_DIRECTORY = path.join(
+  ROOT,
+  "src/lib/projects/scaffold/shadcn-registry",
+);
 
 const FORBIDDEN_DIRS = new Set([
   "hooks",
@@ -25,6 +29,9 @@ interface Violation {
 const violations: Violation[] = [];
 
 function checkDirectoryNames(dir: string) {
+  if (dir === VENDORED_SOURCE_DIRECTORY) {
+    return;
+  }
   const entries = readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {
     if (!entry.isDirectory()) {
@@ -147,6 +154,9 @@ function checkCommentsAndTypes(filePath: string, content: string) {
 }
 
 function getAllFiles(dir: string): string[] {
+  if (dir === VENDORED_SOURCE_DIRECTORY) {
+    return [];
+  }
   const result: string[] = [];
   const entries = readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {
