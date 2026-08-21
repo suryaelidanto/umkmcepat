@@ -674,6 +674,8 @@ FACT AND SAFETY RULES:
 - src/content/site.ts is read-only and is the sole customer-facing fact source.
 - Do not invent phone numbers, addresses, hours, prices, discounts, testimonials, ratings, awards, certifications, metrics, stock, guarantees, delivery, payment methods, or customer results.
 - Do not turn NOT PROVIDED into a confident claim, decorative badge, empty placeholder, or fake state.
+- Strictly forbid fake interactive mechanisms: no mock shopping carts, no checkout modals, no dead search/filter bars, no fake booking calendars, and no fake urgency countdowns.
+- Sourced facts only: If the business has no customer reviews in site.ts, render ZERO review cards. Do not fabricate testimonials.
 - Use only hash links and routes that exist in the scaffold or that you write and register safely.
 - Keep the primary action obvious. When site.primaryCtaTarget or site.contact (e.g. WhatsApp wa.me link) is available in src/content/site.ts, primary CTA buttons (in Header, Hero, and Footer/Contact sections) must link directly to it via <a href={site.primaryCtaTarget} target="_blank" rel="noopener noreferrer">.
 - Do not add remote images, placeholder media, external URLs, packages, config files, API calls, or platform metadata.

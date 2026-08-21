@@ -41,10 +41,11 @@ import { createViteTanStackShadcnStarterFiles } from "@/lib/projects/scaffold/vi
 const REFERENCE_CALIBRATED_TASTE_RULES = `DESIGN STANDARDS:
 ${getFormattedShadcnRegistryPrompt()}
 - In graphic mode, use a meaningful inline SVG with visible paths or omit the media panel. Keep the route compact and useful on mobile. site.trustPoints and site.usp are often the same values — never render both as separate adjacent sections with identical items.
-- HERO SHOWCASE: In graphic/typographic mode, do NOT draw crude abstract SVG doodles (shoes, cups, abstract waves). Instead, build a clean, high-impact Value Showcase Bento using <StatCounter>, <BadgePill>, and Lucide icons (<Clock3>, <MapPin>, <Sparkles>, <ShieldCheck>).
-- BENTO CATALOG: Use <BentoGrid> and <BentoCard> with featured primary prominence (<BentoCard colSpan={2}>). Every card gets distinct icon, title, description, price badge, and consultation action.
-- SURFACE RHYTHM: Hero base surface, catalog muted surface (bg-muted/40), and logistics contrast surface (surface="contrast") with text-background.
-- CONVERSION: High-contrast rounded-full primary WhatsApp CTA button with <MessageCircle className="mr-2 size-4" /> and <ArrowUpRight className="ml-2 size-4" /> (min-h-11).`;
+- HERO SHOWCASE: In graphic/typographic mode, do NOT draw crude abstract SVG doodles (shoes, cups, abstract waves). Build a clean, high-impact Value Showcase using semantic layout, Badge, and Lucide icons.
+- CATALOG & SERVICES: Use clean, accessible card and grid arrangements with clear hierarchy. Every item gets distinct icon/tag, title, description, price badge, and consultation action.
+- SURFACE RHYTHM: Alternate base surface, muted surface (bg-muted/40), and contrast surface with text-background.
+- CONVERSION: High-contrast rounded-full primary WhatsApp CTA button with <MessageCircle className="mr-2 size-4" /> and <ArrowUpRight className="ml-2 size-4" /> (min-h-11).
+- STRICT ANTI-MOCK POLICY: Strictly forbid mock shopping carts, checkout modals, dead search/filter bars, fake booking pickers, fake urgency countdowns, and fabricated reviews. Omitted facts in site.ts stay omitted.`;
 
 export function buildReferenceCalibratedCorrectionPrompt(input: {
   contract: GeneratedSiteWriterContractV2;
