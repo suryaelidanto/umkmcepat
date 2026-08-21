@@ -746,7 +746,7 @@ REQUIRED WORKFLOW:
 8. Call check_app. If it fails, fix the actual source with write_file and call check_app again. Finish only after the last check_app returns ok: true.
 
 FACT AND SAFETY RULES:
-- src/content/site.ts is read-only and is the sole customer-facing fact source. Customer-facing JSX text must come from site.* bindings. Hard-coded prose, benefits, guarantees, badges, navigation marketing labels, or local display arrays fail check_app; only basic structural labels such as Beranda, Menu, Layanan, Lokasi, Kontak, Tentang, Kembali, and Buka/Tutup menu are allowed.
+- src/content/site.ts is read-only and is the sole customer-facing fact source. You may write concise connective Indonesian copy grounded in those facts, but never add guarantees, rankings, popularity, metrics, prices, turnaround promises, or other factual claims absent from site.*. Absolute unsupported claims fail check_app.
 - Do not invent phone numbers, addresses, hours, prices, discounts, testimonials, ratings, awards, certifications, metrics, stock, guarantees, delivery, payment methods, or customer results.
 - Do not turn NOT PROVIDED into a confident claim, decorative badge, empty placeholder, or fake state.
 - Strictly forbid fake interactive mechanisms: no mock shopping carts, no checkout modals, no dead search/filter bars, no fake booking calendars, and no fake urgency countdowns.

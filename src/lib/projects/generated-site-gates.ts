@@ -43,13 +43,14 @@ export function findGeneratedCustomerLiteralIssues(
       if (
         !literal ||
         /^[\p{P}\p{S}\d\s]+$/u.test(literal) ||
-        ALLOWED_GENERATED_STRUCTURAL_LABELS.has(literal)
+        ALLOWED_GENERATED_STRUCTURAL_LABELS.has(literal) ||
+        !/\b(?:jaminan|garansi|nomor\s*satu|terbaik|paling\s+diminati|100%|tanpa\s+risiko)\b/i.test(
+          literal,
+        )
       ) {
         continue;
       }
-      issues.push(
-        `${file.path}: unsupported customer-facing literal: ${literal}`,
-      );
+      issues.push(`${file.path}: unsupported customer claim: ${literal}`);
     }
   }
   return issues;

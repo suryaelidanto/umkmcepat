@@ -254,16 +254,16 @@ describe("findGeneratedCustomerLiteralIssues", () => {
         },
       ]),
     ).toContain(
-      "src/components/Hero.tsx: unsupported customer-facing literal: Jaminan selesai tepat waktu",
+      "src/components/Hero.tsx: unsupported customer claim: Jaminan selesai tepat waktu",
     );
   });
 
-  it("allows contract bindings and closed structural labels", () => {
+  it("allows grounded connective copy without absolute claims", () => {
     expect(
       findGeneratedCustomerLiteralIssues([
         {
           content:
-            "export function Header(){return <nav><a>Beranda</a><a>{site.primaryCta}</a></nav>}",
+            "export function Header(){return <nav><a>Beranda</a><p>Pilih layanan sesuai kebutuhan cucianmu.</p><a>{site.primaryCta}</a></nav>}",
           path: "src/components/Header.tsx",
         },
       ]),
