@@ -508,6 +508,18 @@ async function handleDiscussTurnOneCall({
     stream: createUIMessageStream({
       execute: async ({ writer }) => {
         const writeSafe = (event: { type: string; [k: string]: unknown }) => {
+          if (event.type === "workspace-card-delta") {
+            try {
+              writer.write({
+                type: "data-workspaceCard",
+                data: event.workspaceCard,
+                transient: true,
+              } as never);
+            } catch {
+              // Client disconnected mid-tail
+            }
+            return;
+          }
           if (!UI_MESSAGE_STREAM_EVENT_TYPES.has(event.type)) {
             return;
           }

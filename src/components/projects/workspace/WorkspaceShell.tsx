@@ -453,6 +453,15 @@ export function WorkspaceShell({
   } = useChat({
     id: projectId,
     messages: initialMessages,
+    onData(data) {
+      if (data.type === "data-workspaceCard") {
+        const card = (data as { data?: WorkspaceCard }).data;
+        if (card && card.type !== "none") {
+          setWorkspaceCard(card);
+          setWorkspaceCardError(false);
+        }
+      }
+    },
     transport: new DefaultChatTransport({
       api: "/api/projects/preview",
       fetch: rateLimitAwareFetch,
@@ -1931,6 +1940,23 @@ export function WorkspaceShell({
             }
           };
 
+          es.addEventListener("workspace-card-delta", (event) => {
+            try {
+              const parsed = JSON.parse(event.data) as {
+                workspaceCard?: WorkspaceCard;
+              };
+              if (
+                parsed.workspaceCard &&
+                parsed.workspaceCard.type !== "none"
+              ) {
+                setWorkspaceCard(parsed.workspaceCard);
+                setWorkspaceCardError(false);
+              }
+            } catch {
+              // ignore malformed delta
+            }
+          });
+
           es.addEventListener("text-delta", (event) => {
             try {
               const parsed = JSON.parse(event.data) as { delta?: string };
@@ -2966,6 +2992,14 @@ export function WorkspaceShell({
                 setIsRetrying(false);
               }
             };
+            es.addEventListener("workspace-card-delta", (event) => {
+              const parsed = parseEvent(event);
+              const card = parsed?.workspaceCard as WorkspaceCard | undefined;
+              if (card && card.type !== "none") {
+                setWorkspaceCard(card);
+                setWorkspaceCardError(false);
+              }
+            });
             es.addEventListener("text-delta", (event) => {
               const parsed = parseEvent(event);
               const delta =
