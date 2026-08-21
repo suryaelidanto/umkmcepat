@@ -58,6 +58,8 @@ import {
   parseImplementationSpec,
 } from "@/lib/projects/implementation-spec";
 import { loadPersistedProjectSourceFiles } from "@/lib/projects/load-persisted-project-source";
+import { runOutcomeCreativeDirection } from "@/lib/projects/outcome-creative-direction";
+import { compileOutcomeDirectedSiteContract } from "@/lib/projects/outcome-site-contract";
 import {
   deriveOutcomeReviewVerdict,
   runOutcomeVisualReview,
@@ -726,6 +728,26 @@ export async function runBuildAttempt({
       onFilesChanged([...batchedStageFiles.values()]);
     };
 
+    const outcomeDirection = acceptedHandoff
+      ? await runOutcomeCreativeDirection({
+          abortSignal,
+          contract: compileOutcomeDirectedSiteContract({
+            briefHash: acceptedHandoff.briefHash,
+            briefRevision: acceptedHandoff.briefRevision,
+            briefSnapshot: acceptedHandoff.briefSnapshot,
+            contract: acceptedHandoff.contract,
+            contractHash: acceptedHandoff.contractHash,
+            contractRevision: acceptedHandoff.contractRevision,
+            id: acceptedHandoff.id,
+            plan: acceptedHandoff.plan,
+            planHash: acceptedHandoff.planHash,
+            planRevision: acceptedHandoff.planRevision,
+          }),
+          projectId,
+          userId,
+        })
+      : null;
+
     const agentStartedAt = Date.now();
     send("progress", {
       label: "Menyiapkan pembuatan website",
@@ -737,7 +759,9 @@ export async function runBuildAttempt({
       attemptId,
       brief,
       buildId: runtimeBuildId,
-      creativeDirection: acceptedHandoff?.creativeDirection ?? null,
+      creativeDirection: outcomeDirection
+        ? JSON.stringify(outcomeDirection)
+        : (acceptedHandoff?.creativeDirection ?? null),
       onEvent: (type, data) => send(type, data),
       onFileStaged: persistBatchedStage,
       operationToken,

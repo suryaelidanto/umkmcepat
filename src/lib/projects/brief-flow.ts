@@ -737,9 +737,6 @@ function normalizeWorkspaceCard(
     : createFallbackWorkspaceCard(brief);
 }
 
-// Options are neutral categories only when supplied by the model.
-// Generic fallback options (e.g. Opsi A/B/C) were deleted to eliminate slop.
-
 function isPriceQuestion(id: string, question: string): boolean {
   const lowerId = id.toLowerCase();
   const q = question.toLowerCase();
@@ -816,8 +813,6 @@ function normalizeQuestion(raw: unknown): BriefQuestion | null {
 
   const isPrice = question ? isPriceQuestion(coercedId, question) : false;
 
-  // Neutral fallback: if no options are present or coercible, keep answerMode "text"
-  // and NEVER fabricate synthetic Opsi A/B/C options.
   const answerMode: "text" | "choice" =
     candidate.answerMode === "text"
       ? "text"

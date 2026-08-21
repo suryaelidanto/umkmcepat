@@ -134,25 +134,7 @@ ${JSON.stringify(input.contract, null, 2)}`;
   const validatedOutput = CreativeDirectionSchema.safeParse(parsedJson);
 
   if (!validatedOutput.success) {
-    // Return structured default tied strictly to contract
-    return {
-      businessAnchors: [
-        {
-          acceptedFactId: input.contract.offers[0]?.name || "primary-offer",
-          relevance: "Fokus utama pada kemudahan dan kejelasan layanan.",
-          source: "offer",
-        },
-      ],
-      character: ["bersih", "terpercaya", "ramah"],
-      contractHash: input.contract.contractHash,
-      factualBoundaries: input.contract.prohibitedClaims,
-      firstViewPriority: `Menampilkan ${input.contract.business.name} dan aksi ${input.contract.actions[0]?.label}`,
-      genericityRisks: ["Hindari tata letak template kaku dan kartu berulang"],
-      mobileIntent: "Navigasi dan tombol kontak mudah dijangkau satu tangan",
-      schemaVersion: 1,
-      visitorReading: `Pengunjung mencari info ${input.contract.business.name} yang jelas dan cepat.`,
-      visualThesis: `Representasi visual yang segar dan profesional untuk ${input.contract.business.name}.`,
-    };
+    throw new Error("Creative direction response was malformed.");
   }
 
   const outputWithHash: CreativeDirectionV1 = {
