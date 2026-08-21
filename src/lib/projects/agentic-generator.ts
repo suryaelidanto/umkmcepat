@@ -28,6 +28,10 @@ import {
 } from "@/lib/projects/generated-source";
 import { runDesignAuditInMemory } from "@/lib/projects/impeccable/audit";
 import { generatePaletteInMemory } from "@/lib/projects/impeccable/palette";
+import {
+  compileOutcomeDesignSystem,
+  type GeneratedDesignSystemProposalV1,
+} from "@/lib/projects/outcome-design-system";
 import { renewProjectOperation } from "@/lib/projects/project-operation";
 import { getFormattedShadcnRegistryPrompt } from "@/lib/projects/scaffold/component-catalog";
 import { isProtectedScaffoldPath } from "@/lib/projects/scaffold/protected-paths";
@@ -152,6 +156,7 @@ export async function runAgenticGenerate(input: {
   const skillsRead = new Set<ProjectSkillName>();
   let checkAppCalls = 0;
   let lastCheckOk: boolean | null = null;
+  let designSystemAccepted = false;
   let opSeq = 0;
 
   function missingCoreSkills() {
@@ -383,6 +388,68 @@ export async function runAgenticGenerate(input: {
       },
     }),
 
+    set_design_system: tool({
+      description:
+        "Choose the complete semantic color, typography, and radius system for this specific business. The platform validates contrast and compiles protected theme CSS.",
+      inputSchema: z.object({
+        accent: z.string(),
+        accentForeground: z.string(),
+        background: z.string(),
+        bodyFontStackId: z.enum([
+          "system-humanist",
+          "system-grotesk",
+          "system-editorial",
+          "system-slab",
+        ]),
+        border: z.string(),
+        card: z.string(),
+        cardForeground: z.string(),
+        displayFontStackId: z.enum([
+          "system-humanist",
+          "system-grotesk",
+          "system-editorial",
+          "system-slab",
+        ]),
+        foreground: z.string(),
+        muted: z.string(),
+        mutedForeground: z.string(),
+        primary: z.string(),
+        primaryForeground: z.string(),
+        radiusScale: z.enum(["sharp", "restrained", "soft"]),
+        ring: z.string(),
+      }),
+      execute: async (proposal: GeneratedDesignSystemProposalV1) => {
+        const result = compileOutcomeDesignSystem(proposal);
+        opSeq++;
+        if (!result.ok) {
+          const operation = {
+            detail: "Kombinasi warna belum cukup nyaman dibaca.",
+            id: `op-${opSeq}`,
+            state: "failed" as const,
+            title: "Menyesuaikan warna website",
+            type: "set_design_system",
+          };
+          operationTrace.push(operation);
+          onEvent?.("operation", operation);
+          return result;
+        }
+        fileMap.set("src/index.css", result.css);
+        designSystemAccepted = true;
+        const operation = {
+          detail:
+            "Warna dan tipografi sudah nyaman dibaca di seluruh tampilan.",
+          id: `op-${opSeq}`,
+          state: "succeeded" as const,
+          title: "Menetapkan gaya visual website",
+          type: "set_design_system",
+        };
+        operationTrace.push(operation);
+        onEvent?.("operation", operation);
+        onFileStaged?.({ content: result.css, path: "src/index.css" });
+        return { ok: true };
+      },
+    }),
+
     write_file: tool({
       description:
         "Create or overwrite a source file in the project (routes, components, utilities).",
@@ -423,6 +490,12 @@ export async function runAgenticGenerate(input: {
         if (missing.length) {
           return {
             error: `Security restriction: Read the required skills before writing: ${missing.join(", ")}.`,
+          };
+        }
+        if (!designSystemAccepted) {
+          return {
+            error:
+              "Design restriction: call set_design_system with a contrast-safe business-specific visual system before writing source.",
           };
         }
         if (
@@ -664,10 +737,11 @@ REQUIRED WORKFLOW:
 1. Call read_skill for both core skills ("impeccable", "shadcn") before writing. Call deep references (impeccable-craft-floor, impeccable-layout, impeccable-typeset, impeccable-adapt) when shaping complex responsive layouts.
 2. Call list_files and read the relevant starter files. Use copy_shadcn_component to add official UI primitives and their local dependencies before importing them.
 3. Compose one clear business-specific visual direction around the visitor's real job. Do not use generic AI templates or equal-card soup.
-4. Write the real home route in src/routes/index.tsx and modular components under src/components/. Use site.* for every customer-facing value. Omitted facts stay omitted.
-5. Write natural, warm, active Indonesian copy. Avoid AI puffery, filler buzzwords ("solusi terbaik", "kualitas terdepan", "revolusioner"), em-dashes (—), and decorative badge soup.
-6. Call run_design_audit to inspect your UI against Impeccable anti-patterns, contrast rules, and layout monotony. Fix any reported errors.
-7. Call check_app. If it fails, fix the actual source with write_file and call check_app again. Finish only after the last check_app returns ok: true.
+4. Call set_design_system with your own business-specific semantic palette, typography, and radius choices. The platform checks accessibility; revise the proposal if it fails. Never default to orange or copy a palette from examples.
+5. Write the real home route in src/routes/index.tsx and modular components under src/components/. Use site.* for every customer-facing value. Omitted facts stay omitted.
+6. Write natural, warm, active Indonesian copy. Avoid AI puffery, filler buzzwords ("solusi terbaik", "kualitas terdepan", "revolusioner"), em-dashes (—), and decorative badge soup.
+7. Call run_design_audit to inspect your UI against Impeccable anti-patterns, contrast rules, and layout monotony. Fix any reported errors.
+8. Call check_app. If it fails, fix the actual source with write_file and call check_app again. Finish only after the last check_app returns ok: true.
 
 FACT AND SAFETY RULES:
 - src/content/site.ts is read-only and is the sole customer-facing fact source.

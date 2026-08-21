@@ -239,28 +239,6 @@ function acceptedHandoff(
 }
 
 describe("compileGeneratedSiteContract", () => {
-  it("derives public fashion copy when the accepted brief has no tagline", () => {
-    const values = fixtures();
-    const result = compileGeneratedSiteContract({
-      briefSnapshot: {
-        ...values.briefSnapshot,
-        content: { ...values.briefSnapshot.content, tagline: null },
-      },
-      contract: values.contract,
-      plan: values.plan,
-      photoEnabled: false,
-      recipe: selectGeneratedSiteRecipe(values.plan.archetype),
-    });
-
-    expect(result.content.headline).toBe("Koleksi iPhone 13 Pilihan Terbaik");
-    expect(result.content.subheadline).toContain(
-      "Temukan berbagai pilihan iPhone 13",
-    );
-    expect(result.content.trustPoints).toEqual(
-      expect.arrayContaining(["Kondisi unit tercatat"]),
-    );
-  });
-
   it("routes internal contact actions through home on multi-page sites", () => {
     const values = fixtures();
     const compiled = compileGeneratedSiteContract({
@@ -298,6 +276,20 @@ describe("compileGeneratedSiteContract", () => {
     ).toEqual({ channel: "browse", value: "#/#kontak" });
   });
 
+  it("preserves a caller-provided business-specific theme", () => {
+    const contract = compile({ photoEnabled: false });
+    const theme = {
+      accent: "#1f8f7a",
+      background: "#eef7f4",
+      foreground: "#12211d",
+      muted: "#587169",
+    };
+
+    expect(
+      createProjectSiteSchemaFromGeneratedContract({ contract, theme }).theme,
+    ).toEqual(theme);
+  });
+
   it("maps accepted facts, routes, CTA, and customer-facing sections", () => {
     const result = compile({ photoEnabled: false });
     expect(result.business.primaryCta).toMatchObject({
@@ -318,6 +310,29 @@ describe("compileGeneratedSiteContract", () => {
     ]);
     expect(JSON.stringify(result)).not.toContain("ProductCard");
     expect(result.contractHash).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it("does not synthesize generic marketing claims when optional copy is absent", () => {
+    const values = fixtures();
+    values.briefSnapshot.content.tagline = null;
+    values.briefSnapshot.content.usp = [];
+    values.briefSnapshot.offers = values.briefSnapshot.offers.map((offer) => ({
+      ...offer,
+      description: undefined,
+    }));
+    const serialized = JSON.stringify(
+      compileGeneratedSiteContract({
+        briefSnapshot: values.briefSnapshot,
+        contract: values.contract,
+        photoEnabled: false,
+        plan: values.plan,
+        recipe: selectGeneratedSiteRecipe(values.plan.archetype),
+      }),
+    );
+
+    expect(serialized).not.toMatch(
+      /Profesional & Terpercaya|Berkualitas untuk Kebutuhan Anda|Garansi kualitas|Proses mudah dan transparan|pengerjaan profesional dan rapi/,
+    );
   });
 
   it("creates a compact route that renders accepted site fields", () => {

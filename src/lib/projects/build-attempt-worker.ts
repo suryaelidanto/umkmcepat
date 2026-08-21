@@ -58,6 +58,10 @@ import {
   parseImplementationSpec,
 } from "@/lib/projects/implementation-spec";
 import { loadPersistedProjectSourceFiles } from "@/lib/projects/load-persisted-project-source";
+import {
+  deriveOutcomeReviewVerdict,
+  runOutcomeVisualReview,
+} from "@/lib/projects/outcome-visual-review";
 import { createProgressiveSaver } from "@/lib/projects/progressive-save";
 import {
   finalizeProjectOperation,
@@ -84,7 +88,6 @@ import {
   createProjectSiteSchemaFromBrief,
   createProjectSiteSchemaFromGeneratedContract,
 } from "@/lib/projects/site-schema";
-import { runShadowCritic } from "@/lib/projects/visual-critic";
 
 const GENERATED_SNAPSHOT_SOURCE_TYPE =
   "generated" satisfies ProjectSnapshotSourceType;
@@ -679,6 +682,7 @@ export async function runBuildAttempt({
       });
       finalSchema = createProjectSiteSchemaFromGeneratedContract({
         contract: generatedSiteContract,
+        theme: finalSchema.theme,
       });
     } else {
       const implementationSpecPrompt = buildImplementationSpecPrompt(brief);
@@ -962,12 +966,70 @@ export async function runBuildAttempt({
               ),
             )
           ).filter((value): value is Record<string, unknown> => value !== null);
-          return runShadowCritic({
-            contract: acceptedHandoff.contract,
-            plan: acceptedHandoff.plan,
-            hardGateStatus: browserReport.status,
-            screenshots,
+          const screenshotBytes = screenshots.flatMap((evidence) => {
+            const value = evidence.screenshot;
+            if (typeof value !== "string" || !value) {
+              return [];
+            }
+            return [Buffer.from(value, "base64")];
           });
+          const review = await runOutcomeVisualReview({
+            contract: acceptedHandoff.contract,
+            screenshots: screenshotBytes,
+          });
+          if (review.status !== "complete") {
+            return {
+              findings: [] as const,
+              mode: "shadow" as const,
+              status: review.status,
+            };
+          }
+          const verdict = deriveOutcomeReviewVerdict(review);
+          return {
+            findings: verdict.ok
+              ? []
+              : review.assessments
+                  .filter((assessment) => assessment.rating < 3)
+                  .map((assessment) => ({
+                    category:
+                      assessment.category === "business_specificity"
+                        ? ("business_fit" as const)
+                        : assessment.category === "mobile_composition"
+                          ? ("responsive" as const)
+                          : assessment.category === "color_system"
+                            ? ("color_contrast" as const)
+                            : assessment.category === "content_judgment"
+                              ? ("content_density" as const)
+                              : assessment.category === "composition_rhythm"
+                                ? ("layout_intent" as const)
+                                : assessment.category === "professional_finish"
+                                  ? ("consistency" as const)
+                                  : assessment.category === "typography"
+                                    ? ("typography" as const)
+                                    : assessment.category ===
+                                          "first_view_hierarchy" ||
+                                        assessment.category ===
+                                          "visitor_job_clarity" ||
+                                        assessment.category ===
+                                          "interaction_clarity"
+                                      ? ("hierarchy" as const)
+                                      : ("genericness" as const),
+                    confidence: assessment.confidence,
+                    evidence: assessment.evidence,
+                    proposedCorrection:
+                      assessment.suggestedRevision ??
+                      "Revise the visible design to meet the ready-to-publish floor.",
+                    route: assessment.route,
+                    severity: "high" as const,
+                    viewport:
+                      assessment.viewport === "both"
+                        ? ("desktop" as const)
+                        : assessment.viewport,
+                  })),
+            mode: "shadow" as const,
+            modelId: review.modelId,
+            status: "complete" as const,
+          };
         },
         repair: async (candidateFiles) => candidateFiles,
       });

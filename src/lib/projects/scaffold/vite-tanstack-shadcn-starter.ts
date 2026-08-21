@@ -9,10 +9,6 @@ import { shadcnThemeCss } from "./shadcn-theme";
 import { PLATFORM_VITE_CONFIG } from "@/lib/projects/generated-build-policy";
 import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
 import {
-  LANDSCAPE_PLACEHOLDER_SVG,
-  PORTRAIT_PLACEHOLDER_SVG,
-} from "@/lib/projects/placeholders";
-import {
   compileGeneratedSiteRouter,
   generatedRouteBinding,
 } from "@/lib/projects/professional-site-router";
@@ -32,15 +28,10 @@ export function createViteTanStackShadcnStarterFiles(
     .filter((route) => route.path !== "/")
     .map((route) => ({
       path: route.filePath,
-      content: `import { usePreviewReady } from "@/lib/preview-ready";\n\nexport function ${route.exportName}() {\n  usePreviewReady();\n\n  return <main data-generated-site-starter />;\n}\n`,
+      content: `import { usePreviewReady } from "@/lib/preview-ready";\n\nexport function ${route.exportName}() {\n  usePreviewReady();\n\n  return <main data-route-placeholder />;\n}\n`,
     }));
 
   return [
-    { path: "public/placeholder.svg", content: LANDSCAPE_PLACEHOLDER_SVG },
-    {
-      path: "public/placeholder-vertical.svg",
-      content: PORTRAIT_PLACEHOLDER_SVG,
-    },
     {
       path: "package.json",
       content: JSON.stringify(

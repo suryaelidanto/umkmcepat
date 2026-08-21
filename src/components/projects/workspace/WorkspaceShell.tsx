@@ -965,8 +965,7 @@ export function WorkspaceShell({
     // Rows just got cleared, so the record of what was rendered must clear too
     buildStreamDeduperRef.current = createBuildStreamDeduper();
     setBuildStartedAt(Date.now());
-    setActiveTab("preview");
-    setMobileSurface("preview");
+    setMobileSurface("chat");
 
     // Permanently consume the current build_recommendation signature (if any)
     const consumedSignature = getBuildRecommendationHoldSignature(
@@ -1438,6 +1437,9 @@ export function WorkspaceShell({
 
       if (result.kind === "error") {
         setBuildStatus("failed");
+        setMode("discuss");
+        setMobileSurface("chat");
+        setChatCollapsed(false);
         void loadRuntimeState();
         setSourceReloadKey((current) => current + 1);
         setBuildProgress(result.update);
@@ -4142,34 +4144,6 @@ export function WorkspaceShell({
                 </div>
               ) : (
                 <EmptyPreviewState />
-              )}
-              {runtimeState?.userFacingState ===
-                "ready_with_failed_latest_attempt" && (
-                <CompletedBuildNotice
-                  variant="recovery"
-                  onDiscuss={() => {
-                    if (
-                      buildRecommendationSignature &&
-                      !consumedBuildRecommendationSignatures.has(
-                        buildRecommendationSignature,
-                      )
-                    ) {
-                      window.localStorage.setItem(
-                        buildRecommendationStorageKey,
-                        buildRecommendationSignature,
-                      );
-                      setHeldBuildRecommendationSignature(
-                        buildRecommendationSignature,
-                      );
-                    }
-                    setMode("discuss");
-                    setPostBuildChatOpen(true);
-                  }}
-                  onPreview={() => {
-                    setActiveTab("preview");
-                    openPreviewPanel();
-                  }}
-                />
               )}
             </div>
           ) : null}

@@ -90,8 +90,12 @@ export async function qualifyReferenceCalibratedSite(
     budget: deps.budget,
   });
   if (review.status !== "complete") {
-    // Fail-open: if visual review is unavailable but browser gates passed, accept the build.
-    return { ok: true, files, visualRepairCount };
+    return {
+      ok: false,
+      files,
+      reason: `generated-site visual review ${review.status}`,
+      visualRepairCount,
+    };
   }
   const blocking = review.findings.filter(
     (finding) => finding.severity === "critical" || finding.severity === "high",
@@ -182,22 +186,18 @@ export async function qualifyGeneratedSite(
       };
     }
     const riskReport = deps.classifyRisk(files, browserReport);
-    if (!riskReport.risky) {
+    const criticReport = await deps.runCritic(files, browserReport, riskReport);
+    if (criticReport.status !== "complete") {
       return {
-        ok: true,
-        files,
+        ok: false,
+        reason: `generated-site visual review ${criticReport.status}`,
         browserReport,
         riskReport,
-        criticReport: null,
+        criticReport,
         visualRepairCount,
       };
     }
-    const criticReport = await deps.runCritic(files, browserReport, riskReport);
-    // If the critic is complete, check findings; otherwise fail-open if browser gates passed cleanly.
-    if (
-      criticReport.status !== "complete" ||
-      criticReport.findings.length === 0
-    ) {
+    if (criticReport.findings.length === 0) {
       return {
         ok: true,
         files,
@@ -209,8 +209,8 @@ export async function qualifyGeneratedSite(
     }
     if (visualRepairCount === 1) {
       return {
-        ok: true,
-        files,
+        ok: false,
+        reason: "generated-site final visual review failed",
         browserReport,
         riskReport,
         criticReport,

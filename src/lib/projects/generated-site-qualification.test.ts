@@ -160,8 +160,8 @@ describe("qualifyReferenceCalibratedSite", () => {
 });
 
 describe("qualifyGeneratedSite", () => {
-  it("keeps the clean path to browser gates only", async () => {
-    const critic = vi.fn();
+  it("runs visual review even when deterministic risk signals are clean", async () => {
+    const critic = vi.fn(async () => criticPass);
     const repair = vi.fn();
     const result = await qualifyGeneratedSite(files, {
       runBrowser: async () => browser,
@@ -170,7 +170,7 @@ describe("qualifyGeneratedSite", () => {
       repair,
     });
     expect(result.ok).toBe(true);
-    expect(critic).not.toHaveBeenCalled();
+    expect(critic).toHaveBeenCalledTimes(1);
     expect(repair).not.toHaveBeenCalled();
   });
 
@@ -191,7 +191,10 @@ describe("qualifyGeneratedSite", () => {
       .fn<() => GeneratedSiteRiskReportV1>()
       .mockReturnValueOnce(risky)
       .mockReturnValueOnce(clean);
-    const runCritic = vi.fn(async () => criticFail);
+    const runCritic = vi
+      .fn<() => Promise<VisualCriticReport>>()
+      .mockResolvedValueOnce(criticFail)
+      .mockResolvedValueOnce(criticPass);
     const repair = vi.fn(async () => [
       { path: "src/routes/index.tsx", content: "export const fixed = true" },
     ]);
@@ -207,7 +210,7 @@ describe("qualifyGeneratedSite", () => {
     expect(runBrowser).toHaveBeenCalledTimes(2);
   });
 
-  it("keeps the shadow critic advisory after one hard-gate-verified correction", async () => {
+  it("fails when the final reviewed candidate still has findings", async () => {
     const runBrowser = vi.fn(async () => browser);
     const classifyRisk = vi.fn(() => risky);
     const runCritic = vi.fn(async () => criticFail);
@@ -218,12 +221,16 @@ describe("qualifyGeneratedSite", () => {
       repair: vi.fn(async () => files),
     });
 
-    expect(result).toMatchObject({ ok: true, visualRepairCount: 1 });
+    expect(result).toMatchObject({
+      ok: false,
+      reason: "generated-site final visual review failed",
+      visualRepairCount: 1,
+    });
     expect(runBrowser).toHaveBeenCalledTimes(2);
     expect(runCritic).toHaveBeenCalledTimes(2);
   });
 
-  it("fails-open honestly when evidence is unavailable but browser gates passed", async () => {
+  it("fails closed when visual evidence is unavailable", async () => {
     const result = await qualifyGeneratedSite(files, {
       runBrowser: async () => browser,
       classifyRisk: () => risky,
@@ -234,11 +241,14 @@ describe("qualifyGeneratedSite", () => {
       }),
       repair: vi.fn(),
     });
-    expect(result).toMatchObject({ ok: true, visualRepairCount: 0 });
+    expect(result).toMatchObject({
+      ok: false,
+      reason: "generated-site visual review unavailable",
+      visualRepairCount: 0,
+    });
   });
 
-  it("accepts a clean build when the critic cannot run (vision infra unavailable)", async () => {
-    // The vision model returned 0 tokens — no quality verdict, but the
+  it("fails closed when the critic returns an unknown verdict", async () => {
     const result = await qualifyGeneratedSite(files, {
       runBrowser: async () => browser,
       classifyRisk: () => risky,
@@ -249,6 +259,10 @@ describe("qualifyGeneratedSite", () => {
       }),
       repair: vi.fn(),
     });
-    expect(result).toMatchObject({ ok: true, visualRepairCount: 0 });
+    expect(result).toMatchObject({
+      ok: false,
+      reason: "generated-site visual review unknown",
+      visualRepairCount: 0,
+    });
   });
 });

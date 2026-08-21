@@ -179,7 +179,7 @@ describe("createViteTanStackShadcnStarterFiles", () => {
 
     expect(router).toContain('from "./routes/lokasi"');
     expect(locationRoute?.content).toContain("LokasiRouteComponent");
-    expect(locationRoute?.content).toContain("data-generated-site-starter");
+    expect(locationRoute?.content).toContain("data-route-placeholder");
   });
 
   it("not-found route uses Button and links home", () => {
@@ -287,34 +287,16 @@ describe("starter lean seed (JIT)", () => {
   });
 });
 
-describe("scaffold local placeholder asset", () => {
-  it("includes a neutral public/placeholder.svg", () => {
+describe("scaffold clean assets", () => {
+  it("does not include placeholder SVG assets in the generated scaffold", () => {
     const files = createViteTanStackShadcnStarterFiles(
       "proj_placeholder",
       schema(),
     );
-    const placeholder = files.find((f) => f.path === "public/placeholder.svg");
-
-    expect(placeholder).toBeDefined();
-    expect(placeholder!.content).toContain('viewBox="0 0 600 400"');
-    expect(placeholder!.content).toContain("Tidak ada foto");
-    expect(placeholder!.content).toContain("</svg>");
-    expect(placeholder!.content).not.toContain("Test Biz");
-  });
-
-  it("includes a portrait public/placeholder-vertical.svg", () => {
-    const files = createViteTanStackShadcnStarterFiles(
-      "proj_placeholder",
-      schema(),
-    );
-    const placeholder = files.find(
-      (f) => f.path === "public/placeholder-vertical.svg",
+    const placeholder = files.find((f) =>
+      f.path.startsWith("public/placeholder"),
     );
 
-    expect(placeholder).toBeDefined();
-    expect(placeholder!.content).toContain('viewBox="0 0 400 600"');
-    expect(placeholder!.content).toContain("Tidak ada foto");
-    expect(placeholder!.content).toContain("</svg>");
-    expect(placeholder!.content).not.toContain("Test Biz");
+    expect(placeholder).toBeUndefined();
   });
 });

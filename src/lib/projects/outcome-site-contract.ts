@@ -265,7 +265,7 @@ export function compileOutcomeDirectedSiteContract(
 
   const priceFacts = factArray<PriceValue>(handoff.contract.facts, "price");
   const priceRange = priceFacts.length
-    ? (priceFacts[0].description ?? null)
+    ? [priceFacts[0].amount, priceFacts[0].note].filter(Boolean).join(" ")
     : null;
 
   const promoFacts = factArray<PromotionValue>(
@@ -273,7 +273,7 @@ export function compileOutcomeDirectedSiteContract(
     "promotion",
   );
   const promotionText = promoFacts.length
-    ? (promoFacts[0].description ?? null)
+    ? [promoFacts[0].title, promoFacts[0].detail].filter(Boolean).join(" ")
     : null;
 
   const otherFacts = handoff.contract.facts

@@ -267,6 +267,7 @@ export function createProjectSiteSchemaFromBrief(
 
 export function createProjectSiteSchemaFromGeneratedContract(input: {
   contract: import("./generated-site-contract").GeneratedSiteContractV1;
+  theme?: ProjectSiteSchema["theme"];
 }): ProjectSiteSchema {
   const c = input.contract;
   const businessName = cleanText(c.business.name, "Usaha Lokal", 80);
@@ -276,17 +277,15 @@ export function createProjectSiteSchemaFromGeneratedContract(input: {
   return {
     version: 1,
     businessName,
-    eyebrow: "Website usaha",
+    eyebrow: "",
     headline: cleanText(c.content.headline, businessName, 110),
     subheadline: cleanText(c.content.subheadline, c.business.primaryJob, 260),
     primaryCta,
-    secondaryCta: "Lihat detail",
+    secondaryCta: "",
     audience,
     offer,
-    theme: defaultTheme,
-    trustPoints: c.content.trustPoints.slice(0, MAX_TRUST_POINTS).length
-      ? c.content.trustPoints.slice(0, MAX_TRUST_POINTS)
-      : ["Info jelas", "Mudah dihubungi", "Siap dibuka dari HP"],
+    theme: input.theme ?? defaultTheme,
+    trustPoints: c.content.trustPoints.slice(0, MAX_TRUST_POINTS),
     sections: c.page.requiredSections.slice(0, MAX_SECTIONS).map((s) => ({
       title: cleanText(s.purpose, "Bagian", 80),
       body: cleanText(s.purpose, "Konten bagian.", 260),

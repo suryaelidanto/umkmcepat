@@ -97,6 +97,23 @@ async function readCoreSkills(tools: Record<string, AgentTool>) {
   for (const name of ["impeccable", "shadcn"]) {
     await tools.read_skill.execute({ name });
   }
+  await tools.set_design_system.execute({
+    accent: "#0369a1",
+    accentForeground: "#ffffff",
+    background: "#f8fafc",
+    bodyFontStackId: "system-humanist",
+    border: "#cbd5e1",
+    card: "#ffffff",
+    cardForeground: "#0f172a",
+    displayFontStackId: "system-editorial",
+    foreground: "#0f172a",
+    muted: "#f1f5f9",
+    mutedForeground: "#475569",
+    primary: "#0f172a",
+    primaryForeground: "#ffffff",
+    radiusScale: "restrained",
+    ring: "#0369a1",
+  });
 }
 
 async function completeAgentWorkflow(tools: Record<string, AgentTool>) {

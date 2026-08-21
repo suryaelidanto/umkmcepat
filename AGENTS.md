@@ -99,6 +99,7 @@ Local quality gates are automated:
 - No any — any is lying to the compiler. Use unknown + narrowing, define the shape. No any, no as any, no ts-ignore, no eslint-disable. Fix actual root causes.
 - Comments — code must be self-explanatory. Never restate code. No multi-line block comments, no ASCII banner dividers (`// ---`). Authored comments delete by default; only strictly necessary single-line comments when code looks wrong but is right. Keep it short, focused, and one-liner.
 - Solid as hell — nothing ships without typecheck + lint + affected tests green together. CI is not your safety net. Broken = rejected, no excuses.
+- Tests for generated AI output enforce truth, safety, accessibility, operability, and review evidence — never pin taste. Do not assert exact model prose, palette hues, fonts, layout structure, card counts, section order, visual-kit/recipe selection, decorative elements, or generated-source snapshots. Delete such tests when found; evaluate rendered quality through calibrated review instead.
 - Small, surgical — one concern per change. 50-line fix beats 500-line refactor. If description says also, split it.
 - No dead weight — no commented-out code, no dead exports, no TODO without ticket. Knip + typecheck must stay green.
 - Explicit over clever — boring explicit beats clever abstraction. Deep modules hide complexity behind small stable interfaces.

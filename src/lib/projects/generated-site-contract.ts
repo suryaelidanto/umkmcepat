@@ -1476,23 +1476,12 @@ function snapshotPrimaryOffer(snapshot: ProjectBriefV2): string | null {
   return (primary ?? snapshot.offers[0])?.name ?? null;
 }
 
-function publicHeadline(snapshot: ProjectBriefV2, archetype: string): string {
+function publicHeadline(snapshot: ProjectBriefV2, _archetype: string): string {
   const tagline = snapshot.content.tagline?.trim();
   if (tagline && !isInternalCopy(tagline)) {
     return tagline;
   }
-  const offer = snapshotPrimaryOffer(snapshot) ?? "Produk Pilihan";
-  const businessName = snapshot.business.name?.trim();
-  if (archetype.startsWith("fnb")) {
-    return `Nikmati ${offer} Spesial di ${businessName || "Kami"}`;
-  }
-  if (archetype.startsWith("retail")) {
-    return `Koleksi ${offer} Pilihan Terbaik`;
-  }
-  if (archetype.startsWith("service") || archetype.startsWith("jasa")) {
-    return `Layanan ${offer} Profesional & Terpercaya`;
-  }
-  return `${offer} Berkualitas untuk Kebutuhan Anda`;
+  return snapshotPrimaryOffer(snapshot) ?? snapshot.business.name?.trim() ?? "";
 }
 
 function publicSectionPurpose(purpose: string, id: string): string {
@@ -1508,18 +1497,16 @@ function publicSectionPurpose(purpose: string, id: string): string {
   return purpose;
 }
 
-function publicSubheadline(snapshot: ProjectBriefV2, ctaLabel: string): string {
-  const offer = snapshotPrimaryOffer(snapshot) ?? "koleksi kami";
-  const audience = snapshot.audience?.trim();
-  const audienceText = audience
-    ? ` khusus untuk ${audience.toLowerCase()}`
-    : "";
-  return `Temukan berbagai pilihan ${offer}${audienceText}. Hubungi kami langsung melalui ${ctaLabel} untuk pemesanan atau konsultasi.`;
+function publicSubheadline(
+  snapshot: ProjectBriefV2,
+  _ctaLabel: string,
+): string {
+  return snapshot.audience?.trim() ?? snapshotPrimaryOffer(snapshot) ?? "";
 }
 
 function publicTrustPoints(
   snapshot: ProjectBriefV2,
-  ctaLabel: string,
+  _ctaLabel: string,
 ): string[] {
   const supplied = snapshot.content.usp
     ?.map((item) => item.trim())
@@ -1527,20 +1514,14 @@ function publicTrustPoints(
   if (supplied?.length) {
     return supplied;
   }
-  return [
-    "Garansi kualitas dan pengerjaan rapi",
-    `Konsultasi langsung via ${ctaLabel}`,
-    "Proses mudah dan transparan",
-  ];
+  return [];
 }
 
 function publicProductCopy(product: SiteSchemaProduct): SiteSchemaProduct {
   const description = product.description?.trim();
   if (!description || isInternalCopy(description)) {
-    return {
-      ...product,
-      description: `Layanan ${product.name.toLowerCase()} dengan pengerjaan profesional dan rapi.`,
-    };
+    const { description: _description, ...withoutDescription } = product;
+    return withoutDescription;
   }
   return product;
 }
