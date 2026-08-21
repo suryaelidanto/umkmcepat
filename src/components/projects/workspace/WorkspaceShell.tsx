@@ -3314,7 +3314,7 @@ export function WorkspaceShell({
               <button
                 type="button"
                 onClick={() => setIsRenaming(true)}
-                className="rounded-full p-spacing-2 text-surface-warm-white/44 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
+                className="rounded-full p-spacing-2 text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:text-surface-warm-white/44 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white"
                 aria-label="Ubah nama proyek"
               >
                 <Pencil className="size-3.5" />
@@ -4218,7 +4218,7 @@ export function WorkspaceShell({
         {projectTitle ? (
           <div className="mx-auto flex max-w-[280px] items-center justify-center gap-1.5">
             <span
-              className="truncate text-[11px] font-medium text-[#5f5f5d] dark:text-surface-warm-white/50"
+              className="truncate text-xs font-medium text-[#5f5f5d] dark:text-surface-warm-white/50"
               title={projectTitle}
             >
               {projectTitle}

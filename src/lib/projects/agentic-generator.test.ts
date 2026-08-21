@@ -180,11 +180,11 @@ describe("runAgenticGenerate", () => {
 
     expect(result.skillsRead).toContain("impeccable");
     expect(result.skillsRead).toContain("shadcn");
-    expect(
-      result.operationTrace.some(
-        (operation) => operation.type === "read_skill",
-      ),
-    ).toBe(true);
+    const skillOperations = result.operationTrace.filter(
+      (operation) => operation.type === "read_skill",
+    );
+    expect(skillOperations.length).toBeGreaterThan(0);
+    expect(skillOperations.every((operation) => !operation.path)).toBe(true);
   });
 
   it("rejects writes until all core skills have been read", async () => {

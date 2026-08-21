@@ -195,7 +195,6 @@ export async function runAgenticGenerate(input: {
               detail?.trim() ||
               `Membaca panduan ${name} sebelum menulis website`,
             id: `op-${opSeq}`,
-            path: `.agents/skills/${name}/SKILL.md`,
             state: "succeeded" as const,
             title: label?.trim() || `Membaca skill ${name}`,
             type: "read_skill",
