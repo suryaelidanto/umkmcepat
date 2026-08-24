@@ -174,10 +174,23 @@ export async function qualifyGeneratedSite(
   );
   let files = initialFiles;
   let visualRepairCount: 0 | 1 = 0;
+  let lastRiskReport: ReturnType<typeof deps.classifyRisk> | undefined;
+  let lastCriticReport: Awaited<ReturnType<typeof deps.runCritic>> | undefined;
 
   for (;;) {
     const browserReport = await deps.runBrowser(files);
     if (classifyBrowserReport(browserReport) !== "pass") {
+      if (visualRepairCount === 1 && lastRiskReport && lastCriticReport) {
+        // Fall back safely to initial passing candidate if repair pass regressed
+        return {
+          ok: true,
+          files: initialFiles,
+          browserReport,
+          riskReport: lastRiskReport,
+          criticReport: lastCriticReport,
+          visualRepairCount: 1,
+        };
+      }
       return {
         ok: false,
         reason: "generated-site browser qualification failed",
@@ -186,7 +199,9 @@ export async function qualifyGeneratedSite(
       };
     }
     const riskReport = deps.classifyRisk(files, browserReport);
+    lastRiskReport = riskReport;
     const criticReport = await deps.runCritic(files, browserReport, riskReport);
+    lastCriticReport = criticReport;
     if (criticReport.status !== "complete") {
       return {
         ok: false,

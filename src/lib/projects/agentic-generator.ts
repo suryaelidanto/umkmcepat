@@ -66,7 +66,7 @@ export type AgenticGeneratedSourceResult = {
 
 const MAX_PROMPT_VALUE_LENGTH = 12_000;
 const ARBITRARY_TAILWIND_COLOR_PATTERN =
-  /\b(?:bg|text|border|ring|fill|stroke|from|to|via|shadow|outline|divide)-\[#[0-9a-fA-F]{3,8}\]/;
+  /\b(?:bg|text|border|ring|fill|stroke|from|to|via|shadow|outline|divide)-(?:\[#[0-9a-fA-F]{3,8}\]|(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3}(?:\/\d+)?)/;
 
 function formatPromptValue(value: unknown): string {
   if (value == null) {
@@ -519,17 +519,17 @@ export async function runAgenticGenerate(input: {
               "Security restriction: Only files under src/ and public/ can be written.",
           };
         }
-        const oldContent = fileMap.get(path) ?? "";
-        const normalizedContent =
-          path.endsWith(".tsx") || path.endsWith(".css")
-            ? normalizeGeneratedSiteContent(content)
-            : content;
-        if (ARBITRARY_TAILWIND_COLOR_PATTERN.test(normalizedContent)) {
+        if (ARBITRARY_TAILWIND_COLOR_PATTERN.test(content)) {
           return {
             error:
               "Design safety restriction: use semantic theme tokens such as bg-accent, text-foreground, and border-border instead of arbitrary color values.",
           };
         }
+        const oldContent = fileMap.get(path) ?? "";
+        const normalizedContent =
+          path.endsWith(".tsx") || path.endsWith(".css")
+            ? normalizeGeneratedSiteContent(content)
+            : content;
         const diff = generateDiff(oldContent, normalizedContent);
         fileMap.set(path, normalizedContent);
         touched.add(path);
@@ -762,6 +762,10 @@ FACT AND SAFETY RULES:
 - Do not add remote images, placeholder media, external URLs, packages, config files, API calls, or platform metadata.
 - Keep interactive parent controls at least 44px without enlarging their inner SVG icons. Preserve focus-visible states and reduced motion.
 - Avoid nested cards, equal-card soup, gradient-tech styling, technical headings, starter residue, fake progress, and decorative interaction.
+
+BUTTON AND LINK COMPOSITION:
+- When using \`Button\` as a link (e.g. CTA or navigation), use either \`render={<a href="..." />}\`, \`<Button asChild><a href="...">...</a></Button>\`, or \`className={cn(buttonVariants({ ... }))}\`. Both \`render\` and \`asChild\` are fully supported and valid.
+- Primary CTA buttons (in Header, Hero, and Footer/Contact) must link directly to \`site.primaryCtaTarget\` (e.g. WhatsApp wa.me link) when available.
 
 PROTECTED FILES:
 The platform owns src/content/site.ts, src/index.css, src/main.tsx, src/router.tsx, src/routes/__root.tsx, src/routes/not-found.tsx, src/lib/preview-ready.ts, src/lib/utils.ts, src/components/ui/button.tsx, and src/components/ui/card.tsx. Never write them. Write src/routes/index.tsx, modular components under src/components/, supported data modules under src/content/ when needed, and approved public assets only.
