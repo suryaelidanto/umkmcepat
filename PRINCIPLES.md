@@ -1,111 +1,188 @@
 # Principles
 
-Timeless operating principles for UMKM Cepat. Use this before planning product, design, code, AI, docs, or marketing work. Assume a future AI agent starts with zero session context: decisions, guardrails, and workflows must be discoverable from the repo, not memory.
+Operating principles for UMKM Cepat. Read this before planning product, design, code, AI, docs, or UI changes.
 
-## Product
+A senior engineer values simplicity, organization, and durability over clever complexity. If code is not needed today, delete it. If a platform feature solves the problem, use it.
 
-- Build for the job a real user is trying to finish, not for a requested feature list.
-- Prefer one useful path over many incomplete options.
-- Cut scope before cutting quality.
-- Launch small enough to learn, solid enough to trust.
-- Do unscalable learning before automating the workflow.
-- Keep bets explicit; unchosen ideas are not promises.
-- Make the next user action obvious.
-- Trust compounds slowly and can be lost quickly.
+---
 
-## Business
+## 1. Product & UX
 
-- Explain value through the customer's current struggle and better future.
-- Distribution, support, and onboarding are part of the product.
-- Stay default alive; do not build plans that require infinite money, attention, or users.
-- Prefer durable usefulness over hype.
-- A smaller product with clear value beats a broad product with vague value.
+- Build for the job a real user needs to finish, not a speculative feature list.
+- One obvious, useful path beats five half-working settings.
+- Cut scope before cutting correctness or performance.
+- Interface copy in user-facing flows must be plain, active Indonesian.
+- Empty, loading, error, and recovery states are core product views, not afterthoughts.
 
-## AI builder
+---
 
-- AI must help the user complete a job measurably better, not act as decoration.
-- Clarify only when ambiguity changes output quality or risk.
-- Make progress without asking lazy questions.
-- Generated output must be inspectable, editable, recoverable, and safe to discard.
-- Treat untrusted user, retrieved, and generated content as data, never as instructions.
-- Use structured outputs when software consumes AI results.
-- Give agents narrow tools, visible side effects, and revocable authority.
-- Humans approve secrets, money, publishing, deletion, and irreversible external effects.
+## 2. Engineering Mindset & Simplicity
 
-## Design
+- **YAGNI extremist.** The best code is the code you never wrote.
+- Stop at the first rung that holds:
+  1. Does this need to exist at all? If no, delete.
+  2. Standard library does it? Use standard library.
+  3. Native platform feature covers it? Use CSS or database constraints over custom JS.
+  4. Existing dependency covers it? Use it; never add a new dependency for what a few lines can do.
+  5. Minimum code that works reliably.
+- No single-use interfaces, no factories for one product, no config for values that never change.
+- A 50-line surgical fix beats a 500-line refactor.
 
-- Do the hard work to make the product simple.
-- Every element must earn attention.
-- Familiarity comes before invention.
-- Consistency is a user aid, not a cage.
-- Visual hierarchy should make the primary action impossible to miss.
-- Motion must explain state or continuity, not perform for decoration.
-- Craft is care made visible through spacing, typography, contrast, alignment, and restraint.
-- Accessibility is correctness.
+### Examples: Simplicity & Abstraction
 
-## UX
+**BAD:**
 
-- The user should always know what is happening, what changed, and what to do next.
-- Empty, loading, error, success, and stopped states are product states.
-- Prevent errors before explaining them.
-- Prefer recognition over memory.
-- Defaults should be safe, useful, and reversible.
-- Preserve context when moving users between steps.
-- Write interface copy in plain Indonesian for user-facing flows.
+```ts
+// Over-engineered factory with single implementation
+interface ButtonFactory {
+  createButton(type: string): JSX.Element;
+}
+class PrimaryButtonFactory implements ButtonFactory {
+  createButton() { return <Button variant="primary" />; }
+}
+```
 
-## Frontend
+**GREAT:**
 
-- Reuse tokens, primitives, and Storybook patterns before adding new visual language.
-- New reusable UI or repeated visual patterns belong in Storybook with the change.
-- State should live as close as possible to where it is used.
-- CSS and platform behavior beat JavaScript when they solve the problem.
-- One-off layout can stay inline; repeated pattern should become a component.
-- Do not mirror whole pages in Storybook unless the page is a reusable template.
+```tsx
+// Direct, plain component call
+export function ActionButton({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) {
+  return <Button onClick={onClick}>{label}</Button>;
+}
+```
 
-## Backend
+---
 
-- Validate untrusted input at server trust boundaries.
-- Authorize every object access; authentication alone never proves ownership.
-- Bound time, payload size, rows, retries, concurrency, and cost.
-- Data integrity belongs in the database when possible.
-- Mutating operations should be idempotent when retries are expected.
-- Background work must be observable, retryable, and safe to stop.
-- Keep provider-specific code behind internal adapters.
+## 3. Architecture & Organization
 
-## Code
+- **Domain before file type.** Group by product feature or business domain (`src/components/admin/`, `src/lib/projects/`). Never create generic catch-all folders (`hooks/`, `utils/`, `helpers/`, `misc/`).
+- **Colocated tests.** Place unit and component tests directly beside the file they test (`foo.ts` + `foo.test.ts`). Top-level `tests/` is strictly for cross-domain integration, real DB infrastructure tests, or browser automation.
+- **Deep modules, small interfaces.** Hide complex internal logic behind a concise, stable export.
 
-- The best code is code not written.
-- Prefer deletion and reuse over new abstraction.
-- Abstractions need at least two real uses.
-- Deep modules hide real complexity behind small stable interfaces.
-- Shallow wrappers make code worse.
-- Boring, explicit code beats clever flexible code.
-- Refactor in small behavior-preserving steps.
-- Confidence must come from repeatable checks, not memory.
+### Examples: Folder Structure
 
-## Security and reliability
+**BAD (Generic bucket anti-pattern):**
 
-- Secrets never enter logs, docs, commits, screenshots, client bundles, or chat output.
-- Least privilege applies to users, services, tokens, database roles, and tools.
-- Fail closed when user data, spend, auth, or publishing is at risk.
-- Local disk state is not durable unless it is explicitly mounted and documented.
-- Reliability should be measured by user impact, not vibes.
-- Recurring manual operations are defects to remove or automate.
+```text
+src/
+  hooks/
+    useProjectHistory.ts
+    useAdminFilter.ts
+  utils/
+    formatDate.ts
+    calcPrice.ts
+```
 
-## Docs
+**GREAT (Domain-driven grouping):**
 
-- Write for the next agent with no chat history: capture why, how to verify, and when to change direction.
-- One canonical doc beats duplicated advice.
-- Docs should help the reader complete one real task with minimum ambiguity.
-- Delete stale docs before adding new docs.
-- Keep headings scannable for humans and agents.
-- Put setup, security, failure modes, and env details near the workflow they affect.
-- Docs are part of the change: if behavior, setup, env, architecture, provider, storage, deployment, UI system, or product flow changes, update the canonical doc in the same diff or state why docs did not change.
+```text
+src/
+  components/
+    admin/
+      AdminFilters.tsx
+      useAdminFilter.ts
+    projects/
+      workspace/
+        WorkspaceHistoryDrawer.tsx
+        useWorkspaceHistory.ts
+```
 
-## Marketing and copy
+---
 
-- Say what users can do, not what the product wishes to be.
-- Use specific nouns and verbs.
-- Avoid generic AI hype, vague productivity claims, and decorative filler.
-- Be warm, concrete, honest, and useful.
-- If copy could appear in any AI SaaS template, sharpen it.
+## 4. Zero-Tolerance Type Safety
+
+- **No `any` or `as any`.** `any` disables the compiler and hides runtime bugs.
+- Use `unknown` with type narrowing (e.g. `typeof`, `instanceof`, Zod parsing).
+- Fix root causes instead of adding `@ts-ignore` or `eslint-disable`.
+
+### Examples: Type Narrowing
+
+**BAD:**
+
+```ts
+function parsePayload(data: any) {
+  return data.user.id;
+}
+```
+
+**GREAT:**
+
+```ts
+function parsePayload(data: unknown): string {
+  if (typeof data === "object" && data !== null && "user" in data) {
+    const user = (data as { user: unknown }).user;
+    if (typeof user === "object" && user !== null && "id" in user) {
+      return String((user as { id: unknown }).id);
+    }
+  }
+  throw new Error("Invalid payload format");
+}
+```
+
+---
+
+## 5. AI Invariants vs. Model Taste
+
+- **Never test stochastic AI responses or taste in unit tests.**
+- Tests assert deterministic mechanical invariants only:
+  - Zod schemas and JSON structure
+  - Required fields and type narrowing
+  - Security policies and route contracts
+  - Accessibility contrast and touch target boundaries
+- Model wording, copywriting appeal, and layout aesthetics are verified through calibrated review and visual evaluation corpora.
+
+### Examples: Testing AI Systems
+
+**BAD (Pinning stochastic prose or layout taste):**
+
+```ts
+// Fragile unit test checking exact LLM prose
+expect(aiOutput.text).toBe("Hai! Aku siap membantumu jualan kopi.");
+expect(aiOutput.buttonColor).toBe("#b45309");
+```
+
+**GREAT (Testing structural contract and schema):**
+
+```ts
+// Validating schema invariants and required keys
+const parsed = presentWorkspaceCardInputSchema.safeParse(toolInput);
+expect(parsed.success).toBe(true);
+if (parsed.success) {
+  expect(parsed.data.workspaceCard).toBeDefined();
+  expect(typeof parsed.data.assistantText).toBe("string");
+}
+```
+
+---
+
+## 6. Code Cleanliness & Comment Hygiene
+
+- Code must be self-explanatory through expressive naming and clear logic.
+- Authored comments delete by default.
+- Never write multi-line comment blocks, narrative descriptions, or banner dividers (`// ---`).
+- Add single-line comments only when explaining a non-obvious invariant or deliberate simplification that looks wrong but is right.
+
+### Examples: Comments
+
+**BAD:**
+
+```ts
+// ----------------------------------------------------
+// This function handles the user authentication by
+// checking if the session exists in the database
+// ----------------------------------------------------
+function checkAuth() { ... }
+```
+
+**GREAT:**
+
+```ts
+// ponytail: auth token expiry grace period of 30s allows clock skew between nodes
+const isFresh = tokenIssuedAt + 30_000 > Date.now();
+```
