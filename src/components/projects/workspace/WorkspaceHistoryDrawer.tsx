@@ -76,7 +76,7 @@ export function WorkspaceHistoryButton({
         className={
           isRow
             ? "inline-flex h-11 w-full items-center gap-spacing-3 rounded-radius-md px-spacing-3 text-sm text-[#1c1c1c] hover:bg-black/5 dark:text-surface-warm-white/82 dark:hover:bg-surface-warm-white/8"
-            : "inline-flex h-8 items-center gap-1.5 rounded-lg border border-black/10 bg-transparent px-2.5 text-[11px] font-medium text-[#5f5f5d] transition-colors hover:border-black/20 hover:bg-black/[0.04] hover:text-[#1c1c1c] dark:border-surface-warm-white/10 dark:bg-transparent dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white"
+            : "inline-flex h-8 items-center gap-1.5 rounded-lg border border-border/90 bg-card px-2.5 text-[11px] font-semibold text-foreground shadow-2xs transition-all hover:border-foreground/30 hover:bg-muted active:scale-95 cursor-pointer dark:border-white/15 dark:bg-[#252522] dark:hover:bg-[#2e2e2a] dark:text-surface-warm-white"
         }
       >
         <History

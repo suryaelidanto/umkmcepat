@@ -135,7 +135,7 @@ export function AuthButton() {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex max-w-[12rem] items-center gap-spacing-3 rounded-md border border-transparent bg-transparent px-spacing-2 py-spacing-1.5 text-sm text-[#1c1c1c] transition hover:bg-black/5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-black/40 dark:text-surface-warm-white dark:hover:bg-white/[0.05] dark:focus-visible:ring-white/40 sm:max-w-[15rem] sm:px-spacing-3"
+        className="flex max-w-[12rem] items-center gap-2 rounded-lg border border-border/90 bg-card px-2.5 py-1 text-xs font-semibold text-foreground shadow-2xs transition-all hover:border-foreground/30 hover:bg-muted cursor-pointer active:scale-95 focus-visible:outline-none dark:border-white/15 dark:bg-[#252522] dark:hover:bg-[#2e2e2a] sm:max-w-[15rem]"
         aria-expanded={open}
         aria-controls={menuId}
         aria-label={open ? "Tutup menu akun" : "Buka menu akun"}

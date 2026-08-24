@@ -232,7 +232,7 @@ export function WorkspaceTopBar({
                 <button
                   type="button"
                   onClick={onRefreshPreview}
-                  className="hidden md:inline-flex h-7 items-center gap-1.5 rounded-radius-md border border-black/10 bg-transparent px-2 text-[11px] font-medium text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/10 dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white cursor-pointer transition-colors"
+                  className="hidden md:inline-flex h-7 items-center gap-1.5 rounded-[6px] border border-border/90 bg-card px-2.5 text-[11px] font-semibold text-foreground shadow-2xs transition-all hover:border-foreground/30 hover:bg-muted active:scale-95 dark:border-white/15 dark:bg-[#252522] dark:hover:bg-[#2e2e2a] dark:text-surface-warm-white cursor-pointer"
                   aria-label="Muat ulang tampilan website"
                   title="Muat ulang tampilan website"
                 >
@@ -631,9 +631,9 @@ function RuntimeControl({
             target="_blank"
             rel="noreferrer"
             aria-label="Buka website yang diterbitkan"
-            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-black/10 bg-transparent px-2.5 text-[11px] font-medium text-[#1c1c1c] shadow-2xs transition hover:border-black/20 hover:bg-black/[0.04] dark:border-surface-warm-white/10 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/8"
+            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-border/90 bg-card px-3 text-[11px] font-semibold text-foreground shadow-2xs transition-all hover:border-foreground/30 hover:bg-muted active:scale-95 dark:border-white/15 dark:bg-[#252522] dark:hover:bg-[#2e2e2a] dark:text-surface-warm-white"
           >
-            <ExternalLink className="size-3 text-[#5f5f5d] dark:text-surface-warm-white/70" />
+            <ExternalLink className="size-3 text-muted-foreground dark:text-surface-warm-white/70" />
             <span>Buka Website</span>
           </a>
           {runtime.hasUnpublishedPreview ? (

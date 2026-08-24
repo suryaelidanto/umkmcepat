@@ -3750,7 +3750,7 @@ export function WorkspaceShell({
                                   sessionExpired ||
                                   authStatus !== "authenticated"
                                 }
-                                className="h-8 rounded-full border-border bg-transparent px-spacing-3 text-xs font-medium text-foreground hover:bg-muted"
+                                className="h-8 rounded-full border border-border/90 bg-card px-3 text-xs font-semibold text-foreground shadow-2xs transition-all hover:border-foreground/30 hover:bg-muted active:scale-95 cursor-pointer dark:border-white/15 dark:bg-[#252522] dark:hover:bg-[#2e2e2a]"
                               >
                                 {buildComplete
                                   ? "Perbarui website"
@@ -3940,7 +3940,7 @@ export function WorkspaceShell({
                           disabled={
                             sessionExpired || authStatus !== "authenticated"
                           }
-                          className="h-8 rounded-full border-border bg-transparent px-spacing-3 text-xs font-medium text-foreground hover:bg-muted"
+                          className="h-8 rounded-full border border-border/90 bg-card px-3 text-xs font-semibold text-foreground shadow-2xs transition-all hover:border-foreground/30 hover:bg-muted active:scale-95 cursor-pointer dark:border-white/15 dark:bg-[#252522] dark:hover:bg-[#2e2e2a]"
                         >
                           {buildComplete ? "Perbarui website" : "Buat website"}
                         </Button>

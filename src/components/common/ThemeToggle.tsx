@@ -18,7 +18,7 @@ export function ThemeToggle() {
       type="button"
       id="header-theme-toggle"
       onClick={() => setTheme(isDark ? "light" : "dark")}
-      className="inline-flex size-9 items-center justify-center rounded-lg border border-black/10 bg-transparent text-[#5f5f5d] transition-colors hover:border-black/20 hover:bg-black/[0.04] hover:text-[#1c1c1c] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-black/50 dark:border-white/14 dark:bg-transparent dark:text-surface-warm-white dark:hover:bg-white/[0.06] dark:focus-visible:ring-white/50"
+      className="inline-flex size-8 items-center justify-center rounded-lg border border-border/90 bg-card text-foreground shadow-2xs transition-all hover:border-foreground/30 hover:bg-muted cursor-pointer active:scale-95 focus-visible:outline-none dark:border-white/15 dark:bg-[#252522] dark:hover:bg-[#2e2e2a]"
       aria-label={isDark ? "Ganti ke mode terang" : "Ganti ke mode gelap"}
       title={isDark ? "Mode Terang" : "Mode Gelap"}
     >
