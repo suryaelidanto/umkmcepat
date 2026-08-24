@@ -853,9 +853,39 @@ Start by inspecting the scaffold and reading the required skills. Then write the
         const servedModelId = (
           await Promise.resolve(step.response).catch(() => null)
         )?.modelId;
+
+        // Derive specific reason from tool execution
+        let toolReason: string | undefined;
+        const toolCall = step.toolCalls?.[0] as
+          { toolName?: string; args?: Record<string, unknown> } | undefined;
+        if (toolCall) {
+          if (
+            toolCall.toolName === "write_custom_component" &&
+            typeof toolCall.args?.path === "string"
+          ) {
+            const fileName = toolCall.args.path.split("/").pop() || "komponen";
+            toolReason = `build:write:${fileName}`;
+          } else if (toolCall.toolName === "run_design_audit") {
+            toolReason = "build:audit";
+          } else if (toolCall.toolName === "check_app") {
+            toolReason = "build:check_app";
+          } else if (
+            toolCall.toolName === "copy_shadcn_component" &&
+            typeof toolCall.args?.name === "string"
+          ) {
+            toolReason = `build:shadcn:${toolCall.args.name}`;
+          } else if (
+            toolCall.toolName === "read_skill" &&
+            typeof toolCall.args?.name === "string"
+          ) {
+            toolReason = `build:skill:${toolCall.args.name}`;
+          }
+        }
+
         await stepCharger.onStepFinish({
           usage: step.usage,
           response: { modelId: servedModelId },
+          reason: toolReason,
         });
       }
     },

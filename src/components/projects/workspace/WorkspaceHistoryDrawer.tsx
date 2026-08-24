@@ -1,16 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import {
-  Check,
-  ChevronDown,
-  ChevronRight,
-  ChevronUp,
-  Globe,
-  History,
-  Layout,
-  ListChecks,
-} from "lucide-react";
+import { Check, ChevronRight, Globe, History, Layout } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -130,9 +121,6 @@ export function WorkspaceHistoryDrawer({
   const [selectedSnapshotId, setSelectedSnapshotId] = useState<string | null>(
     activeSnapshotId ?? null,
   );
-  const [expandedDetails, setExpandedDetails] = useState<
-    Record<string, boolean>
-  >({});
 
   const { data, isLoading, error } = useQuery({
     enabled: open,
@@ -187,10 +175,6 @@ export function WorkspaceHistoryDrawer({
 
   const currentActiveId = selectedSnapshotId ?? snapshots[0]?.id;
 
-  const toggleDetails = (id: string) => {
-    setExpandedDetails((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[85dvh] flex-col gap-spacing-6 overflow-hidden sm:max-w-2xl">
@@ -234,8 +218,6 @@ export function WorkspaceHistoryDrawer({
             {snapshots.map((snapshot) => {
               const label = KIND_LABEL[snapshot.kind] ?? snapshot.kind;
               const isActive = snapshot.id === currentActiveId;
-              const changes = snapshot.changes ?? [];
-              const isExpanded = Boolean(expandedDetails[snapshot.id]);
 
               return (
                 <li
@@ -283,6 +265,12 @@ export function WorkspaceHistoryDrawer({
                         <span className="text-xs text-muted-foreground dark:text-surface-warm-white/55">
                           Dibuat {formatDate(snapshot.createdAt)}
                         </span>
+
+                        {snapshot.summary ? (
+                          <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground dark:text-surface-warm-white/70">
+                            {snapshot.summary}
+                          </p>
+                        ) : null}
                       </div>
                     </div>
 
@@ -315,36 +303,6 @@ export function WorkspaceHistoryDrawer({
                       )}
                     </div>
                   </div>
-
-                  {/* Changelog & AI Details Accordion */}
-                  {changes.length > 0 ? (
-                    <div className="mt-3 border-t border-border/60 pt-2.5">
-                      <button
-                        type="button"
-                        onClick={() => toggleDetails(snapshot.id)}
-                        className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
-                      >
-                        <ListChecks className="size-3.5 text-primary" />
-                        <span>Rincian perubahan ({changes.length})</span>
-                        {isExpanded ? (
-                          <ChevronUp className="size-3.5" />
-                        ) : (
-                          <ChevronDown className="size-3.5" />
-                        )}
-                      </button>
-
-                      {isExpanded ? (
-                        <ul className="mt-2.5 space-y-1.5 rounded-xl bg-muted/40 p-3 text-xs leading-relaxed text-foreground/85 dark:bg-black/20 dark:text-surface-warm-white/80">
-                          {changes.map((item, idx) => (
-                            <li key={idx} className="flex items-start gap-2">
-                              <span className="mt-1 size-1.5 shrink-0 rounded-full bg-primary" />
-                              <span>{item}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : null}
-                    </div>
-                  ) : null}
                 </li>
               );
             })}

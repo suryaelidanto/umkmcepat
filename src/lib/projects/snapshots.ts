@@ -185,13 +185,39 @@ export function extractSnapshotChangelog(metadata: unknown): {
     meta.generation.summary.trim()
   ) {
     const raw = meta.generation.summary.trim();
-    if (!raw.startsWith("Website successfully generated")) {
+    if (
+      !raw.startsWith("Website successfully generated") &&
+      !raw.startsWith("Menyiapkan panduan") &&
+      !raw.startsWith("Mempelajari panduan")
+    ) {
       summary = raw;
     }
   }
 
-  if (!summary && changes.length > 0) {
-    summary = changes.slice(0, 2).join(". ");
+  if (
+    !summary &&
+    typeof meta.description === "string" &&
+    meta.description.trim()
+  ) {
+    summary = meta.description.trim();
+  }
+
+  if (!summary) {
+    // Filter down to substantive content/component write operations
+    const substantive = changes.filter(
+      (c) =>
+        !c.startsWith("Menyiapkan panduan") &&
+        !c.startsWith("Mempelajari panduan") &&
+        !c.startsWith("Memasang komponen") &&
+        !c.startsWith("Menyiapkan komponen") &&
+        !c.startsWith("Audit desain"),
+    );
+    if (substantive.length > 0) {
+      summary = substantive.slice(0, 2).join(". ");
+    } else {
+      summary =
+        "Halaman website siap tayang dengan navigasi lengkap, katalog, dan kontak WhatsApp.";
+    }
   }
 
   return { summary, changes };

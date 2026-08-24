@@ -30,21 +30,30 @@ type ReasonDetail = {
 
 const REASON_DETAILS: Record<string, ReasonDetail> = {
   "build:step": {
-    label: "Pembuatan Kode Website",
-    description: "AI menyusun komponen tampilan, tema, dan halaman website.",
+    label: "Pembuatan Komponen Website",
+    description: "AI menyusun komponen tampilan, tema, dan bagian halaman.",
+  },
+  "build:spec": {
+    label: "Perancangan Arsitektur",
+    description: "Menyusun struktur brief dan spesifikasi halaman website.",
   },
   "build:subagent": {
     label: "Penyusunan Desain AI",
     description: "Analisis layout dan penataan elemen visual situs.",
   },
-  "build:spec": {
-    label: "Perancangan Arsitektur",
-    description: "Menyusun struktur brief dan spesifikasi website.",
-  },
   "build:repair": {
     label: "Penyempurnaan Visual & Kontras",
     description:
       "Memperbaiki kerapian warna dan tombol sesuai standar aksesibilitas.",
+  },
+  "build:audit": {
+    label: "Audit Visual & Aksesibilitas",
+    description: "Memeriksa estetika warna, kontras teks, dan ukuran tombol.",
+  },
+  "build:check_app": {
+    label: "Verifikasi Kompilasi Website",
+    description:
+      "Memastikan semua kode bebas dari error TypeScript dan bundler.",
   },
   "discuss:step": {
     label: "Percakapan & Analisis Brief",
@@ -64,6 +73,69 @@ const REASON_DETAILS: Record<string, ReasonDetail> = {
   },
 };
 
+const COMPONENT_DESCRIPTIONS: Record<string, ReasonDetail> = {
+  Hero: {
+    label: "Pembuatan Bagian Hero (Headline)",
+    description:
+      "Menyusun judul utama pembuka toko, slogan, dan tombol ajakan bertindak.",
+  },
+  Catalog: {
+    label: "Penyusunan Katalog Produk & Layanan",
+    description:
+      "Menyusun daftar menu jualan, harga, foto produk, dan tombol pesan.",
+  },
+  LocationAndContact: {
+    label: "Penyusunan Lokasi & Kontak WhatsApp",
+    description:
+      "Menyusun peta alamat, jam operasional toko, dan integrasi tombol WhatsApp.",
+  },
+  QualityUsp: {
+    label: "Penyusunan Keunggulan Toko (USP)",
+    description:
+      "Menyusun poin-poin kelebihan usaha, garansi, dan jaminan mutu.",
+  },
+  Reviews: {
+    label: "Penyusunan Ulasan Pelanggan",
+    description: "Menyusun testimoni pembeli dan bukti kepuasan pelanggan.",
+  },
+  Navbar: {
+    label: "Pembuatan Navigasi Atas (Navbar)",
+    description: "Menyusun menu navigasi logo dan tautan antar bagian website.",
+  },
+  Footer: {
+    label: "Pembuatan Bagian Penutup (Footer)",
+    description:
+      "Menyusun informasi hak cipta, tautan cepat, dan kontak penutup.",
+  },
+};
+
+const STEP_SEQUENCE_FALLBACKS: ReasonDetail[] = [
+  {
+    label: "Penyusunan Layout & Komponen Utama",
+    description:
+      "AI menyusun struktur awal, tata letak beranda, dan tajuk utama.",
+  },
+  {
+    label: "Pembuatan Katalog Produk & Layanan",
+    description: "AI memprogram daftar menu jualan, foto, dan tombol pesan.",
+  },
+  {
+    label: "Integrasi Tombol WhatsApp & Kontak",
+    description:
+      "AI menghubungkan alur pemesanan langsung ke nomor WhatsApp tokomu.",
+  },
+  {
+    label: "Penyempurnaan Visual & Desain",
+    description:
+      "AI memastikan kontras warna tajam dan nyaman dibaca di layar HP.",
+  },
+  {
+    label: "Verifikasi & Penggabungan Kode",
+    description:
+      "AI menyatukan seluruh bagian website agar siap dijalankan di preview.",
+  },
+];
+
 const numberFormatter = new Intl.NumberFormat("id-ID");
 const dateTimeFormatter = new Intl.DateTimeFormat("id-ID", {
   dateStyle: "medium",
@@ -78,13 +150,50 @@ function formatDateTime(iso: string): string {
   return dateTimeFormatter.format(new Date(iso));
 }
 
-function getReasonInfo(reason: string): ReasonDetail {
-  return (
-    REASON_DETAILS[reason] ?? {
-      label: reason,
-      description: "Operasi AI sistem.",
+function getReasonInfo(reason: string, index = 0): ReasonDetail {
+  if (REASON_DETAILS[reason]) {
+    if (reason === "build:step") {
+      const fallback =
+        STEP_SEQUENCE_FALLBACKS[index % STEP_SEQUENCE_FALLBACKS.length];
+      return fallback ?? REASON_DETAILS[reason]!;
     }
-  );
+    return REASON_DETAILS[reason]!;
+  }
+
+  if (reason.startsWith("build:write:")) {
+    const rawName = reason.slice("build:write:".length).replace(/\.tsx?$/, "");
+    if (COMPONENT_DESCRIPTIONS[rawName]) {
+      return COMPONENT_DESCRIPTIONS[rawName]!;
+    }
+    const cleanName = rawName.replace(/([A-Z])/g, " $1").trim();
+    return {
+      label: `Pembuatan Bagian ${cleanName}`,
+      description: `AI menulis dan merancang komponen tampilan ${cleanName}.`,
+    };
+  }
+
+  if (reason.startsWith("build:shadcn:")) {
+    const name = reason.slice("build:shadcn:".length);
+    return {
+      label: `Pemasangan Komponen ${name}`,
+      description:
+        "Memasang elemen antarmuka interaktif yang rapi dan responsif.",
+    };
+  }
+
+  if (reason.startsWith("build:skill:")) {
+    const name = reason.slice("build:skill:".length);
+    return {
+      label: `Penerapan Panduan Desain (${name})`,
+      description:
+        "Menyesuaikan estetika visual dan tipografi standar profesional.",
+    };
+  }
+
+  return {
+    label: reason,
+    description: "Operasi AI sistem.",
+  };
 }
 
 export function EnergyLedger({
@@ -174,8 +283,8 @@ export function EnergyLedger({
         ) : null}
 
         <ol className="flex flex-col gap-3">
-          {resolvedEntries.map((entry) => {
-            const info = getReasonInfo(entry.reason);
+          {resolvedEntries.map((entry, idx) => {
+            const info = getReasonInfo(entry.reason, idx);
 
             return (
               <li

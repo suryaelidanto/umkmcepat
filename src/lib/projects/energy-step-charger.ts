@@ -10,6 +10,7 @@ export type StepChargeEvent = {
 type StepLike = {
   usage?: { inputTokens?: number | null; outputTokens?: number | null } | null;
   response?: { modelId?: string };
+  reason?: string;
 };
 
 export type StepCharger = {
@@ -87,13 +88,14 @@ export function createStepCharger(opts: {
       inputTokens += input;
       outputTokens += output;
 
+      const effectiveReason = step?.reason || opts.reason;
       const effectiveModelId = servedModel || opts.modelId;
       const charged = await chargeEnergyForStep({
         userId: opts.userId,
         modelId: effectiveModelId,
         inputTokens: input,
         outputTokens: output,
-        reason: opts.reason,
+        reason: effectiveReason,
         projectId: opts.projectId ?? null,
       });
 
