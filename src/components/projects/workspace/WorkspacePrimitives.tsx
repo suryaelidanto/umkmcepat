@@ -133,12 +133,12 @@ export function WorkspaceTopBar({
       </div>
 
       {/* Tier 2: Project & Canvas Toolbar */}
-      <div className="hidden min-h-12 flex-wrap items-center justify-between gap-spacing-3 border-b border-black/10 bg-[#eceae4] px-4 py-spacing-2 text-[#1c1c1c] transition-colors duration-200 dark:border-surface-warm-white/10 dark:bg-[#171715] dark:text-surface-warm-white sm:flex sm:h-12 sm:flex-nowrap sm:py-0">
-        <div className="hidden min-w-0 items-center justify-start gap-3.5 sm:flex sm:w-auto">
+      <div className="hidden min-h-10 flex-wrap items-center justify-between gap-spacing-2 border-b border-black/10 bg-[#eceae4] px-3.5 text-[#1c1c1c] transition-colors duration-200 dark:border-surface-warm-white/10 dark:bg-[#171715] dark:text-surface-warm-white sm:flex sm:h-10 sm:flex-nowrap sm:py-0">
+        <div className="hidden min-w-0 items-center justify-start gap-3 sm:flex sm:w-auto">
           <div
             role="tablist"
             aria-label="Konten tampilan"
-            className="hidden md:flex h-8 items-center rounded-radius-md border border-black/10 bg-black/5 p-0.5 text-xs dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5"
+            className="hidden md:flex h-7 items-center rounded-radius-md border border-black/10 bg-black/5 p-0.5 text-[11px] dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5"
           >
             <TabButton
               active={activeTab === "preview"}
@@ -154,7 +154,7 @@ export function WorkspaceTopBar({
                   )?.focus();
                 }
               }}
-              icon={<Globe2 className="size-3.5" />}
+              icon={<Globe2 className="size-3" />}
               layoutId="workspace-active-tab"
             >
               Tampilan
@@ -173,7 +173,7 @@ export function WorkspaceTopBar({
                   )?.focus();
                 }
               }}
-              icon={<Code2 className="size-3.5" />}
+              icon={<Code2 className="size-3" />}
               layoutId="workspace-active-tab"
             >
               Kode
@@ -182,11 +182,11 @@ export function WorkspaceTopBar({
 
           {activeTab === "preview" ? (
             <>
-              <div className="hidden h-3.5 w-px bg-black/10 dark:bg-surface-warm-white/10 md:block" />
+              <div className="hidden h-3 w-px bg-black/10 dark:bg-surface-warm-white/10 md:block" />
               <div
                 role="tablist"
                 aria-label="Tampilan viewport"
-                className="hidden md:flex h-8 items-center rounded-radius-md border border-black/10 bg-black/5 p-0.5 text-xs dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5"
+                className="hidden md:flex h-7 items-center rounded-radius-md border border-black/10 bg-black/5 p-0.5 text-[11px] dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5"
               >
                 <TabButton
                   active={viewport === "desktop"}
@@ -202,7 +202,7 @@ export function WorkspaceTopBar({
                       )?.focus();
                     }
                   }}
-                  icon={<Monitor className="size-3.5" />}
+                  icon={<Monitor className="size-3" />}
                   layoutId="workspace-viewport-tab"
                 >
                   Komputer
@@ -222,7 +222,7 @@ export function WorkspaceTopBar({
                       )?.focus();
                     }
                   }}
-                  icon={<Smartphone className="size-3.5" />}
+                  icon={<Smartphone className="size-3" />}
                   layoutId="workspace-viewport-tab"
                 >
                   HP
@@ -232,11 +232,11 @@ export function WorkspaceTopBar({
                 <button
                   type="button"
                   onClick={onRefreshPreview}
-                  className="hidden md:inline-flex h-8 items-center gap-1.5 rounded-radius-md border border-black/10 bg-transparent px-2.5 text-xs font-medium text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/10 dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white cursor-pointer transition-colors"
+                  className="hidden md:inline-flex h-7 items-center gap-1.5 rounded-radius-md border border-black/10 bg-transparent px-2 text-[11px] font-medium text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/10 dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white cursor-pointer transition-colors"
                   aria-label="Muat ulang tampilan website"
                   title="Muat ulang tampilan website"
                 >
-                  <RotateCw className="size-3.5" />
+                  <RotateCw className="size-3" />
                   <span>Muat Ulang</span>
                 </button>
               ) : null}
@@ -254,9 +254,9 @@ export function WorkspaceTopBar({
                   : "Aktifkan mode tunjuk & ubah"
               }
               aria-pressed={directEditActive}
-              className={`hidden md:inline-flex h-8 items-center gap-spacing-2 rounded-radius-md border px-2.5 py-1 text-xs transition cursor-pointer ${directEditActive ? "border-[#8fd3ff]/35 bg-[#8fd3ff]/12 text-[#d6f0ff]" : "border-surface-warm-white/10 bg-surface-warm-white/5 text-surface-warm-white/64 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"}`}
+              className={`hidden md:inline-flex h-7 items-center gap-1.5 rounded-radius-md border px-2 py-0.5 text-[11px] transition cursor-pointer ${directEditActive ? "border-[#8fd3ff]/35 bg-[#8fd3ff]/12 text-[#d6f0ff]" : "border-surface-warm-white/10 bg-surface-warm-white/5 text-surface-warm-white/64 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"}`}
             >
-              <MessageSquarePlus className="size-3.5" />
+              <MessageSquarePlus className="size-3" />
               <span className="hidden sm:inline">
                 {directEditActive ? "Mode Tunjuk Aktif" : "Tunjuk & Ubah"}
               </span>
@@ -276,7 +276,7 @@ export function WorkspaceTopBar({
         />
 
         {/* Desktop project actions */}
-        <div className="hidden min-w-0 items-center justify-end gap-3 sm:flex sm:w-auto sm:shrink-0">
+        <div className="hidden min-w-0 items-center justify-end gap-2.5 sm:flex sm:w-auto sm:shrink-0">
           {/* Direct edit controls (if active) */}
           {directEditFlagEnabled && directEditActive && directEditActions ? (
             <div className="flex items-center gap-spacing-1">
@@ -619,9 +619,9 @@ function RuntimeControl({
   }
 
   return (
-    <div className="flex min-w-0 items-center gap-spacing-1 sm:gap-spacing-2">
+    <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
       {runtime.publishedPath && runtime.publishedState === "not_live" ? (
-        <span className="inline-flex h-9 items-center justify-center rounded-lg border border-status-warning-border bg-status-warning-subtle px-3 text-xs font-semibold text-status-warning">
+        <span className="inline-flex h-8 items-center justify-center rounded-lg border border-status-warning-border bg-status-warning-subtle px-2.5 text-[11px] font-semibold text-status-warning">
           Tidak live
         </span>
       ) : runtime.publishedPath ? (
@@ -631,9 +631,9 @@ function RuntimeControl({
             target="_blank"
             rel="noreferrer"
             aria-label="Buka website yang diterbitkan"
-            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#1c1c1c] px-3 text-xs font-semibold text-white shadow-xs transition hover:bg-black dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-white"
+            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-[#1c1c1c] px-2.5 text-[11px] font-semibold text-white shadow-xs transition hover:bg-black dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-white"
           >
-            <ExternalLink className="size-3.5" />
+            <ExternalLink className="size-3" />
             <span>Buka Website</span>
           </a>
           {runtime.hasUnpublishedPreview ? (
@@ -642,12 +642,12 @@ function RuntimeControl({
               disabled={!runtime.canPublish || runtime.isPublishing}
               onClick={runtime.onPublish}
               aria-label={publishAriaLabel}
-              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#1c1c1c] px-3 text-xs font-semibold text-white shadow-xs transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-50 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-white"
+              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-[#1c1c1c] px-2.5 text-[11px] font-semibold text-white shadow-xs transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-50 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-white"
             >
               {runtime.isPublishing ? (
-                <Loader2 className="size-3.5 animate-spin" />
+                <Loader2 className="size-3 animate-spin" />
               ) : (
-                <Globe2 className="size-3.5" />
+                <Globe2 className="size-3" />
               )}
               <span>{publishLabel}</span>
             </button>
@@ -659,12 +659,12 @@ function RuntimeControl({
           disabled={!runtime.canPublish || runtime.isPublishing}
           onClick={runtime.onPublish}
           aria-label={publishAriaLabel}
-          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#1c1c1c] px-3 text-xs font-semibold text-white shadow-xs transition hover:bg-black active:scale-95 disabled:cursor-not-allowed disabled:bg-black/5 disabled:text-black/30 disabled:hover:bg-black/5 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/90 dark:disabled:bg-white/5 dark:disabled:text-white/30 cursor-pointer"
+          className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-[#1c1c1c] px-2.5 text-[11px] font-semibold text-white shadow-xs transition hover:bg-black active:scale-95 disabled:cursor-not-allowed disabled:bg-black/5 disabled:text-black/30 disabled:hover:bg-black/5 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/90 dark:disabled:bg-white/5 dark:disabled:text-white/30 cursor-pointer"
         >
           {runtime.isPublishing ? (
-            <Loader2 className="size-3.5 animate-spin" />
+            <Loader2 className="size-3 animate-spin" />
           ) : (
-            <Globe2 className="size-3.5" />
+            <Globe2 className="size-3" />
           )}
           <span>{publishLabel}</span>
         </button>
