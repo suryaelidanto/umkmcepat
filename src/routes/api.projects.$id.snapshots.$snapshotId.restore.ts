@@ -107,17 +107,35 @@ export const Route = createFileRoute(
 
         try {
           // Checkout snapshot directly: activate for preview and sync workspace source
-          await prisma.projectDeployment.create({
-            data: {
-              buildId: build.id,
-              kind: "preview",
-              projectId: project.id,
-              publicPath: `/api/projects/${project.id}/preview`,
-              snapshotId,
-              status: "created",
-            },
-            select: { id: true },
+          const files =
+            Array.isArray(snapshot.files) && snapshot.files.length > 0
+              ? snapshot.files
+              : undefined;
+
+          await prisma.$transaction(async (tx) => {
+            await tx.projectDeployment.create({
+              data: {
+                buildId: build.id,
+                kind: "preview",
+                projectId: project.id,
+                publicPath: `/api/projects/${project.id}/preview`,
+                snapshotId,
+                status: "created",
+              },
+              select: { id: true },
+            });
+
+            if (files) {
+              await tx.project.update({
+                where: { id: project.id },
+                data: {
+                  sourceFiles: files,
+                  buildStatus: "passed",
+                },
+              });
+            }
           });
+
           devLog("snapshots", "checkout", {
             buildId: build.id,
             snapshotId,

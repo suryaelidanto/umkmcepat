@@ -336,6 +336,11 @@ const PREVIEW_ANNOTATION_BRIDGE = String.raw`
   if (window.__umkmAnnotationBridge) return;
   window.__umkmAnnotationBridge = true;
 
+  // Signal ready immediately upon bridge mount
+  try {
+    window.parent?.postMessage({ type: "umkmcepat-preview-ready" }, "*");
+  } catch {}
+
   // The control-plane origin (set by the parent via data-umkm-origin).
   const bridgeScript = document.currentScript || document.querySelector('script[data-umkm-annotation-bridge]');
   const PARENT_ORIGIN = bridgeScript ? bridgeScript.getAttribute('data-umkm-origin') || '*' : '*';
