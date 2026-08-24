@@ -235,7 +235,11 @@ export async function runDiscussTurn({
     const textPartId = "discuss-text";
     const toolCallId = `tool-${crypto.randomUUID()}`;
 
-    publishProgress(turnId, { type: "start", messageId });
+    publishProgress(turnId, {
+      type: "start",
+      messageId,
+      messageMetadata: { id: messageId },
+    });
     publishProgress(turnId, { type: "text-start", id: textPartId });
 
     let fullText = "";

@@ -249,13 +249,18 @@ async function getRedisPub(): Promise<Redis | null> {
   if (redisInitFailed) {
     return null;
   }
-  if (redisPub) {
+  if (redisPub && redisPub.status === "ready") {
     return redisPub;
   }
   try {
+    if (redisPub) {
+      if (redisPub.status === "connecting" || redisPub.status === "connect") {
+        return redisPub;
+      }
+    }
     redisPub = new Redis(getRedisUrl(), {
       maxRetriesPerRequest: 1,
-      enableOfflineQueue: false,
+      enableOfflineQueue: true,
       lazyConnect: true,
     });
     redisPub.on("error", resetRedisPub);
