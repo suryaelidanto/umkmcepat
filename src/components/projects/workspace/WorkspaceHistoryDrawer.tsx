@@ -28,10 +28,10 @@ type SnapshotSummary = {
 };
 
 const KIND_LABEL: Record<string, string> = {
-  edit: "Edit",
-  initial: "Pembuatan",
-  repair: "Perbaikan",
-  restore: "Versi Sebelumnya",
+  edit: "Hasil Edit",
+  initial: "Hasil Pembuatan",
+  repair: "Hasil Perbaikan",
+  restore: "Versi Dipilih",
 };
 
 function formatDate(iso: string): string {
@@ -158,33 +158,32 @@ export function WorkspaceHistoryDrawer({
   });
 
   const snapshots = data?.snapshots ?? [];
-  // If activeSnapshotId not explicitly provided, the top snapshot is currently active
   const currentActiveId = activeSnapshotId ?? snapshots[0]?.id;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[85dvh] flex-col gap-spacing-6 overflow-hidden sm:max-w-xl">
+      <DialogContent className="flex max-h-[85dvh] flex-col gap-spacing-6 overflow-hidden sm:max-w-2xl">
         <DialogHeader className="shrink-0">
-          <DialogTitle className="flex items-center gap-spacing-3">
-            <History className="size-4" />
-            Riwayat versi
+          <DialogTitle className="flex items-center gap-spacing-3 text-lg font-bold">
+            <History className="size-5 text-primary" />
+            Riwayat Versi Website
           </DialogTitle>
-          <DialogDescription>
-            Pilih versi yang ingin dilihat di Preview untuk melanjutkan edit
-            atau menerbitkannya.
+          <DialogDescription className="text-sm">
+            Pilih versi yang ingin ditampilkan di Preview. Kamu bisa melanjutkan
+            edit atau menerbitkan versi mana pun yang kamu pilih.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]">
+        <div className="min-h-0 flex-1 overflow-y-auto pr-1 [scrollbar-width:thin]">
           {isLoading ? (
-            <p className="py-6 text-center text-body-small text-muted-foreground">
+            <p className="py-10 text-center text-body-small text-muted-foreground">
               Memuat riwayat...
             </p>
           ) : null}
 
           {error ? (
             <p
-              className="py-6 text-center text-body-small text-destructive"
+              className="py-10 text-center text-body-small text-destructive"
               role="alert"
             >
               Gagal memuat riwayat.
@@ -192,15 +191,15 @@ export function WorkspaceHistoryDrawer({
           ) : null}
 
           {!isLoading && !error && snapshots.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground">
-              <Layout className="mb-2 size-8 opacity-40" />
-              <p className="text-sm">
+            <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+              <Layout className="mb-2 size-10 opacity-30" />
+              <p className="text-sm font-medium">
                 Belum ada versi website yang berhasil dibuat.
               </p>
             </div>
           ) : null}
 
-          <ol className="flex flex-col gap-3">
+          <ol className="flex flex-col gap-3.5">
             {snapshots.map((snapshot) => {
               const label = KIND_LABEL[snapshot.kind] ?? snapshot.kind;
               const isActive = snapshot.id === currentActiveId;
@@ -208,19 +207,19 @@ export function WorkspaceHistoryDrawer({
               return (
                 <li
                   key={snapshot.id}
-                  className={`flex items-center justify-between gap-4 rounded-xl border p-3.5 transition-colors ${
+                  className={`group relative flex flex-col gap-3 rounded-2xl border p-3.5 transition-all sm:flex-row sm:items-center sm:justify-between sm:p-4 ${
                     isActive
-                      ? "border-primary/40 bg-primary/5 shadow-2xs dark:border-primary/50 dark:bg-primary/10"
-                      : "border-border bg-muted/30 hover:border-foreground/20 hover:bg-muted/50 dark:border-white/[0.08] dark:bg-white/[0.02]"
+                      ? "border-primary/50 bg-primary/[0.04] shadow-xs ring-1 ring-primary/20 dark:border-primary/60 dark:bg-primary/10"
+                      : "border-border bg-card hover:border-foreground/20 hover:bg-muted/40 dark:border-white/[0.08] dark:bg-[#1a1a18] dark:hover:bg-[#222220]"
                   }`}
                 >
-                  <div className="flex min-w-0 items-center gap-3.5">
-                    {/* Visual Thumbnail */}
-                    <div className="relative size-14 shrink-0 overflow-hidden rounded-lg border border-border bg-card shadow-2xs">
+                  <div className="flex min-w-0 items-center gap-4">
+                    {/* Large Crisp Landscape Thumbnail (16:10) */}
+                    <div className="relative aspect-[16/10] w-28 shrink-0 overflow-hidden rounded-xl border border-border/80 bg-muted/40 shadow-xs sm:w-36">
                       <img
                         src={`/api/projects/${projectId}/snapshots/${snapshot.id}/thumbnail`}
                         alt={`Thumbnail ${label}`}
-                        className="h-full w-full object-cover object-top"
+                        className="h-full w-full object-cover object-top transition-transform duration-300 group-hover:scale-105"
                         onError={(e) => {
                           e.currentTarget.style.display = "none";
                           e.currentTarget.parentElement?.classList.add(
@@ -232,52 +231,54 @@ export function WorkspaceHistoryDrawer({
                       />
                     </div>
 
-                    {/* Metadata */}
-                    <div className="flex min-w-0 flex-col gap-1">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-xs font-semibold text-foreground dark:text-surface-warm-white">
+                    {/* Metadata & Status */}
+                    <div className="flex min-w-0 flex-col gap-1.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-bold tracking-tight text-foreground dark:text-surface-warm-white">
                           {label}
-                          {snapshot.fileCount != null
-                            ? ` · ${snapshot.fileCount} file`
-                            : ""}
                         </span>
+                        {snapshot.fileCount != null ? (
+                          <span className="text-xs text-muted-foreground">
+                            ({snapshot.fileCount} file)
+                          </span>
+                        ) : null}
                         {snapshot.published ? (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-                            <Globe className="size-2.5" />
+                          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold tracking-wide text-emerald-600 dark:text-emerald-400">
+                            <Globe className="size-3" />
                             Produksi
                           </span>
                         ) : null}
                         {isActive ? (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                            <Check className="size-2.5" />
+                          <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/15 px-2.5 py-0.5 text-[10px] font-bold text-primary">
+                            <Check className="size-3" />
                             Sedang Aktif
                           </span>
                         ) : null}
                       </div>
 
-                      <span className="text-[11px] text-muted-foreground dark:text-surface-warm-white/55">
-                        {formatDate(snapshot.createdAt)}
+                      <span className="text-xs text-muted-foreground dark:text-surface-warm-white/55">
+                        Dibuat {formatDate(snapshot.createdAt)}
                       </span>
                     </div>
                   </div>
 
-                  {/* Action */}
-                  <div className="flex items-center gap-2">
+                  {/* Action Button */}
+                  <div className="flex shrink-0 items-center justify-end sm:pl-2">
                     {isActive ? (
                       <Button
                         size="sm"
                         variant="outline"
                         disabled
-                        className="font-medium text-xs opacity-75"
+                        className="h-9 px-4 text-xs font-semibold text-primary opacity-85"
                       >
-                        <Check className="size-3.5 text-primary" />
+                        <Check className="mr-1.5 size-4" />
                         Aktif
                       </Button>
                     ) : (
                       <Button
                         size="sm"
                         variant="default"
-                        className="cursor-pointer font-medium text-xs shadow-2xs"
+                        className="h-9 cursor-pointer px-4 text-xs font-semibold shadow-xs transition-transform active:scale-95"
                         disabled={
                           !snapshot.restorable ||
                           checkingOutId === snapshot.id ||
@@ -290,7 +291,7 @@ export function WorkspaceHistoryDrawer({
                           onOpenChange(false);
                         }}
                       >
-                        <Check className="size-3.5" />
+                        <Check className="mr-1.5 size-4" />
                         Pilih Versi Ini
                       </Button>
                     )}
