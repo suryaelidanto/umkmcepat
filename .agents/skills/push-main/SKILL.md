@@ -11,10 +11,10 @@ Use this skill to release work from `dev` to protected `main`. Every distinct ta
 
 ### 1. Ensure Local Commits and Dev CI Green (Sub-skills)
 
-1. **Commit any uncommitted work**:
-   If uncommitted changes exist, invoke `atomic-commit` first.
+1. **Commit current task's uncommitted work**:
+   If uncommitted changes from current task exist, invoke `atomic-commit` first (stage only current task files). Never discard or stash uncommitted changes from other agents.
 2. **Sync and verify `dev`**:
-   Invoke `push-dev` to push all pending commits to `origin dev` and ensure CI passes.
+   Invoke `push-dev` to push task commits to `origin dev` and ensure CI passes.
    Do NOT proceed if `dev` CI is failing.
 
 ### 2. Identify Tasks / Commits to Release
@@ -26,8 +26,11 @@ COMMITS=$(git log --reverse --format="%H" origin/main..dev)
 ```
 
 If no commits found (`origin/main..dev` empty), `main` is already up to date. Exit cleanly.
+If releasing only specific task commit(s), set `COMMITS` to only those commit hashes; do not include other agents' unmerged commits unless explicitly instructed.
 
 ### 3. Release Each Task via Individual PR
+
+> **Note on dirty working tree**: If other agents left uncommitted files in working tree, do NOT run `git checkout` directly if it fails or destroys changes. Stash temporary uncommitted changes or work cleanly without discarding them.
 
 For each commit hash `$SHA` in `$COMMITS`:
 

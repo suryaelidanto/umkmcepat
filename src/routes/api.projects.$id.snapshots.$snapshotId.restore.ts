@@ -44,8 +44,11 @@ export const Route = createFileRoute(
           );
         }
 
-        // contract-v1: a snapshot may only be restored directly when its
-        if (project.generationEngine === "contract-v1") {
+        // contract: a snapshot may only be restored directly when its
+        if (
+          project.generationEngine === "contract" ||
+          project.generationEngine === "contract-v1"
+        ) {
           const restorableAgainstActive =
             await isSnapshotRestorableAgainstActiveHandoff({
               projectId: project.id,

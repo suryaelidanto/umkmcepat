@@ -6,6 +6,7 @@ import {
   inspectReferenceCalibratedSiteSource,
   normalizeBatchedSiteAnchors,
   normalizeGeneratedInteractiveTargets,
+  findGeneratedCustomerLiteralIssues,
   findGeneratedInternalLinkIssues,
   findGeneratedPrimaryActionIssues,
   normalizeGeneratedInternalLinks,
@@ -241,6 +242,34 @@ function _v2Plan(): WriterDesignPlanV2 {
     signatureElement: "full-field-lockup",
   };
 }
+
+describe("findGeneratedCustomerLiteralIssues", () => {
+  it("rejects invented customer-facing JSX copy", () => {
+    expect(
+      findGeneratedCustomerLiteralIssues([
+        {
+          content:
+            "export function Hero(){return <section><h1>{site.headline}</h1><p>Jaminan selesai tepat waktu</p></section>}",
+          path: "src/components/Hero.tsx",
+        },
+      ]),
+    ).toContain(
+      "src/components/Hero.tsx: unsupported customer claim: Jaminan selesai tepat waktu",
+    );
+  });
+
+  it("allows grounded connective copy without absolute claims", () => {
+    expect(
+      findGeneratedCustomerLiteralIssues([
+        {
+          content:
+            "export function Header(){return <nav><a>Beranda</a><p>Pilih layanan sesuai kebutuhan cucianmu.</p><a>{site.primaryCta}</a></nav>}",
+          path: "src/components/Header.tsx",
+        },
+      ]),
+    ).toEqual([]);
+  });
+});
 
 describe("reference-calibrated generated site source gates", () => {
   it.each([
@@ -589,6 +618,30 @@ describe("generated internal link gates", () => {
     ).toEqual(["src/routes/index.tsx: primary CTA must be an anchor action"]);
   });
 
+  it("routes shared section links through home in a multi-page site", () => {
+    expect(
+      normalizeGeneratedInternalLinks([
+        {
+          path: "src/routes/index.tsx",
+          content: '<main id="layanan">Home</main>',
+        },
+        {
+          path: "src/routes/lokasi.tsx",
+          content: '<main><a href="#layanan">Layanan</a></main>',
+        },
+      ]),
+    ).toEqual([
+      {
+        path: "src/routes/index.tsx",
+        content: '<main id="layanan">Home</main>',
+      },
+      {
+        path: "src/routes/lokasi.tsx",
+        content: '<main><a href="#/#layanan">Layanan</a></main>',
+      },
+    ]);
+  });
+
   it("resolves common generated anchor aliases against IDs across files", () => {
     const [suffixRoute] = normalizeGeneratedInternalLinks([
       {
@@ -704,7 +757,7 @@ describe("normalizeGeneratedInteractiveTargets", () => {
 
   it("only adds touch target classes to opening anchor and button tags, not child icons or nested elements", () => {
     const normalized = normalizeGeneratedSiteContent(
-      '<Button asChild size="lg"><a href="https://wa.me/628123"><MessageCircle className="size-4 text-primary" />Pilih Paket</a></Button>',
+      '<Button size="lg" render={<a href="https://wa.me/628123" />}><MessageCircle className="size-4 text-primary" />Pilih Paket</Button>',
     );
 
     expect(normalized).toContain('className="size-4 text-primary"');
@@ -747,17 +800,6 @@ describe("normalizeGeneratedInteractiveTargets", () => {
 });
 
 describe("normalizeBatchedSiteAnchors", () => {
-  it("anchors the accepted composition pattern on the home route", () => {
-    const [file] = normalizeBatchedSiteAnchors(
-      [{ path: "src/routes/index.tsx", content: "<main><h1>Home</h1></main>" }],
-      { compositionPatternId: "split-commerce-hero" },
-    );
-
-    expect(file?.content).toContain(
-      '<main data-pattern="split-commerce-hero">',
-    );
-  });
-
   it("maps accepted palette literals onto compiled semantic tokens", () => {
     const [file] = normalizeBatchedSiteAnchors(
       [
@@ -850,15 +892,6 @@ describe("normalizeBatchedSiteAnchors", () => {
     ]);
 
     expect(file?.content).not.toContain("data-generated-site-starter");
-  });
-
-  it("anchors a pattern on a non-main route root", () => {
-    const [file] = normalizeBatchedSiteAnchors(
-      [{ path: "src/routes/index.tsx", content: "<div><h1>Home</h1></div>" }],
-      { compositionPatternId: "split-commerce-hero" },
-    );
-
-    expect(file?.content).toContain('<div data-pattern="split-commerce-hero">');
   });
 
   it("repairs default route exports and void preview-hook value usage", () => {

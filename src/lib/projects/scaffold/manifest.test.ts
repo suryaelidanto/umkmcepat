@@ -26,8 +26,6 @@ describe("deriveScaffoldManifest", () => {
     const manifest = deriveScaffoldManifest(sampleStarterFiles());
     expect(manifest.fileTree).toMatchInlineSnapshot(`
       [
-        "public/placeholder.svg",
-        "public/placeholder-vertical.svg",
         "package.json",
         "vite.config.ts",
         "tsconfig.json",
@@ -98,8 +96,8 @@ describe("deriveScaffoldManifest", () => {
         componentCount: manifest.availableComponents.length,
       }).toMatchInlineSnapshot(`
         {
-          "componentCount": 45,
-          "fileCount": 21,
+          "componentCount": 61,
+          "fileCount": 19,
           "preSeeded": [
             "button",
             "card",

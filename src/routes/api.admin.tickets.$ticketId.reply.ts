@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { requireAdmin } from "@/lib/auth/auth-admin";
+import { sendSupportReplyEmail } from "@/lib/email/templates";
 import { prisma } from "@/lib/prisma";
-import { sendSupportReplyEmail } from "@/lib/support/email";
 import { addMessage } from "@/lib/support/service";
 import { mapToUserFacingError } from "@/lib/user-facing-error";
 

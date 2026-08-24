@@ -18,7 +18,6 @@
 - JSON-LD `@graph` includes NO `aggregateRating` (manual-penalty risk until real reviews).
 - `.env`/`.env.example` 1:1 (no new env vars in this spec).
 - Visible product copy Indonesian; code/comments English.
-- TDD + frequent atomic commits to `dev`. Conventional-commit, body ≤100 chars, `Co-Authored-By: Claude <noreply@anthropic.com>`.
 
 ---
 

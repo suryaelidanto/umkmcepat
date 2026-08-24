@@ -3,8 +3,6 @@ import type {
   GeneratedSiteDesignKitV1,
   GeneratedSiteKitSelectionInput,
 } from "./types";
-import type { ProjectBriefV2 } from "../canonical-brief";
-import type { GeneratedSiteHandoffInput } from "../generated-site-contract";
 
 const commonAntiPatterns = [
   "starter-centered-card-stack",
@@ -415,62 +413,6 @@ export const DESIGN_KITS = new Map<
   GeneratedSiteDesignKitId,
   GeneratedSiteDesignKitV1
 >(kits.map((kit) => [kit.id, kit]));
-
-export function deriveGeneratedSiteKitSelectionInput(
-  input: GeneratedSiteKitSelectionInput,
-): GeneratedSiteKitSelectionInput;
-export function deriveGeneratedSiteKitSelectionInput(input: {
-  handoff: GeneratedSiteHandoffInput;
-  briefSnapshot: ProjectBriefV2;
-  photoEnabled: boolean;
-}): GeneratedSiteKitSelectionInput;
-export function deriveGeneratedSiteKitSelectionInput(
-  input:
-    | GeneratedSiteKitSelectionInput
-    | {
-        handoff: GeneratedSiteHandoffInput;
-        briefSnapshot: ProjectBriefV2;
-        photoEnabled: boolean;
-      },
-): GeneratedSiteKitSelectionInput {
-  if ("handoff" in input) {
-    const { handoff, briefSnapshot, photoEnabled } = input;
-    const primaryCta = handoff.contract.ctaIntents[0];
-    const mediaMode =
-      photoEnabled && handoff.contract.assets.length > 0
-        ? "owner_assets"
-        : "graphic";
-    return {
-      archetype: handoff.plan.archetype,
-      density:
-        briefSnapshot.offers.length > 2
-          ? "rich"
-          : briefSnapshot.offers.length === 0
-            ? "sparse"
-            : "regular",
-      mediaMode,
-      primaryJobKind: handoff.plan.capabilities.includes("catalog")
-        ? "browse"
-        : primaryCta?.kind === "visit" ||
-            handoff.plan.capabilities.includes("location")
-          ? "visit"
-          : primaryCta?.kind === "book"
-            ? "book"
-            : "inquire",
-      hasOperationalDetails:
-        briefSnapshot.content.hours.length > 0 ||
-        Boolean(briefSnapshot.content.address) ||
-        Boolean(briefSnapshot.content.deliveryArea),
-    };
-  }
-  return {
-    archetype: input.archetype,
-    density: input.density,
-    mediaMode: input.mediaMode,
-    primaryJobKind: input.primaryJobKind,
-    hasOperationalDetails: input.hasOperationalDetails,
-  };
-}
 
 export function selectGeneratedSiteDesignKit(
   input: GeneratedSiteKitSelectionInput,

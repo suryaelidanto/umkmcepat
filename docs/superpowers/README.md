@@ -17,8 +17,7 @@ Decision trail for specs, plans, handoffs, and tickets. These files are not all 
 - Payment: Mayar replaced Pakasir; see `specs/2026-07-29-mayar-payment-migration-design.md`.
 - Storage: local dev and production both use S3-compatible storage through MinIO/R2; see the newest storage specs, then `src/lib/s3-client.ts`.
 - Generation runtime: check `src/lib/app-settings-registry.ts`, `src/lib/projects/build-attempt-worker.ts`, and `src/lib/projects/batched-generator.ts`.
-- Current generated-site behavior: trust `DEV.md`, `DESIGN.md`, and source first; the 2026-08-13 reference-calibrated and 2026-08-14 design-quality documents are implemented historical foundations.
-- Professional landing/static-site successor: `specs/2026-08-15-professional-static-site-generation-design.md` and `plans/2026-08-15-professional-static-site-generation.md`. V3 qualification and the V4 benchmark/calibration tooling are implemented behind blocked release authority; production selection remains disabled until private evidence and owner approval pass.
+- Current generated-site behavior: `specs/2026-08-21-outcome-directed-generation-engine-design.md` and `plans/2026-08-21-outcome-directed-generation-engine.md`. Trust `DEV.md`, `DESIGN.md`, and source for runtime details. The 2026-08-13 through 2026-08-15 recipe, kit, and professional-static documents are historical foundations superseded for new visual direction and taste testing.
 
 ## Supersession Rule
 

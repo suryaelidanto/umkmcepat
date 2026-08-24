@@ -9,9 +9,9 @@ import { shadcnThemeCss } from "./shadcn-theme";
 import { PLATFORM_VITE_CONFIG } from "@/lib/projects/generated-build-policy";
 import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
 import {
-  LANDSCAPE_PLACEHOLDER_SVG,
-  PORTRAIT_PLACEHOLDER_SVG,
-} from "@/lib/projects/placeholders";
+  compileGeneratedSiteRouter,
+  generatedRouteBinding,
+} from "@/lib/projects/professional-site-router";
 import { type ProjectSiteSchema } from "@/lib/projects/site-schema";
 
 export function createViteTanStackShadcnStarterFiles(
@@ -19,12 +19,19 @@ export function createViteTanStackShadcnStarterFiles(
   schema: ProjectSiteSchema,
   primitiveFiles: GeneratedProjectFile[] = [],
 ): GeneratedProjectFile[] {
+  const routeBindings = (
+    schema.routes && schema.routes.length > 0
+      ? schema.routes
+      : [{ path: "/", title: "Beranda" }]
+  ).map((route) => generatedRouteBinding(route.path));
+  const additionalRouteFiles = routeBindings
+    .filter((route) => route.path !== "/")
+    .map((route) => ({
+      path: route.filePath,
+      content: `import { usePreviewReady } from "@/lib/preview-ready";\n\nexport function ${route.exportName}() {\n  usePreviewReady();\n\n  return <main data-route-placeholder />;\n}\n`,
+    }));
+
   return [
-    { path: "public/placeholder.svg", content: LANDSCAPE_PLACEHOLDER_SVG },
-    {
-      path: "public/placeholder-vertical.svg",
-      content: PORTRAIT_PLACEHOLDER_SVG,
-    },
     {
       path: "package.json",
       content: JSON.stringify(
@@ -40,6 +47,8 @@ export function createViteTanStackShadcnStarterFiles(
             preview: "vite preview",
           },
           dependencies: {
+            "@base-ui/react": "^1.7.0",
+            "@shadcn/react": "^0.3.0",
             "@radix-ui/react-accordion": "^1.2.17",
             "@radix-ui/react-alert-dialog": "^1.1.20",
             "@radix-ui/react-aspect-ratio": "^1.1.12",
@@ -71,6 +80,7 @@ export function createViteTanStackShadcnStarterFiles(
             "class-variance-authority": "^0.7.1",
             clsx: "^2.1.1",
             cmdk: "^1.1.1",
+            "date-fns": "^4.4.0",
             "embla-carousel-react": "^8.6.0",
             "input-otp": "^1.4.2",
             "lucide-react": "^0.575.0",
@@ -80,10 +90,13 @@ export function createViteTanStackShadcnStarterFiles(
             "react-day-picker": "^10.0.1",
             "react-dom": "^19.2.7",
             "react-hook-form": "^7.82.0",
-            "react-resizable-panels": "^4.12.2",
-            sonner: "^2.0.7",
+            "react-resizable-panels": "^4.12.3",
+            recharts: "^3.8.0",
+            shadcn: "^4.18.0",
+            sonner: "^2.0.8",
             "tailwind-merge": "^3.6.0",
             tailwindcss: "^4.0.0",
+            "tw-animate-css": "^1.4.0",
             vaul: "^1.1.2",
           },
           devDependencies: {
@@ -196,10 +209,7 @@ export function createViteTanStackShadcnStarterFiles(
     SHADCN_COMPONENTS_JSON_FILE,
     SHADCN_BUTTON_FILE,
     SHADCN_CARD_FILE,
-    {
-      path: "src/router.tsx",
-      content: `import { createHashHistory, createRoute, createRouter } from "@tanstack/react-router";\n\nimport { rootRoute } from "./routes/__root";\nimport { HomeRouteComponent } from "./routes/index";\nimport { NotFoundRouteComponent } from "./routes/not-found";\n\nconst indexRoute = createRoute({\n  getParentRoute: () => rootRoute,\n  path: "/",\n  component: HomeRouteComponent,\n});\n\nconst notFoundRoute = createRoute({\n  getParentRoute: () => rootRoute,\n  path: "*",\n  component: NotFoundRouteComponent,\n});\n\nconst routeTree = rootRoute.addChildren([indexRoute, notFoundRoute]);\nconst history = createHashHistory();\n\nexport const router = createRouter({ history, routeTree });\n\ndeclare module "@tanstack/react-router" {\n  interface Register {\n    router: typeof router;\n  }\n}\n`,
-    },
+    compileGeneratedSiteRouter(routeBindings),
     {
       path: "src/routes/__root.tsx",
       content: `import { createRootRoute, Outlet } from "@tanstack/react-router";\n\nexport const rootRoute = createRootRoute({\n  component: () => <Outlet />,\n});\n`,
@@ -215,9 +225,10 @@ export function HomeRouteComponent() {
 }
 `,
     },
+    ...additionalRouteFiles,
     {
       path: "src/routes/not-found.tsx",
-      content: `import { Button } from "@/components/ui/button";\n\nexport function NotFoundRouteComponent() {\n  return (\n    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col items-center justify-center gap-6 px-6 py-16 text-center">\n      <p className="text-sm font-medium text-muted-foreground">404</p>\n      <h1 className="text-3xl font-semibold tracking-tight text-foreground">\n        Halaman tidak ditemukan\n      </h1>\n      <p className="text-base text-muted-foreground">\n        Halaman yang kamu cari tidak tersedia atau sudah dipindahkan.\n      </p>\n      <Button asChild>\n        <a href="#/">Kembali ke beranda</a>\n      </Button>\n    </main>\n  );\n}\n`,
+      content: `import { Button } from "@/components/ui/button";\n\nexport function NotFoundRouteComponent() {\n  return (\n    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col items-center justify-center gap-6 px-6 py-16 text-center">\n      <p className="text-sm font-medium text-muted-foreground">404</p>\n      <h1 className="text-3xl font-semibold tracking-tight text-foreground">\n        Halaman tidak ditemukan\n      </h1>\n      <p className="text-base text-muted-foreground">\n        Halaman yang kamu cari tidak tersedia atau sudah dipindahkan.\n      </p>\n      <Button render={<a href="#/" />}>Kembali ke beranda</Button>\n    </main>\n  );\n}\n`,
     },
     {
       path: "src/content/site.ts",

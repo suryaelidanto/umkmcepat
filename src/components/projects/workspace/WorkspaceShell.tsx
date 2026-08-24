@@ -453,6 +453,15 @@ export function WorkspaceShell({
   } = useChat({
     id: projectId,
     messages: initialMessages,
+    onData(data) {
+      if (data.type === "data-workspaceCard") {
+        const card = (data as { data?: WorkspaceCard }).data;
+        if (card && card.type !== "none") {
+          setWorkspaceCard(card);
+          setWorkspaceCardError(false);
+        }
+      }
+    },
     transport: new DefaultChatTransport({
       api: "/api/projects/preview",
       fetch: rateLimitAwareFetch,
@@ -478,6 +487,23 @@ export function WorkspaceShell({
     return () => {
       document.body.style.cursor = "";
       document.documentElement.style.cursor = "";
+      // ponytail: clears any orphaned adoptedStyleSheets injected by third-party splitters
+      if (
+        document.adoptedStyleSheets &&
+        document.adoptedStyleSheets.length > 0
+      ) {
+        document.adoptedStyleSheets = document.adoptedStyleSheets.filter(
+          (sheet) => {
+            try {
+              return !Array.from(sheet.cssRules).some((rule) =>
+                rule.cssText.includes("cursor:"),
+              );
+            } catch {
+              return true;
+            }
+          },
+        );
+      }
     };
   }, []);
 
@@ -948,8 +974,7 @@ export function WorkspaceShell({
     // Rows just got cleared, so the record of what was rendered must clear too
     buildStreamDeduperRef.current = createBuildStreamDeduper();
     setBuildStartedAt(Date.now());
-    setActiveTab("preview");
-    setMobileSurface("preview");
+    setMobileSurface("chat");
 
     // Permanently consume the current build_recommendation signature (if any)
     const consumedSignature = getBuildRecommendationHoldSignature(
@@ -1110,24 +1135,37 @@ export function WorkspaceShell({
 
   // Append a one-liner to the chat so the user sees what fields the AI is
   const handleStartBuild = useCallback(async () => {
-    if (readOnly || !canStartBuild(workspaceCard) || !latestBrief) {
+    if (readOnly || !canStartBuild(workspaceCard)) {
       return;
     }
 
-    const handoffBrief = latestBrief;
-    setMessages((current) => [
-      ...current,
-      {
-        id: `handoff-${Date.now()}`,
-        metadata: undefined,
-        parts: [{ text: buildHandoffLine(handoffBrief), type: "text" }],
-        role: "assistant",
-      },
-    ]);
-    shouldStickToBottomRef.current = true;
+    let handoffBrief = latestBrief;
+    if (!handoffBrief) {
+      try {
+        const state = await loadWorkspaceState({ preserveCard: true });
+        if (state?.brief) {
+          handoffBrief = state.brief;
+        }
+      } catch {
+        // Continue to startBuild even if brief fetch fails
+      }
+    }
+
+    if (handoffBrief) {
+      setMessages((current) => [
+        ...current,
+        {
+          id: `handoff-${Date.now()}`,
+          metadata: undefined,
+          parts: [{ text: buildHandoffLine(handoffBrief), type: "text" }],
+          role: "assistant",
+        },
+      ]);
+      shouldStickToBottomRef.current = true;
+    }
 
     await startBuild();
-  }, [latestBrief, readOnly, startBuild]);
+  }, [latestBrief, loadWorkspaceState, readOnly, startBuild, workspaceCard]);
 
   useEffect(() => {
     // Never auto-start if a job is already running on the server (refresh case).
@@ -1408,6 +1446,9 @@ export function WorkspaceShell({
 
       if (result.kind === "error") {
         setBuildStatus("failed");
+        setMode("discuss");
+        setMobileSurface("chat");
+        setChatCollapsed(false);
         void loadRuntimeState();
         setSourceReloadKey((current) => current + 1);
         setBuildProgress(result.update);
@@ -1899,6 +1940,23 @@ export function WorkspaceShell({
             }
           };
 
+          es.addEventListener("workspace-card-delta", (event) => {
+            try {
+              const parsed = JSON.parse(event.data) as {
+                workspaceCard?: WorkspaceCard;
+              };
+              if (
+                parsed.workspaceCard &&
+                parsed.workspaceCard.type !== "none"
+              ) {
+                setWorkspaceCard(parsed.workspaceCard);
+                setWorkspaceCardError(false);
+              }
+            } catch {
+              // ignore malformed delta
+            }
+          });
+
           es.addEventListener("text-delta", (event) => {
             try {
               const parsed = JSON.parse(event.data) as { delta?: string };
@@ -2023,6 +2081,8 @@ export function WorkspaceShell({
           setProjectTitle(toolCard.projectTitle);
           setDraftTitle(toolCard.projectTitle);
         }
+        clearError();
+        setResumeError(null);
         setWorkspaceCardError(false);
         setIsPreparingNextQuestion(false);
         void loadWorkspaceState({ preserveCard: true });
@@ -2032,6 +2092,7 @@ export function WorkspaceShell({
 
     if (settle.clearPreparing || settle.applyToolCard) {
       clearError();
+      setResumeError(null);
       setWorkspaceCardError(false);
       setIsPreparingNextQuestion(false);
       void loadWorkspaceState({ preserveCard: true });
@@ -2726,6 +2787,7 @@ export function WorkspaceShell({
       // User is sending a new turn: re-pin and jump to latest.
       shouldStickToBottomRef.current = true;
       setRateLimitError(null);
+      setResumeError(null);
       clearError(); // hide stale banner from the previous failed turn
       retryAttemptRef.current = 0;
       setMessage("");
@@ -2930,6 +2992,14 @@ export function WorkspaceShell({
                 setIsRetrying(false);
               }
             };
+            es.addEventListener("workspace-card-delta", (event) => {
+              const parsed = parseEvent(event);
+              const card = parsed?.workspaceCard as WorkspaceCard | undefined;
+              if (card && card.type !== "none") {
+                setWorkspaceCard(card);
+                setWorkspaceCardError(false);
+              }
+            });
             es.addEventListener("text-delta", (event) => {
               const parsed = parseEvent(event);
               const delta =
@@ -3280,7 +3350,7 @@ export function WorkspaceShell({
               <button
                 type="button"
                 onClick={() => setIsRenaming(true)}
-                className="rounded-full p-spacing-2 text-surface-warm-white/44 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
+                className="rounded-full p-spacing-2 text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:text-surface-warm-white/44 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white"
                 aria-label="Ubah nama proyek"
               >
                 <Pencil className="size-3.5" />
@@ -3340,7 +3410,7 @@ export function WorkspaceShell({
                 size="sm"
                 onClick={() => void loadOlderChat()}
                 disabled={isLoadingOlderChat}
-                className="rounded-radius-lg border-surface-warm-white/14 bg-surface-warm-white/8 text-surface-warm-white hover:bg-surface-warm-white/12"
+                className="rounded-radius-lg border border-black/10 bg-black/5 text-[#1c1c1c] hover:bg-black/10 dark:border-surface-warm-white/14 dark:bg-surface-warm-white/8 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/12"
               >
                 {isLoadingOlderChat ? "Memuat..." : "Muat chat lama"}
               </Button>
@@ -3356,35 +3426,7 @@ export function WorkspaceShell({
             />
           ) : null}
 
-          {isRetrying === "card" ? (
-            <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/46">
-              Menata ulang pilihan jawaban...
-            </p>
-          ) : (isResponding ||
-              isPreparingNextQuestion ||
-              isRetrying === "response") &&
-            hasActiveTurnAssistantText &&
-            workspaceCard.type === "none" ? (
-            <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/46">
-              Sedang menyiapkan pilihan...
-            </p>
-          ) : isRetrying === "response" ? (
-            <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/46">
-              Menyempurnakan balasan...
-            </p>
-          ) : isResponding ? (
-            <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/46">
-              AI sedang menulis balasan...
-            </p>
-          ) : isPreparingNextQuestion ? (
-            <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/46">
-              Menyiapkan pertanyaan berikutnya...
-            </p>
-          ) : firstTurnPending ? (
-            <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/46">
-              AI sedang merancang website...
-            </p>
-          ) : rateLimitError ? (
+          {rateLimitError ? (
             <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
               <p className="text-sm font-medium text-[#ffb4a6]">
                 {rateLimitError.message}
@@ -3452,8 +3494,8 @@ export function WorkspaceShell({
               ) : null}
             </div>
           ) : resumeError ? (
-            <div className="rounded-[18px] border border-destructive/30 bg-destructive/10 px-spacing-5 py-spacing-4 dark:border-[#ffb4a6]/24 dark:bg-[#ffb4a6]/[0.06]">
-              <p className="text-sm font-medium text-destructive dark:text-[#ffb4a6]">
+            <div className="rounded-[18px] border border-destructive-border bg-destructive-subtle px-spacing-5 py-spacing-4">
+              <p className="text-sm font-medium text-destructive">
                 {resumeError.message}
               </p>
               {!readOnly ? (
@@ -3499,16 +3541,12 @@ export function WorkspaceShell({
                   discussPhase={
                     isRetrying === "card"
                       ? "retrying_card"
-                      : (isResponding ||
-                            isPreparingNextQuestion ||
-                            isRetrying === "response") &&
-                          hasActiveTurnAssistantText &&
-                          workspaceCard.type === "none"
-                        ? "preparing_options"
-                        : isRetrying === "response"
-                          ? "retrying_response"
+                      : isRetrying === "response"
+                        ? "retrying_response"
+                        : isResponding && hasActiveTurnAssistantText
+                          ? "streaming"
                           : isResponding
-                            ? "streaming"
+                            ? "processing"
                             : isPreparingNextQuestion
                               ? "preparing_card"
                               : firstTurnPending
@@ -3691,7 +3729,7 @@ export function WorkspaceShell({
                           disabled={
                             sessionExpired || authStatus !== "authenticated"
                           }
-                          className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none [scrollbar-width:none] placeholder:text-surface-warm-white/38 disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
+                          className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-foreground outline-none [scrollbar-width:none] placeholder:text-muted-foreground disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
                         />
                         <div className="flex items-center justify-between gap-spacing-4">
                           <div className="flex items-center gap-spacing-2">
@@ -3714,7 +3752,7 @@ export function WorkspaceShell({
                                   sessionExpired ||
                                   authStatus !== "authenticated"
                                 }
-                                className="h-8 rounded-full border-surface-warm-white/12 bg-transparent px-spacing-3 text-xs font-medium text-surface-warm-white hover:bg-surface-warm-white/10"
+                                className="h-8 rounded-full border-border bg-transparent px-spacing-3 text-xs font-medium text-foreground hover:bg-muted"
                               >
                                 {buildComplete
                                   ? "Perbarui website"
@@ -4109,34 +4147,6 @@ export function WorkspaceShell({
               ) : (
                 <EmptyPreviewState />
               )}
-              {runtimeState?.userFacingState ===
-                "ready_with_failed_latest_attempt" && (
-                <CompletedBuildNotice
-                  variant="recovery"
-                  onDiscuss={() => {
-                    if (
-                      buildRecommendationSignature &&
-                      !consumedBuildRecommendationSignatures.has(
-                        buildRecommendationSignature,
-                      )
-                    ) {
-                      window.localStorage.setItem(
-                        buildRecommendationStorageKey,
-                        buildRecommendationSignature,
-                      );
-                      setHeldBuildRecommendationSignature(
-                        buildRecommendationSignature,
-                      );
-                    }
-                    setMode("discuss");
-                    setPostBuildChatOpen(true);
-                  }}
-                  onPreview={() => {
-                    setActiveTab("preview");
-                    openPreviewPanel();
-                  }}
-                />
-              )}
             </div>
           ) : null}
 
@@ -4184,7 +4194,7 @@ export function WorkspaceShell({
         {projectTitle ? (
           <div className="mx-auto flex max-w-[280px] items-center justify-center gap-1.5">
             <span
-              className="truncate text-[11px] font-medium text-[#5f5f5d] dark:text-surface-warm-white/50"
+              className="truncate text-xs font-medium text-[#5f5f5d] dark:text-surface-warm-white/50"
               title={projectTitle}
             >
               {projectTitle}
@@ -4476,6 +4486,22 @@ async function rateLimitAwareFetch(
       ) as ChatError;
       error.status = 400;
       error.code = "project_request_blocked";
+      throw error;
+    }
+  }
+
+  if (response.status === 409) {
+    const clone = response.clone();
+    const body = (await clone.json().catch(() => null)) as {
+      code?: string;
+      message?: string;
+    } | null;
+    if (body?.code === "project_chat_in_progress") {
+      const error = new Error(
+        body.message || "Obrolan masih berjalan untuk proyek ini.",
+      ) as ChatError;
+      error.status = 409;
+      error.code = "project_chat_in_progress";
       throw error;
     }
   }

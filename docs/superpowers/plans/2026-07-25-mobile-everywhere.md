@@ -20,7 +20,6 @@
 - Bottom sheets (not center modals) on mobile; center modals stay on desktop.
 - Workspace = polish only, no structural rewrite.
 - Visible product copy Indonesian; code/comments English. `.env`/`.env.example` 1:1 (no new env vars in this spec).
-- TDD + frequent atomic commits to `dev`. Conventional-commit, body ≤100 chars, `Co-Authored-By: Claude <noreply@anthropic.com>`.
 
 ---
 

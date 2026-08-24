@@ -17,6 +17,7 @@ import { devLog } from "@/lib/dev-log";
 import { classifyBuildFailure } from "@/lib/projects/build-logs";
 import { generateDiff, type DiffLine } from "@/lib/projects/diff";
 import {
+  findGeneratedCustomerLiteralIssues,
   findGeneratedInternalLinkIssues,
   findGeneratedPrimaryActionIssues,
   normalizeGeneratedInternalLinks,
@@ -26,10 +27,19 @@ import {
   buildGeneratedProject,
   createGeneratedViteTanStackStarterFiles,
 } from "@/lib/projects/generated-source";
+import { runDesignAuditInMemory } from "@/lib/projects/impeccable/audit";
+import { generatePaletteInMemory } from "@/lib/projects/impeccable/palette";
+import {
+  compileOutcomeDesignSystem,
+  type GeneratedDesignSystemProposalV1,
+} from "@/lib/projects/outcome-design-system";
 import { renewProjectOperation } from "@/lib/projects/project-operation";
 import { getFormattedShadcnRegistryPrompt } from "@/lib/projects/scaffold/component-catalog";
 import { isProtectedScaffoldPath } from "@/lib/projects/scaffold/protected-paths";
-import { SHADCN_COMPONENT_BY_NAME } from "@/lib/projects/scaffold/shadcn-components";
+import {
+  resolveShadcnDeps,
+  SHADCN_COMPONENT_BY_NAME,
+} from "@/lib/projects/scaffold/shadcn-components";
 import {
   PROJECT_CORE_SKILL_NAMES,
   PROJECT_SKILL_NAMES,
@@ -97,6 +107,8 @@ export async function runAgenticGenerate(input: {
   };
   buildId?: string | null;
   creativeDirection?: string | null;
+  initialFiles?: GeneratedProjectFile[];
+  revisionBrief?: string | null;
   onEvent?: (
     type:
       | "error"
@@ -126,10 +138,9 @@ export async function runAgenticGenerate(input: {
 
   devLog("generate", "agentic-start", { projectId });
 
-  const starterFiles = createGeneratedViteTanStackStarterFiles(
-    projectId,
-    schema,
-  );
+  const starterFiles =
+    input.initialFiles ??
+    createGeneratedViteTanStackStarterFiles(projectId, schema);
   const fileMap = new Map<string, string>();
   for (const f of starterFiles) {
     fileMap.set(f.path, f.content);
@@ -147,6 +158,7 @@ export async function runAgenticGenerate(input: {
   const skillsRead = new Set<ProjectSkillName>();
   let checkAppCalls = 0;
   let lastCheckOk: boolean | null = null;
+  let designSystemAccepted = false;
   let opSeq = 0;
 
   function missingCoreSkills() {
@@ -190,7 +202,6 @@ export async function runAgenticGenerate(input: {
               detail?.trim() ||
               `Membaca panduan ${name} sebelum menulis website`,
             id: `op-${opSeq}`,
-            path: `.agents/skills/${name}/SKILL.md`,
             state: "succeeded" as const,
             title: label?.trim() || `Membaca skill ${name}`,
             type: "read_skill",
@@ -316,6 +327,131 @@ export async function runAgenticGenerate(input: {
       },
     }),
 
+    copy_shadcn_component: tool({
+      description:
+        "Copy one official bundled shadcn/ui component and its local dependencies into the project.",
+      inputSchema: z.object({
+        name: z
+          .string()
+          .describe("Official shadcn component name, e.g. accordion or sheet"),
+        label: z.string().optional(),
+        detail: z.string().optional(),
+      }),
+      execute: async ({
+        name,
+        label,
+        detail,
+      }: {
+        name: string;
+        label?: string;
+        detail?: string;
+      }) => {
+        const component = SHADCN_COMPONENT_BY_NAME.get(name);
+        if (!component) {
+          return {
+            error: `Unknown shadcn component: ${name}`,
+            available: Array.from(SHADCN_COMPONENT_BY_NAME.keys()).sort(),
+          };
+        }
+
+        const currentFiles = Array.from(fileMap, ([path, content]) => ({
+          content,
+          path,
+        }));
+        const filesToCopy = [
+          ...resolveShadcnDeps(component, currentFiles),
+          component,
+        ];
+        const copiedPaths: string[] = [];
+
+        for (const file of filesToCopy) {
+          if (!fileMap.has(file.path)) {
+            fileMap.set(file.path, file.content);
+            touched.add(file.path);
+            copiedPaths.push(file.path);
+          }
+        }
+
+        opSeq++;
+        const operation = {
+          detail:
+            detail?.trim() ||
+            `Menyalin sumber resmi beserta ${Math.max(0, copiedPaths.length - 1)} dependensi lokal`,
+          id: `op-${opSeq}`,
+          path: component.path,
+          state: "succeeded" as const,
+          title: label?.trim() || `Menyiapkan komponen ${name}`,
+          type: "copy_component",
+        };
+        operationTrace.push(operation);
+        onEvent?.("operation", operation);
+
+        return { copiedPaths, name };
+      },
+    }),
+
+    set_design_system: tool({
+      description:
+        "Choose the complete semantic color, typography, and radius system for this specific business. The platform validates contrast and compiles protected theme CSS.",
+      inputSchema: z.object({
+        accent: z.string(),
+        accentForeground: z.string(),
+        background: z.string(),
+        bodyFontStackId: z.enum([
+          "system-humanist",
+          "system-grotesk",
+          "system-editorial",
+          "system-slab",
+        ]),
+        border: z.string(),
+        card: z.string(),
+        cardForeground: z.string(),
+        displayFontStackId: z.enum([
+          "system-humanist",
+          "system-grotesk",
+          "system-editorial",
+          "system-slab",
+        ]),
+        foreground: z.string(),
+        muted: z.string(),
+        mutedForeground: z.string(),
+        primary: z.string(),
+        primaryForeground: z.string(),
+        radiusScale: z.enum(["sharp", "restrained", "soft"]),
+        ring: z.string(),
+      }),
+      execute: async (proposal: GeneratedDesignSystemProposalV1) => {
+        const result = compileOutcomeDesignSystem(proposal);
+        opSeq++;
+        if (!result.ok) {
+          const operation = {
+            detail: "Kombinasi warna belum cukup nyaman dibaca.",
+            id: `op-${opSeq}`,
+            state: "failed" as const,
+            title: "Menyesuaikan warna website",
+            type: "set_design_system",
+          };
+          operationTrace.push(operation);
+          onEvent?.("operation", operation);
+          return result;
+        }
+        fileMap.set("src/index.css", result.css);
+        designSystemAccepted = true;
+        const operation = {
+          detail:
+            "Warna dan tipografi sudah nyaman dibaca di seluruh tampilan.",
+          id: `op-${opSeq}`,
+          state: "succeeded" as const,
+          title: "Menetapkan gaya visual website",
+          type: "set_design_system",
+        };
+        operationTrace.push(operation);
+        onEvent?.("operation", operation);
+        onFileStaged?.({ content: result.css, path: "src/index.css" });
+        return { ok: true };
+      },
+    }),
+
     write_file: tool({
       description:
         "Create or overwrite a source file in the project (routes, components, utilities).",
@@ -356,6 +492,12 @@ export async function runAgenticGenerate(input: {
         if (missing.length) {
           return {
             error: `Security restriction: Read the required skills before writing: ${missing.join(", ")}.`,
+          };
+        }
+        if (!designSystemAccepted) {
+          return {
+            error:
+              "Design restriction: call set_design_system with a contrast-safe business-specific visual system before writing source.",
           };
         }
         if (
@@ -472,6 +614,7 @@ export async function runAgenticGenerate(input: {
           fileMap.set(file.path, file.content);
         }
         const preflightIssues = [
+          ...findGeneratedCustomerLiteralIssues(normalizedFiles),
           ...findGeneratedInternalLinkIssues(normalizedFiles),
           ...findGeneratedPrimaryActionIssues(normalizedFiles),
         ];
@@ -516,33 +659,101 @@ export async function runAgenticGenerate(input: {
         };
       },
     }),
+
+    run_design_audit: tool({
+      description:
+        "Scan generated components for design anti-patterns, low contrast, layout monotony, and unstyled defaults using the Impeccable detector.",
+      inputSchema: z.object({
+        path: z
+          .string()
+          .optional()
+          .describe(
+            "Optional target component path, e.g. 'src/components/site/Hero.tsx'. Omit to audit all components.",
+          ),
+        label: z
+          .string()
+          .optional()
+          .describe("User-friendly Indonesian progress title"),
+        detail: z
+          .string()
+          .optional()
+          .describe("User-friendly Indonesian progress detail"),
+      }),
+      execute: async ({
+        path: targetPath,
+        label,
+        detail,
+      }: {
+        path?: string;
+        label?: string;
+        detail?: string;
+      }) => {
+        opSeq++;
+        const audit = await runDesignAuditInMemory(fileMap, targetPath);
+        const op = {
+          detail:
+            detail?.trim() ||
+            (audit.ok
+              ? "Semua komponen memenuhi standar Impeccable"
+              : `Ditemukan ${audit.issuesCount} catatan perbaikan visual`),
+          id: `op-${opSeq}`,
+          path: targetPath,
+          state: (audit.ok ? "succeeded" : "failed") as "succeeded" | "failed",
+          title: label?.trim() || "Audit Kualitas Desain Impeccable",
+          type: "design_audit",
+        };
+        operationTrace.push(op);
+        if (onEvent) {
+          onEvent("operation", op);
+        }
+        return audit;
+      },
+    }),
+
+    generate_palette: tool({
+      description:
+        "Generate contrast-safe OKLCH color formulas and mood guidance based on brand seed.",
+      inputSchema: z.object({
+        seedKey: z
+          .string()
+          .optional()
+          .describe(
+            "Seed key or brand hex code, e.g. '#f05a28' or business name",
+          ),
+      }),
+      execute: async ({ seedKey }: { seedKey?: string }) => {
+        return generatePaletteInMemory(seedKey);
+      },
+    }),
   };
 
   const systemPrompt = `You are the implementation agent for a portable static Vite + React + TanStack Router website.
 
-Your job is to turn the accepted business data into a credible, editable customer-facing site. You are not building a backend, SaaS dashboard, checkout, login, payment flow, persistence layer, or fake interactive demo.
+Your job is to turn the accepted business data into a credible, distinctive, editable customer-facing Indonesian UMKM website. You are not building a backend, SaaS dashboard, checkout, login, payment flow, persistence layer, or fake interactive demo.
 
 CREATIVE AUTHORITY:
-- Read impeccable-craft first. It owns visual direction, hierarchy, anti-slop, and the final taste decision.
-- Read vercel-web-design for semantic HTML, responsive behavior, accessibility, and applicable client-side React quality.
-- Read indonesian-umkm for factual Indonesian copy and local visitor actions.
-- Read shadcn-ui for source-copied component composition and semantic Tailwind v4 tokens.
-- Read emil-motion only when the chosen interface contains or requests motion. Delete motion that has no user benefit.
-- These skills are guidance, not facts. The accepted src/content/site.ts snapshot and protected scaffold always outrank a design suggestion.
+- Read impeccable first. It owns visual direction, hierarchy, typography, spatial rhythm, and anti-slop rules.
+- Read shadcn for component composition, Radix accessibility, and semantic Tailwind v4 tokens.
+- These skills provide high-level design intelligence. The accepted src/content/site.ts snapshot and protected scaffold always outrank design suggestions.
 
 REQUIRED WORKFLOW:
-1. Call read_skill for all four core skills before calling write_file or check_app. Call emil-motion when motion is needed.
-2. Call list_files, then read_file for the relevant starter files and any bundled shadcn component source before importing it.
-3. Compose one clear business-specific direction around the visitor's real job. Do not use a generic hero/card/testimonial skeleton.
-4. Write the real home route in src/routes/index.tsx and modular components under src/components/. The router is protected, so do not create unregistered extra routes. Use site.* for every customer-facing value. Omitted facts stay omitted.
-5. Call check_app. If it fails, fix the actual source with write_file and call check_app again. Finish only after the last check_app returns ok: true.
+1. Call read_skill for both core skills ("impeccable", "shadcn") before writing. Call deep references (impeccable-craft-floor, impeccable-layout, impeccable-typeset, impeccable-adapt) when shaping complex responsive layouts.
+2. Call list_files and read the relevant starter files. Use copy_shadcn_component to add official UI primitives and their local dependencies before importing them.
+3. Compose one clear business-specific visual direction around the visitor's real job. Do not use generic AI templates or equal-card soup.
+4. Call set_design_system with your own business-specific semantic palette, typography, and radius choices. The platform checks accessibility; revise the proposal if it fails. Never default to orange or copy a palette from examples.
+5. Write the real home route in src/routes/index.tsx and modular components under src/components/. Use site.* for every customer-facing value. Omitted facts stay omitted.
+6. Write natural, warm, active Indonesian copy. Avoid AI puffery, filler buzzwords ("solusi terbaik", "kualitas terdepan", "revolusioner"), em-dashes (—), and decorative badge soup.
+7. Call run_design_audit to inspect your UI against Impeccable anti-patterns, contrast rules, and layout monotony. Fix any reported errors.
+8. Call check_app. If it fails, fix the actual source with write_file and call check_app again. Finish only after the last check_app returns ok: true.
 
 FACT AND SAFETY RULES:
-- src/content/site.ts is read-only and is the sole customer-facing fact source.
+- src/content/site.ts is read-only and is the sole customer-facing fact source. You may write concise connective Indonesian copy grounded in those facts, but never add guarantees, rankings, popularity, metrics, prices, turnaround promises, or other factual claims absent from site.*. Absolute unsupported claims fail check_app.
 - Do not invent phone numbers, addresses, hours, prices, discounts, testimonials, ratings, awards, certifications, metrics, stock, guarantees, delivery, payment methods, or customer results.
 - Do not turn NOT PROVIDED into a confident claim, decorative badge, empty placeholder, or fake state.
+- Strictly forbid fake interactive mechanisms: no mock shopping carts, no checkout modals, no dead search/filter bars, no fake booking calendars, and no fake urgency countdowns.
+- Sourced facts only: If the business has no customer reviews in site.ts, render ZERO review cards. Do not fabricate testimonials.
 - Use only hash links and routes that exist in the scaffold or that you write and register safely.
-- Keep the primary action obvious and use the accepted contact value for WhatsApp only when one exists.
+- Keep the primary action obvious. When site.primaryCtaTarget or site.contact (e.g. WhatsApp wa.me link) is available in src/content/site.ts, primary CTA buttons (in Header, Hero, and Footer/Contact sections) must link directly to it via <a href={site.primaryCtaTarget} target="_blank" rel="noopener noreferrer">.
 - Do not add remote images, placeholder media, external URLs, packages, config files, API calls, or platform metadata.
 - Keep interactive parent controls at least 44px without enlarging their inner SVG icons. Preserve focus-visible states and reduced motion.
 - Avoid nested cards, equal-card soup, gradient-tech styling, technical headings, starter residue, fake progress, and decorative interaction.
@@ -552,7 +763,21 @@ The platform owns src/content/site.ts, src/index.css, src/main.tsx, src/router.t
 
 ${getFormattedShadcnRegistryPrompt()}
 
-Every tool call must include a clear natural Indonesian label and detail. Keep the operation trace honest: describe the file or skill you actually inspected or wrote. Do not claim a browser, remote design detector, CLI, MCP, or visual service ran.`;
+USER-FRIENDLY PROGRESS REPORTING RULES:
+The website owner is a non-technical Indonesian business owner (UMKM). They watch every progress step live on their screen.
+- \`label\` and \`detail\` in EVERY tool call MUST be plain, warm, friendly Indonesian describing customer-facing store features.
+- Frame actions around the store and visitor experience:
+  - Good label examples: "Menata bagian menu dan harga", "Menyambungkan tombol WhatsApp", "Menyiapkan info lokasi & jam buka", "Menata tampilan utama (Hero)", "Memeriksa kerapian tampilan website".
+  - Good detail examples: "Menampilkan daftar produk kopi beserta harga dan catatan rasa", "Memastikan tombol pesan langsung membuka obrolan WhatsApp", "Memeriksa agar tata letak pas dan nyaman dibaca di HP".
+- STRICTLY FORBIDDEN in label/detail (will intimidate the owner):
+  - No file names or file extensions: \`.tsx\`, \`.css\`, \`.json\`, \`.d.ts\`, \`index.tsx\`, \`site.ts\`, \`button.tsx\`, \`tsconfig\`.
+  - No developer/compiler jargon: \`TypeScript\`, \`augmentasi\`, \`props\`, \`interface\`, \`AST\`, \`Vite\`, \`bundler\`, \`scaffold\`, \`component tree\`, \`import\`, \`export\`.
+  - Never show raw error traces in progress detail. When checking or repairing, state what visual part is being polished.`;
+
+  const routesInstruction =
+    schema.routes && schema.routes.length > 1
+      ? `\nREQUIRED ROUTES TO IMPLEMENT:\nThis project has multiple accepted pages. You MUST write and render all required routes:\n${schema.routes.map((r) => `- "${r.path}" (${r.title}) -> write component or route for it`).join("\n")}`
+      : `\nREQUIRED ROUTES:\nThis project is a single-page storefront. Implement the complete home page in src/routes/index.tsx with all relevant sections.`;
 
   const userPrompt = `Build the complete static website from the accepted project data below.
 
@@ -563,6 +788,7 @@ Primary offer from brief: ${formatPromptValue(brief.offer)}
 Address from brief: ${formatPromptValue(brief.address)}
 Hours from brief: ${formatPromptValue(brief.hours)}
 Price range from brief: ${formatPromptValue(brief.priceRange)}
+${routesInstruction}
 
 AUTHORITATIVE SITE SNAPSHOT:
 <site-data>
@@ -571,6 +797,10 @@ ${formatPromptValue(schema)}
 
 FROZEN CREATIVE DIRECTION (taste only; it cannot introduce a fact):
 ${formatPromptValue(input.creativeDirection)}
+
+REVIEWED REVISION BRIEF:
+${formatPromptValue(input.revisionBrief)}
+${input.revisionBrief ? "Revise the existing source to resolve only these rendered quality findings. Preserve accepted facts, routes, and actions. Re-check the complete app." : ""}
 
 Start by inspecting the scaffold and reading the required skills. Then write the most useful route and component files for the visitor's job, check the build, repair real failures, and finish only after a passing check_app.`;
 

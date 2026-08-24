@@ -649,10 +649,10 @@ function normalizeWorkspaceCard(
     return normalizeQuestionsArray(value.questions, brief);
   }
 
-  // Contract-v1 recommendation cards carry server-owned handoff proof. Pass
+  // Contract recommendation cards carry server-owned handoff proof. Pass
   if (
     value.type === "build_recommendation" &&
-    value.engine === "contract-v1" &&
+    (value.engine === "contract" || value.engine === "contract-v1") &&
     typeof value.handoffId === "string" &&
     typeof value.reviewHash === "string"
   ) {
@@ -663,7 +663,7 @@ function normalizeWorkspaceCard(
 
     return {
       type: "build_recommendation",
-      engine: "contract-v1" as const,
+      engine: "contract" as const,
       title:
         typeof value.title === "string" ? value.title : "Website siap dibuat",
       summary: Array.isArray(value.summary)
@@ -737,70 +737,6 @@ function normalizeWorkspaceCard(
     : createFallbackWorkspaceCard(brief);
 }
 
-function fallbackOptionsForQuestion(
-  id: string,
-  question: string,
-): Array<{ label: string; description: string }> {
-  const q = question.toLowerCase();
-  const lowerId = id.toLowerCase();
-  if (
-    lowerId.includes("style") ||
-    lowerId.includes("visual") ||
-    q.includes("tampilan") ||
-    q.includes("gaya") ||
-    q.includes("desain") ||
-    q.includes("vibe")
-  ) {
-    return [
-      {
-        label: "Modern & Bersih",
-        description: "Putih rapi, fokus produk — cepat dipahami pembeli",
-      },
-      {
-        label: "Hangat Tradisional",
-        description: "Krem/kayu, ramah dan dekat — cocok warung & kuliner",
-      },
-      {
-        label: "Bold & Ceria",
-        description: "Warna kuat, energik — cocok untuk pasar muda",
-      },
-    ];
-  }
-  if (
-    lowerId.includes("contact") ||
-    q.includes("hubungi") ||
-    q.includes("pesan sate") ||
-    q.includes("lewat mana")
-  ) {
-    return [
-      { label: "WhatsApp", description: "Pesan langsung lewat chat WhatsApp" },
-      { label: "Instagram DM", description: "Pesan lewat Instagram" },
-      { label: "Telepon", description: "Hubungi nomor langsung" },
-    ];
-  }
-  if (
-    lowerId.includes("offer") ||
-    lowerId.includes("product") ||
-    lowerId.includes("layanan") ||
-    q.includes("jualan") ||
-    q.includes("sate apa")
-  ) {
-    return [
-      { label: "Paket Utama", description: "Produk/jasa paling laku" },
-      { label: "Paket Lengkap", description: "Kombinasi beberapa varian" },
-      { label: "Paket Hemat", description: "Pilihan terjangkau" },
-    ];
-  }
-  return [
-    {
-      label: "Opsi A",
-      description: "Pilihan pertama yang direkomendasikan",
-    },
-    { label: "Opsi B", description: "Pilihan alternatif kedua" },
-    { label: "Opsi C", description: "Pilihan ketiga untuk variasi" },
-  ];
-}
-
 function isPriceQuestion(id: string, question: string): boolean {
   const lowerId = id.toLowerCase();
   const q = question.toLowerCase();
@@ -814,27 +750,7 @@ function isPriceQuestion(id: string, question: string): boolean {
   );
 }
 
-function isChoiceQuestion(id: string, question: string): boolean {
-  const lowerId = id.toLowerCase();
-  const q = question.toLowerCase();
-  // Only these intents should ever be rendered as choice chips.
-  return (
-    lowerId.includes("style") ||
-    lowerId.includes("visual") ||
-    lowerId.includes("contact") ||
-    lowerId.includes("offer") ||
-    lowerId.includes("product") ||
-    q.includes("tampilan") ||
-    q.includes("gaya") ||
-    q.includes("desain") ||
-    q.includes("vibe") ||
-    q.includes("hubungi") ||
-    q.includes("pesan sate") ||
-    q.includes("lewat mana") ||
-    q.includes("jualan") ||
-    q.includes("sate apa")
-  );
-}
+// Clean choice and price handling
 
 function pricePlaceholderForQuestion(id: string, question: string): string {
   const lowerId = id.toLowerCase();
@@ -886,10 +802,7 @@ function normalizeQuestion(raw: unknown): BriefQuestion | null {
     cleanText(candidate.question, 160) ||
     cleanText(aliasedQuestion.text, 160) ||
     cleanText(aliasedQuestion.title, 160);
-  const rawOptionCount = Array.isArray(candidate.options)
-    ? candidate.options.length
-    : 0;
-  let options = Array.isArray(candidate.options)
+  const options = Array.isArray(candidate.options)
     ? candidate.options
         .map((option) => coerceQuestionOption(option))
         .filter((option): option is { label: string; description: string } =>
@@ -898,27 +811,14 @@ function normalizeQuestion(raw: unknown): BriefQuestion | null {
         .slice(0, 5)
     : [];
 
-  // AI-declared "choice" with every option filtered out by coerceQuestionOption
-  let answerMode: "text" | "choice" =
+  const isPrice = question ? isPriceQuestion(coercedId, question) : false;
+
+  const answerMode: "text" | "choice" =
     candidate.answerMode === "text"
       ? "text"
-      : options.length > 0
+      : options.length >= 2
         ? "choice"
         : "text";
-  // Price questions are numeric text inputs — never synthesize generic Opsi A/B/C.
-  const isPrice = question ? isPriceQuestion(coercedId, question) : false;
-  const isChoice = question ? isChoiceQuestion(coercedId, question) : false;
-  if (answerMode === "text" && options.length === 0 && !isPrice && isChoice) {
-    const attemptedChoice =
-      candidate.answerMode === "choice" || rawOptionCount >= 2;
-    if (attemptedChoice && question) {
-      const fallback = fallbackOptionsForQuestion(coercedId, question);
-      if (fallback.length >= 2) {
-        options = fallback.slice(0, 5);
-        answerMode = "choice";
-      }
-    }
-  }
 
   if (!question) {
     return null;
@@ -993,7 +893,7 @@ function buildRecommendationCard(
 ): WorkspaceCard {
   return {
     type: "build_recommendation",
-    engine: "contract-v1" as const,
+    engine: "contract" as const,
     title: friendlyBuildRecommendationTitle(title),
     summary: buildCardSummary(brief, summary),
   };

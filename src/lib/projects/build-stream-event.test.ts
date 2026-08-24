@@ -76,7 +76,7 @@ describe("friendly progress copy", () => {
     );
     expect(
       friendlyBuildProgressDetail("Build sedang berjalan di server."),
-    ).toBe("Website sedang diperiksa.");
+    ).toBe("Memeriksa kerapian tata letak dan tombol website.");
   });
 });
 
@@ -132,11 +132,9 @@ describe("reduceBuildStreamEvent", () => {
       throw new Error("expected progress");
     }
     const step = result.update([])[0];
-    expect(step).toMatchObject({
-      label: "Menulis file",
-      detail: expect.stringContaining("src/routes/index.tsx"),
-      status: "done",
-    });
+    expect(step.label).toBe("Menulis file");
+    expect(step.status).toBe("done");
+    expect(step.detail).toContain("src/routes/index.tsx");
     expect(step.detail).not.toMatch(/writer|agent|worker|batched|compile/i);
   });
 

@@ -286,7 +286,6 @@ Stage only the reviewed files and commit:
 git add docs/superpowers/specs/2026-08-13-generated-site-release-design.md docs/superpowers/plans/2026-08-13-generated-site-release.md src/lib/projects/batched-generator.test.ts src/lib/projects/batched-generator.ts src/lib/projects/batched-prompt.ts src/lib/projects/generated-site-contract.test.ts src/lib/projects/generated-site-contract.ts src/lib/projects/generated-site-gates.test.ts src/lib/projects/generated-site-gates.ts src/lib/projects/generated-site-recipes.test.ts src/lib/projects/generated-site-recipes.ts src/lib/projects/site-generation.ts
 git commit -m "fix(generation): harden contract landing builds
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 - [x] **Step 4: Push `dev` and block on CI**

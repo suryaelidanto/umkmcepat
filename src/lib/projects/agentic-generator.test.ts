@@ -94,14 +94,26 @@ function createInput(
 }
 
 async function readCoreSkills(tools: Record<string, AgentTool>) {
-  for (const name of [
-    "impeccable-craft",
-    "vercel-web-design",
-    "indonesian-umkm",
-    "shadcn-ui",
-  ]) {
+  for (const name of ["impeccable", "shadcn"]) {
     await tools.read_skill.execute({ name });
   }
+  await tools.set_design_system.execute({
+    accent: "#0369a1",
+    accentForeground: "#ffffff",
+    background: "#f8fafc",
+    bodyFontStackId: "system-humanist",
+    border: "#cbd5e1",
+    card: "#ffffff",
+    cardForeground: "#0f172a",
+    displayFontStackId: "system-editorial",
+    foreground: "#0f172a",
+    muted: "#f1f5f9",
+    mutedForeground: "#475569",
+    primary: "#0f172a",
+    primaryForeground: "#ffffff",
+    radiusScale: "restrained",
+    ring: "#0369a1",
+  });
 }
 
 async function completeAgentWorkflow(tools: Record<string, AgentTool>) {
@@ -169,12 +181,12 @@ describe("runAgenticGenerate", () => {
     generateTextMock.mockImplementationOnce(async (args: unknown) => {
       const tools = getTools(args);
       const skill = await tools.read_skill.execute({
-        name: "impeccable-craft",
+        name: "impeccable",
       });
-      expect(skill).toMatchObject({ name: "impeccable-craft" });
+      expect(skill).toMatchObject({ name: "impeccable" });
       expect(skill).toEqual(
         expect.objectContaining({
-          content: expect.stringContaining("# Impeccable craft"),
+          content: expect.stringContaining("name: impeccable"),
         }),
       );
       await completeAgentWorkflow(tools);
@@ -183,13 +195,13 @@ describe("runAgenticGenerate", () => {
 
     const result = await runAgenticGenerate(createInput());
 
-    expect(result.skillsRead).toContain("impeccable-craft");
-    expect(result.skillsRead).toContain("shadcn-ui");
-    expect(
-      result.operationTrace.some(
-        (operation) => operation.type === "read_skill",
-      ),
-    ).toBe(true);
+    expect(result.skillsRead).toContain("impeccable");
+    expect(result.skillsRead).toContain("shadcn");
+    const skillOperations = result.operationTrace.filter(
+      (operation) => operation.type === "read_skill",
+    );
+    expect(skillOperations.length).toBeGreaterThan(0);
+    expect(skillOperations.every((operation) => !operation.path)).toBe(true);
   });
 
   it("rejects writes until all core skills have been read", async () => {
@@ -201,7 +213,7 @@ describe("runAgenticGenerate", () => {
       });
       expect(result).toEqual(
         expect.objectContaining({
-          error: expect.stringContaining("impeccable-craft"),
+          error: expect.stringContaining("impeccable"),
         }),
       );
       return { text: "Done", steps: [] };
@@ -244,7 +256,7 @@ describe("runAgenticGenerate", () => {
         path: "src/components/site/Contact.tsx",
       });
       await tools.write_file.execute({
-        content: '<a href="#chat-box">Chat</a>',
+        content: '<a href="#chat-box">Kontak</a>',
         path: "src/routes/index.tsx",
       });
       await tools.check_app.execute({});

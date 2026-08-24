@@ -1,8 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
-import { Plus, X } from "lucide-react";
+import { Check, Copy, Mail, Plus, X } from "lucide-react";
+import { useState } from "react";
 
 import { ScrollReveal } from "@/components/home/ScrollReveal";
 import { SponsorTable } from "@/components/home/SponsorTable";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Image } from "@/components/ui/image";
 import {
   type ContributionWeek,
@@ -14,6 +24,105 @@ import { fetchJson } from "@/lib/query-client";
 const ALL_CONTRIBUTORS_URL =
   "https://github.com/suryaelidanto/umkmcepat/graphs/contributors";
 const REPOSITORY_URL = "https://github.com/suryaelidanto/umkmcepat";
+
+const SPONSOR_EMAIL = "surya@umkmcepat.com";
+const SPONSOR_MAILTO = `mailto:${SPONSOR_EMAIL}?subject=${encodeURIComponent(
+  "Sponsorship UMKM Cepat - [Nama / Brand]",
+)}&body=${encodeURIComponent(
+  `Halo Surya & Tim UMKM Cepat,
+
+Saya tertarik menjadi sponsor UMKM Cepat:
+
+- Nama / Perusahaan: 
+- Website / Profil: 
+- Bentuk dukungan / sponsor: 
+- Nilai / Budget dukungan: 
+- Pesan / Catatan tambahan: 
+
+Terima kasih.`,
+)}`;
+
+function SponsorModal() {
+  const [copied, setCopied] = useState(false);
+
+  const copyEmail = async () => {
+    try {
+      await navigator.clipboard.writeText(SPONSOR_EMAIL);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <button
+          type="button"
+          className="w-fit rounded-md border border-black/15 bg-transparent px-spacing-6 py-spacing-4 text-sm font-semibold text-[#1c1c1c] transition hover:bg-black/5 dark:border-white/14 dark:text-surface-warm-white dark:hover:bg-white/5"
+        >
+          Ikut sponsor
+        </button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Menjadi Sponsor UMKM Cepat</DialogTitle>
+          <DialogDescription>
+            Kirim penawaran sponsor ke{" "}
+            <span className="font-mono text-xs text-[#1c1c1c] dark:text-surface-warm-white">
+              {SPONSOR_EMAIL}
+            </span>
+            .
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-spacing-4 text-xs text-[#5f5f5d] dark:text-surface-warm-white/70">
+          <div className="rounded-lg border border-black/10 bg-black/[0.02] p-spacing-4 dark:border-white/10 dark:bg-white/[0.02]">
+            <p className="font-semibold text-[#1c1c1c] dark:text-surface-warm-white">
+              Contoh Format Email:
+            </p>
+            <pre className="mt-spacing-2 whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-[#5f5f5d] dark:text-surface-warm-white/80">
+              {`- Nama / Perusahaan:
+- Website / Profil:
+- Bentuk dukungan / sponsor:
+- Nilai / Budget dukungan:
+- Pesan / Catatan tambahan:`}
+            </pre>
+          </div>
+
+          <div className="flex flex-col gap-spacing-3 pt-spacing-2 sm:flex-row sm:items-center">
+            <Button asChild size="sm" className="flex-1">
+              <a href={SPONSOR_MAILTO}>
+                <Mail className="size-4" />
+                Kirim Email Sponsor
+              </a>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={copyEmail}
+              className="gap-spacing-2"
+            >
+              {copied ? (
+                <>
+                  <Check className="size-4 text-status-success-light dark:text-status-success-dark" />
+                  Email Tersalin
+                </>
+              ) : (
+                <>
+                  <Copy className="size-4" />
+                  Salin Email
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 const CONTRIBUTOR_QUERY_OPTIONS = {
   staleTime: 15 * 60_000,
@@ -260,13 +369,7 @@ export function CommunitySection() {
                   Terima kasih sudah bantu UMKM Cepat tetap 100% gratis.
                 </p>
               </div>
-              <button
-                type="button"
-                disabled
-                className="w-fit rounded-md border border-black/15 bg-transparent px-spacing-6 py-spacing-4 text-sm font-semibold text-black/40 dark:border-white/14 dark:text-surface-warm-white/44"
-              >
-                Ikut sponsor
-              </button>
+              <SponsorModal />
             </div>
 
             <SponsorTable sponsors={sponsors} flat />

@@ -164,7 +164,7 @@ describe("normalizeWorkspaceTurn", () => {
     }
   });
 
-  it("repairs choice mode when every option is empty by synthesizing fallback choices (regression: card used to render with no real choices)", () => {
+  it("converts to text mode when choices are invalid or empty instead of fabricating generic Opsi A/B/C options", () => {
     const brief = createInitialBrief("jualan jamu");
     const turn = normalizeWorkspaceTurn(
       {
@@ -183,15 +183,15 @@ describe("normalizeWorkspaceTurn", () => {
 
     expect(turn.workspaceCard.type).toBe("question");
     if (turn.workspaceCard.type === "question") {
-      expect(turn.workspaceCard.question.answerMode).toBe("choice");
-      expect(turn.workspaceCard.question.options.length).toBeGreaterThanOrEqual(
-        2,
+      expect(turn.workspaceCard.question.answerMode).toBe("text");
+      expect(turn.workspaceCard.question.options).toEqual([]);
+      expect(JSON.stringify(turn.workspaceCard)).not.toMatch(
+        /Opsi A|Modern & Bersih/,
       );
-      expect(turn.workspaceCard.question.options[0].label).toBeTruthy();
     }
   });
 
-  it("keeps choice mode when only one valid option parses", () => {
+  it("falls back to text mode when only one valid option parses", () => {
     const brief = createInitialBrief("jualan jamu");
     const turn = normalizeWorkspaceTurn(
       {
@@ -210,8 +210,8 @@ describe("normalizeWorkspaceTurn", () => {
 
     expect(turn.workspaceCard.type).toBe("question");
     if (turn.workspaceCard.type === "question") {
-      expect(turn.workspaceCard.question.answerMode).toBe("choice");
-      expect(turn.workspaceCard.question.options).toHaveLength(1);
+      expect(turn.workspaceCard.question.answerMode).toBe("text");
+      expect(turn.workspaceCard.question.options).toEqual([]);
     }
   });
 
@@ -970,7 +970,7 @@ describe("normalizeWorkspaceTurn", () => {
     expect(turn.readyForBuild).toBe(true);
     expect(turn.workspaceCard).toEqual({
       type: "build_recommendation",
-      engine: "contract-v1",
+      engine: "contract",
       title: "Website Jamu Surya siap dibuat",
       summary: ["Fokus produk jamu herbal", "CTA utama WhatsApp"],
     });

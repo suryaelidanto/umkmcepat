@@ -9,6 +9,7 @@ node_modules
 .omc
 graphify-out
 .data
+.cache
 .lighthouseci
 .lighthouse-auth
 coverage
@@ -23,6 +24,7 @@ skills-lock.json
 .nitro/
 .tanstack/
 src/routeTree.gen.ts
+src/lib/projects/scaffold/shadcn-registry/
 .claude/
 .superpowers/
 docs/superpowers/

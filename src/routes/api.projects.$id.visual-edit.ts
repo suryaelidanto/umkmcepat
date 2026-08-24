@@ -157,8 +157,11 @@ export async function handleVisualEditPost(request: Request, routeId: string) {
     );
   }
 
-  // contract-v1: structural edits (page/route/CTA/capability) require a new
-  if (project.generationEngine === "contract-v1") {
+  // contract: structural edits (page/route/CTA/capability) require a new
+  if (
+    project.generationEngine === "contract" ||
+    project.generationEngine === "contract-v1"
+  ) {
     const structure = classifyEditStructure(instruction);
     if (structure.kind === "structural") {
       return Response.json(

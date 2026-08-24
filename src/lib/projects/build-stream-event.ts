@@ -181,16 +181,22 @@ export function friendlyBuildProgressDetail(
   path?: string,
 ): string {
   const normalized = detail.trim();
+  if (normalized.startsWith("Build gagal:")) {
+    return "Merapikan kembali tata letak dan susunan website.";
+  }
+  if (normalized === "Build sukses dan terverifikasi!") {
+    return "Semua bagian website siap dan berfungsi dengan baik.";
+  }
+  const prefix = path && normalized.startsWith(path) ? `${path} — ` : "";
   const technical =
-    /\b(build|writer|agent|worker|batched|compile|compilasi|source)\b/i.test(
+    /\b(build|writer|agent|worker|batched|compile|compilasi|source|typescript|vite|tsconfig|\.d\.ts|augmentasi)\b/i.test(
       normalized,
     );
   if (!technical) {
     return normalized;
   }
-  const prefix = path && normalized.startsWith(path) ? `${path} — ` : "";
-  const friendly = /\b(build|compile|compilasi)\b/i.test(normalized)
-    ? "Website sedang diperiksa."
+  const friendly = /\b(build|compile|compilasi|check)\b/i.test(normalized)
+    ? "Memeriksa kerapian tata letak dan tombol website."
     : /\bsource\b/i.test(normalized)
       ? "Bagian website tersimpan."
       : "Bagian website selesai ditulis.";

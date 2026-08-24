@@ -8,7 +8,11 @@
     ".husky/commit-msg",
     "scripts/capture-project-thumbnail.ts"
   ],
-  "project": ["src/**/*.{ts,tsx}"],
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "!src/lib/projects/scaffold/shadcn-registry/**"
+  ],
+  "ignore": ["src/lib/projects/scaffold/shadcn-registry/**"],
   "ignoreBinaries": ["graphify", "netstat"],
   "ignoreDependencies": ["tailwindcss"],
   "ignoreExportsUsedInFile": true,
@@ -28,6 +32,8 @@
     "src/lib/storage/uploads/temp-image-client.ts": ["exports"],
     "src/lib/storage/uploads/temp-image-storage.ts": ["exports"],
     "src/lib/projects/generated-site-contract.ts": ["exports"],
+    "src/lib/projects/professional-site-blueprint.ts": ["exports"],
+    "src/lib/projects/professional-site-kits.ts": ["exports"],
     "src/lib/projects/brief-admission.ts": ["exports"],
     "src/components/projects/workspace/WorkspaceShell.tsx": ["exports"],
     "src/lib/projects/canonical-brief.ts": ["exports"],

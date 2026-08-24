@@ -7,7 +7,6 @@ This plan is the executable companion to the spec. Each phase lists ordered task
 
 ## Conventions for every phase
 - TDD marker 🔴 = write failing test first; 🟢 = make it pass.
-- One conventional commit per phase (`/conventional-commit`); message ends with `Co-Authored-By: Claude <noreply@anthropic.com>`.
 - Update the canonical doc in the same diff (architecture.md / DESIGN.md / DEV.md / .env.example as specified).
 - `bun run check` green before commit; `bun run verify` before any push.
 - If a phase uncovers a contradiction with the spec, fix the spec inline and note it in the commit body.

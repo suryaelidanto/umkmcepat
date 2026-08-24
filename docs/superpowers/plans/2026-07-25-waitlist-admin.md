@@ -19,7 +19,6 @@
 - When `WAITLIST_ENABLED=false`, the gate is pass-through but `POST /api/waitlist` submissions are still accepted/stored (accumulate for a later launch). The toggle only controls the onboarding gate.
 - Visible product copy Indonesian; code/comments/errors English. Empty states are honest, no fabricated content.
 - `.env`/`.env.example` stay 1:1 (already verified after `28fe5ed`).
-- TDD: failing test first, minimal code, targeted test, then `bun run check`. Frequent atomic commits to `dev`. Conventional-commit messages, body lines ≤ 100 chars, end with `Co-Authored-By: Claude <noreply@anthropic.com>`.
 
 ---
 

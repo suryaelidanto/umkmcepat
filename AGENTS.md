@@ -71,7 +71,8 @@ cp .env.example .env
 bun run infra
 bun run db:migrate
 bun run dev
-bun run check      # fast manual gate: locks + parallel format/lint/typecheck/affected tests/Knip/docs
+bun run check      # cached fast gate: locks + routes + parallel format/lint/typecheck/affected tests/Knip/docs
+bun run check:uncached # bypass the local check result cache
 bun run verify     # locks + docs + route regen + format/lint/typecheck/full tests/Knip
 ```
 
@@ -82,7 +83,7 @@ Local quality gates are automated:
 - **Pre-commit** runs `bun scripts/check-staged-fix.ts`: staged-file secret scan plus Prettier/ESLint auto-fix and read-only check. No typecheck, no tests, no Knip at commit time.
 - **No pre-push hook.** Push is intentionally cheap locally; CI runs the full suite on every push to `dev`/`main` and on every PR.
 - **CI** runs route generation, `bun run build`, `bun run verify`, generated-file diff check, and integration tests. This is the real quality gate.
-- The local `bun run check` is the manual fast gate (parallel format/lint/typecheck/`test:changed`/Knip) — a feedback loop, not a substitute for CI. Both must pass before anything reaches `main`.
+- The local `bun run check` is the cache-aware manual fast gate. It fingerprints each check's source, config, lockfile, tool version, and relevant environment, then reruns only changed work. Cached results live under ignored `.cache/check/`; `bun run check:uncached` bypasses them. It remains a feedback loop, not a substitute for CI. Both must pass before anything reaches `main`.
 - During fast iteration, run the nearest focused test plus targeted ESLint; do not repeatedly run the full suite. Never bypass a failing gate.
 
 `bun run verify` checks docs, regenerates the route tree, and runs format/lint/typecheck/full unit tests/Knip. It does not run `bun run build`, integration tests, or generated-file diff check — those are separate CI steps. Use it before handoff without a push, or when you want to confirm a clean state locally.
@@ -93,6 +94,12 @@ Local quality gates are automated:
 
 ## Rules — god-tier
 
+- **NEVER TEST AI RESPONSE CONTENT OR STOCHASTIC OUTPUT (IRON LAW)** — Writing TDD or unit tests that assert AI model prose, answer wording, Indonesian phrasing, taste, palette hues, fonts, layout structure, card counts, section sequences, or generated source snapshots is strictly forbidden. Tests MUST ONLY assert deterministic mechanical invariants:
+  1. JSON Schemas (Zod validation)
+  2. Structure conformance & presence of required keys
+  3. Type narrowing & contract error handling
+  4. Hard deterministic boundaries (action URLs, route topology, package policies, accessibility, security, compilation)
+     Rendered quality, copy appeal, and aesthetic taste belong exclusively to calibrated review and evaluation corpora, never unit tests.
 - Domain before file type — organize by feature/domain first; no generic catch-all folders (`hooks`, `utils`, `helpers`, `misc`). Local hooks/context/types/helpers stay beside their feature.
 - Colocated tests by default — unit/component/route tests sit directly beside the module they verify (`foo.ts` + `foo.test.ts`). Top-level `tests/` is strictly for cross-domain (`tests/unit`), real DB/Redis infra (`tests/integration/*.itest.ts`), browser/mobile audits (`tests/browser/*.browser.test.ts`), and fixtures/helpers (`tests/support`).
 - No any — any is lying to the compiler. Use unknown + narrowing, define the shape. No any, no as any, no ts-ignore, no eslint-disable. Fix actual root causes.

@@ -223,16 +223,16 @@ export function BuildProgressPanel({
                       <div className="pl-12 pt-spacing-2 text-left">
                         {step.diff && step.diff.length > 0 && (
                           <div className="mt-spacing-3">
-                            <pre className="max-h-64 overflow-auto rounded-[12px] border border-surface-warm-white/8 bg-black/20 p-spacing-3 text-xs leading-5 [scrollbar-width:thin]">
+                            <pre className="max-h-64 overflow-auto rounded-[12px] border border-border bg-muted/60 p-spacing-3 font-mono text-xs leading-5 text-foreground [scrollbar-width:thin] dark:bg-black/40">
                               {step.diff.map((line, lineIndex) => (
                                 <div
                                   key={lineIndex}
                                   className={
                                     line.type === "add"
-                                      ? "bg-[#8ce99a]/10 text-[#8ce99a]"
+                                      ? "bg-emerald-500/15 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300"
                                       : line.type === "delete"
-                                        ? "bg-[#ffb4a6]/10 text-[#ffb4a6]"
-                                        : "text-surface-warm-white/54"
+                                        ? "bg-rose-500/15 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300"
+                                        : "text-muted-foreground"
                                   }
                                 >
                                   {line.type === "add"
@@ -278,20 +278,20 @@ export function ProcessingControl({
   onStop: () => void;
 }) {
   const discussTitles: Record<NonNullable<typeof discussPhase>, string> = {
-    streaming: "AI sedang menulis balasan...",
-    preparing_options: "Sedang menyiapkan pilihan...",
-    preparing_card: "Menyiapkan pertanyaan berikutnya...",
+    streaming: "AI sedang menulis...",
+    preparing_options: "Menyiapkan pilihan...",
+    preparing_card: "Menyiapkan pertanyaan...",
     retrying_response: "Menyempurnakan balasan...",
-    retrying_card: "Menata ulang pilihan jawaban...",
-    processing: "AI sedang memproses...",
+    retrying_card: "Menata ulang pilihan...",
+    processing: "AI sedang merespons...",
   };
   const discussDetails: Record<NonNullable<typeof discussPhase>, string> = {
-    streaming: "Balasan AI akan muncul di atas.",
-    preparing_options: "Merangkum opsi terbaik untukmu.",
-    preparing_card: "Merangkum konteks dan opsi jawaban.",
-    retrying_response: "Tunggu sebentar, AI sedang menyusun ulang teks.",
-    retrying_card: "Sedang menyiapkan tombol pilihan untukmu.",
-    processing: "Tunggu sebentar, jawaban akan muncul di sini.",
+    streaming: "Teks sedang diketik di atas.",
+    preparing_options: "Menyiapkan opsi jawaban untukmu.",
+    preparing_card: "Tunggu sebentar ya.",
+    retrying_response: "Tunggu sebentar, AI sedang menyusun ulang.",
+    retrying_card: "Sedang menyiapkan tombol pilihan.",
+    processing: "Tunggu sebentar ya.",
   };
 
   const activeDiscussPhase = discussPhase ?? "processing";

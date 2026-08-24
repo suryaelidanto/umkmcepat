@@ -148,7 +148,10 @@ export async function handleGeneratePost(request: Request, routeId: string) {
   }
 
   // Contract-v1 must present valid handoff proof before any operation is
-  if (project.generationEngine === "contract-v1") {
+  const isContractEngine =
+    project.generationEngine === "contract" ||
+    project.generationEngine === "contract-v1";
+  if (isContractEngine) {
     if (!contractHandoffId || !contractReviewHash) {
       return Response.json(
         {
@@ -211,7 +214,9 @@ export async function handleGeneratePost(request: Request, routeId: string) {
 
   let earlyBuildId: string | null = null;
   try {
-    const isContractPath = project.generationEngine === "contract-v1";
+    const isContractPath =
+      project.generationEngine === "contract" ||
+      project.generationEngine === "contract-v1";
 
     if (isContractPath) {
       let acceptance: { created: boolean } | null = null;

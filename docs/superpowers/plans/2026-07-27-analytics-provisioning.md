@@ -170,7 +170,6 @@ UMAMI_BASE_URL (dev localhost default, prod URL) + UMAMI_ADMIN_PASSWORD
 .env + .env.example. package.json gets the bunx tsx entry that runs the
 script once it lands.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -350,7 +349,6 @@ Phase A resolves config (prod-required password guard, dev-default 'umkmcepat'
 → create-if-missing. Phase C writes NEXT_PUBLIC_UMAMI_* into .env atomically
 (tmp + rename). Auth-drift branch exits clear instead of looping.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -455,7 +453,6 @@ the old 'Dev-off; prod-on' line was stale. Updated to describe the dev/prod
 env-split behavior. Added the one-line provision step (run provision:analytics
 after first umami up -d) so first-deploy ops are documented inline.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---

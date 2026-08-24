@@ -54,6 +54,15 @@ export type ProjectSiteSchema = {
   priceRange?: string;
   address?: string;
   deliveryArea?: string;
+  primaryCtaTarget?: string;
+  contact?: {
+    channel: string;
+    value: string;
+  };
+  routes?: Array<{
+    path: string;
+    title: string;
+  }>;
 };
 
 const MAX_TEXT = 220;
@@ -242,11 +251,23 @@ export function createProjectSiteSchemaFromBrief(
     priceRange: brief.priceRange?.trim() || undefined,
     address: brief.address?.trim() || undefined,
     deliveryArea: brief.deliveryArea?.trim() || undefined,
+    primaryCtaTarget:
+      brief.contact?.channel === "whatsapp" && brief.contact?.value
+        ? `https://wa.me/${brief.contact.value.replace(/\D/g, "").startsWith("0") ? `62${brief.contact.value.replace(/\D/g, "").slice(1)}` : brief.contact.value.replace(/\D/g, "")}?text=Halo`
+        : undefined,
+    contact:
+      brief.contact?.channel && brief.contact?.value
+        ? {
+            channel: brief.contact.channel,
+            value: brief.contact.value,
+          }
+        : undefined,
   };
 }
 
 export function createProjectSiteSchemaFromGeneratedContract(input: {
   contract: import("./generated-site-contract").GeneratedSiteContractV1;
+  theme?: ProjectSiteSchema["theme"];
 }): ProjectSiteSchema {
   const c = input.contract;
   const businessName = cleanText(c.business.name, "Usaha Lokal", 80);
@@ -256,17 +277,15 @@ export function createProjectSiteSchemaFromGeneratedContract(input: {
   return {
     version: 1,
     businessName,
-    eyebrow: "Website usaha",
+    eyebrow: "",
     headline: cleanText(c.content.headline, businessName, 110),
     subheadline: cleanText(c.content.subheadline, c.business.primaryJob, 260),
     primaryCta,
-    secondaryCta: "Lihat detail",
+    secondaryCta: "",
     audience,
     offer,
-    theme: defaultTheme,
-    trustPoints: c.content.trustPoints.slice(0, MAX_TRUST_POINTS).length
-      ? c.content.trustPoints.slice(0, MAX_TRUST_POINTS)
-      : ["Info jelas", "Mudah dihubungi", "Siap dibuka dari HP"],
+    theme: input.theme ?? defaultTheme,
+    trustPoints: c.content.trustPoints.slice(0, MAX_TRUST_POINTS),
     sections: c.page.requiredSections.slice(0, MAX_SECTIONS).map((s) => ({
       title: cleanText(s.purpose, "Bagian", 80),
       body: cleanText(s.purpose, "Konten bagian.", 260),
@@ -293,6 +312,28 @@ export function createProjectSiteSchemaFromGeneratedContract(input: {
     priceRange: c.content.priceRange || undefined,
     address: c.content.address || undefined,
     deliveryArea: c.content.deliveryArea || undefined,
+    routes: c.page.routes.map((r) => ({
+      path: r.path,
+      title: r.purpose,
+    })),
+    primaryCtaTarget:
+      c.business.primaryCta.kind === "whatsapp" && c.business.primaryCta.target
+        ? c.business.primaryCta.target.startsWith("http")
+          ? c.business.primaryCta.target
+          : `https://wa.me/${c.business.primaryCta.target.replace(/\D/g, "").startsWith("0") ? `62${c.business.primaryCta.target.replace(/\D/g, "").slice(1)}` : c.business.primaryCta.target.replace(/\D/g, "")}?text=Halo`
+        : undefined,
+    contact:
+      c.business.primaryCta.kind && c.business.primaryCta.target
+        ? {
+            channel: c.business.primaryCta.kind,
+            value:
+              c.page.routes.length > 1 &&
+              c.business.primaryCta.target.startsWith("#") &&
+              !c.business.primaryCta.target.startsWith("#/")
+                ? `#/#${c.business.primaryCta.target.slice(1)}`
+                : c.business.primaryCta.target,
+          }
+        : undefined,
   };
 }
 

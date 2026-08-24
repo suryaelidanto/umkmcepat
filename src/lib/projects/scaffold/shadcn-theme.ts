@@ -72,6 +72,8 @@ export function compileShadcnTheme(
   ];
 
   const css = `@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
 @theme inline {
   --color-background: var(--background);

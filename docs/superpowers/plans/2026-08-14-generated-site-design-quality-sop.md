@@ -130,7 +130,6 @@ Expected: PASS with no lint warnings.
 
 ```bash
 git add src/lib/projects/generated-site-design-quality.ts src/lib/projects/generated-site-design-quality.test.ts src/lib/projects/generated-site-design-kits/types.ts src/lib/projects/generated-site-design-kits/catalog.ts src/lib/projects/generated-site-design-kits/catalog.test.ts
-git commit -m "feat(generation): add bounded site taste profiles" -m "Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -210,7 +209,6 @@ Expected: PASS.
 
 ```bash
 git add src/lib/projects/generated-site-design-plan.ts src/lib/projects/generated-site-design-plan.test.ts src/lib/projects/batched-response.ts src/lib/projects/batched-response.test.ts src/lib/projects/batched-generator.ts src/lib/projects/batched-prompt.ts src/lib/projects/batched-prompt.test.ts
-git commit -m "feat(generation): carry taste into writer contracts" -m "Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -282,7 +280,6 @@ Expected: PASS.
 
 ```bash
 git add src/lib/projects/generated-site-gates.ts src/lib/projects/generated-site-gates.test.ts src/lib/projects/batched-generator.ts
-git commit -m "feat(generation): enforce taste preflight" -m "Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -348,7 +345,6 @@ Expected: PASS.
 
 ```bash
 git add scripts/generated-site-contrast.cjs scripts/generated-site-contrast.test.cjs scripts/qualify-generated-site.cjs src/lib/projects/browser-gates.test.ts
-git commit -m "fix(generation): measure rendered text contrast" -m "Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -425,7 +421,6 @@ Expected: PASS.
 
 ```bash
 git add src/lib/projects/visual-critic.ts src/lib/projects/visual-critic.test.ts src/lib/projects/generated-site-pipeline.ts src/lib/projects/generated-site-pipeline.test.ts src/lib/projects/generated-site-quality-proof.ts src/lib/projects/generated-site-quality-proof.test.ts
-git commit -m "fix(generation): keep visual critic uncertainty honest" -m "Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -464,7 +459,6 @@ Confirm the prior recovery changes remain intact, no `.data`, `.env`, logs, scre
 
 ```bash
 git add src/lib/projects/skills/design-quality.md
-git commit -m "docs(generation): publish design quality SOP" -m "Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---

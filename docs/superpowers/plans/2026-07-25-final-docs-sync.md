@@ -16,7 +16,6 @@
 - Docs-only (+ `.env.example`/`.env` 1:1). No code/behavior change.
 - `.env`/`.env.example` stay 1:1: `diff <(sed 's/=".*"/=""/' .env.example) <(sed 's/=".*"/=""/' .env)` → no output.
 - Visible product copy Indonesian; dev docs English.
-- Frequent atomic commits to `dev`. Conventional-commit, body ≤100 chars, `Co-Authored-By: Claude <noreply@anthropic.com>`.
 
 ---
 

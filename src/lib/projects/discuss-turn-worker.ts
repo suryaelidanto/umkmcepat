@@ -235,7 +235,11 @@ export async function runDiscussTurn({
     const textPartId = "discuss-text";
     const toolCallId = `tool-${crypto.randomUUID()}`;
 
-    publishProgress(turnId, { type: "start", messageId });
+    publishProgress(turnId, {
+      type: "start",
+      messageId,
+      messageMetadata: { id: messageId },
+    });
     publishProgress(turnId, { type: "text-start", id: textPartId });
 
     let fullText = "";
@@ -777,7 +781,10 @@ export async function runDiscussTurn({
       (toolInput as { workspaceCard?: { type?: string } } | null)?.workspaceCard
         ?.type === "brief_review";
 
-    if (project.generationEngine === "contract-v1") {
+    if (
+      project.generationEngine === "contract" ||
+      project.generationEngine === "contract-v1"
+    ) {
       const canonicalBrief = parseCanonicalBrief(
         workspaceTurn.brief,
         project.prompt,
@@ -826,7 +833,7 @@ export async function runDiscussTurn({
       const prepared = await prepareBuildHandoff({
         projectId: project.id,
         userId,
-        engine: "contract-v1",
+        engine: "contract",
         brief: workspaceTurn.brief,
         turnId,
         messages,
@@ -841,7 +848,7 @@ export async function runDiscussTurn({
           ...workspaceTurn,
           workspaceCard: {
             type: "build_recommendation",
-            engine: "contract-v1" as const,
+            engine: "contract" as const,
             title: base.title,
             // Read from the frozen contract, never the model's prose, so the
             summary: describeBuildRecommendation(

@@ -64,6 +64,19 @@ type PreviewRequest = {
   workspaceAnswers?: unknown;
 };
 
+const UI_MESSAGE_STREAM_EVENT_TYPES = new Set([
+  "start",
+  "finish",
+  "text-start",
+  "text-delta",
+  "text-end",
+  "tool-input-start",
+  "tool-input-delta",
+  "tool-input-available",
+  "tool-output-available",
+  "error",
+]);
+
 export const Route = createFileRoute("/api/projects/preview")({
   server: {
     handlers: {
@@ -495,6 +508,21 @@ async function handleDiscussTurnOneCall({
     stream: createUIMessageStream({
       execute: async ({ writer }) => {
         const writeSafe = (event: { type: string; [k: string]: unknown }) => {
+          if (event.type === "workspace-card-delta") {
+            try {
+              writer.write({
+                type: "data-workspaceCard",
+                data: event.workspaceCard,
+                transient: true,
+              } as never);
+            } catch {
+              // Client disconnected mid-tail
+            }
+            return;
+          }
+          if (!UI_MESSAGE_STREAM_EVENT_TYPES.has(event.type)) {
+            return;
+          }
           try {
             writer.write(event as never);
           } catch {
@@ -619,7 +647,7 @@ async function repairWorkspaceCard({
     const prepared = await prepareBuildHandoff({
       projectId: project.id,
       userId,
-      engine: "contract-v1",
+      engine: "contract",
       brief: turn.brief,
       messages,
     });
@@ -631,7 +659,7 @@ async function repairWorkspaceCard({
       };
       finalWorkspaceCard = {
         type: "build_recommendation",
-        engine: "contract-v1" as const,
+        engine: "contract" as const,
         title: base.title,
         summary: describeBuildRecommendation(prepared.contract, prepared.plan),
         handoffId: prepared.handoffId,

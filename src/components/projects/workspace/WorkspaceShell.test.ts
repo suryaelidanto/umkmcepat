@@ -58,7 +58,7 @@ describe("canStartBuild", () => {
   it("requires handoff proof for contract cards", () => {
     const contractCard = {
       type: "build_recommendation" as const,
-      engine: "contract-v1" as const,
+      engine: "contract" as const,
       title: "Siap",
       summary: ["a"],
       handoffId: "h1",

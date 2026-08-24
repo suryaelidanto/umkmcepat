@@ -194,5 +194,4 @@ Expected: All existing tests pass (no behavior change for single-image uploads).
 git add src/components/projects/WorkspaceShell.tsx
 git commit -m "fix(workspace): graceful per-file error handling for multi-image upload
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```

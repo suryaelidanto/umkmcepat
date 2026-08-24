@@ -23,7 +23,6 @@
 - Viewport picker (Komputer/HP) hidden on `< md`.
 - Annotation Ubah + Support/History/Energy → kebab → `MobileSheet` on `< md`.
 - Swipe gesture gated off when `activeTab === "code"`.
-- Atomic commits to `dev`; conventional-commit; body ≤100 chars; `Co-Authored-By: Claude <noreply@anthropic.com>`.
 - Visible product copy Indonesian; code/comments English.
 - Pre-commit runs `bun run check:commit`. CI runs `bun run verify`. Never bypass a failing gate.
 - TDD strictly. Write the failing test first, then the minimal code, then verify, then commit.
@@ -141,7 +140,6 @@ Drop overflow-wrap:anywhere; switch padding to mobile-tight. Test
 asserts a long Indonesian word doesn't wrap past 2 line-heights in
 a 360-wide container.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -209,7 +207,6 @@ Add pb-[env(safe-area-inset-bottom)] so composer clears the iOS home
 indicator; auto-grow textarea from rows=1 to 6 lines on input;
 inputMode/enterKeyHint signals the right keyboard.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -250,7 +247,6 @@ git commit -m "fix(mobile): iframe cap from fixed 390 to min(100%,430px)
 Covers modern phone widths (iPhone 16 Pro Max 430dp) without
 clipping or stretching on smaller devices.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -528,7 +524,6 @@ Hide the Diskusi/Tampilan/Kode pill, Komputer/HP viewport picker,
 and Ubah annotation button under md:. Mobile gets a single kebab
 button (44pt) instead. Desktop buttons bumped to 44pt touch targets.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -635,7 +630,6 @@ git commit -m "fix(mobile): code tab gets sticky file-dropdown on phones
 Replace the 38dvh-capped sidebar with a native <select> strip on
 <md. Full Monaco height restored. Desktop sidebar (md+) unchanged.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -692,7 +686,6 @@ git commit -m "fix(mobile): swipe gesture off when on Kode tab
 Prevents swipe-to-switch from competing with Monaco's horizontal
 scroll on the code panel.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -770,7 +763,6 @@ Playwright spec asserts no horizontal overflow and 44pt tap targets
 at iPhone SE / 14 / 16 Pro Max / Pixel 7 / iPad viewports. Saves
 screenshots to __captures__/mobile/ for tier-3 human review.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---

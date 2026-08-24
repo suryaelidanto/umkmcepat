@@ -2,9 +2,7 @@
 
 Adapt an existing design to a different context: another screen size, device, platform, or use case. The trap is treating adaptation as scaling. The job is rethinking the experience for the new context.
 
-## Platform
-
-Everything below is responsive web, mobile web included. Native targets (`ios` / `android` / `adaptive`): adapting means conforming to the platform's navigation model, controls, and touch sizing, never reflowing a web layout. Load [ios.md](ios.md) / [android.md](android.md) (`adaptive` loads both).
+**Web only** (mobile web included). Native platforms (`ios` / `android` / `adaptive`) route to [adapt.native.md](adapt.native.md) instead; if the project is native, switch to it now.
 
 ---
 
@@ -190,7 +188,7 @@ Test thoroughly across contexts:
 - **Edge cases**: Very small screens (320px), very large screens (4K)
 - **Slow connections**: Test on throttled network
 
-When the adaptation feels native to each context, hand off to `/impeccable polish` for the final pass.
+When the adaptation feels native to each context, hand off to `$impeccable polish` for the final pass.
 
 ---
 

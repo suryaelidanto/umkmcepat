@@ -41,10 +41,11 @@ import { createViteTanStackShadcnStarterFiles } from "@/lib/projects/scaffold/vi
 const REFERENCE_CALIBRATED_TASTE_RULES = `DESIGN STANDARDS:
 ${getFormattedShadcnRegistryPrompt()}
 - In graphic mode, use a meaningful inline SVG with visible paths or omit the media panel. Keep the route compact and useful on mobile. site.trustPoints and site.usp are often the same values — never render both as separate adjacent sections with identical items.
-- HERO SHOWCASE: In graphic/typographic mode, do NOT draw crude abstract SVG doodles (shoes, cups, abstract waves). Instead, build a clean, high-impact Value Showcase Bento using <StatCounter>, <BadgePill>, and Lucide icons (<Clock3>, <MapPin>, <Sparkles>, <ShieldCheck>).
-- BENTO CATALOG: Use <BentoGrid> and <BentoCard> with featured primary prominence (<BentoCard colSpan={2}>). Every card gets distinct icon, title, description, price badge, and consultation action.
-- SURFACE RHYTHM: Hero base surface, catalog muted surface (bg-muted/40), and logistics contrast surface (surface="contrast") with text-background.
-- CONVERSION: High-contrast rounded-full primary WhatsApp CTA button with <MessageCircle className="mr-2 size-4" /> and <ArrowUpRight className="ml-2 size-4" /> (min-h-11).`;
+- HERO SHOWCASE: In graphic/typographic mode, do NOT draw crude abstract SVG doodles (shoes, cups, abstract waves). Build a clean, high-impact Value Showcase using semantic layout, Badge, and Lucide icons.
+- CATALOG & SERVICES: Use clean, accessible card and grid arrangements with clear hierarchy. Every item gets distinct icon/tag, title, description, price badge, and consultation action.
+- SURFACE RHYTHM: Alternate base surface, muted surface (bg-muted/40), and contrast surface with text-background.
+- CONVERSION: High-contrast rounded-full primary WhatsApp CTA button with <MessageCircle className="mr-2 size-4" /> and <ArrowUpRight className="ml-2 size-4" /> (min-h-11).
+- STRICT ANTI-MOCK POLICY: Strictly forbid mock shopping carts, checkout modals, dead search/filter bars, fake booking pickers, fake urgency countdowns, and fabricated reviews. Omitted facts in site.ts stay omitted.`;
 
 export function buildReferenceCalibratedCorrectionPrompt(input: {
   contract: GeneratedSiteWriterContractV2;
@@ -523,7 +524,7 @@ Rules:
 - Never emit platform-owned files, package/config files, extra routes, prose, markdown fences, or propose blocks.
 - Use only imports from the seeded scaffold: @/content/site, @/lib/preview-ready, @/components/ui/button, @/components/ui/card.
 - Call usePreviewReady() in HomeRouteComponent. Render every populated site field visibly: headline, subheadline, primaryCta, secondaryCta, offer, trustPoints, sections, products, testimonials, faq, socialLinks, currentPromo.
-- Primary CTA must be a real WhatsApp link using the accepted target, wrapped with <Button asChild size="lg">. Secondary CTA must use <Link to="/" hash="..."> or a real section id. No raw href="#...".
+- Primary CTA must be a real WhatsApp link using the accepted target, wrapped with <Button render={<a href="..." target="_blank" rel="noreferrer" />} size="lg"> or direct <a className="... min-h-11 min-w-11">. Secondary CTA must use <Link to="/" hash="..."> or a real section id. No raw href="#...".
 - Use Tailwind semantic tokens only. No custom CSS, images, placeholders, external URLs, invented facts, or technical headings. No data-generated-site-starter marker.
 - Keep the file compact enough to finish below the output limit.
 
@@ -674,7 +675,7 @@ RENDER COMPLETENESS RULE (enforced by the gate — read carefully):
 - If a field is empty/undefined, SKIP its section. Do not invent data.
 - NEVER ship starter boilerplate: no "Read the Blog", no "View on GitHub", no "⚡ Fast / 🎨 Beautiful / 📝 MDX Ready", no "Welcome to the home page", no "Your new project is ready". The gate rejects these.
 - NEVER hardcode href="/blog" or href="https://github.com". CTAs link to WhatsApp, #kontak, or real business actions.
-- EVERY call-to-action <Button asChild><a> MUST use size="lg" (44px min height). NEVER use size="sm" or size="default" on a CTA — the browser gate rejects any CTA under 44px and every CTA is checked, not just the hero. Nav/header chat buttons count too.
+- EVERY call-to-action button or link MUST have min-h-11 min-w-11 (≥44px touch target) or use <Button size="lg">. NEVER use size="sm" or size="default" on a primary CTA — the browser gate rejects any CTA under 44px and every CTA is checked, not just the hero. Nav/header chat buttons count too.
 - Use theme token utilities ONLY (bg-background, text-foreground, text-accent, border-border, bg-card, bg-accent). NEVER use arbitrary hex colors like bg-[#0b0b0d] or text-[#d4af37] — they bypass the compiled WCAG theme and re-theming will not propagate.
 
 EXACT FIELD NAMES (tsc fails on any mismatch — use these EXACT property names):

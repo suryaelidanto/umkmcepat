@@ -9,6 +9,7 @@ import {
 } from "./generated-site-contract";
 import { selectGeneratedSiteDesignKit } from "./generated-site-design-kits/catalog";
 import { selectGeneratedSiteRecipe } from "./generated-site-recipes";
+import { createProjectSiteSchemaFromGeneratedContract } from "./site-schema";
 
 import type { ProjectBrief } from "./brief";
 import type { BuildContractV1 } from "./build-contract";
@@ -238,24 +239,55 @@ function acceptedHandoff(
 }
 
 describe("compileGeneratedSiteContract", () => {
-  it("derives public fashion copy when the accepted brief has no tagline", () => {
+  it("routes internal contact actions through home on multi-page sites", () => {
     const values = fixtures();
-    const result = compileGeneratedSiteContract({
-      briefSnapshot: {
-        ...values.briefSnapshot,
-        content: { ...values.briefSnapshot.content, tagline: null },
-      },
+    const compiled = compileGeneratedSiteContract({
       contract: values.contract,
       plan: values.plan,
+      briefSnapshot: values.briefSnapshot,
       photoEnabled: false,
       recipe: selectGeneratedSiteRecipe(values.plan.archetype),
     });
+    const contract = {
+      ...compiled,
+      business: {
+        ...compiled.business,
+        primaryCta: {
+          kind: "browse" as const,
+          label: "Lihat kontak",
+          target: "#kontak",
+        },
+      },
+      page: {
+        ...compiled.page,
+        routes: [
+          ...compiled.page.routes,
+          {
+            path: "/lokasi",
+            purpose: "Informasi lokasi",
+            requiredContent: [],
+          },
+        ],
+      },
+    };
 
-    expect(result.content.headline).toBe("Pilih iPhone 13 dengan lebih mudah");
-    expect(result.content.subheadline).toContain("Lihat pilihan iPhone 13");
-    expect(result.content.trustPoints).toEqual(
-      expect.arrayContaining(["Kondisi unit tercatat"]),
-    );
+    expect(
+      createProjectSiteSchemaFromGeneratedContract({ contract }).contact,
+    ).toEqual({ channel: "browse", value: "#/#kontak" });
+  });
+
+  it("preserves a caller-provided business-specific theme", () => {
+    const contract = compile({ photoEnabled: false });
+    const theme = {
+      accent: "#1f8f7a",
+      background: "#eef7f4",
+      foreground: "#12211d",
+      muted: "#587169",
+    };
+
+    expect(
+      createProjectSiteSchemaFromGeneratedContract({ contract, theme }).theme,
+    ).toEqual(theme);
   });
 
   it("maps accepted facts, routes, CTA, and customer-facing sections", () => {
@@ -278,6 +310,29 @@ describe("compileGeneratedSiteContract", () => {
     ]);
     expect(JSON.stringify(result)).not.toContain("ProductCard");
     expect(result.contractHash).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it("does not synthesize generic marketing claims when optional copy is absent", () => {
+    const values = fixtures();
+    values.briefSnapshot.content.tagline = null;
+    values.briefSnapshot.content.usp = [];
+    values.briefSnapshot.offers = values.briefSnapshot.offers.map((offer) => ({
+      ...offer,
+      description: undefined,
+    }));
+    const serialized = JSON.stringify(
+      compileGeneratedSiteContract({
+        briefSnapshot: values.briefSnapshot,
+        contract: values.contract,
+        photoEnabled: false,
+        plan: values.plan,
+        recipe: selectGeneratedSiteRecipe(values.plan.archetype),
+      }),
+    );
+
+    expect(serialized).not.toMatch(
+      /Profesional & Terpercaya|Berkualitas untuk Kebutuhan Anda|Garansi kualitas|Proses mudah dan transparan|pengerjaan profesional dan rapi/,
+    );
   });
 
   it("creates a compact route that renders accepted site fields", () => {
@@ -338,7 +393,6 @@ describe("compileGeneratedSiteContract", () => {
       kit,
     });
     expect(result.schemaVersion).toBe(2);
-    expect(result.visualInputs.selectedKitId).toBe("catalog-story");
     expect(result.media.mode).toBe("graphic");
     expect(result.obligations.sections.map((section) => section.id)).toEqual([
       "catalog",

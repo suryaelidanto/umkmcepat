@@ -133,7 +133,7 @@ model Project {
   assets                    ProjectAsset[]
   chatTurns                 ProjectChatTurn[]
   userCredits               UserCredit[]
-  generationEngine          String                  @default("legacy-v1") @db.VarChar(32)
+  generationEngine          String                  @default("contract") @db.VarChar(32)
   activeHandoffId           String?                 @unique
   activeHandoff             ProjectBuildHandoff?    @relation("ProjectActiveHandoff", fields: [activeHandoffId], references: [id], onDelete: SetNull)
   buildHandoffs             ProjectBuildHandoff[]   @relation("ProjectBuildHandoffs")

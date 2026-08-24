@@ -97,7 +97,6 @@ Expected: Passes formatting, types, and existing tests.
 
 ```bash
 git add src/lib/csp-nonce.ts src/start.ts src/lib/security-headers.ts
-git commit -m "feat(security): implement per-request CSP nonce storage and middleware integration" -m "Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -171,7 +170,6 @@ Expected: Compile/formatting passes.
 
 ```bash
 git add src/router.tsx src/routes/__root.tsx
-git commit -m "fix(security): plumb CSP nonce into TanStack router SSR options and JSX scripts" -m "Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -221,7 +219,6 @@ Expected: All validation passes.
 
 ```bash
 git add src/routes/api.csp-violation.ts src/lib/security-headers.ts
-git commit -m "fix(security): exempt CSP violation route from CSRF and enforce payload limits" -m "Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---

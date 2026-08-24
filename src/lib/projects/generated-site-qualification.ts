@@ -93,7 +93,7 @@ export async function qualifyReferenceCalibratedSite(
     return {
       ok: false,
       files,
-      reason: "generated-site visual evidence unavailable",
+      reason: `generated-site visual review ${review.status}`,
       visualRepairCount,
     };
   }
@@ -186,32 +186,11 @@ export async function qualifyGeneratedSite(
       };
     }
     const riskReport = deps.classifyRisk(files, browserReport);
-    if (!riskReport.risky) {
-      return {
-        ok: true,
-        files,
-        browserReport,
-        riskReport,
-        criticReport: null,
-        visualRepairCount,
-      };
-    }
     const criticReport = await deps.runCritic(files, browserReport, riskReport);
-    // `unknown` means the critic could not run (no vision-capable model
-    if (criticReport.status === "unknown") {
-      return {
-        ok: true,
-        files,
-        browserReport,
-        riskReport,
-        criticReport,
-        visualRepairCount,
-      };
-    }
     if (criticReport.status !== "complete") {
       return {
         ok: false,
-        reason: "generated-site visual evidence unavailable",
+        reason: `generated-site visual review ${criticReport.status}`,
         browserReport,
         riskReport,
         criticReport,
@@ -230,8 +209,8 @@ export async function qualifyGeneratedSite(
     }
     if (visualRepairCount === 1) {
       return {
-        ok: true,
-        files,
+        ok: false,
+        reason: "generated-site final visual review failed",
         browserReport,
         riskReport,
         criticReport,

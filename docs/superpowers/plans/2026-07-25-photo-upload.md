@@ -19,7 +19,6 @@
 - The agent writes **`/media/<assetId>`** into source, never the raw R2 URL (vendor-neutral, slug-independent).
 - Labels: mode-toggle button = "Ubah"; annotation action = "Komentar"; image-replace affordance = "Ganti gambar". Visible product copy Indonesian; code/comments/errors English.
 - `.env` and `.env.example` stay 1:1.
-- TDD: failing test first, minimal code, targeted test, then `bun run check`. Frequent atomic commits to `dev`. Conventional-commit messages, body lines ≤ 100 chars, end with `Co-Authored-By: Claude <noreply@anthropic.com>`.
 - Never surface mock/dummy content as a successful AI response; VL vision failure → ask the user where to place the image, never fabricate.
 
 ---

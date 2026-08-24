@@ -237,7 +237,6 @@ Expected: PASS.
 
 ```bash
 git add src/lib/admin-projects.ts src/lib/admin-projects.test.ts
-git commit -m "feat(admin): add read-only project listing query" -m "Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -290,7 +289,6 @@ Expected: PASS.
 
 ```bash
 git add src/routes/api.admin.projects.ts
-git commit -m "feat(admin): expose read-only projects API" -m "Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---
@@ -441,7 +439,6 @@ Expected: PASS.
 
 ```bash
 git add src/components/admin/AdminTabs.tsx src/routes/_main.admin.projects.tsx src/routeTree.gen.ts
-git commit -m "feat(admin): add read-only projects page" -m "Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---

@@ -48,8 +48,9 @@ describe("snapshot restore route", () => {
       user: { id: "user_1" },
       expires: new Date().toISOString(),
     });
+    isSnapshotRestorableAgainstActiveHandoffMock.mockResolvedValue(true);
     prismaProjectFindFirstMock.mockResolvedValue({
-      generationEngine: "legacy-v1",
+      generationEngine: "contract",
       id: "project_1",
     });
     prismaProjectSnapshotFindFirstMock.mockResolvedValue({
