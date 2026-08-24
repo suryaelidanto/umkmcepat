@@ -378,25 +378,25 @@ function TabButton({
       tabIndex={active ? 0 : -1}
       onClick={onClick}
       onKeyDown={onKeyDown}
-      className="relative flex h-8 items-center gap-spacing-2 rounded-radius-sm px-spacing-3 py-spacing-1.5 transition text-xs font-medium focus-visible:outline-none cursor-pointer"
+      className="relative flex h-full items-center gap-1.5 rounded-[5px] px-2.5 py-0.5 text-[11px] font-semibold focus-visible:outline-none cursor-pointer transition-colors"
     >
       {active && (
         <motion.span
           layoutId={layoutId}
-          className="absolute inset-0 rounded-radius-sm bg-black/10 dark:bg-surface-warm-white/10"
-          transition={{ type: "spring", stiffness: 500, damping: 30 }}
+          className="absolute inset-0 rounded-[5px] bg-white shadow-xs border border-black/5 dark:bg-[#282824] dark:border-white/10 dark:shadow-sm"
+          transition={{ type: "spring", stiffness: 500, damping: 32 }}
         />
       )}
       <span
         className={cn(
-          "relative z-10 flex items-center gap-spacing-2",
+          "relative z-10 flex items-center gap-1.5 transition-colors",
           active
-            ? "text-[#1c1c1c] dark:text-surface-warm-white"
-            : "text-[#5f5f5d] hover:text-[#1c1c1c] dark:text-surface-warm-white/58 dark:hover:text-surface-warm-white",
+            ? "text-foreground dark:text-surface-warm-white"
+            : "text-muted-foreground hover:text-foreground dark:text-surface-warm-white/60 dark:hover:text-surface-warm-white",
         )}
       >
         {icon}
-        {children}
+        <span>{children}</span>
       </span>
     </button>
   );
