@@ -277,7 +277,7 @@ For behavior changes:
 4. Run the targeted test.
 5. Run `bun run check`.
 
-Never write TDD or unit tests for AI responses or stochastic model output. Never assert exact model prose, Indonesian phrasing, palette hues, font choices, layout structure, card counts, section order, visual-kit or recipe selection, decorative elements, or snapshots of generated source. Doing TDD on model wording or taste is forbidden. Test deterministic boundaries only: accepted facts, omissions, CTA destinations, routes, package/path policy, compilation, accessibility, browser operability, bounded call budgets, review completeness, and last-known-good preservation. Rendered quality belongs to calibrated visual review and blind corpus evaluation, not exact-response unit tests.
+Never write TDD or unit tests for AI responses, stochastic model output, or prose. Never assert exact model prose, Indonesian phrasing, answer text, palette hues, font choices, layout structure, card counts, section order, visual-kit or recipe selection, decorative elements, or snapshots of generated source. When testing AI features or tools, test strictly deterministic mechanical invariants: JSON schema definitions (Zod), parser structural validity, presence of required keys, type narrowing, contract errors, action URLs/destinations, route topology, package policies, compilation, accessibility, and error fallbacks. Never assert the content/answer of an AI output. Rendered quality belongs to calibrated visual review and blind evaluation corpora, never unit tests.
 
 Test behavior boundaries and non-trivial logic, not private implementation details.
 
