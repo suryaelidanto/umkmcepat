@@ -11,8 +11,8 @@ import {
   Globe2,
   Menu,
   MessageCircle,
-  PanelLeftClose,
   Pencil,
+  X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import {
@@ -3298,61 +3298,61 @@ export function WorkspaceShell({
   const chatPanelContent = (
     <aside className={chatPanelClass}>
       <div className="flex min-w-0 items-center justify-between gap-2 px-spacing-1">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <button
-            type="button"
-            onClick={closeChatPanel}
-            className="hidden size-7 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-card text-foreground shadow-2xs transition-all hover:border-foreground/30 hover:bg-muted active:scale-95 cursor-pointer dark:border-white/15 dark:bg-[#252522] dark:hover:bg-[#2e2e2a] sm:inline-flex"
-            aria-label="Sembunyikan panel diskusi"
-            title="Sembunyikan panel diskusi"
-          >
-            <PanelLeftClose className="size-3.5 text-muted-foreground dark:text-surface-warm-white/70" />
-          </button>
-          <div className="flex min-w-0 flex-1 items-center gap-spacing-2">
-            {isRenaming ? (
-              <input
-                value={draftTitle}
-                onChange={(event) => setDraftTitle(event.target.value)}
-                onBlur={() => void saveProjectTitle()}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    void saveProjectTitle();
-                  }
+        <div className="flex min-w-0 flex-1 items-center gap-spacing-2">
+          {isRenaming ? (
+            <input
+              value={draftTitle}
+              onChange={(event) => setDraftTitle(event.target.value)}
+              onBlur={() => void saveProjectTitle()}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  void saveProjectTitle();
+                }
 
-                  if (event.key === "Escape") {
-                    setDraftTitle(projectTitle);
-                    setIsRenaming(false);
-                  }
-                }}
-                autoFocus
-                className="min-w-0 flex-1 rounded-radius-md border border-black/15 bg-black/[0.03] px-spacing-3 py-spacing-2 text-base font-semibold text-[#1c1c1c] outline-none focus:border-black/30 dark:border-surface-warm-white/12 dark:bg-surface-warm-white/8 dark:text-surface-warm-white dark:focus:border-surface-warm-white/30"
-              />
-            ) : (
-              <h1 className="truncate text-base font-semibold tracking-[-0.02em]">
-                {projectTitle}
-              </h1>
-            )}
-            {!readOnly && isRenaming ? (
-              <button
-                type="button"
-                onClick={() => void saveProjectTitle()}
-                className="rounded-full p-spacing-2 text-[#8ce99a] hover:bg-surface-warm-white/8"
-                aria-label="Simpan nama proyek"
-              >
-                <Check className="size-3.5" />
-              </button>
-            ) : !readOnly ? (
-              <button
-                type="button"
-                onClick={() => setIsRenaming(true)}
-                className="rounded-full p-spacing-2 text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:text-surface-warm-white/44 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white"
-                aria-label="Ubah nama proyek"
-              >
-                <Pencil className="size-3.5" />
-              </button>
-            ) : null}
-          </div>
+                if (event.key === "Escape") {
+                  setDraftTitle(projectTitle);
+                  setIsRenaming(false);
+                }
+              }}
+              autoFocus
+              className="min-w-0 flex-1 rounded-radius-md border border-black/15 bg-black/[0.03] px-spacing-3 py-spacing-2 text-base font-semibold text-[#1c1c1c] outline-none focus:border-black/30 dark:border-surface-warm-white/12 dark:bg-surface-warm-white/8 dark:text-surface-warm-white dark:focus:border-surface-warm-white/30"
+            />
+          ) : (
+            <h1 className="truncate text-base font-semibold tracking-[-0.02em]">
+              {projectTitle}
+            </h1>
+          )}
+          {!readOnly && isRenaming ? (
+            <button
+              type="button"
+              onClick={() => void saveProjectTitle()}
+              className="rounded-full p-spacing-2 text-[#8ce99a] hover:bg-surface-warm-white/8"
+              aria-label="Simpan nama proyek"
+            >
+              <Check className="size-3.5" />
+            </button>
+          ) : !readOnly ? (
+            <button
+              type="button"
+              onClick={() => setIsRenaming(true)}
+              className="rounded-full p-spacing-2 text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:text-surface-warm-white/44 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white"
+              aria-label="Ubah nama proyek"
+            >
+              <Pencil className="size-3.5" />
+            </button>
+          ) : null}
         </div>
+
+        {/* Close Chat Panel (X Button on right side) */}
+        <button
+          type="button"
+          onClick={closeChatPanel}
+          className="hidden size-7 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-card text-foreground shadow-2xs transition-all hover:border-foreground/30 hover:bg-muted active:scale-95 cursor-pointer dark:border-white/15 dark:bg-[#252522] dark:hover:bg-[#2e2e2a] sm:inline-flex"
+          aria-label="Tutup panel diskusi (layar penuh tampilan)"
+          title="Tutup panel diskusi"
+        >
+          <X className="size-3.5 text-muted-foreground hover:text-foreground dark:text-surface-warm-white/70 dark:hover:text-surface-warm-white" />
+        </button>
       </div>
 
       <div className="relative flex min-h-0 flex-1 flex-col mt-spacing-5">
