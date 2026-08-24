@@ -3263,7 +3263,7 @@ export function WorkspaceShell({
   }
 
   const chatPanelClass =
-    "flex h-full min-h-0 min-w-0 overflow-x-hidden flex-col bg-[#eceae4] p-spacing-4 text-[#1c1c1c] transition-colors duration-200 dark:bg-[#1b1b19] dark:text-surface-warm-white sm:p-spacing-5";
+    "flex h-full min-h-0 min-w-0 overflow-x-hidden flex-col bg-[#eceae4] text-[#1c1c1c] transition-colors duration-200 dark:bg-[#1b1b19] dark:text-surface-warm-white";
   const previewPanelClass = "h-full min-h-0 min-w-0";
 
   const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -3297,8 +3297,8 @@ export function WorkspaceShell({
 
   const chatPanelContent = (
     <aside className={chatPanelClass}>
-      <div className="flex min-w-0 items-center justify-between gap-2 px-spacing-1">
-        <div className="flex min-w-0 flex-1 items-center gap-spacing-2">
+      <div className="flex h-11 shrink-0 items-center justify-between gap-2 border-b border-black/10 bg-[#f4f2ec] px-4 transition-colors dark:border-surface-warm-white/10 dark:bg-[#121210]">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           {isRenaming ? (
             <input
               value={draftTitle}
@@ -3315,10 +3315,10 @@ export function WorkspaceShell({
                 }
               }}
               autoFocus
-              className="min-w-0 flex-1 rounded-radius-md border border-black/15 bg-black/[0.03] px-spacing-3 py-spacing-2 text-base font-semibold text-[#1c1c1c] outline-none focus:border-black/30 dark:border-surface-warm-white/12 dark:bg-surface-warm-white/8 dark:text-surface-warm-white dark:focus:border-surface-warm-white/30"
+              className="min-w-0 flex-1 rounded-radius-md border border-black/15 bg-black/[0.03] px-spacing-3 py-spacing-2 text-xs font-bold text-[#1c1c1c] outline-none focus:border-black/30 dark:border-surface-warm-white/12 dark:bg-surface-warm-white/8 dark:text-surface-warm-white dark:focus:border-surface-warm-white/30"
             />
           ) : (
-            <h1 className="truncate text-base font-semibold tracking-[-0.02em]">
+            <h1 className="truncate text-xs font-bold tracking-tight text-foreground dark:text-surface-warm-white">
               {projectTitle}
             </h1>
           )}
@@ -3326,7 +3326,7 @@ export function WorkspaceShell({
             <button
               type="button"
               onClick={() => void saveProjectTitle()}
-              className="rounded-full p-spacing-2 text-[#8ce99a] hover:bg-surface-warm-white/8"
+              className="rounded-full p-1 text-[#8ce99a] hover:bg-surface-warm-white/8"
               aria-label="Simpan nama proyek"
             >
               <Check className="size-3.5" />
@@ -3335,10 +3335,10 @@ export function WorkspaceShell({
             <button
               type="button"
               onClick={() => setIsRenaming(true)}
-              className="rounded-full p-spacing-2 text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:text-surface-warm-white/44 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white"
+              className="rounded-full p-1 text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:text-surface-warm-white/44 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white"
               aria-label="Ubah nama proyek"
             >
-              <Pencil className="size-3.5" />
+              <Pencil className="size-3" />
             </button>
           ) : null}
         </div>
@@ -3355,7 +3355,7 @@ export function WorkspaceShell({
         </button>
       </div>
 
-      <div className="relative flex min-h-0 flex-1 flex-col mt-spacing-5">
+      <div className="relative flex min-h-0 flex-1 flex-col p-4">
         <div
           ref={chatScrollRef}
           onWheel={(event) => {
