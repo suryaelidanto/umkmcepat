@@ -324,7 +324,7 @@ export function EnergyLedger({
 
                 {/* Energy amount debit */}
                 <div className="flex shrink-0 flex-col items-end pl-2">
-                  <span className="font-mono text-xs font-bold text-amber-600 dark:text-amber-400">
+                  <span className="font-mono text-xs font-bold text-foreground/90 dark:text-surface-warm-white">
                     {formatNumber(entry.amount)}
                   </span>
                   <span className="text-[10px] font-medium text-muted-foreground">

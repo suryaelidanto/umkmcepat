@@ -109,10 +109,10 @@ export function EnergyDisplay({ projectId }: { projectId?: string }) {
       <button
         type="button"
         onClick={() => setModalOpen(true)}
-        className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-amber-500/40 bg-amber-500/15 px-2.5 py-1 text-[11px] font-bold text-amber-900 shadow-2xs transition-all hover:bg-amber-500/25 active:scale-95 dark:border-amber-400/40 dark:bg-amber-400/20 dark:text-amber-200 dark:hover:bg-amber-400/30 focus:outline-none"
+        className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-border/90 bg-card px-2.5 py-1 text-[11px] font-semibold text-foreground shadow-2xs transition-all hover:border-foreground/30 hover:bg-muted active:scale-95 dark:border-white/15 dark:bg-[#252522] dark:hover:bg-[#2e2e2a] dark:text-surface-warm-white focus-visible:outline-none"
         title="Tambah Energi"
       >
-        <PlusIcon className="size-3" />
+        <PlusIcon className="size-3 text-muted-foreground dark:text-surface-warm-white/70" />
         <span>Tambah</span>
       </button>
 
