@@ -25,12 +25,13 @@ type SnapshotSummary = {
   parentSnapshotId: string | null;
   published: boolean;
   restorable: boolean;
+  summary?: string | null;
 };
 
 const KIND_LABEL: Record<string, string> = {
-  edit: "Hasil Edit",
-  initial: "Hasil Pembuatan",
-  repair: "Hasil Perbaikan",
+  edit: "Pembaruan",
+  initial: "Pembuatan Awal",
+  repair: "Pembaruan",
   restore: "Versi Dipilih",
 };
 
@@ -258,6 +259,12 @@ export function WorkspaceHistoryDrawer({
                           </span>
                         ) : null}
                       </div>
+
+                      {snapshot.summary ? (
+                        <p className="line-clamp-2 text-xs leading-relaxed text-foreground/80 dark:text-surface-warm-white/75">
+                          {snapshot.summary}
+                        </p>
+                      ) : null}
 
                       <span className="text-xs text-muted-foreground dark:text-surface-warm-white/55">
                         Dibuat {formatDate(snapshot.createdAt)}

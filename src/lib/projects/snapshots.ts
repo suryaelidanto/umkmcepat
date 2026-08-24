@@ -11,6 +11,7 @@ export type SnapshotSummary = {
   parentSnapshotId: string | null;
   published: boolean;
   restorable: boolean;
+  summary: string | null;
 };
 
 export type SnapshotKind = "initial" | "edit" | "repair" | "restore";
@@ -121,8 +122,58 @@ export async function listSnapshots(
         parentSnapshotId: snapshot.parentSnapshotId,
         published: publishedSnapshotIds.has(snapshot.id),
         restorable,
+        summary: extractSnapshotSummary(snapshot.metadata),
       };
     });
+}
+
+export function extractSnapshotSummary(metadata: unknown): string | null {
+  if (!metadata || typeof metadata !== "object") {
+    return null;
+  }
+  const meta = metadata as {
+    generation?: {
+      summary?: string;
+      operationTrace?: Array<{ title?: string; detail?: string }>;
+    };
+    description?: string;
+    summary?: string | { businessName?: string };
+  };
+
+  if (
+    typeof meta.generation?.summary === "string" &&
+    meta.generation.summary.trim()
+  ) {
+    const raw = meta.generation.summary.trim();
+    if (!raw.startsWith("Website successfully generated")) {
+      return raw;
+    }
+  }
+
+  if (
+    Array.isArray(meta.generation?.operationTrace) &&
+    meta.generation.operationTrace.length > 0
+  ) {
+    const customOps = meta.generation.operationTrace
+      .filter(
+        (op) =>
+          op.title &&
+          !op.title.startsWith("Membaca") &&
+          !op.title.startsWith("Mengecek") &&
+          !op.title.startsWith("Memeriksa"),
+      )
+      .map((op) => op.title?.trim())
+      .filter(Boolean);
+    if (customOps.length > 0) {
+      return customOps.slice(0, 3).join(", ");
+    }
+  }
+
+  if (typeof meta.description === "string" && meta.description.trim()) {
+    return meta.description.trim();
+  }
+
+  return null;
 }
 
 export function countFiles(files: unknown): number | null {
