@@ -102,8 +102,8 @@ describe("ProcessingControl copy", () => {
         onStop: vi.fn(),
       }),
     );
-    expect(markupStreaming).toContain("AI sedang menulis balasan...");
-    expect(markupStreaming).toContain("Balasan AI akan muncul di atas.");
+    expect(markupStreaming).toContain("AI sedang menulis...");
+    expect(markupStreaming).toContain("Teks sedang diketik di atas.");
 
     const markupCard = renderToStaticMarkup(
       createElement(ProcessingControl, {
@@ -112,8 +112,8 @@ describe("ProcessingControl copy", () => {
         onStop: vi.fn(),
       }),
     );
-    expect(markupCard).toContain("Menyiapkan pertanyaan berikutnya...");
-    expect(markupCard).toContain("Merangkum konteks dan opsi jawaban.");
+    expect(markupCard).toContain("Menyiapkan pertanyaan...");
+    expect(markupCard).toContain("Tunggu sebentar ya.");
 
     const markupOptions = renderToStaticMarkup(
       createElement(ProcessingControl, {
@@ -122,8 +122,8 @@ describe("ProcessingControl copy", () => {
         onStop: vi.fn(),
       }),
     );
-    expect(markupOptions).toContain("Sedang menyiapkan pilihan...");
-    expect(markupOptions).toContain("Merangkum opsi terbaik untukmu.");
+    expect(markupOptions).toContain("Menyiapkan pilihan...");
+    expect(markupOptions).toContain("Menyiapkan opsi jawaban untukmu.");
 
     const markupRetryingResponse = renderToStaticMarkup(
       createElement(ProcessingControl, {
@@ -134,7 +134,7 @@ describe("ProcessingControl copy", () => {
     );
     expect(markupRetryingResponse).toContain("Menyempurnakan balasan...");
     expect(markupRetryingResponse).toContain(
-      "Tunggu sebentar, AI sedang menyusun ulang teks.",
+      "Tunggu sebentar, AI sedang menyusun ulang.",
     );
 
     const markupRetryingCard = renderToStaticMarkup(
@@ -144,10 +144,8 @@ describe("ProcessingControl copy", () => {
         onStop: vi.fn(),
       }),
     );
-    expect(markupRetryingCard).toContain("Menata ulang pilihan jawaban...");
-    expect(markupRetryingCard).toContain(
-      "Sedang menyiapkan tombol pilihan untukmu.",
-    );
+    expect(markupRetryingCard).toContain("Menata ulang pilihan...");
+    expect(markupRetryingCard).toContain("Sedang menyiapkan tombol pilihan.");
   });
 });
 

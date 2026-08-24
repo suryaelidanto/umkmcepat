@@ -217,10 +217,34 @@ async function getParsePartialJson() {
   return parsePartialJsonFn;
 }
 
+export function extractPartialAssistantTextFromToolJson(
+  partialToolJson: string,
+): string {
+  const match = /"assistantText"\s*:\s*"((?:[^"\\]|\\.)*)/.exec(
+    partialToolJson,
+  );
+  if (!match || !match[1]) {
+    return "";
+  }
+  try {
+    return JSON.parse(`"${match[1]}"`) as string;
+  } catch {
+    return match[1].replace(/\\n/g, "\n").replace(/\\"/g, '"');
+  }
+}
+
 export async function nextAssistantTextDeltaFromPartialToolJson(
   partialToolJson: string,
   alreadyStreamed: string,
 ): Promise<{ delta: string; seenText: string }> {
+  const directText = extractPartialAssistantTextFromToolJson(partialToolJson);
+  if (directText && directText.startsWith(alreadyStreamed)) {
+    return {
+      delta: directText.slice(alreadyStreamed.length),
+      seenText: directText,
+    };
+  }
+
   const parsePartialJson = await getParsePartialJson();
   const { value } = await parsePartialJson(partialToolJson);
   const partial = extractPartialAssistantTextFromToolInput(value);
@@ -293,9 +317,14 @@ This is an edit request, not an interview. Never put type at the top level witho
   return `${buildChatSystemPrompt({ brief, context, hasBuiltSite })}${photoRule}
 
 CRITICAL OUTPUT:
-Call ${PRESENT_WORKSPACE_CARD_TOOL_NAME} exactly once. Tool input MUST include:
-- assistantText: EXACTLY ONE short Indonesian chat sentence (max 20 words, aku/kamu) acknowledging the answer or greeting the user
-- workspaceCard: the next workspace card as a nested object
+Call ${PRESENT_WORKSPACE_CARD_TOOL_NAME} exactly once.
+The tool arguments JSON MUST have "assistantText" as the VERY FIRST key:
+{
+  "assistantText": "EXACTLY ONE short Indonesian chat sentence (max 20 words, aku/kamu)",
+  "workspaceCard": { ... },
+  "briefPatch": { ... }
+}
+Put the user-visible reply in assistantText, never as free chat text outside the tool.
 
 INTERVIEW DISCIPLINE — one question per turn:
 - Emit EXACTLY ONE question per turn via type="question". Never use type="questions".

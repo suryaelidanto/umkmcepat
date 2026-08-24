@@ -278,20 +278,20 @@ export function ProcessingControl({
   onStop: () => void;
 }) {
   const discussTitles: Record<NonNullable<typeof discussPhase>, string> = {
-    streaming: "AI sedang menulis balasan...",
-    preparing_options: "Sedang menyiapkan pilihan...",
-    preparing_card: "Menyiapkan pertanyaan berikutnya...",
+    streaming: "AI sedang menulis...",
+    preparing_options: "Menyiapkan pilihan...",
+    preparing_card: "Menyiapkan pertanyaan...",
     retrying_response: "Menyempurnakan balasan...",
-    retrying_card: "Menata ulang pilihan jawaban...",
-    processing: "AI sedang menganalisis jawaban...",
+    retrying_card: "Menata ulang pilihan...",
+    processing: "AI sedang merespons...",
   };
   const discussDetails: Record<NonNullable<typeof discussPhase>, string> = {
-    streaming: "Balasan AI akan muncul di atas.",
-    preparing_options: "Merangkum opsi terbaik untukmu.",
-    preparing_card: "Merangkum konteks dan opsi jawaban.",
-    retrying_response: "Tunggu sebentar, AI sedang menyusun ulang teks.",
-    retrying_card: "Sedang menyiapkan tombol pilihan untukmu.",
-    processing: "Merangkum konteks untuk langkah berikutnya.",
+    streaming: "Teks sedang diketik di atas.",
+    preparing_options: "Menyiapkan opsi jawaban untukmu.",
+    preparing_card: "Tunggu sebentar ya.",
+    retrying_response: "Tunggu sebentar, AI sedang menyusun ulang.",
+    retrying_card: "Sedang menyiapkan tombol pilihan.",
+    processing: "Tunggu sebentar ya.",
   };
 
   const activeDiscussPhase = discussPhase ?? "processing";
