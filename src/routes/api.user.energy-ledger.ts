@@ -49,6 +49,13 @@ export const Route = createFileRoute("/api/user/energy-ledger")({
             outputTokens: true,
             amount: true,
             projectId: true,
+            pricedModelId: true,
+            rawModelId: true,
+            project: {
+              select: {
+                title: true,
+              },
+            },
           },
         });
 
@@ -61,6 +68,8 @@ export const Route = createFileRoute("/api/user/energy-ledger")({
             outputTokens: row.outputTokens,
             amount: row.amount,
             projectId: row.projectId,
+            projectTitle: row.project?.title ?? null,
+            modelId: row.pricedModelId || row.rawModelId || null,
           })),
         });
       },
