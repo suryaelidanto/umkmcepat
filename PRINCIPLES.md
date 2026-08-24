@@ -6,34 +6,42 @@ A senior engineer values simplicity, organization, and durability over clever co
 
 ---
 
-## 1. Product & UX
+## 1. Core Engineering Mindset
 
-- Build for the job a real user needs to finish, not a speculative feature list.
-- One obvious, useful path beats five half-working settings.
-- Cut scope before cutting correctness or performance.
-- Interface copy in user-facing flows must be plain, active Indonesian.
-- Empty, loading, error, and recovery states are core product views, not afterthoughts.
+- **Optimize for software lifetime**, not just the moment code is written.
+- Code is read far more often than it is written. Write for humans first, computers second.
+- **Maintainability, readability, testability, operability, debuggability, security, and simplicity are core features.**
+- Treat complexity as a cost that compounds over time.
+- Treat unnecessary dependencies as future coordination debt.
+- Treat every abstraction as something that must earn its existence with at least two real use cases.
+- Prefer boring correctness over impressive cleverness.
+- Prefer obvious code over ingenious code.
+- Prefer explicit intent over hidden intelligence.
+- Never follow a pattern merely because it has a famous name.
+- Never confuse more architecture with better architecture.
+- Never confuse cleverness with elegance.
+- Pursue excellence without allowing unattainable perfection to block useful, working improvements.
+- Leave every file and domain cleaner than you found it.
 
 ---
 
-## 2. Engineering Mindset & Simplicity
+## 2. Simplicity & YAGNI
 
-- **YAGNI extremist.** The best code is the code you never wrote.
-- Stop at the first rung that holds:
-  1. Does this need to exist at all? If no, delete.
-  2. Standard library does it? Use standard library.
-  3. Native platform feature covers it? Use CSS or database constraints over custom JS.
-  4. Existing dependency covers it? Use it; never add a new dependency for what a few lines can do.
-  5. Minimum code that works reliably.
-- No single-use interfaces, no factories for one product, no config for values that never change.
-- A 50-line surgical fix beats a 500-line refactor.
+- Simplicity is the highest form of engineering sophistication.
+- Minimize the number of concepts a developer must hold in memory simultaneously.
+- Isolate essential complexity; ruthlessly delete incidental complexity.
+- Do not solve problems that do not exist today.
+- Do not build speculative infrastructure or extension points without proven variation.
+- Do not introduce configuration when a sensible default works.
+- Do not create layers that merely forward calls, or wrappers that hide nothing.
+- Code that does not exist cannot contain bugs or break in production.
+- Make the correct path obvious and easy; make misuse and invalid states difficult or impossible to represent.
 
 ### Examples: Simplicity & Abstraction
 
-**BAD:**
+**BAD (Over-engineered factory with single implementation):**
 
 ```ts
-// Over-engineered factory with single implementation
 interface ButtonFactory {
   createButton(type: string): JSX.Element;
 }
@@ -42,10 +50,9 @@ class PrimaryButtonFactory implements ButtonFactory {
 }
 ```
 
-**GREAT:**
+**GREAT (Direct, plain, zero-indirection component):**
 
 ```tsx
-// Direct, plain component call
 export function ActionButton({
   label,
   onClick,
@@ -59,11 +66,11 @@ export function ActionButton({
 
 ---
 
-## 3. Architecture & Organization
+## 3. Architecture & Domain Organization
 
-- **Domain before file type.** Group by product feature or business domain (`src/components/admin/`, `src/lib/projects/`). Never create generic catch-all folders (`hooks/`, `utils/`, `helpers/`, `misc/`).
-- **Colocated tests.** Place unit and component tests directly beside the file they test (`foo.ts` + `foo.test.ts`). Top-level `tests/` is strictly for cross-domain integration, real DB infrastructure tests, or browser automation.
-- **Deep modules, small interfaces.** Hide complex internal logic behind a concise, stable export.
+- **Domain before file type**: Group by product feature or business domain (`src/components/admin/`, `src/lib/projects/`). Never create generic catch-all folders (`hooks/`, `utils/`, `helpers/`, `misc/`, `temp/`, `stuff/`).
+- **Colocated tests**: Single-module unit and component tests sit directly beside the file they test (`foo.ts` + `foo.test.ts`). Top-level `tests/` is strictly for cross-domain integration, real DB infrastructure, or browser automation.
+- **Deep modules, small interfaces**: Hide complex internal logic behind a concise, stable export.
 
 ### Examples: Folder Structure
 
@@ -97,7 +104,7 @@ src/
 
 ## 4. Zero-Tolerance Type Safety
 
-- **No `any` or `as any`.** `any` disables the compiler and hides runtime bugs.
+- **No `any` or `as any`**. `any` disables the compiler and hides runtime bugs.
 - Use `unknown` with type narrowing (e.g. `typeof`, `instanceof`, Zod parsing).
 - Fix root causes instead of adding `@ts-ignore` or `eslint-disable`.
 
@@ -129,7 +136,7 @@ function parsePayload(data: unknown): string {
 
 ## 5. AI Invariants vs. Model Taste
 
-- **Never test stochastic AI responses or taste in unit tests.**
+- **Never test stochastic AI responses or taste in unit tests (Iron Law)**.
 - Tests assert deterministic mechanical invariants only:
   - Zod schemas and JSON structure
   - Required fields and type narrowing
