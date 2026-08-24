@@ -6,11 +6,11 @@ import {
   ExternalLink,
   Globe2,
   Loader2,
+  MessageSquare,
   MessageSquarePlus,
   Monitor,
   Redo2,
   Send,
-  Sidebar,
   Smartphone,
   Trash2,
   Undo2,
@@ -113,11 +113,11 @@ export function WorkspaceTopBar({
             <button
               type="button"
               onClick={openChatPanel}
-              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border/90 bg-card px-3 text-xs font-semibold text-foreground shadow-2xs transition-all hover:border-foreground/30 hover:bg-muted active:scale-95 cursor-pointer dark:border-white/15 dark:bg-[#252522] dark:hover:bg-[#2e2e2a] dark:text-surface-warm-white"
+              className="inline-flex h-8 items-center gap-2 rounded-lg border border-border/90 bg-card px-3 text-xs font-semibold text-foreground shadow-2xs transition-all hover:border-foreground/30 hover:bg-muted active:scale-95 cursor-pointer dark:border-white/15 dark:bg-[#252522] dark:hover:bg-[#2e2e2a] dark:text-surface-warm-white"
               aria-label="Buka panel diskusi"
               title="Buka panel diskusi"
             >
-              <Sidebar className="size-3.5 text-muted-foreground dark:text-surface-warm-white/70" />
+              <MessageSquare className="size-3.5 text-foreground/80 dark:text-surface-warm-white" />
               <span>Buka Diskusi</span>
             </button>
           ) : null}

@@ -11,8 +11,8 @@ import {
   Globe2,
   Menu,
   MessageCircle,
+  PanelLeftClose,
   Pencil,
-  Sidebar,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import {
@@ -3303,10 +3303,10 @@ export function WorkspaceShell({
             type="button"
             onClick={closeChatPanel}
             className="hidden size-7 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-card text-foreground shadow-2xs transition-all hover:border-foreground/30 hover:bg-muted active:scale-95 cursor-pointer dark:border-white/15 dark:bg-[#252522] dark:hover:bg-[#2e2e2a] sm:inline-flex"
-            aria-label="Layar penuh tampilan (sembunyikan diskusi)"
-            title="Layar penuh tampilan (sembunyikan diskusi)"
+            aria-label="Sembunyikan panel diskusi"
+            title="Sembunyikan panel diskusi"
           >
-            <Sidebar className="size-3.5 text-muted-foreground dark:text-surface-warm-white/70" />
+            <PanelLeftClose className="size-3.5 text-muted-foreground dark:text-surface-warm-white/70" />
           </button>
           <div className="flex min-w-0 flex-1 items-center gap-spacing-2">
             {isRenaming ? (
