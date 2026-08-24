@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  ArrowLeft,
   ChevronRight,
   Code2,
   ExternalLink,
@@ -108,9 +107,9 @@ export function WorkspaceTopBar({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   return (
     <>
-      {/* Tier 1: Global User Bar (Toggle panel, Dashboard link, Energy, Theme, Profile) */}
+      {/* Tier 1: Global User Bar (Toggle panel, Energy, Theme, Profile) */}
       <div className="hidden h-11 w-full items-center justify-between border-b border-black/10 bg-[#f4f2ec] px-4 text-[#1c1c1c] transition-colors duration-200 dark:border-surface-warm-white/10 dark:bg-[#121210] dark:text-surface-warm-white sm:flex">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={chatCollapsed ? openChatPanel : closeChatPanel}
@@ -124,13 +123,6 @@ export function WorkspaceTopBar({
               <PanelLeftClose className="size-4" />
             )}
           </button>
-          <a
-            href="/"
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-[#5f5f5d] transition-colors hover:text-[#1c1c1c] dark:text-surface-warm-white/60 dark:hover:text-surface-warm-white"
-          >
-            <ArrowLeft className="size-3.5" />
-            <span>Dashboard</span>
-          </a>
         </div>
 
         <div className="flex items-center gap-3.5">

@@ -67,7 +67,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Link } from "@/components/ui/link";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -3312,14 +3311,7 @@ export function WorkspaceShell({
     <aside className={chatPanelClass}>
       <div className="flex min-w-0 items-start justify-between gap-spacing-5 px-spacing-1">
         <div className="min-w-0 flex-1">
-          <Link
-            href="/"
-            className="hidden items-center gap-spacing-2 text-xs text-[#5f5f5d] transition-colors hover:text-[#1c1c1c] dark:text-surface-warm-white/58 dark:hover:text-surface-warm-white sm:inline-flex"
-          >
-            <ArrowLeft className="size-3.5" />
-            Dashboard
-          </Link>
-          <div className="hidden sm:flex mt-spacing-3 items-center gap-spacing-2">
+          <div className="flex items-center gap-spacing-2">
             {isRenaming ? (
               <input
                 value={draftTitle}
