@@ -383,7 +383,7 @@ function TabButton({
       {active && (
         <motion.span
           layoutId={layoutId}
-          className="absolute inset-0 rounded-[5px] bg-white shadow-xs border border-black/5 dark:bg-[#383833] dark:border-white/15 dark:shadow-md"
+          className="absolute inset-0 rounded-[5px] border border-border/90 bg-card shadow-xs dark:border-white/15 dark:bg-[#353530]"
           transition={{ type: "spring", stiffness: 500, damping: 32 }}
         />
       )}
@@ -391,8 +391,8 @@ function TabButton({
         className={cn(
           "relative z-10 flex items-center gap-1.5 transition-colors",
           active
-            ? "text-foreground dark:text-surface-warm-white"
-            : "text-muted-foreground hover:text-foreground dark:text-surface-warm-white/60 dark:hover:text-surface-warm-white",
+            ? "text-foreground font-bold"
+            : "text-muted-foreground hover:text-foreground",
         )}
       >
         {icon}
