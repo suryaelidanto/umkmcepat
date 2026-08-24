@@ -631,9 +631,9 @@ function RuntimeControl({
             target="_blank"
             rel="noreferrer"
             aria-label="Buka website yang diterbitkan"
-            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-[#1c1c1c] px-2.5 text-[11px] font-semibold text-white shadow-xs transition hover:bg-black dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-white"
+            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-black/10 bg-transparent px-2.5 text-[11px] font-medium text-[#1c1c1c] shadow-2xs transition hover:border-black/20 hover:bg-black/[0.04] dark:border-surface-warm-white/10 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/8"
           >
-            <ExternalLink className="size-3" />
+            <ExternalLink className="size-3 text-[#5f5f5d] dark:text-surface-warm-white/70" />
             <span>Buka Website</span>
           </a>
           {runtime.hasUnpublishedPreview ? (
@@ -642,7 +642,7 @@ function RuntimeControl({
               disabled={!runtime.canPublish || runtime.isPublishing}
               onClick={runtime.onPublish}
               aria-label={publishAriaLabel}
-              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-[#1c1c1c] px-2.5 text-[11px] font-semibold text-white shadow-xs transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-50 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-white"
+              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-[#1c1c1c] px-3 text-[11px] font-semibold text-white shadow-xs transition hover:bg-black active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-white cursor-pointer"
             >
               {runtime.isPublishing ? (
                 <Loader2 className="size-3 animate-spin" />
