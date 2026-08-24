@@ -77,23 +77,36 @@ export async function listSnapshots(
       .filter((snapshotId): snapshotId is string => Boolean(snapshotId)),
   );
 
-  return snapshots.map((snapshot) => {
-    const fileCount = countFiles(snapshot.files);
-    const restorable =
-      (fileCount != null && fileCount > 0) || Boolean(snapshot.sourceRef);
-    const build = buildBySnapshot.get(snapshot.id);
-    return {
-      buildId: build?.id ?? null,
-      buildStatus: build?.status ?? null,
-      createdAt: snapshot.createdAt,
-      fileCount,
-      id: snapshot.id,
-      kind: kindOf(snapshot.sourceType, snapshot.metadata),
-      parentSnapshotId: snapshot.parentSnapshotId,
-      published: publishedSnapshotIds.has(snapshot.id),
-      restorable,
-    };
-  });
+  return snapshots
+    .filter((snapshot) => {
+      const meta = snapshot.metadata as {
+        origin?: { generator?: string };
+      } | null;
+      if (meta?.origin?.generator === "generate-placeholder") {
+        return false;
+      }
+      const fileCount = countFiles(snapshot.files);
+      return (
+        (fileCount != null && fileCount > 0) || Boolean(snapshot.sourceRef)
+      );
+    })
+    .map((snapshot) => {
+      const fileCount = countFiles(snapshot.files);
+      const restorable =
+        (fileCount != null && fileCount > 0) || Boolean(snapshot.sourceRef);
+      const build = buildBySnapshot.get(snapshot.id);
+      return {
+        buildId: build?.id ?? null,
+        buildStatus: build?.status ?? null,
+        createdAt: snapshot.createdAt,
+        fileCount,
+        id: snapshot.id,
+        kind: kindOf(snapshot.sourceType, snapshot.metadata),
+        parentSnapshotId: snapshot.parentSnapshotId,
+        published: publishedSnapshotIds.has(snapshot.id),
+        restorable,
+      };
+    });
 }
 
 export function countFiles(files: unknown): number | null {
