@@ -8,10 +8,9 @@ import {
   Loader2,
   MessageSquarePlus,
   Monitor,
-  PanelLeftClose,
-  PanelLeftOpen,
   Redo2,
   Send,
+  Sidebar,
   Smartphone,
   Trash2,
   Undo2,
@@ -114,14 +113,14 @@ export function WorkspaceTopBar({
             type="button"
             onClick={chatCollapsed ? openChatPanel : closeChatPanel}
             className="inline-flex size-8 items-center justify-center rounded-lg border border-border/90 bg-card text-foreground shadow-2xs transition-all hover:border-foreground/30 hover:bg-muted active:scale-95 cursor-pointer dark:border-white/15 dark:bg-[#252522] dark:hover:bg-[#2e2e2a] dark:text-surface-warm-white"
-            aria-label={chatCollapsed ? "Buka panel chat" : "Tutup panel chat"}
-            title={chatCollapsed ? "Buka panel chat" : "Tutup panel chat"}
+            aria-label={
+              chatCollapsed ? "Buka panel diskusi" : "Sembunyikan panel diskusi"
+            }
+            title={
+              chatCollapsed ? "Buka panel diskusi" : "Sembunyikan panel diskusi"
+            }
           >
-            {chatCollapsed ? (
-              <PanelLeftOpen className="size-4" />
-            ) : (
-              <PanelLeftClose className="size-4" />
-            )}
+            <Sidebar className="size-4" />
           </button>
         </div>
 

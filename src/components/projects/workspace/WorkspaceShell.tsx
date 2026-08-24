@@ -11,8 +11,6 @@ import {
   Globe2,
   Menu,
   MessageCircle,
-  PanelRightClose,
-  PanelRightOpen,
   Pencil,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -1374,7 +1372,6 @@ export function WorkspaceShell({
   });
   const hasPreview = shouldRenderGeneratedPreview;
   const showPreviewPanel = !previewCollapsed;
-  const showChatPanel = !chatCollapsed;
   const hasAnsweredActiveQuestion = hasAnsweredWorkspaceQuestion({
     card: workspaceCard,
     messages: allMessages,
@@ -3234,16 +3231,6 @@ export function WorkspaceShell({
     return () => window.clearTimeout(timeout);
   }, [clearError, rateLimitError]);
 
-  function closePreviewPanel() {
-    if (!showChatPanel) {
-      return;
-    }
-
-    chatPanelRef.current?.resize("100%");
-    previewPanelRef.current?.collapse();
-    window.setTimeout(() => setPreviewCollapsed(true), 300);
-  }
-
   function closeChatPanel() {
     if (!showPreviewPanel) {
       return;
@@ -3355,25 +3342,6 @@ export function WorkspaceShell({
               </button>
             ) : null}
           </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-spacing-2">
-          <button
-            type="button"
-            onClick={showPreviewPanel ? closePreviewPanel : openPreviewPanel}
-            className="hidden size-8 items-center justify-center rounded-lg border border-border/90 bg-card text-foreground shadow-2xs transition-all hover:border-foreground/30 hover:bg-muted active:scale-95 cursor-pointer dark:border-white/15 dark:bg-[#252522] dark:hover:bg-[#2e2e2a] dark:text-surface-warm-white lg:inline-flex"
-            aria-label={showPreviewPanel ? "Tutup tampilan" : "Buka tampilan"}
-            title={
-              showPreviewPanel
-                ? "Tutup tampilan preview"
-                : "Buka tampilan preview"
-            }
-          >
-            {showPreviewPanel ? (
-              <PanelRightClose className="size-4" />
-            ) : (
-              <PanelRightOpen className="size-4" />
-            )}
-          </button>
         </div>
       </div>
 
