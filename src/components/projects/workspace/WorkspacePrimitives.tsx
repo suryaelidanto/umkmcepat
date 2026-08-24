@@ -24,7 +24,6 @@ import { useState } from "react";
 
 import { AuthButton } from "@/components/common/AuthButton";
 import { EnergyDisplay } from "@/components/common/EnergyDisplay";
-import { EnergyLedgerButton } from "@/components/common/EnergyLedgerButton";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { WorkspaceHistoryButton } from "@/components/projects/workspace/WorkspaceHistoryDrawer";
 import { Button } from "@/components/ui/button";
@@ -261,8 +260,9 @@ export function WorkspaceTopBar({
           className="hidden"
         />
 
-        {/* Desktop cluster (unchanged) */}
-        <div className="hidden min-w-0 w-full items-center justify-between gap-spacing-2 sm:flex sm:w-auto sm:shrink-0 sm:justify-end sm:gap-spacing-3">
+        {/* Desktop cluster: 1) Project Canvas Tools, 2) Project Actions, 3) User Preferences & Billing */}
+        <div className="hidden min-w-0 w-full items-center justify-between gap-3 sm:flex sm:w-auto sm:shrink-0 sm:justify-end sm:gap-4">
+          {/* Direct edit controls (if active) */}
           {directEditFlagEnabled && directEditActive && directEditActions ? (
             <div className="flex items-center gap-spacing-1">
               <button
@@ -302,21 +302,28 @@ export function WorkspaceTopBar({
               </Button>
             </div>
           ) : null}
-          {projectId ? (
-            <WorkspaceHistoryButton
-              projectId={projectId}
-              activeSnapshotId={runtime?.activeSnapshotId}
-              onCheckout={runtime?.onReload}
-            />
-          ) : null}
-          {projectId ? <EnergyLedgerButton projectId={projectId} /> : null}
-          {runtime ? <RuntimeControl runtime={runtime} /> : null}
 
-          <div className="hidden h-4 w-px bg-black/10 dark:bg-surface-warm-white/10 sm:block" />
+          {/* Section 1: Project Actions (History & Publish/Visit) */}
+          <div className="flex items-center gap-2">
+            {projectId ? (
+              <WorkspaceHistoryButton
+                projectId={projectId}
+                activeSnapshotId={runtime?.activeSnapshotId}
+                onCheckout={runtime?.onReload}
+              />
+            ) : null}
+            {runtime ? <RuntimeControl runtime={runtime} /> : null}
+          </div>
 
-          <EnergyDisplay />
-          <ThemeToggle />
-          <AuthButton />
+          {/* Clear section divider between project tools and user account */}
+          <div className="h-5 w-px bg-black/15 dark:bg-surface-warm-white/15" />
+
+          {/* Section 2: User Preferences & Billing */}
+          <div className="flex items-center gap-2.5">
+            <EnergyDisplay projectId={projectId} />
+            <ThemeToggle />
+            <AuthButton />
+          </div>
         </div>
       </div>
       <MobileSheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
@@ -502,13 +509,6 @@ export function MobileMenuContent({
               variant="row"
               activeSnapshotId={runtime?.activeSnapshotId}
               onCheckout={runtime?.onReload}
-            />
-          ) : null}
-          {projectId ? (
-            <EnergyLedgerButton
-              onActivate={onClose}
-              projectId={projectId}
-              variant="row"
             />
           ) : null}
           {projectId ? (
