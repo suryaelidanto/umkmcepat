@@ -1,16 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import {
-  Check,
-  ChevronDown,
-  ChevronRight,
-  ChevronUp,
-  Globe,
-  History,
-  Layout,
-  ListChecks,
-} from "lucide-react";
+import { Check, ChevronRight, Globe, History, Layout } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -85,7 +76,7 @@ export function WorkspaceHistoryButton({
         className={
           isRow
             ? "inline-flex h-11 w-full items-center gap-spacing-3 rounded-radius-md px-spacing-3 text-sm text-[#1c1c1c] hover:bg-black/5 dark:text-surface-warm-white/82 dark:hover:bg-surface-warm-white/8"
-            : "inline-flex h-9 items-center gap-1.5 rounded-lg border border-black/10 bg-transparent px-2.5 text-xs font-medium text-[#5f5f5d] transition-colors hover:border-black/20 hover:bg-black/[0.04] hover:text-[#1c1c1c] dark:border-surface-warm-white/10 dark:bg-transparent dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white"
+            : "inline-flex h-8 items-center gap-1.5 rounded-lg border border-border/90 bg-card px-2.5 text-[11px] font-semibold text-foreground shadow-2xs transition-all hover:border-foreground/30 hover:bg-muted active:scale-95 cursor-pointer dark:border-white/15 dark:bg-[#252522] dark:hover:bg-[#2e2e2a] dark:text-surface-warm-white"
         }
       >
         <History
@@ -130,9 +121,6 @@ export function WorkspaceHistoryDrawer({
   const [selectedSnapshotId, setSelectedSnapshotId] = useState<string | null>(
     activeSnapshotId ?? null,
   );
-  const [expandedDetails, setExpandedDetails] = useState<
-    Record<string, boolean>
-  >({});
 
   const { data, isLoading, error } = useQuery({
     enabled: open,
@@ -187,10 +175,6 @@ export function WorkspaceHistoryDrawer({
 
   const currentActiveId = selectedSnapshotId ?? snapshots[0]?.id;
 
-  const toggleDetails = (id: string) => {
-    setExpandedDetails((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[85dvh] flex-col gap-spacing-6 overflow-hidden sm:max-w-2xl">
@@ -234,8 +218,6 @@ export function WorkspaceHistoryDrawer({
             {snapshots.map((snapshot) => {
               const label = KIND_LABEL[snapshot.kind] ?? snapshot.kind;
               const isActive = snapshot.id === currentActiveId;
-              const changes = snapshot.changes ?? [];
-              const isExpanded = Boolean(expandedDetails[snapshot.id]);
 
               return (
                 <li
@@ -283,21 +265,22 @@ export function WorkspaceHistoryDrawer({
                         <span className="text-xs text-muted-foreground dark:text-surface-warm-white/55">
                           Dibuat {formatDate(snapshot.createdAt)}
                         </span>
+
+                        {snapshot.summary ? (
+                          <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground dark:text-surface-warm-white/70">
+                            {snapshot.summary}
+                          </p>
+                        ) : null}
                       </div>
                     </div>
 
                     {/* Action Button */}
                     <div className="flex shrink-0 items-center justify-end sm:pl-2">
                       {isActive ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled
-                          className="h-9 px-4 text-xs font-semibold text-foreground/75 opacity-90"
-                        >
-                          <Check className="mr-1.5 size-4 text-emerald-600 dark:text-emerald-400" />
-                          Aktif
-                        </Button>
+                        <div className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3.5 text-xs font-bold text-emerald-600 dark:border-emerald-400/30 dark:bg-emerald-400/15 dark:text-emerald-400">
+                          <Check className="size-3.5" />
+                          <span>Aktif</span>
+                        </div>
                       ) : (
                         <Button
                           size="sm"
@@ -320,36 +303,6 @@ export function WorkspaceHistoryDrawer({
                       )}
                     </div>
                   </div>
-
-                  {/* Changelog & AI Details Accordion */}
-                  {changes.length > 0 ? (
-                    <div className="mt-3 border-t border-border/60 pt-2.5">
-                      <button
-                        type="button"
-                        onClick={() => toggleDetails(snapshot.id)}
-                        className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
-                      >
-                        <ListChecks className="size-3.5 text-primary" />
-                        <span>Rincian perubahan ({changes.length})</span>
-                        {isExpanded ? (
-                          <ChevronUp className="size-3.5" />
-                        ) : (
-                          <ChevronDown className="size-3.5" />
-                        )}
-                      </button>
-
-                      {isExpanded ? (
-                        <ul className="mt-2.5 space-y-1.5 rounded-xl bg-muted/40 p-3 text-xs leading-relaxed text-foreground/85 dark:bg-black/20 dark:text-surface-warm-white/80">
-                          {changes.map((item, idx) => (
-                            <li key={idx} className="flex items-start gap-2">
-                              <span className="mt-1 size-1.5 shrink-0 rounded-full bg-primary" />
-                              <span>{item}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : null}
-                    </div>
-                  ) : null}
                 </li>
               );
             })}

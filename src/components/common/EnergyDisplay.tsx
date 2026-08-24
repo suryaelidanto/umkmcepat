@@ -83,7 +83,7 @@ export function EnergyDisplay({ projectId }: { projectId?: string }) {
   return (
     <div className="flex items-center gap-1.5 sm:gap-2">
       <div
-        className="flex cursor-pointer items-center gap-1 rounded-lg border border-black/5 bg-black/[0.03] px-2 py-1 transition-colors hover:bg-black/[0.06] dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] sm:gap-1.5"
+        className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-border/90 bg-card px-2.5 py-1 shadow-2xs transition-colors hover:border-foreground/30 hover:bg-muted dark:border-white/15 dark:bg-[#252522] dark:hover:bg-[#2e2e2a]"
         onClick={() => setLedgerOpen(true)}
         role="button"
         tabIndex={0}
@@ -96,12 +96,12 @@ export function EnergyDisplay({ projectId }: { projectId?: string }) {
         title="Klik untuk melihat riwayat pemakaian energi"
       >
         <div
-          className={`size-2 shrink-0 rounded-full ${isEmpty ? "bg-[#ffb4a6]" : isLow ? "bg-yellow-400" : "bg-green-400"} ${energyQuery.isFetching ? "animate-pulse" : ""}`}
+          className={`size-2 shrink-0 rounded-full ${isEmpty ? "bg-[#ffb4a6]" : isLow ? "bg-amber-400" : "bg-emerald-500"} ${energyQuery.isFetching ? "animate-pulse" : ""}`}
         />
-        <span className="text-xs font-semibold text-[#1c1c1c] dark:text-surface-warm-white/90">
+        <span className="text-xs font-bold text-foreground dark:text-surface-warm-white">
           {formatNumber(stats.remaining)}
         </span>
-        <span className="hidden text-xs text-[#5f5f5d] dark:text-surface-warm-white/50 md:inline">
+        <span className="hidden text-xs font-medium text-muted-foreground md:inline">
           Energi
         </span>
       </div>
@@ -109,10 +109,10 @@ export function EnergyDisplay({ projectId }: { projectId?: string }) {
       <button
         type="button"
         onClick={() => setModalOpen(true)}
-        className="inline-flex cursor-pointer items-center gap-0.5 rounded-full border border-accent-orange-border bg-accent-orange-subtle px-2 py-1 text-[11px] font-semibold text-accent-orange transition hover:opacity-90 active:scale-95 focus:outline-none"
+        className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-border/90 bg-card px-2.5 py-1 text-[11px] font-semibold text-foreground shadow-2xs transition-all hover:border-foreground/30 hover:bg-muted active:scale-95 dark:border-white/15 dark:bg-[#252522] dark:hover:bg-[#2e2e2a] dark:text-surface-warm-white focus-visible:outline-none"
         title="Tambah Energi"
       >
-        <PlusIcon className="size-3" />
+        <PlusIcon className="size-3 text-muted-foreground dark:text-surface-warm-white/70" />
         <span>Tambah</span>
       </button>
 

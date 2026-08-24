@@ -11,9 +11,8 @@ import {
   Globe2,
   Menu,
   MessageCircle,
-  PanelRightClose,
-  PanelRightOpen,
   Pencil,
+  X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import {
@@ -67,7 +66,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Link } from "@/components/ui/link";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -351,7 +349,7 @@ export function WorkspaceShell({
   );
   const [hasMoreChat, setHasMoreChat] = useState(initialChatHasMore);
   const [isLoadingOlderChat, setIsLoadingOlderChat] = useState(false);
-  const prompt = initialPrompt.trim();
+  const prompt = (initialPrompt ?? "").trim();
   const buildRecommendationStorageKey = `umkmcepat:build-recommendation-hold:${projectId}`;
   const buildRecommendationConsumedKey = `umkmcepat:build-recommendation-consumed:${projectId}`;
   const handoffProofStorageKey = `umkmcepat:handoff-proof:${projectId}`;
@@ -1375,7 +1373,6 @@ export function WorkspaceShell({
   });
   const hasPreview = shouldRenderGeneratedPreview;
   const showPreviewPanel = !previewCollapsed;
-  const showChatPanel = !chatCollapsed;
   const hasAnsweredActiveQuestion = hasAnsweredWorkspaceQuestion({
     card: workspaceCard,
     messages: allMessages,
@@ -3235,16 +3232,6 @@ export function WorkspaceShell({
     return () => window.clearTimeout(timeout);
   }, [clearError, rateLimitError]);
 
-  function closePreviewPanel() {
-    if (!showChatPanel) {
-      return;
-    }
-
-    chatPanelRef.current?.resize("100%");
-    previewPanelRef.current?.collapse();
-    window.setTimeout(() => setPreviewCollapsed(true), 300);
-  }
-
   function closeChatPanel() {
     if (!showPreviewPanel) {
       return;
@@ -3276,7 +3263,7 @@ export function WorkspaceShell({
   }
 
   const chatPanelClass =
-    "flex h-full min-h-0 min-w-0 overflow-x-hidden flex-col bg-[#eceae4] p-spacing-4 text-[#1c1c1c] transition-colors duration-200 dark:bg-[#1b1b19] dark:text-surface-warm-white sm:p-spacing-5";
+    "flex h-full min-h-0 min-w-0 overflow-x-hidden flex-col bg-[#eceae4] text-[#1c1c1c] transition-colors duration-200 dark:bg-[#1b1b19] dark:text-surface-warm-white";
   const previewPanelClass = "h-full min-h-0 min-w-0";
 
   const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -3310,77 +3297,65 @@ export function WorkspaceShell({
 
   const chatPanelContent = (
     <aside className={chatPanelClass}>
-      <div className="flex min-w-0 items-start justify-between gap-spacing-5 px-spacing-1">
-        <div className="min-w-0 flex-1">
-          <Link
-            href="/"
-            className="hidden items-center gap-spacing-2 text-xs text-[#5f5f5d] transition-colors hover:text-[#1c1c1c] dark:text-surface-warm-white/58 dark:hover:text-surface-warm-white sm:inline-flex"
-          >
-            <ArrowLeft className="size-3.5" />
-            Dashboard
-          </Link>
-          <div className="hidden sm:flex mt-spacing-3 items-center gap-spacing-2">
-            {isRenaming ? (
-              <input
-                value={draftTitle}
-                onChange={(event) => setDraftTitle(event.target.value)}
-                onBlur={() => void saveProjectTitle()}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    void saveProjectTitle();
-                  }
+      <div className="flex h-11 shrink-0 items-center justify-between gap-2 border-b border-black/10 bg-[#f4f2ec] px-4 transition-colors dark:border-surface-warm-white/10 dark:bg-[#121210]">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          {isRenaming ? (
+            <input
+              value={draftTitle}
+              onChange={(event) => setDraftTitle(event.target.value)}
+              onBlur={() => void saveProjectTitle()}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  void saveProjectTitle();
+                }
 
-                  if (event.key === "Escape") {
-                    setDraftTitle(projectTitle);
-                    setIsRenaming(false);
-                  }
-                }}
-                autoFocus
-                className="min-w-0 flex-1 rounded-radius-md border border-black/15 bg-black/[0.03] px-spacing-3 py-spacing-2 text-base font-semibold text-[#1c1c1c] outline-none focus:border-black/30 dark:border-surface-warm-white/12 dark:bg-surface-warm-white/8 dark:text-surface-warm-white dark:focus:border-surface-warm-white/30"
-              />
-            ) : (
-              <h1 className="truncate text-base font-semibold tracking-[-0.02em]">
-                {projectTitle}
-              </h1>
-            )}
-            {!readOnly && isRenaming ? (
-              <button
-                type="button"
-                onClick={() => void saveProjectTitle()}
-                className="rounded-full p-spacing-2 text-[#8ce99a] hover:bg-surface-warm-white/8"
-                aria-label="Simpan nama proyek"
-              >
-                <Check className="size-3.5" />
-              </button>
-            ) : !readOnly ? (
-              <button
-                type="button"
-                onClick={() => setIsRenaming(true)}
-                className="rounded-full p-spacing-2 text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:text-surface-warm-white/44 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white"
-                aria-label="Ubah nama proyek"
-              >
-                <Pencil className="size-3.5" />
-              </button>
-            ) : null}
-          </div>
+                if (event.key === "Escape") {
+                  setDraftTitle(projectTitle);
+                  setIsRenaming(false);
+                }
+              }}
+              autoFocus
+              className="min-w-0 flex-1 rounded-radius-md border border-black/15 bg-black/[0.03] px-spacing-3 py-spacing-2 text-xs font-bold text-[#1c1c1c] outline-none focus:border-black/30 dark:border-surface-warm-white/12 dark:bg-surface-warm-white/8 dark:text-surface-warm-white dark:focus:border-surface-warm-white/30"
+            />
+          ) : (
+            <h1 className="truncate text-xs font-bold tracking-tight text-foreground dark:text-surface-warm-white">
+              {projectTitle}
+            </h1>
+          )}
+          {!readOnly && isRenaming ? (
+            <button
+              type="button"
+              onClick={() => void saveProjectTitle()}
+              className="inline-flex size-6 shrink-0 items-center justify-center rounded-md bg-emerald-600/15 text-emerald-700 hover:bg-emerald-600/25 dark:bg-emerald-400/20 dark:text-emerald-300 dark:hover:bg-emerald-400/30 transition-colors cursor-pointer"
+              aria-label="Simpan nama proyek"
+            >
+              <Check className="size-3.5" />
+            </button>
+          ) : !readOnly ? (
+            <button
+              type="button"
+              onClick={() => setIsRenaming(true)}
+              className="rounded-full p-1 text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:text-surface-warm-white/44 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white"
+              aria-label="Ubah nama proyek"
+            >
+              <Pencil className="size-3" />
+            </button>
+          ) : null}
         </div>
-        <div className="flex shrink-0 items-center gap-spacing-2">
-          <button
-            type="button"
-            onClick={showPreviewPanel ? closePreviewPanel : openPreviewPanel}
-            className="hidden rounded-full border border-black/10 p-spacing-3 text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/10 dark:text-surface-warm-white/62 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white lg:block"
-            aria-label={showPreviewPanel ? "Tutup tampilan" : "Buka tampilan"}
-          >
-            {showPreviewPanel ? (
-              <PanelRightClose className="size-4" />
-            ) : (
-              <PanelRightOpen className="size-4" />
-            )}
-          </button>
-        </div>
+
+        {/* Close Chat Panel (X Button on right side) */}
+        <button
+          type="button"
+          onClick={closeChatPanel}
+          className="hidden size-7 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-card text-foreground shadow-2xs transition-all hover:border-foreground/30 hover:bg-muted active:scale-95 cursor-pointer dark:border-white/15 dark:bg-[#252522] dark:hover:bg-[#2e2e2a] sm:inline-flex"
+          aria-label="Tutup panel diskusi (layar penuh tampilan)"
+          title="Tutup panel diskusi"
+        >
+          <X className="size-3.5 text-muted-foreground hover:text-foreground dark:text-surface-warm-white/70 dark:hover:text-surface-warm-white" />
+        </button>
       </div>
 
-      <div className="relative flex min-h-0 flex-1 flex-col mt-spacing-5">
+      <div className="relative flex min-h-0 flex-1 flex-col p-4">
         <div
           ref={chatScrollRef}
           onWheel={(event) => {
@@ -3738,34 +3713,7 @@ export function WorkspaceShell({
                           className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-foreground outline-none [scrollbar-width:none] placeholder:text-muted-foreground disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
                         />
                         <div className="flex items-center justify-between gap-spacing-4">
-                          <div className="flex items-center gap-spacing-2">
-                            {!isBuilding && !isProcessing ? (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => {
-                                  if (canStartBuildNow) {
-                                    void handleStartBuild();
-                                  } else {
-                                    submitChatText(
-                                      buildComplete
-                                        ? "Perbarui website sekarang"
-                                        : "Buat website sekarang",
-                                    );
-                                  }
-                                }}
-                                disabled={
-                                  sessionExpired ||
-                                  authStatus !== "authenticated"
-                                }
-                                className="h-8 rounded-full border-border bg-transparent px-spacing-3 text-xs font-medium text-foreground hover:bg-muted"
-                              >
-                                {buildComplete
-                                  ? "Perbarui website"
-                                  : "Buat website"}
-                              </Button>
-                            ) : null}
-                          </div>
+                          <div className="flex items-center gap-spacing-2" />
                           <div className="flex items-center gap-spacing-2">
                             {composerUploadsEnabled ? (
                               <ComposerAttachButton
@@ -3927,33 +3875,7 @@ export function WorkspaceShell({
                     disabled={sessionExpired || authStatus !== "authenticated"}
                   />
                   <div className="flex items-center justify-between gap-spacing-4">
-                    <div className="flex items-center gap-spacing-2">
-                      {!isBuilding &&
-                      !isProcessing &&
-                      composerState !== "held_build_recommendation" ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => {
-                            if (canStartBuildNow) {
-                              void handleStartBuild();
-                            } else {
-                              submitChatText(
-                                buildComplete
-                                  ? "Perbarui website sekarang"
-                                  : "Buat website sekarang",
-                              );
-                            }
-                          }}
-                          disabled={
-                            sessionExpired || authStatus !== "authenticated"
-                          }
-                          className="h-8 rounded-full border-border bg-transparent px-spacing-3 text-xs font-medium text-foreground hover:bg-muted"
-                        >
-                          {buildComplete ? "Perbarui website" : "Buat website"}
-                        </Button>
-                      ) : null}
-                    </div>
+                    <div className="flex items-center gap-spacing-2" />
                     <div className="flex items-center gap-spacing-2">
                       {composerUploadsEnabled ? (
                         <ComposerAttachButton
@@ -4275,8 +4197,9 @@ export function WorkspaceShell({
           <ResizablePanel
             id="chat"
             panelRef={chatPanelRef}
-            defaultSize={showPreviewPanel ? "25%" : "100%"}
+            defaultSize="28%"
             minSize="20%"
+            maxSize="45%"
             collapsible
             collapsedSize={0}
           >
