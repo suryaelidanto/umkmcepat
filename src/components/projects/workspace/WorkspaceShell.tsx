@@ -3360,8 +3360,13 @@ export function WorkspaceShell({
           <button
             type="button"
             onClick={showPreviewPanel ? closePreviewPanel : openPreviewPanel}
-            className="hidden rounded-full border border-black/10 p-spacing-3 text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/10 dark:text-surface-warm-white/62 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white lg:block"
+            className="hidden size-8 items-center justify-center rounded-lg border border-border/90 bg-card text-foreground shadow-2xs transition-all hover:border-foreground/30 hover:bg-muted active:scale-95 cursor-pointer dark:border-white/15 dark:bg-[#252522] dark:hover:bg-[#2e2e2a] dark:text-surface-warm-white lg:inline-flex"
             aria-label={showPreviewPanel ? "Tutup tampilan" : "Buka tampilan"}
+            title={
+              showPreviewPanel
+                ? "Tutup tampilan preview"
+                : "Buka tampilan preview"
+            }
           >
             {showPreviewPanel ? (
               <PanelRightClose className="size-4" />

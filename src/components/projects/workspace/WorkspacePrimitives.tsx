@@ -113,7 +113,7 @@ export function WorkspaceTopBar({
           <button
             type="button"
             onClick={chatCollapsed ? openChatPanel : closeChatPanel}
-            className="inline-flex size-8 items-center justify-center rounded-radius-md border border-black/10 p-spacing-2 text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/10 dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white cursor-pointer"
+            className="inline-flex size-8 items-center justify-center rounded-lg border border-border/90 bg-card text-foreground shadow-2xs transition-all hover:border-foreground/30 hover:bg-muted active:scale-95 cursor-pointer dark:border-white/15 dark:bg-[#252522] dark:hover:bg-[#2e2e2a] dark:text-surface-warm-white"
             aria-label={chatCollapsed ? "Buka panel chat" : "Tutup panel chat"}
             title={chatCollapsed ? "Buka panel chat" : "Tutup panel chat"}
           >
