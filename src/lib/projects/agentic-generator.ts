@@ -158,13 +158,24 @@ export async function runAgenticGenerate(input: {
   );
   const touched = new Set<string>();
   const operationTrace: AgenticGeneratedSourceResult["operationTrace"] = [];
-  const skillsRead = new Set<ProjectSkillName>(
-    isRevisionMode ? PROJECT_CORE_SKILL_NAMES : [],
-  );
+  const skillsRead = new Set<ProjectSkillName>();
   let checkAppCalls = 0;
   let lastCheckOk: boolean | null = null;
   let designSystemAccepted = isRevisionMode;
   let opSeq = 0;
+
+  // Pre-seed core design and component skills on startup
+  for (const name of PROJECT_CORE_SKILL_NAMES) {
+    skillsRead.add(name);
+    opSeq++;
+    operationTrace.push({
+      detail: `Membaca panduan ${name} untuk standar visual dan komponen`,
+      id: `op-${opSeq}`,
+      state: "succeeded" as const,
+      title: `Menyiapkan panduan ${name}`,
+      type: "read_skill",
+    });
+  }
 
   function missingCoreSkills() {
     return PROJECT_CORE_SKILL_NAMES.filter((name) => !skillsRead.has(name));
@@ -614,7 +625,15 @@ export async function runAgenticGenerate(input: {
           path,
           content,
         }));
-        const normalizedFiles = normalizeGeneratedInternalLinks(currentFiles);
+        const normalizedFiles = normalizeGeneratedInternalLinks(
+          currentFiles.map((file) => ({
+            ...file,
+            content:
+              file.path.endsWith(".tsx") || file.path.endsWith(".css")
+                ? normalizeGeneratedSiteContent(file.content)
+                : file.content,
+          })),
+        );
         for (const file of normalizedFiles) {
           fileMap.set(file.path, file.content);
         }
@@ -742,14 +761,12 @@ CREATIVE AUTHORITY:
 - These skills provide high-level design intelligence. The accepted src/content/site.ts snapshot and protected scaffold always outrank design suggestions.
 
 REQUIRED WORKFLOW:
-1. Call read_skill for both core skills ("impeccable", "shadcn") before writing. Call deep references (impeccable-craft-floor, impeccable-layout, impeccable-typeset, impeccable-adapt) when shaping complex responsive layouts.
-2. Call list_files and read the relevant starter files. Use copy_shadcn_component to add official UI primitives and their local dependencies before importing them.
-3. Compose one clear business-specific visual direction around the visitor's real job. Do not use generic AI templates or equal-card soup.
-4. Call set_design_system with your own business-specific semantic palette, typography, and radius choices. The platform checks accessibility; revise the proposal if it fails. Never default to orange or copy a palette from examples.
-5. Write the real home route in src/routes/index.tsx and modular components under src/components/. Use site.* for every customer-facing value. Omitted facts stay omitted.
-6. Write natural, warm, active Indonesian copy. Avoid AI puffery, filler buzzwords ("solusi terbaik", "kualitas terdepan", "revolusioner"), em-dashes (—), and decorative badge soup.
-7. Call run_design_audit to inspect your UI against Impeccable anti-patterns, contrast rules, and layout monotony. Fix any reported errors.
-8. Call check_app. If it fails, fix the actual source with write_file and call check_app again. Finish only after the last check_app returns ok: true.
+1. Call set_design_system on step 1 with your chosen semantic palette, typography, and radius for this business. The platform checks contrast and compiles index.css.
+2. Use copy_shadcn_component to pull any needed official UI primitives (e.g. badge, separator, dialog, tabs) before importing them.
+3. Write your modular UI components under src/components/ and the complete home route in src/routes/index.tsx using write_file. Use site.* for every customer-facing value. Use read_skill for deep reference docs (impeccable-craft-floor, impeccable-layout, impeccable-typeset) when needed.
+4. Write natural, warm, active Indonesian copy. Avoid AI puffery, filler buzzwords ("solusi terbaik", "kualitas terdepan"), em-dashes (—), and decorative badge soup.
+5. Call run_design_audit to inspect your UI against Impeccable contrast and anti-pattern rules.
+6. Call check_app to verify compilation and preflight checks. Finish after check_app returns ok: true.
 
 FACT AND SAFETY RULES:
 - src/content/site.ts is read-only and is the sole customer-facing fact source. You may write concise connective Indonesian copy grounded in those facts, but never add guarantees, rankings, popularity, metrics, prices, turnaround promises, or other factual claims absent from site.*. Absolute unsupported claims fail check_app.

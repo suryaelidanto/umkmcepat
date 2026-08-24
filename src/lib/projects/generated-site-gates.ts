@@ -1089,23 +1089,25 @@ function normalizeGeneratedContrastSurfaces(content: string): string {
 }
 
 function normalizeGeneratedSurfaceClasses(classes: string): string {
-  const hasOrangeSurface = /\bbg-(?:accent|terra)(?:\/\d{1,3})?\b/.test(
+  const hasAccentSurface = /\bbg-(?:accent|terra)(?:\/\d{1,3})?\b/.test(
     classes,
   );
   const hasGreenSurface = /\bbg-\[#(?:25D366|1fb457)\]/i.test(classes);
   const hasWhiteSurface = /\bbg-white(?:\/\d{1,3})?\b/.test(classes);
   let normalized = classes;
 
-  if (hasOrangeSurface) {
+  if (hasAccentSurface) {
     normalized = normalized.replace(
-      /\btext-(?:white|accent(?:-foreground)?|forest-foreground)(\/\d{1,3})?\b/g,
+      /\btext-(?:white|foreground|forest-foreground)(\/\d{1,3})?\b/g,
       (_match, opacity: string | undefined) =>
-        `text-foreground${opacity ?? ""}`,
+        `text-accent-foreground${opacity ?? ""}`,
     );
     if (
-      !/\btext-(?:foreground|background|primary-foreground)\b/.test(normalized)
+      !/\btext-(?:accent-foreground|primary-foreground|background)\b/.test(
+        normalized,
+      )
     ) {
-      normalized = `${normalized} text-foreground`;
+      normalized = `${normalized} text-accent-foreground`;
     }
   }
   if (hasGreenSurface) {
@@ -1498,7 +1500,9 @@ function ensureButtonTouchTargets(content: string): string {
 }
 
 function normalizeSmallTouchHeight(match: string): string {
-  return match.replace(/\bmin-h-(?:6|7|8|9|10)\b/g, "min-h-11");
+  return match
+    .replace(/\bmin-h-(?:6|7|8|9|10)\b/g, "min-h-11")
+    .replace(/\bh-(?:6|7|8|9|10)\b/g, "min-h-11 h-11");
 }
 
 function makeTouchSafeAnchor(match: string): string {

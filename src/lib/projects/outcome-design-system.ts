@@ -108,6 +108,12 @@ export function compileOutcomeDesignSystem(
       bg: proposal.accent,
       required: 4.5,
     },
+    {
+      pair: "background/accent",
+      fg: proposal.accent,
+      bg: proposal.background,
+      required: 4.5,
+    },
   ];
 
   for (const check of checks) {
@@ -135,8 +141,6 @@ export function compileOutcomeDesignSystem(
     OUTCOME_FONT_STACKS["system-humanist"];
 
   const css = `@import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
 
 @theme inline {
   --color-background: var(--background);

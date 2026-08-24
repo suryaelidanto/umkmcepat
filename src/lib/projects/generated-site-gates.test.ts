@@ -708,7 +708,7 @@ describe("normalizeGeneratedInteractiveTargets", () => {
       '<div className="bg-accent p-8"><h3>Masih ragu?</h3></div><a href={link} className="bg-white text-accent">Tanya Admin</a><Button className="bg-[#25D366] text-white">Chat</Button>',
     );
 
-    expect(normalized).toContain("bg-accent p-8 text-foreground");
+    expect(normalized).toContain("bg-accent p-8 text-accent-foreground");
     expect(normalized).toContain("bg-white text-foreground");
     expect(normalized).toContain("bg-[#25D366] text-foreground");
   });
@@ -858,7 +858,7 @@ describe("normalizeBatchedSiteAnchors", () => {
     ]);
 
     expect(file?.content).toContain(
-      '<a className="bg-accent px-6 text-foreground">Chat</a>',
+      '<a className="bg-accent px-6 text-accent-foreground">Chat</a>',
     );
     expect(file?.content).toContain(
       '<a className="bg-primary px-6 text-primary-foreground/80">Lihat</a>',
