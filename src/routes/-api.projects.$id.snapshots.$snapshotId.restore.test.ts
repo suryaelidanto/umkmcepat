@@ -19,6 +19,12 @@ const {
 vi.mock("@/lib/auth/auth", () => ({ auth: authMock }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    $transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
+      callback({
+        project: { update: vi.fn() },
+        projectDeployment: { create: prismaProjectDeploymentCreateMock },
+      }),
+    ),
     project: { findFirst: prismaProjectFindFirstMock },
     projectBuild: { findFirst: prismaProjectBuildFindFirstMock },
     projectDeployment: { create: prismaProjectDeploymentCreateMock },

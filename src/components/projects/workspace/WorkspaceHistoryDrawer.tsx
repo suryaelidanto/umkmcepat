@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Check, ChevronRight, Globe, History, Layout } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -116,6 +116,9 @@ export function WorkspaceHistoryDrawer({
   onCheckout?: () => void;
 }) {
   const [checkingOutId, setCheckingOutId] = useState<string | null>(null);
+  const [selectedSnapshotId, setSelectedSnapshotId] = useState<string | null>(
+    activeSnapshotId ?? null,
+  );
 
   const { data, isLoading, error } = useQuery({
     enabled: open,
@@ -125,6 +128,16 @@ export function WorkspaceHistoryDrawer({
         `/api/projects/${projectId}/snapshots`,
       ),
   });
+
+  const snapshots = data?.snapshots ?? [];
+
+  useEffect(() => {
+    if (activeSnapshotId) {
+      setSelectedSnapshotId(activeSnapshotId);
+    } else if (snapshots.length > 0 && !selectedSnapshotId) {
+      setSelectedSnapshotId(snapshots[0]?.id ?? null);
+    }
+  }, [activeSnapshotId, snapshots, selectedSnapshotId]);
 
   const checkoutMutation = useCacheMutation<{ snapshotId: string }, string>({
     errorMessage: "Gagal memilih versi ini.",
@@ -151,14 +164,14 @@ export function WorkspaceHistoryDrawer({
         error instanceof Error ? error.message : "Gagal memilih versi ini.",
       );
     },
-    onSuccess: () => {
+    onSuccess: (_, snapshotId) => {
+      setSelectedSnapshotId(snapshotId);
       toast.success("Versi ini aktif dan sedang dimuat di Preview.");
       onCheckout?.();
     },
   });
 
-  const snapshots = data?.snapshots ?? [];
-  const currentActiveId = activeSnapshotId ?? snapshots[0]?.id;
+  const currentActiveId = selectedSnapshotId ?? snapshots[0]?.id;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -207,11 +220,7 @@ export function WorkspaceHistoryDrawer({
               return (
                 <li
                   key={snapshot.id}
-                  className={`group relative flex flex-col gap-3 rounded-2xl border p-3.5 transition-all sm:flex-row sm:items-center sm:justify-between sm:p-4 ${
-                    isActive
-                      ? "border-primary/50 bg-primary/[0.04] shadow-xs ring-1 ring-primary/20 dark:border-primary/60 dark:bg-primary/10"
-                      : "border-border bg-card hover:border-foreground/20 hover:bg-muted/40 dark:border-white/[0.08] dark:bg-[#1a1a18] dark:hover:bg-[#222220]"
-                  }`}
+                  className="group relative flex flex-col gap-3 rounded-2xl border border-border bg-card p-3.5 transition-all hover:border-foreground/20 hover:bg-muted/40 dark:border-white/[0.08] dark:bg-[#1a1a18] dark:hover:bg-[#222220] sm:flex-row sm:items-center sm:justify-between sm:p-4"
                 >
                   <div className="flex min-w-0 items-center gap-4">
                     {/* Large Crisp Landscape Thumbnail (16:10) */}
@@ -231,7 +240,7 @@ export function WorkspaceHistoryDrawer({
                       />
                     </div>
 
-                    {/* Metadata & Status */}
+                    {/* Metadata */}
                     <div className="flex min-w-0 flex-col gap-1.5">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-sm font-bold tracking-tight text-foreground dark:text-surface-warm-white">
@@ -246,12 +255,6 @@ export function WorkspaceHistoryDrawer({
                           <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold tracking-wide text-emerald-600 dark:text-emerald-400">
                             <Globe className="size-3" />
                             Produksi
-                          </span>
-                        ) : null}
-                        {isActive ? (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/15 px-2.5 py-0.5 text-[10px] font-bold text-primary">
-                            <Check className="size-3" />
-                            Sedang Aktif
                           </span>
                         ) : null}
                       </div>
@@ -269,9 +272,9 @@ export function WorkspaceHistoryDrawer({
                         size="sm"
                         variant="outline"
                         disabled
-                        className="h-9 px-4 text-xs font-semibold text-primary opacity-85"
+                        className="h-9 px-4 text-xs font-semibold text-foreground/75 opacity-90"
                       >
-                        <Check className="mr-1.5 size-4" />
+                        <Check className="mr-1.5 size-4 text-emerald-600 dark:text-emerald-400" />
                         Aktif
                       </Button>
                     ) : (
@@ -288,7 +291,6 @@ export function WorkspaceHistoryDrawer({
                           setCheckingOutId(snapshot.id);
                           await checkoutMutation.mutateAsync(snapshot.id);
                           setCheckingOutId(null);
-                          onOpenChange(false);
                         }}
                       >
                         <Check className="mr-1.5 size-4" />
