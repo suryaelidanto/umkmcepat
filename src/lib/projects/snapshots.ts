@@ -86,9 +86,15 @@ export async function listSnapshots(
         return false;
       }
       const fileCount = countFiles(snapshot.files);
-      return (
-        (fileCount != null && fileCount > 0) || Boolean(snapshot.sourceRef)
-      );
+      const hasFiles =
+        (fileCount != null && fileCount > 0) || Boolean(snapshot.sourceRef);
+      if (!hasFiles) {
+        return false;
+      }
+
+      // Only show working, successful versions in history
+      const build = buildBySnapshot.get(snapshot.id);
+      return build?.status === "succeeded";
     })
     .map((snapshot) => {
       const fileCount = countFiles(snapshot.files);

@@ -1,15 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import {
-  Check,
-  CheckCircle2,
-  ChevronRight,
-  Globe,
-  History,
-  Layout,
-  XCircle,
-} from "lucide-react";
+import { Check, ChevronRight, Globe, History, Layout } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -39,7 +31,7 @@ const KIND_LABEL: Record<string, string> = {
   edit: "Edit",
   initial: "Pembuatan",
   repair: "Perbaikan",
-  restore: "Pemulihan",
+  restore: "Versi Sebelumnya",
 };
 
 function formatDate(iso: string): string {
@@ -114,9 +106,6 @@ export function WorkspaceHistoryDrawer({
   onOpenChange: (open: boolean) => void;
 }) {
   const [checkingOutId, setCheckingOutId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"succeeded" | "all" | "failed">(
-    "succeeded",
-  );
 
   const { data, isLoading, error } = useQuery({
     enabled: open,
@@ -157,16 +146,7 @@ export function WorkspaceHistoryDrawer({
     },
   });
 
-  const allSnapshots = data?.snapshots ?? [];
-  const snapshots = allSnapshots.filter((s) => {
-    if (filter === "succeeded") {
-      return s.buildStatus === "succeeded";
-    }
-    if (filter === "failed") {
-      return s.buildStatus === "failed" || !s.buildStatus;
-    }
-    return true;
-  });
+  const snapshots = data?.snapshots ?? [];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -177,48 +157,10 @@ export function WorkspaceHistoryDrawer({
             Riwayat versi
           </DialogTitle>
           <DialogDescription>
-            Pilih versi mana pun untuk dilihat di Preview dan mulai lanjutkan
-            edit dari versi tersebut.
+            Pilih versi yang ingin dilihat di Preview untuk melanjutkan edit
+            atau menerbitkannya.
           </DialogDescription>
         </DialogHeader>
-
-        <div className="flex items-center gap-2 border-b border-border/70 pb-3">
-          <button
-            type="button"
-            onClick={() => setFilter("succeeded")}
-            className={`cursor-pointer rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-              filter === "succeeded"
-                ? "bg-foreground text-background"
-                : "bg-muted text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Berhasil (
-            {allSnapshots.filter((s) => s.buildStatus === "succeeded").length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilter("all")}
-            className={`cursor-pointer rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-              filter === "all"
-                ? "bg-foreground text-background"
-                : "bg-muted text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Semua ({allSnapshots.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilter("failed")}
-            className={`cursor-pointer rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-              filter === "failed"
-                ? "bg-foreground text-background"
-                : "bg-muted text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Gagal (
-            {allSnapshots.filter((s) => s.buildStatus !== "succeeded").length})
-          </button>
-        </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]">
           {isLoading ? (
@@ -239,14 +181,15 @@ export function WorkspaceHistoryDrawer({
           {!isLoading && !error && snapshots.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground">
               <Layout className="mb-2 size-8 opacity-40" />
-              <p className="text-sm">Tidak ada riwayat pada filter ini.</p>
+              <p className="text-sm">
+                Belum ada versi website yang berhasil dibuat.
+              </p>
             </div>
           ) : null}
 
           <ol className="flex flex-col gap-3">
             {snapshots.map((snapshot) => {
               const label = KIND_LABEL[snapshot.kind] ?? snapshot.kind;
-              const isSuccess = snapshot.buildStatus === "succeeded";
 
               return (
                 <li
@@ -256,29 +199,22 @@ export function WorkspaceHistoryDrawer({
                   <div className="flex min-w-0 items-center gap-3.5">
                     {/* Visual Thumbnail */}
                     <div className="relative size-14 shrink-0 overflow-hidden rounded-lg border border-border bg-card shadow-2xs">
-                      {isSuccess ? (
-                        <img
-                          src={`/api/projects/${projectId}/snapshots/${snapshot.id}/thumbnail`}
-                          alt={`Thumbnail ${label}`}
-                          className="h-full w-full object-cover object-top"
-                          onError={(e) => {
-                            // Fallback to placeholder icon on image error
-                            e.currentTarget.style.display = "none";
-                            e.currentTarget.parentElement?.classList.add(
-                              "flex",
-                              "items-center",
-                              "justify-center",
-                            );
-                          }}
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                          <XCircle className="size-5 opacity-40 text-destructive" />
-                        </div>
-                      )}
+                      <img
+                        src={`/api/projects/${projectId}/snapshots/${snapshot.id}/thumbnail`}
+                        alt={`Thumbnail ${label}`}
+                        className="h-full w-full object-cover object-top"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                          e.currentTarget.parentElement?.classList.add(
+                            "flex",
+                            "items-center",
+                            "justify-center",
+                          );
+                        }}
+                      />
                     </div>
 
-                    {/* Metadata & Labels */}
+                    {/* Metadata */}
                     <div className="flex min-w-0 flex-col gap-1">
                       <div className="flex flex-wrap items-center gap-1.5">
                         <span className="text-xs font-semibold text-foreground dark:text-surface-warm-white">
@@ -295,29 +231,17 @@ export function WorkspaceHistoryDrawer({
                         ) : null}
                       </div>
 
-                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground dark:text-surface-warm-white/55">
-                        <span>{formatDate(snapshot.createdAt)}</span>
-                        <span>•</span>
-                        {isSuccess ? (
-                          <span className="inline-flex items-center gap-1 font-medium text-emerald-600 dark:text-emerald-400">
-                            <CheckCircle2 className="size-3" />
-                            Sukses
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 font-medium text-destructive">
-                            <XCircle className="size-3" />
-                            Gagal
-                          </span>
-                        )}
-                      </div>
+                      <span className="text-[11px] text-muted-foreground dark:text-surface-warm-white/55">
+                        {formatDate(snapshot.createdAt)}
+                      </span>
                     </div>
                   </div>
 
-                  {/* Actions */}
+                  {/* Action */}
                   <div className="flex items-center gap-2">
                     <Button
                       size="sm"
-                      variant={isSuccess ? "default" : "outline"}
+                      variant="default"
                       className="cursor-pointer font-medium text-xs shadow-2xs"
                       disabled={
                         !snapshot.restorable ||
