@@ -3326,7 +3326,7 @@ export function WorkspaceShell({
             <button
               type="button"
               onClick={() => void saveProjectTitle()}
-              className="rounded-full p-1 text-[#8ce99a] hover:bg-surface-warm-white/8"
+              className="inline-flex size-6 shrink-0 items-center justify-center rounded-md bg-emerald-600/15 text-emerald-700 hover:bg-emerald-600/25 dark:bg-emerald-400/20 dark:text-emerald-300 dark:hover:bg-emerald-400/30 transition-colors cursor-pointer"
               aria-label="Simpan nama proyek"
             >
               <Check className="size-3.5" />
