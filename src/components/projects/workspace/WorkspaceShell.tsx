@@ -12,6 +12,7 @@ import {
   Menu,
   MessageCircle,
   Pencil,
+  Sidebar,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import {
@@ -3296,9 +3297,18 @@ export function WorkspaceShell({
 
   const chatPanelContent = (
     <aside className={chatPanelClass}>
-      <div className="flex min-w-0 items-start justify-between gap-spacing-5 px-spacing-1">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-spacing-2">
+      <div className="flex min-w-0 items-center justify-between gap-2 px-spacing-1">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <button
+            type="button"
+            onClick={closeChatPanel}
+            className="hidden size-7 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-card text-foreground shadow-2xs transition-all hover:border-foreground/30 hover:bg-muted active:scale-95 cursor-pointer dark:border-white/15 dark:bg-[#252522] dark:hover:bg-[#2e2e2a] sm:inline-flex"
+            aria-label="Sembunyikan panel diskusi"
+            title="Sembunyikan panel diskusi"
+          >
+            <Sidebar className="size-3.5 text-muted-foreground dark:text-surface-warm-white/70" />
+          </button>
+          <div className="flex min-w-0 flex-1 items-center gap-spacing-2">
             {isRenaming ? (
               <input
                 value={draftTitle}
@@ -4240,8 +4250,9 @@ export function WorkspaceShell({
           <ResizablePanel
             id="chat"
             panelRef={chatPanelRef}
-            defaultSize={showPreviewPanel ? "25%" : "100%"}
+            defaultSize="28%"
             minSize="20%"
+            maxSize="45%"
             collapsible
             collapsedSize={0}
           >
