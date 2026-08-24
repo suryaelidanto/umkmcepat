@@ -194,9 +194,12 @@ export async function runGeneratedSiteBrowserGates(
 ): Promise<BrowserGateReport> {
   const startedAt = Date.now();
   try {
+    const routePaths = input.contract?.page?.routes
+      ?.map((route) => route.path)
+      .slice(0, 6) ?? ["/"];
     const raw = await (deps.execute ?? executeBrowserRunner)({
       files: input.files,
-      routes: input.contract.page.routes.map((route) => route.path).slice(0, 6),
+      routes: routePaths.length ? routePaths : ["/"],
       timeoutMs: input.timeoutMs,
     });
     const parsed = parseBrowserRunnerOutput(raw);

@@ -4,6 +4,7 @@ import { readProjectSourceArtifact } from "@/lib/projects/runtime-artifacts";
 export type SnapshotSummary = {
   buildStatus: string | null;
   buildId: string | null;
+  changes: string[];
   createdAt: Date;
   fileCount: number | null;
   id: string;
@@ -112,9 +113,11 @@ export async function listSnapshots(
       const restorable =
         (fileCount != null && fileCount > 0) || Boolean(snapshot.sourceRef);
       const build = buildBySnapshot.get(snapshot.id);
+      const { summary, changes } = extractSnapshotChangelog(snapshot.metadata);
       return {
         buildId: build?.id ?? null,
         buildStatus: build?.status ?? null,
+        changes,
         createdAt: snapshot.createdAt,
         fileCount,
         id: snapshot.id,
@@ -122,14 +125,17 @@ export async function listSnapshots(
         parentSnapshotId: snapshot.parentSnapshotId,
         published: publishedSnapshotIds.has(snapshot.id),
         restorable,
-        summary: extractSnapshotSummary(snapshot.metadata),
+        summary,
       };
     });
 }
 
-export function extractSnapshotSummary(metadata: unknown): string | null {
+export function extractSnapshotChangelog(metadata: unknown): {
+  summary: string | null;
+  changes: string[];
+} {
   if (!metadata || typeof metadata !== "object") {
-    return null;
+    return { summary: null, changes: [] };
   }
   const meta = metadata as {
     generation?: {
@@ -137,43 +143,58 @@ export function extractSnapshotSummary(metadata: unknown): string | null {
       operationTrace?: Array<{ title?: string; detail?: string }>;
     };
     description?: string;
-    summary?: string | { businessName?: string };
   };
 
+  const changes: string[] = [];
+
+  if (
+    Array.isArray(meta.generation?.operationTrace) &&
+    meta.generation.operationTrace.length > 0
+  ) {
+    for (const op of meta.generation.operationTrace) {
+      if (
+        op.title &&
+        !op.title.startsWith("Membaca") &&
+        !op.title.startsWith("Mengecek") &&
+        !op.title.startsWith("Memeriksa") &&
+        !op.title.startsWith("Melihat") &&
+        !op.title.startsWith("Memverifikasi")
+      ) {
+        const item =
+          op.detail && op.detail !== op.title
+            ? `${op.title} — ${op.detail}`
+            : op.title;
+        if (!changes.includes(item)) {
+          changes.push(item);
+        }
+      }
+    }
+  }
+
+  if (
+    typeof meta.description === "string" &&
+    meta.description.trim() &&
+    !changes.includes(meta.description.trim())
+  ) {
+    changes.unshift(meta.description.trim());
+  }
+
+  let summary: string | null = null;
   if (
     typeof meta.generation?.summary === "string" &&
     meta.generation.summary.trim()
   ) {
     const raw = meta.generation.summary.trim();
     if (!raw.startsWith("Website successfully generated")) {
-      return raw;
+      summary = raw;
     }
   }
 
-  if (
-    Array.isArray(meta.generation?.operationTrace) &&
-    meta.generation.operationTrace.length > 0
-  ) {
-    const customOps = meta.generation.operationTrace
-      .filter(
-        (op) =>
-          op.title &&
-          !op.title.startsWith("Membaca") &&
-          !op.title.startsWith("Mengecek") &&
-          !op.title.startsWith("Memeriksa"),
-      )
-      .map((op) => op.title?.trim())
-      .filter(Boolean);
-    if (customOps.length > 0) {
-      return customOps.slice(0, 3).join(", ");
-    }
+  if (!summary && changes.length > 0) {
+    summary = changes.slice(0, 2).join(". ");
   }
 
-  if (typeof meta.description === "string" && meta.description.trim()) {
-    return meta.description.trim();
-  }
-
-  return null;
+  return { summary, changes };
 }
 
 export function countFiles(files: unknown): number | null {

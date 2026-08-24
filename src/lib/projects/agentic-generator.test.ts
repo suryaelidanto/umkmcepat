@@ -204,7 +204,7 @@ describe("runAgenticGenerate", () => {
     expect(skillOperations.every((operation) => !operation.path)).toBe(true);
   });
 
-  it("rejects writes until all core skills have been read", async () => {
+  it("rejects writes until design system has been set", async () => {
     generateTextMock.mockImplementationOnce(async (args: unknown) => {
       const tools = getTools(args);
       const result = await tools.write_file.execute({
@@ -213,14 +213,14 @@ describe("runAgenticGenerate", () => {
       });
       expect(result).toEqual(
         expect.objectContaining({
-          error: expect.stringContaining("impeccable"),
+          error: expect.stringContaining("set_design_system"),
         }),
       );
       return { text: "Done", steps: [] };
     });
 
     await expect(runAgenticGenerate(createInput())).rejects.toThrow(
-      /required skills/i,
+      /custom source file/i,
     );
   });
 

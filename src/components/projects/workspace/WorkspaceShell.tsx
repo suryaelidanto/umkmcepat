@@ -1461,15 +1461,17 @@ export function WorkspaceShell({
     [loadRuntimeState, queryClient],
   );
 
+  const activeAttemptId =
+    runtimeState?.activeJob?.attemptId ||
+    (["queued", "running", "building"].includes(
+      runtimeState?.latestAttempt?.status || "",
+    )
+      ? runtimeState?.latestAttempt?.id
+      : null) ||
+    null;
+
   useBuildAttemptStream({
-    attemptId:
-      runtimeState?.activeJob?.kind === "generate" &&
-      runtimeState.activeJob.attemptId &&
-      ["generating", "building", "finalizing"].includes(
-        runtimeState.activeJob.phase || "",
-      )
-        ? runtimeState.activeJob.attemptId
-        : null,
+    attemptId: activeAttemptId,
     onEvent: handleBuildStreamEvent,
     projectId,
   });

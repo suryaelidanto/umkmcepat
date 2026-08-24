@@ -1,7 +1,16 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Check, ChevronRight, Globe, History, Layout } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  ChevronRight,
+  ChevronUp,
+  Globe,
+  History,
+  Layout,
+  ListChecks,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -18,6 +27,7 @@ import { fetchJson, queryKeys, useCacheMutation } from "@/lib/query-client";
 type SnapshotSummary = {
   buildStatus: string | null;
   buildId: string | null;
+  changes?: string[];
   createdAt: string;
   fileCount: number | null;
   id: string;
@@ -29,9 +39,9 @@ type SnapshotSummary = {
 };
 
 const KIND_LABEL: Record<string, string> = {
-  edit: "Pembaruan",
+  edit: "Pembaruan Website",
   initial: "Pembuatan Awal",
-  repair: "Pembaruan",
+  repair: "Pembaruan Website",
   restore: "Versi Dipilih",
 };
 
@@ -120,6 +130,9 @@ export function WorkspaceHistoryDrawer({
   const [selectedSnapshotId, setSelectedSnapshotId] = useState<string | null>(
     activeSnapshotId ?? null,
   );
+  const [expandedDetails, setExpandedDetails] = useState<
+    Record<string, boolean>
+  >({});
 
   const { data, isLoading, error } = useQuery({
     enabled: open,
@@ -174,6 +187,10 @@ export function WorkspaceHistoryDrawer({
 
   const currentActiveId = selectedSnapshotId ?? snapshots[0]?.id;
 
+  const toggleDetails = (id: string) => {
+    setExpandedDetails((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[85dvh] flex-col gap-spacing-6 overflow-hidden sm:max-w-2xl">
@@ -213,98 +230,126 @@ export function WorkspaceHistoryDrawer({
             </div>
           ) : null}
 
-          <ol className="flex flex-col gap-3.5">
+          <ol className="flex flex-col gap-4">
             {snapshots.map((snapshot) => {
               const label = KIND_LABEL[snapshot.kind] ?? snapshot.kind;
               const isActive = snapshot.id === currentActiveId;
+              const changes = snapshot.changes ?? [];
+              const isExpanded = Boolean(expandedDetails[snapshot.id]);
 
               return (
                 <li
                   key={snapshot.id}
-                  className="group relative flex flex-col gap-3 rounded-2xl border border-border bg-card p-3.5 transition-all hover:border-foreground/20 hover:bg-muted/40 dark:border-white/[0.08] dark:bg-[#1a1a18] dark:hover:bg-[#222220] sm:flex-row sm:items-center sm:justify-between sm:p-4"
+                  className="group relative flex flex-col rounded-2xl border border-border bg-card p-4 transition-all hover:border-foreground/20 hover:bg-muted/40 dark:border-white/[0.08] dark:bg-[#1a1a18] dark:hover:bg-[#222220]"
                 >
-                  <div className="flex min-w-0 items-center gap-4">
-                    {/* Large Crisp Landscape Thumbnail (16:10) */}
-                    <div className="relative aspect-[16/10] w-28 shrink-0 overflow-hidden rounded-xl border border-border/80 bg-muted/40 shadow-xs sm:w-36">
-                      <img
-                        src={`/api/projects/${projectId}/snapshots/${snapshot.id}/thumbnail`}
-                        alt={`Thumbnail ${label}`}
-                        className="h-full w-full object-cover object-top transition-transform duration-300 group-hover:scale-105"
-                        onError={(e) => {
-                          e.currentTarget.style.display = "none";
-                          e.currentTarget.parentElement?.classList.add(
-                            "flex",
-                            "items-center",
-                            "justify-center",
-                          );
-                        }}
-                      />
-                    </div>
-
-                    {/* Metadata */}
-                    <div className="flex min-w-0 flex-col gap-1.5">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm font-bold tracking-tight text-foreground dark:text-surface-warm-white">
-                          {label}
-                        </span>
-                        {snapshot.fileCount != null ? (
-                          <span className="text-xs text-muted-foreground">
-                            ({snapshot.fileCount} file)
-                          </span>
-                        ) : null}
-                        {snapshot.published ? (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold tracking-wide text-emerald-600 dark:text-emerald-400">
-                            <Globe className="size-3" />
-                            Produksi
-                          </span>
-                        ) : null}
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex min-w-0 items-center gap-4">
+                      {/* Large Crisp Landscape Thumbnail (16:10) */}
+                      <div className="relative aspect-[16/10] w-28 shrink-0 overflow-hidden rounded-xl border border-border/80 bg-muted/40 shadow-xs sm:w-36">
+                        <img
+                          src={`/api/projects/${projectId}/snapshots/${snapshot.id}/thumbnail`}
+                          alt={`Thumbnail ${label}`}
+                          className="h-full w-full object-cover object-top transition-transform duration-300 group-hover:scale-105"
+                          onError={(e) => {
+                            e.currentTarget.style.display = "none";
+                            e.currentTarget.parentElement?.classList.add(
+                              "flex",
+                              "items-center",
+                              "justify-center",
+                            );
+                          }}
+                        />
                       </div>
 
-                      {snapshot.summary ? (
-                        <p className="line-clamp-2 text-xs leading-relaxed text-foreground/80 dark:text-surface-warm-white/75">
-                          {snapshot.summary}
-                        </p>
-                      ) : null}
+                      {/* Metadata */}
+                      <div className="flex min-w-0 flex-col gap-1.5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-sm font-bold tracking-tight text-foreground dark:text-surface-warm-white">
+                            {label}
+                          </span>
+                          {snapshot.fileCount != null ? (
+                            <span className="text-xs text-muted-foreground">
+                              ({snapshot.fileCount} file)
+                            </span>
+                          ) : null}
+                          {snapshot.published ? (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold tracking-wide text-emerald-600 dark:text-emerald-400">
+                              <Globe className="size-3" />
+                              Produksi
+                            </span>
+                          ) : null}
+                        </div>
 
-                      <span className="text-xs text-muted-foreground dark:text-surface-warm-white/55">
-                        Dibuat {formatDate(snapshot.createdAt)}
-                      </span>
+                        <span className="text-xs text-muted-foreground dark:text-surface-warm-white/55">
+                          Dibuat {formatDate(snapshot.createdAt)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Action Button */}
+                    <div className="flex shrink-0 items-center justify-end sm:pl-2">
+                      {isActive ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled
+                          className="h-9 px-4 text-xs font-semibold text-foreground/75 opacity-90"
+                        >
+                          <Check className="mr-1.5 size-4 text-emerald-600 dark:text-emerald-400" />
+                          Aktif
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="default"
+                          className="h-9 cursor-pointer px-4 text-xs font-semibold shadow-xs transition-transform active:scale-95"
+                          disabled={
+                            !snapshot.restorable ||
+                            checkingOutId === snapshot.id ||
+                            checkoutMutation.isPending
+                          }
+                          onClick={async () => {
+                            setCheckingOutId(snapshot.id);
+                            await checkoutMutation.mutateAsync(snapshot.id);
+                            setCheckingOutId(null);
+                          }}
+                        >
+                          <Check className="mr-1.5 size-4" />
+                          Pilih Versi Ini
+                        </Button>
+                      )}
                     </div>
                   </div>
 
-                  {/* Action Button */}
-                  <div className="flex shrink-0 items-center justify-end sm:pl-2">
-                    {isActive ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled
-                        className="h-9 px-4 text-xs font-semibold text-foreground/75 opacity-90"
+                  {/* Changelog & AI Details Accordion */}
+                  {changes.length > 0 ? (
+                    <div className="mt-3 border-t border-border/60 pt-2.5">
+                      <button
+                        type="button"
+                        onClick={() => toggleDetails(snapshot.id)}
+                        className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
                       >
-                        <Check className="mr-1.5 size-4 text-emerald-600 dark:text-emerald-400" />
-                        Aktif
-                      </Button>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="default"
-                        className="h-9 cursor-pointer px-4 text-xs font-semibold shadow-xs transition-transform active:scale-95"
-                        disabled={
-                          !snapshot.restorable ||
-                          checkingOutId === snapshot.id ||
-                          checkoutMutation.isPending
-                        }
-                        onClick={async () => {
-                          setCheckingOutId(snapshot.id);
-                          await checkoutMutation.mutateAsync(snapshot.id);
-                          setCheckingOutId(null);
-                        }}
-                      >
-                        <Check className="mr-1.5 size-4" />
-                        Pilih Versi Ini
-                      </Button>
-                    )}
-                  </div>
+                        <ListChecks className="size-3.5 text-primary" />
+                        <span>Rincian perubahan ({changes.length})</span>
+                        {isExpanded ? (
+                          <ChevronUp className="size-3.5" />
+                        ) : (
+                          <ChevronDown className="size-3.5" />
+                        )}
+                      </button>
+
+                      {isExpanded ? (
+                        <ul className="mt-2.5 space-y-1.5 rounded-xl bg-muted/40 p-3 text-xs leading-relaxed text-foreground/85 dark:bg-black/20 dark:text-surface-warm-white/80">
+                          {changes.map((item, idx) => (
+                            <li key={idx} className="flex items-start gap-2">
+                              <span className="mt-1 size-1.5 shrink-0 rounded-full bg-primary" />
+                              <span>{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </li>
               );
             })}

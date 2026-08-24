@@ -174,20 +174,25 @@ export async function qualifyGeneratedSite(
   );
   let files = initialFiles;
   let visualRepairCount: 0 | 1 = 0;
+  let initialPassingBrowserReport: BrowserGateReport | undefined;
   let lastRiskReport: ReturnType<typeof deps.classifyRisk> | undefined;
   let lastCriticReport: Awaited<ReturnType<typeof deps.runCritic>> | undefined;
 
   for (;;) {
     const browserReport = await deps.runBrowser(files);
     if (classifyBrowserReport(browserReport) !== "pass") {
-      if (visualRepairCount === 1 && lastRiskReport && lastCriticReport) {
+      if (visualRepairCount === 1 && initialPassingBrowserReport) {
         // Fall back safely to initial passing candidate if repair pass regressed
         return {
           ok: true,
           files: initialFiles,
-          browserReport,
-          riskReport: lastRiskReport,
-          criticReport: lastCriticReport,
+          browserReport: initialPassingBrowserReport,
+          riskReport: lastRiskReport ?? {
+            reasons: [],
+            risky: false,
+            version: 1,
+          },
+          criticReport: lastCriticReport ?? null,
           visualRepairCount: 1,
         };
       }
@@ -197,6 +202,9 @@ export async function qualifyGeneratedSite(
         browserReport,
         visualRepairCount,
       };
+    }
+    if (!initialPassingBrowserReport) {
+      initialPassingBrowserReport = browserReport;
     }
     const riskReport = deps.classifyRisk(files, browserReport);
     lastRiskReport = riskReport;
