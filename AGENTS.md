@@ -94,12 +94,17 @@ Local quality gates are automated:
 
 ## Rules — god-tier
 
+- **NEVER TEST AI RESPONSE CONTENT OR STOCHASTIC OUTPUT (IRON LAW)** — Writing TDD or unit tests that assert AI model prose, answer wording, Indonesian phrasing, taste, palette hues, fonts, layout structure, card counts, section sequences, or generated source snapshots is strictly forbidden. Tests MUST ONLY assert deterministic mechanical invariants:
+  1. JSON Schemas (Zod validation)
+  2. Structure conformance & presence of required keys
+  3. Type narrowing & contract error handling
+  4. Hard deterministic boundaries (action URLs, route topology, package policies, accessibility, security, compilation)
+     Rendered quality, copy appeal, and aesthetic taste belong exclusively to calibrated review and evaluation corpora, never unit tests.
 - Domain before file type — organize by feature/domain first; no generic catch-all folders (`hooks`, `utils`, `helpers`, `misc`). Local hooks/context/types/helpers stay beside their feature.
 - Colocated tests by default — unit/component/route tests sit directly beside the module they verify (`foo.ts` + `foo.test.ts`). Top-level `tests/` is strictly for cross-domain (`tests/unit`), real DB/Redis infra (`tests/integration/*.itest.ts`), browser/mobile audits (`tests/browser/*.browser.test.ts`), and fixtures/helpers (`tests/support`).
 - No any — any is lying to the compiler. Use unknown + narrowing, define the shape. No any, no as any, no ts-ignore, no eslint-disable. Fix actual root causes.
 - Comments — code must be self-explanatory. Never restate code. No multi-line block comments, no ASCII banner dividers (`// ---`). Authored comments delete by default; only strictly necessary single-line comments when code looks wrong but is right. Keep it short, focused, and one-liner.
 - Solid as hell — nothing ships without typecheck + lint + affected tests green together. CI is not your safety net. Broken = rejected, no excuses.
-- Tests for generated AI output enforce truth, safety, accessibility, operability, and review evidence — never pin taste or stochastic output. Never write TDD or unit tests for AI responses, model wording, or stochastic content. If AI-related code needs testing, test only the deterministic boundaries: schema validation (Zod JSON schemas), structure conformance, required keys, type narrowing, route contracts, error handling, and security boundaries. Never assert the exact answer text, copy wording, palette hues, fonts, layouts, card counts, or source snapshots. Evaluate response quality and taste through calibrated review and evaluation corpora, never unit tests.
 - Small, surgical — one concern per change. 50-line fix beats 500-line refactor. If description says also, split it.
 - No dead weight — no commented-out code, no dead exports, no TODO without ticket. Knip + typecheck must stay green.
 - Explicit over clever — boring explicit beats clever abstraction. Deep modules hide complexity behind small stable interfaces.
