@@ -7,7 +7,6 @@ const {
   prismaProjectDeploymentCreateMock,
   prismaProjectFindFirstMock,
   prismaProjectSnapshotFindFirstMock,
-  restoreSnapshotMock,
 } = vi.hoisted(() => ({
   authMock: vi.fn<() => Promise<unknown>>(),
   isSnapshotRestorableAgainstActiveHandoffMock: vi.fn(),
@@ -15,7 +14,6 @@ const {
   prismaProjectDeploymentCreateMock: vi.fn(),
   prismaProjectFindFirstMock: vi.fn(),
   prismaProjectSnapshotFindFirstMock: vi.fn(),
-  restoreSnapshotMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/auth", () => ({ auth: authMock }));
@@ -30,9 +28,6 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/projects/build-handoffs", () => ({
   isSnapshotRestorableAgainstActiveHandoff:
     isSnapshotRestorableAgainstActiveHandoffMock,
-}));
-vi.mock("@/lib/projects/snapshots", () => ({
-  restoreSnapshot: restoreSnapshotMock,
 }));
 
 import { getHandler } from "../../tests/support/route-handler";
@@ -67,10 +62,6 @@ describe("snapshot restore route", () => {
     prismaProjectDeploymentCreateMock.mockResolvedValue({
       id: "preview_restore",
     });
-    restoreSnapshotMock.mockResolvedValue({
-      newSnapshotId: "snapshot_restore",
-      projectId: "project_1",
-    });
   });
 
   it("checks out a successful history version into Preview without changing Production", async () => {
@@ -79,14 +70,14 @@ describe("snapshot restore route", () => {
       { id: "project_1", snapshotId: "snapshot_old" },
     );
 
-    expect(response.status).toBe(201);
+    expect(response.status).toBe(200);
     expect(prismaProjectDeploymentCreateMock).toHaveBeenCalledWith({
       data: {
         buildId: "build_old",
         kind: "preview",
         projectId: "project_1",
         publicPath: "/api/projects/project_1/preview",
-        snapshotId: "snapshot_restore",
+        snapshotId: "snapshot_old",
         status: "created",
       },
       select: { id: true },
