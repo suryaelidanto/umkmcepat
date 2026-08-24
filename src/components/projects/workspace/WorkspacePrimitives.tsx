@@ -383,7 +383,7 @@ function TabButton({
       {active && (
         <motion.span
           layoutId={layoutId}
-          className="absolute inset-0 rounded-[5px] bg-white shadow-xs border border-black/5 dark:bg-[#282824] dark:border-white/10 dark:shadow-sm"
+          className="absolute inset-0 rounded-[5px] bg-white shadow-xs border border-black/5 dark:bg-[#383833] dark:border-white/15 dark:shadow-md"
           transition={{ type: "spring", stiffness: 500, damping: 32 }}
         />
       )}
