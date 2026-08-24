@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ChevronRight, History, RotateCcw } from "lucide-react";
+import { ChevronRight, ExternalLink, History, RotateCcw } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -223,24 +223,44 @@ export function WorkspaceHistoryDrawer({
                       </span>
                     ) : null}
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={
-                      !snapshot.restorable ||
-                      restoringId === snapshot.id ||
-                      restoreMutation.isPending
-                    }
-                    onClick={async () => {
-                      setRestoringId(snapshot.id);
-                      await restoreMutation.mutateAsync(snapshot.id);
-                      setRestoringId(null);
-                      onOpenChange(false);
-                    }}
-                  >
-                    <RotateCcw className="size-4" />
-                    Kembalikan
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {snapshot.buildStatus === "succeeded" ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        asChild
+                        className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        <a
+                          href={`/api/projects/${projectId}/preview?snapshotId=${snapshot.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Lihat tampilan versi ini"
+                        >
+                          <ExternalLink className="mr-1 size-3.5" />
+                          Lihat
+                        </a>
+                      </Button>
+                    ) : null}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={
+                        !snapshot.restorable ||
+                        restoringId === snapshot.id ||
+                        restoreMutation.isPending
+                      }
+                      onClick={async () => {
+                        setRestoringId(snapshot.id);
+                        await restoreMutation.mutateAsync(snapshot.id);
+                        setRestoringId(null);
+                        onOpenChange(false);
+                      }}
+                    >
+                      <RotateCcw className="size-3.5" />
+                      Pulihkan
+                    </Button>
+                  </div>
                 </li>
               );
             })}

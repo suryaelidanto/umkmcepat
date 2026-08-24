@@ -90,8 +90,15 @@ async function getPreviewResponse({
     );
   }
 
+  const url = new URL(request.url);
+  const targetSnapshotId = url.searchParams.get("snapshotId");
+
   const deployments = await prisma.projectDeployment.findMany({
-    where: { kind: "preview", projectId: project.id },
+    where: {
+      kind: "preview",
+      projectId: project.id,
+      ...(targetSnapshotId ? { snapshotId: targetSnapshotId } : {}),
+    },
     orderBy: { createdAt: "desc" },
     take: 20,
     select: {
