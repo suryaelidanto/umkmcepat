@@ -283,7 +283,7 @@ export function ProcessingControl({
     preparing_card: "Menyiapkan pertanyaan berikutnya...",
     retrying_response: "Menyempurnakan balasan...",
     retrying_card: "Menata ulang pilihan jawaban...",
-    processing: "AI sedang memproses...",
+    processing: "AI sedang menunggu balasan...",
   };
   const discussDetails: Record<NonNullable<typeof discussPhase>, string> = {
     streaming: "Balasan AI akan muncul di atas.",
