@@ -106,20 +106,22 @@ export function WorkspaceTopBar({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   return (
     <>
-      {/* Tier 1: Global User Bar (Brand, Energy, Theme, Profile) */}
+      {/* Tier 1: Global User Bar (Toggle Diskusi, Energy, Theme, Profile) */}
       <div className="hidden h-11 w-full items-center justify-between border-b border-black/10 bg-[#f4f2ec] px-4 text-[#1c1c1c] transition-colors duration-200 dark:border-surface-warm-white/10 dark:bg-[#121210] dark:text-surface-warm-white sm:flex">
-        <a
-          href="/dashboard"
-          className="flex items-center gap-2 rounded-md text-xs font-bold tracking-tight text-foreground transition-opacity hover:opacity-80 focus-visible:outline-none"
-          title="Kembali ke Dashboard"
-        >
-          <img
-            src="/brand/umkmcepat-logo.svg"
-            alt="Logo UMKM Cepat"
-            className="size-5 shrink-0"
-          />
-          <span className="font-bold">UMKM Cepat</span>
-        </a>
+        <div className="flex items-center gap-2">
+          {chatCollapsed ? (
+            <button
+              type="button"
+              onClick={openChatPanel}
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border/90 bg-card px-3 text-xs font-semibold text-foreground shadow-2xs transition-all hover:border-foreground/30 hover:bg-muted active:scale-95 cursor-pointer dark:border-white/15 dark:bg-[#252522] dark:hover:bg-[#2e2e2a] dark:text-surface-warm-white"
+              aria-label="Buka panel diskusi"
+              title="Buka panel diskusi"
+            >
+              <Sidebar className="size-3.5 text-muted-foreground dark:text-surface-warm-white/70" />
+              <span>Buka Diskusi</span>
+            </button>
+          ) : null}
+        </div>
 
         <div className="flex items-center gap-3.5">
           <EnergyDisplay projectId={projectId} />
@@ -130,20 +132,7 @@ export function WorkspaceTopBar({
 
       {/* Tier 2: Project & Canvas Toolbar */}
       <div className="hidden min-h-10 flex-wrap items-center justify-between gap-spacing-2 border-b border-black/10 bg-[#eceae4] px-3.5 text-[#1c1c1c] transition-colors duration-200 dark:border-surface-warm-white/10 dark:bg-[#171715] dark:text-surface-warm-white sm:flex sm:h-10 sm:flex-nowrap sm:py-0">
-        <div className="hidden min-w-0 items-center justify-start gap-2 sm:flex sm:w-auto">
-          {chatCollapsed ? (
-            <button
-              type="button"
-              onClick={openChatPanel}
-              className="inline-flex h-7 items-center gap-1.5 rounded-[6px] border border-border/90 bg-card px-2.5 text-[11px] font-semibold text-foreground shadow-2xs transition-all hover:border-foreground/30 hover:bg-muted active:scale-95 cursor-pointer dark:border-white/15 dark:bg-[#252522] dark:hover:bg-[#2e2e2a]"
-              aria-label="Buka panel diskusi"
-              title="Buka panel diskusi"
-            >
-              <Sidebar className="size-3 text-muted-foreground dark:text-surface-warm-white/70" />
-              <span>Diskusi</span>
-            </button>
-          ) : null}
-
+        <div className="hidden min-w-0 items-center justify-start gap-3 sm:flex sm:w-auto">
           <div
             role="tablist"
             aria-label="Konten tampilan"
