@@ -66,7 +66,7 @@ export type AgenticGeneratedSourceResult = {
 
 const MAX_PROMPT_VALUE_LENGTH = 12_000;
 const ARBITRARY_TAILWIND_COLOR_PATTERN =
-  /\b(?:bg|text|border|ring|fill|stroke|from|to|via|shadow|outline|divide)-\[#[0-9a-fA-F]{3,8}\]/;
+  /\b(?:bg|text|border|ring|fill|stroke|from|to|via|shadow|outline|divide)-(?:\[#[0-9a-fA-F]{3,8}\]|(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3}(?:\/\d+)?)/;
 
 function formatPromptValue(value: unknown): string {
   if (value == null) {
@@ -519,17 +519,17 @@ export async function runAgenticGenerate(input: {
               "Security restriction: Only files under src/ and public/ can be written.",
           };
         }
-        const oldContent = fileMap.get(path) ?? "";
-        const normalizedContent =
-          path.endsWith(".tsx") || path.endsWith(".css")
-            ? normalizeGeneratedSiteContent(content)
-            : content;
-        if (ARBITRARY_TAILWIND_COLOR_PATTERN.test(normalizedContent)) {
+        if (ARBITRARY_TAILWIND_COLOR_PATTERN.test(content)) {
           return {
             error:
               "Design safety restriction: use semantic theme tokens such as bg-accent, text-foreground, and border-border instead of arbitrary color values.",
           };
         }
+        const oldContent = fileMap.get(path) ?? "";
+        const normalizedContent =
+          path.endsWith(".tsx") || path.endsWith(".css")
+            ? normalizeGeneratedSiteContent(content)
+            : content;
         const diff = generateDiff(oldContent, normalizedContent);
         fileMap.set(path, normalizedContent);
         touched.add(path);
