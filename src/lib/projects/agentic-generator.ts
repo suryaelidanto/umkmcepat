@@ -841,7 +841,7 @@ REVIEWED REVISION BRIEF:
 ${formatPromptValue(input.revisionBrief)}
 ${input.revisionBrief ? "Revise the existing source to resolve only these rendered quality findings. Preserve accepted facts, routes, and actions. Re-check the complete app." : ""}
 
-Start by inspecting the scaffold and reading the required skills. Then write the most useful route and component files for the visitor's job, check the build, repair real failures, and finish only after a passing check_app.`;
+Start by setting up necessary shadcn components and theme color, then immediately write the modular components under src/components/site/ (Hero, Products/Services, Contact/WhatsApp CTA, Footer) and assemble them in src/routes/index.tsx. Incorporate tasteful motion with motion/react, call check_app to verify the build, and finish.`;
 
   const requestedModel = getGenerationModel();
   const maxSteps = getAgentMaxSteps("generate");
