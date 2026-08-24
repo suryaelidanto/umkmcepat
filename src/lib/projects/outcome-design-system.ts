@@ -112,7 +112,7 @@ export function compileOutcomeDesignSystem(
       pair: "background/accent",
       fg: proposal.accent,
       bg: proposal.background,
-      required: 4.5,
+      required: 4.8,
     },
   ];
 
