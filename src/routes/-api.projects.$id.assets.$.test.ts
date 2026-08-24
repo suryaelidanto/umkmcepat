@@ -2,11 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   prismaProjectDeploymentFindManyMock,
+  prismaProjectBuildFindManyMock,
   prismaQueryRawMock,
   proxyDeploymentRequestMock,
   readProjectDistArtifactMock,
 } = vi.hoisted(() => ({
   prismaProjectDeploymentFindManyMock: vi.fn(),
+  prismaProjectBuildFindManyMock: vi.fn(),
   prismaQueryRawMock: vi.fn(),
   proxyDeploymentRequestMock: vi.fn(),
   readProjectDistArtifactMock: vi.fn(),
@@ -17,6 +19,9 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     $queryRaw: prismaQueryRawMock,
     project: { findFirst: vi.fn() },
+    projectBuild: {
+      findMany: prismaProjectBuildFindManyMock,
+    },
     projectDeployment: {
       findMany: prismaProjectDeploymentFindManyMock,
       update: vi.fn(),
@@ -47,6 +52,7 @@ const GET = getHandler(Route, "GET");
 describe("project assets route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prismaProjectBuildFindManyMock.mockResolvedValue([]);
   });
 
   it("serves static assets via valid token when runtime is unavailable", async () => {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ChevronRight, ExternalLink, History, RotateCcw } from "lucide-react";
+import { Check, ChevronRight, Globe, History, Layout } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -31,15 +31,7 @@ const KIND_LABEL: Record<string, string> = {
   edit: "Edit",
   initial: "Pembuatan",
   repair: "Perbaikan",
-  restore: "Pemulihan",
-};
-
-const BUILD_STATUS_LABEL: Record<string, string> = {
-  succeeded: "Berhasil",
-  failed: "Gagal",
-  not_started: "Belum",
-  running: "Proses",
-  cancelled: "Batal",
+  restore: "Versi Sebelumnya",
 };
 
 function formatDate(iso: string): string {
@@ -58,11 +50,15 @@ function formatDate(iso: string): string {
 export function WorkspaceHistoryButton({
   projectId,
   variant = "pill",
+  activeSnapshotId,
   onActivate,
+  onCheckout,
 }: {
   projectId: string;
   variant?: "pill" | "row";
+  activeSnapshotId?: string | null;
   onActivate?: () => void;
+  onCheckout?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const isRow = variant === "row";
@@ -99,6 +95,8 @@ export function WorkspaceHistoryButton({
         projectId={projectId}
         open={open}
         onOpenChange={setOpen}
+        activeSnapshotId={activeSnapshotId}
+        onCheckout={onCheckout}
       />
     </>
   );
@@ -108,12 +106,16 @@ export function WorkspaceHistoryDrawer({
   projectId,
   open,
   onOpenChange,
+  activeSnapshotId,
+  onCheckout,
 }: {
   projectId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  activeSnapshotId?: string | null;
+  onCheckout?: () => void;
 }) {
-  const [restoringId, setRestoringId] = useState<string | null>(null);
+  const [checkingOutId, setCheckingOutId] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery({
     enabled: open,
@@ -124,11 +126,12 @@ export function WorkspaceHistoryDrawer({
       ),
   });
 
-  const restoreMutation = useCacheMutation<{ snapshotId: string }, string>({
-    errorMessage: "Gagal memulihkan riwayat.",
+  const checkoutMutation = useCacheMutation<{ snapshotId: string }, string>({
+    errorMessage: "Gagal memilih versi ini.",
     invalidateKeys: [
       queryKeys.projectSnapshots(projectId),
       queryKeys.projectSource(projectId),
+      queryKeys.projectRuntime(projectId),
     ],
     mutationFn: async (snapshotId: string) => {
       const response = await fetch(
@@ -139,127 +142,158 @@ export function WorkspaceHistoryDrawer({
         const body = (await response.json().catch(() => ({}))) as {
           message?: string;
         };
-        throw new Error(body.message ?? "Gagal memulihkan riwayat.");
+        throw new Error(body.message ?? "Gagal memilih versi ini.");
       }
       return response.json() as Promise<{ snapshotId: string }>;
     },
     onError: (error) => {
       toast.error(
-        error instanceof Error ? error.message : "Gagal memulihkan riwayat.",
+        error instanceof Error ? error.message : "Gagal memilih versi ini.",
       );
     },
     onSuccess: () => {
-      toast.success("Riwayat dipulihkan sebagai versi baru.");
+      toast.success("Versi ini aktif dan sedang dimuat di Preview.");
+      onCheckout?.();
     },
   });
 
   const snapshots = data?.snapshots ?? [];
+  // If activeSnapshotId not explicitly provided, the top snapshot is currently active
+  const currentActiveId = activeSnapshotId ?? snapshots[0]?.id;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[80dvh] flex-col gap-spacing-7 overflow-hidden sm:max-w-lg">
+      <DialogContent className="flex max-h-[85dvh] flex-col gap-spacing-6 overflow-hidden sm:max-w-xl">
         <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-spacing-3">
             <History className="size-4" />
             Riwayat versi
           </DialogTitle>
           <DialogDescription>
-            Setiap pembuatan dan edit membuat versi baru. Memulihkan membuat
-            versi baru dari riwayat lama — versi saat ini tetap tersimpan.
+            Pilih versi yang ingin dilihat di Preview untuk melanjutkan edit
+            atau menerbitkannya.
           </DialogDescription>
         </DialogHeader>
 
         <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]">
           {isLoading ? (
-            <p className="text-body-small text-muted-foreground">
+            <p className="py-6 text-center text-body-small text-muted-foreground">
               Memuat riwayat...
             </p>
           ) : null}
 
           {error ? (
-            <p className="text-body-small text-destructive" role="alert">
+            <p
+              className="py-6 text-center text-body-small text-destructive"
+              role="alert"
+            >
               Gagal memuat riwayat.
             </p>
           ) : null}
 
           {!isLoading && !error && snapshots.length === 0 ? (
-            <p className="text-body-small text-muted-foreground">
-              Belum ada riwayat tersimpan.
-            </p>
+            <div className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground">
+              <Layout className="mb-2 size-8 opacity-40" />
+              <p className="text-sm">
+                Belum ada versi website yang berhasil dibuat.
+              </p>
+            </div>
           ) : null}
 
-          <ol className="flex flex-col gap-spacing-2">
+          <ol className="flex flex-col gap-3">
             {snapshots.map((snapshot) => {
               const label = KIND_LABEL[snapshot.kind] ?? snapshot.kind;
-              const buildLabel = snapshot.buildStatus
-                ? (BUILD_STATUS_LABEL[snapshot.buildStatus] ??
-                  snapshot.buildStatus)
-                : "Belum ditampilkan";
+              const isActive = snapshot.id === currentActiveId;
+
               return (
                 <li
                   key={snapshot.id}
-                  className="flex items-center justify-between gap-spacing-4 rounded-radius-md border border-border bg-muted/40 px-spacing-6 py-spacing-5 dark:border-white/[0.08] dark:bg-white/[0.03]"
+                  className={`flex items-center justify-between gap-4 rounded-xl border p-3.5 transition-colors ${
+                    isActive
+                      ? "border-primary/40 bg-primary/5 shadow-2xs dark:border-primary/50 dark:bg-primary/10"
+                      : "border-border bg-muted/30 hover:border-foreground/20 hover:bg-muted/50 dark:border-white/[0.08] dark:bg-white/[0.02]"
+                  }`}
                 >
-                  <div className="flex min-w-0 flex-col gap-spacing-1">
-                    <span className="flex flex-wrap items-center gap-spacing-2 text-body-small font-[480] text-foreground dark:text-surface-warm-white">
-                      <span>
-                        {label}
-                        {snapshot.fileCount != null
-                          ? ` · ${snapshot.fileCount} file`
-                          : ""}
-                      </span>
-                      {snapshot.published ? (
-                        <span className="rounded-full border border-status-success-border bg-status-success-subtle px-2 py-0.5 text-[11px] font-medium text-status-success">
-                          Produksi
+                  <div className="flex min-w-0 items-center gap-3.5">
+                    {/* Visual Thumbnail */}
+                    <div className="relative size-14 shrink-0 overflow-hidden rounded-lg border border-border bg-card shadow-2xs">
+                      <img
+                        src={`/api/projects/${projectId}/snapshots/${snapshot.id}/thumbnail`}
+                        alt={`Thumbnail ${label}`}
+                        className="h-full w-full object-cover object-top"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                          e.currentTarget.parentElement?.classList.add(
+                            "flex",
+                            "items-center",
+                            "justify-center",
+                          );
+                        }}
+                      />
+                    </div>
+
+                    {/* Metadata */}
+                    <div className="flex min-w-0 flex-col gap-1">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-xs font-semibold text-foreground dark:text-surface-warm-white">
+                          {label}
+                          {snapshot.fileCount != null
+                            ? ` · ${snapshot.fileCount} file`
+                            : ""}
                         </span>
-                      ) : null}
-                    </span>
-                    <span className="text-body-small text-muted-foreground dark:text-surface-warm-white/55">
-                      {formatDate(snapshot.createdAt)} · {buildLabel}
-                    </span>
-                    {!snapshot.restorable ? (
-                      <span className="text-body-small text-destructive">
-                        Sumber tidak tersimpan — tidak bisa dipulihkan.
+                        {snapshot.published ? (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                            <Globe className="size-2.5" />
+                            Produksi
+                          </span>
+                        ) : null}
+                        {isActive ? (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                            <Check className="size-2.5" />
+                            Sedang Aktif
+                          </span>
+                        ) : null}
+                      </div>
+
+                      <span className="text-[11px] text-muted-foreground dark:text-surface-warm-white/55">
+                        {formatDate(snapshot.createdAt)}
                       </span>
-                    ) : null}
+                    </div>
                   </div>
+
+                  {/* Action */}
                   <div className="flex items-center gap-2">
-                    {snapshot.buildStatus === "succeeded" ? (
+                    {isActive ? (
                       <Button
                         size="sm"
-                        variant="ghost"
-                        asChild
-                        className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+                        variant="outline"
+                        disabled
+                        className="font-medium text-xs opacity-75"
                       >
-                        <a
-                          href={`/api/projects/${projectId}/preview?snapshotId=${snapshot.id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title="Lihat tampilan versi ini"
-                        >
-                          <ExternalLink className="mr-1 size-3.5" />
-                          Lihat
-                        </a>
+                        <Check className="size-3.5 text-primary" />
+                        Aktif
                       </Button>
-                    ) : null}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={
-                        !snapshot.restorable ||
-                        restoringId === snapshot.id ||
-                        restoreMutation.isPending
-                      }
-                      onClick={async () => {
-                        setRestoringId(snapshot.id);
-                        await restoreMutation.mutateAsync(snapshot.id);
-                        setRestoringId(null);
-                        onOpenChange(false);
-                      }}
-                    >
-                      <RotateCcw className="size-3.5" />
-                      Pulihkan
-                    </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="default"
+                        className="cursor-pointer font-medium text-xs shadow-2xs"
+                        disabled={
+                          !snapshot.restorable ||
+                          checkingOutId === snapshot.id ||
+                          checkoutMutation.isPending
+                        }
+                        onClick={async () => {
+                          setCheckingOutId(snapshot.id);
+                          await checkoutMutation.mutateAsync(snapshot.id);
+                          setCheckingOutId(null);
+                          onOpenChange(false);
+                        }}
+                      >
+                        <Check className="size-3.5" />
+                        Pilih Versi Ini
+                      </Button>
+                    )}
                   </div>
                 </li>
               );

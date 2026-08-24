@@ -243,9 +243,9 @@
   --status-success: #047857;
   --status-success-subtle: #d1fae5;
   --status-success-border: #a7f3d0;
-  --status-warning: #a16207;
-  --status-warning-subtle: #fef9c3;
-  --status-warning-border: #fef08a;
+  --status-warning: #9a3412;
+  --status-warning-subtle: #fff7ed;
+  --status-warning-border: #fed7aa;
   --border: #d8d5cc;
   --input: #d8d5cc;
   --ring: #1c1c1c;
@@ -309,9 +309,9 @@
   --status-success: #34d399;
   --status-success-subtle: rgba(52, 211, 153, 0.12);
   --status-success-border: rgba(52, 211, 153, 0.28);
-  --status-warning: #facc15;
-  --status-warning-subtle: rgba(250, 204, 21, 0.12);
-  --status-warning-border: rgba(250, 204, 21, 0.28);
+  --status-warning: #fb923c;
+  --status-warning-subtle: rgba(251, 146, 60, 0.12);
+  --status-warning-border: rgba(251, 146, 60, 0.28);
   --border: rgba(255, 255, 255, 0.08);
   --input: rgba(255, 255, 255, 0.12);
   --ring: #ff7a59;

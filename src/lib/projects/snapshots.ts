@@ -39,7 +39,7 @@ export async function listSnapshots(
 
   const [builds, previewDeployments, publishedDeployments] = await Promise.all([
     prisma.projectBuild.findMany({
-      where: { projectId },
+      where: { projectId, artifactRef: { not: null }, status: "succeeded" },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       select: { id: true, snapshotId: true, status: true },
     }),
@@ -77,6 +77,16 @@ export async function listSnapshots(
       .filter((snapshotId): snapshotId is string => Boolean(snapshotId)),
   );
 
+  // Also map parent snapshot builds if a snapshot was branched
+  for (const snapshot of snapshots) {
+    if (snapshot.parentSnapshotId && !buildBySnapshot.has(snapshot.id)) {
+      const parentBuild = buildBySnapshot.get(snapshot.parentSnapshotId);
+      if (parentBuild) {
+        buildBySnapshot.set(snapshot.id, parentBuild);
+      }
+    }
+  }
+
   return snapshots
     .filter((snapshot) => {
       const meta = snapshot.metadata as {
@@ -86,9 +96,15 @@ export async function listSnapshots(
         return false;
       }
       const fileCount = countFiles(snapshot.files);
-      return (
-        (fileCount != null && fileCount > 0) || Boolean(snapshot.sourceRef)
-      );
+      const hasFiles =
+        (fileCount != null && fileCount > 0) || Boolean(snapshot.sourceRef);
+      if (!hasFiles) {
+        return false;
+      }
+
+      // Only show working, successful versions in history
+      const build = buildBySnapshot.get(snapshot.id);
+      return build?.status === "succeeded";
     })
     .map((snapshot) => {
       const fileCount = countFiles(snapshot.files);
@@ -179,42 +195,4 @@ export function findFileInSnapshot(
       (item as { path: unknown }).path === filePath,
   );
   return entry ? String(entry.content ?? "") : null;
-}
-
-export async function restoreSnapshot(snapshotId: string): Promise<{
-  newSnapshotId: string;
-  projectId: string;
-}> {
-  const target = await prisma.projectSnapshot.findUnique({
-    where: { id: snapshotId },
-    select: { files: true, metadata: true, projectId: true, sourceRef: true },
-  });
-  if (!target) {
-    throw new Error("Snapshot not found.");
-  }
-
-  const restoredMetadata = {
-    ...(asObject(target.metadata) ?? {}),
-    kind: "restore" as const,
-  };
-  const created = await prisma.projectSnapshot.create({
-    data: {
-      files: Array.isArray(target.files) ? target.files : [],
-      metadata: restoredMetadata,
-      parentSnapshotId: snapshotId,
-      projectId: target.projectId,
-      sourceRef: target.sourceRef,
-      sourceType: "restore",
-    },
-    select: { id: true, projectId: true },
-  });
-
-  return { newSnapshotId: created.id, projectId: created.projectId };
-}
-
-function asObject(value: unknown): Record<string, unknown> | null {
-  if (value && typeof value === "object" && !Array.isArray(value)) {
-    return value as Record<string, unknown>;
-  }
-  return null;
 }

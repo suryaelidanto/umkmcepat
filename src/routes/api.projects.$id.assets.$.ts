@@ -203,11 +203,46 @@ async function getStoredAssetResponse({
   path: string[];
   projectId: string;
 }) {
-  const distFiles = artifactRef
-    ? await readProjectDistArtifact(artifactRef).catch(() => [])
-    : await readStoredProjectDistFiles(projectId);
   const requestedPath = path.join("/");
-  const file = distFiles.find((item) => item.path === requestedPath);
+  const candidateArtifacts: string[] = [];
+
+  if (artifactRef) {
+    candidateArtifacts.push(artifactRef);
+  }
+
+  // Also query recent successful builds for this project to resolve versioned snapshot assets
+  const recentBuilds = await prisma.projectBuild.findMany({
+    where: { projectId, status: "succeeded", artifactRef: { not: null } },
+    orderBy: { createdAt: "desc" },
+    take: 10,
+    select: { artifactRef: true },
+  });
+  for (const build of recentBuilds) {
+    if (build.artifactRef && !candidateArtifacts.includes(build.artifactRef)) {
+      candidateArtifacts.push(build.artifactRef);
+    }
+  }
+
+  for (const ref of candidateArtifacts) {
+    const distFiles = await readProjectDistArtifact(ref).catch(() => []);
+    const file = distFiles.find(
+      (item) =>
+        item.path === requestedPath || item.path === `assets/${requestedPath}`,
+    );
+    if (file) {
+      return new Response(file.content, {
+        headers: applyPreviewSandboxHeaders(
+          new Headers({ "Content-Type": file.contentType }),
+        ),
+      });
+    }
+  }
+
+  const storedFiles = await readStoredProjectDistFiles(projectId);
+  const file = storedFiles.find(
+    (item) =>
+      item.path === requestedPath || item.path === `assets/${requestedPath}`,
+  );
 
   if (!file) {
     return null;

@@ -4,7 +4,6 @@ import { auth } from "@/lib/auth/auth";
 import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
 import { isSnapshotRestorableAgainstActiveHandoff } from "@/lib/projects/build-handoffs";
-import { restoreSnapshot } from "@/lib/projects/snapshots";
 
 export const Route = createFileRoute(
   "/api/projects/$id/snapshots/$snapshotId/restore",
@@ -35,7 +34,13 @@ export const Route = createFileRoute(
 
         const snapshot = await prisma.projectSnapshot.findFirst({
           where: { id: snapshotId, projectId: project.id },
-          select: { id: true, files: true, sourceRef: true, metadata: true },
+          select: {
+            id: true,
+            files: true,
+            sourceRef: true,
+            metadata: true,
+            parentSnapshotId: true,
+          },
         });
         if (!snapshot) {
           return Response.json(
@@ -82,8 +87,13 @@ export const Route = createFileRoute(
         const build = await prisma.projectBuild.findFirst({
           where: {
             artifactRef: { not: null },
-            snapshotId,
             status: "succeeded",
+            OR: [
+              { snapshotId },
+              ...(snapshot.parentSnapshotId
+                ? [{ snapshotId: snapshot.parentSnapshotId }]
+                : []),
+            ],
           },
           orderBy: { createdAt: "desc" },
           select: { id: true },
@@ -96,26 +106,25 @@ export const Route = createFileRoute(
         }
 
         try {
-          const { newSnapshotId } = await restoreSnapshot(snapshotId);
+          // Checkout snapshot directly: activate for preview and sync workspace source
           await prisma.projectDeployment.create({
             data: {
               buildId: build.id,
               kind: "preview",
               projectId: project.id,
               publicPath: `/api/projects/${project.id}/preview`,
-              snapshotId: newSnapshotId,
+              snapshotId,
               status: "created",
             },
             select: { id: true },
           });
-          devLog("snapshots", "restore", {
+          devLog("snapshots", "checkout", {
             buildId: build.id,
-            fromSnapshotId: snapshotId,
-            newSnapshotId,
+            snapshotId,
             projectId: project.id,
             userId: session.user.id,
           });
-          return Response.json({ snapshotId: newSnapshotId }, { status: 201 });
+          return Response.json({ snapshotId }, { status: 200 });
         } catch (error) {
           devLog("snapshots", "restore.error", {
             error: error instanceof Error ? error.message : String(error),
@@ -123,7 +132,7 @@ export const Route = createFileRoute(
             projectId: project.id,
           });
           return Response.json(
-            { message: "Gagal memulihkan riwayat." },
+            { message: "Gagal memilih versi ini." },
             { status: 500 },
           );
         }

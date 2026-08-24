@@ -332,8 +332,8 @@ export function HomePromptForm({
 
   if (overLimit) {
     return (
-      <div className="mx-auto mt-spacing-12 w-full max-w-3xl rounded-[28px] border border-status-warning-border bg-status-warning-subtle px-spacing-7 py-spacing-6 text-center text-status-warning">
-        <p className="text-sm font-medium leading-6">
+      <div className="mx-auto mt-6 sm:mt-10 w-full max-w-2xl rounded-2xl border border-black/10 bg-black/[0.03] px-6 py-4 text-center text-[#1c1c1c] dark:border-white/10 dark:bg-white/[0.04] dark:text-surface-warm-white">
+        <p className="text-sm font-medium leading-relaxed">
           Kamu sudah mencapai batas website. Hapus yang tidak terpakai untuk
           membuat yang baru.
         </p>
