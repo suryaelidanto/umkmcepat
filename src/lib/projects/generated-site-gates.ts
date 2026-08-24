@@ -60,7 +60,7 @@ import type { ThemeContrastCheck } from "./scaffold/shadcn-theme";
 const SURFACE_TOKEN_AS_TEXT = /\btext-(?:muted|card|popover|secondary)\b(?!-)/;
 
 const LIGHT_SURFACE_TEXT_TOKEN =
-  "foreground|muted-foreground|card-foreground|popover-foreground|secondary-foreground";
+  "foreground|muted-foreground|card-foreground|popover-foreground|secondary-foreground|accent";
 const FOREGROUND_FAMILY_TEXT_TOKEN = `text-(?:${LIGHT_SURFACE_TEXT_TOKEN})`;
 
 function findMatchingClose(
@@ -104,10 +104,10 @@ function contrastSurfaceSpans(
   const sectionSpans = [
     ...source.matchAll(/<SiteSection\b[^>]*\bsurface=["']contrast["'][^>]*>/g),
   ].map((match) => elementSpan(source, match, "SiteSection"));
-  // Scan any element with bg-foreground in className string or template literal
+  // Scan any element with bg-foreground or bg-primary in className string or template literal
   const elementSpans = [
     ...source.matchAll(
-      /<([A-Za-z][\w.]*)\b[^>]*\bclassName=(?:\{`|["'])[^"'`]*\bbg-foreground\b[^"'`]*(?:`\}|["'])[^>]*>/g,
+      /<([A-Za-z][\w.]*)\b[^>]*\bclassName=(?:\{`|["'])[^"'`]*\b(?:bg-foreground|bg-primary)\b[^"'`]*(?:`\}|["'])[^>]*>/g,
     ),
   ].flatMap((match) =>
     match[1] ? [elementSpan(source, match, match[1])] : [],
@@ -1180,6 +1180,7 @@ export function normalizeBatchedSiteAnchors(
       (file.path.startsWith("src/routes/") &&
         file.path !== "src/routes/__root.tsx" &&
         file.path !== "src/routes/not-found.tsx") ||
+      file.path.startsWith("src/components/site/") ||
       file.path === "src/components/site/generated-shell.tsx";
     if (isGeneratedRouteSource) {
       content = normalizeStructuredArraySerializations(content);
@@ -1542,7 +1543,7 @@ function makeTouchSafeAnchor(match: string): string {
   }
   return normalized.replace(
     "<a",
-    '<a className="inline-flex min-h-11 min-w-11 items-center justify-center"',
+    '<a className="inline-flex min-h-11 min-w-11 items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"',
   );
 }
 
