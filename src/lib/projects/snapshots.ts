@@ -39,7 +39,7 @@ export async function listSnapshots(
 
   const [builds, previewDeployments, publishedDeployments] = await Promise.all([
     prisma.projectBuild.findMany({
-      where: { projectId },
+      where: { projectId, artifactRef: { not: null }, status: "succeeded" },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       select: { id: true, snapshotId: true, status: true },
     }),
@@ -76,6 +76,16 @@ export async function listSnapshots(
       .map((deployment) => deployment.snapshotId)
       .filter((snapshotId): snapshotId is string => Boolean(snapshotId)),
   );
+
+  // Also map parent snapshot builds if a snapshot was branched
+  for (const snapshot of snapshots) {
+    if (snapshot.parentSnapshotId && !buildBySnapshot.has(snapshot.id)) {
+      const parentBuild = buildBySnapshot.get(snapshot.parentSnapshotId);
+      if (parentBuild) {
+        buildBySnapshot.set(snapshot.id, parentBuild);
+      }
+    }
+  }
 
   return snapshots
     .filter((snapshot) => {

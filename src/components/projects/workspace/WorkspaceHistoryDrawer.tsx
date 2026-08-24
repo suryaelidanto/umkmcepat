@@ -50,11 +50,15 @@ function formatDate(iso: string): string {
 export function WorkspaceHistoryButton({
   projectId,
   variant = "pill",
+  activeSnapshotId,
   onActivate,
+  onCheckout,
 }: {
   projectId: string;
   variant?: "pill" | "row";
+  activeSnapshotId?: string | null;
   onActivate?: () => void;
+  onCheckout?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const isRow = variant === "row";
@@ -91,6 +95,8 @@ export function WorkspaceHistoryButton({
         projectId={projectId}
         open={open}
         onOpenChange={setOpen}
+        activeSnapshotId={activeSnapshotId}
+        onCheckout={onCheckout}
       />
     </>
   );
@@ -100,10 +106,14 @@ export function WorkspaceHistoryDrawer({
   projectId,
   open,
   onOpenChange,
+  activeSnapshotId,
+  onCheckout,
 }: {
   projectId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  activeSnapshotId?: string | null;
+  onCheckout?: () => void;
 }) {
   const [checkingOutId, setCheckingOutId] = useState<string | null>(null);
 
@@ -142,11 +152,14 @@ export function WorkspaceHistoryDrawer({
       );
     },
     onSuccess: () => {
-      toast.success("Versi ini aktif dan siap dilihat di Preview.");
+      toast.success("Versi ini aktif dan sedang dimuat di Preview.");
+      onCheckout?.();
     },
   });
 
   const snapshots = data?.snapshots ?? [];
+  // If activeSnapshotId not explicitly provided, the top snapshot is currently active
+  const currentActiveId = activeSnapshotId ?? snapshots[0]?.id;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -190,11 +203,16 @@ export function WorkspaceHistoryDrawer({
           <ol className="flex flex-col gap-3">
             {snapshots.map((snapshot) => {
               const label = KIND_LABEL[snapshot.kind] ?? snapshot.kind;
+              const isActive = snapshot.id === currentActiveId;
 
               return (
                 <li
                   key={snapshot.id}
-                  className="flex items-center justify-between gap-4 rounded-xl border border-border bg-muted/30 p-3.5 transition-colors hover:border-foreground/20 hover:bg-muted/50 dark:border-white/[0.08] dark:bg-white/[0.02]"
+                  className={`flex items-center justify-between gap-4 rounded-xl border p-3.5 transition-colors ${
+                    isActive
+                      ? "border-primary/40 bg-primary/5 shadow-2xs dark:border-primary/50 dark:bg-primary/10"
+                      : "border-border bg-muted/30 hover:border-foreground/20 hover:bg-muted/50 dark:border-white/[0.08] dark:bg-white/[0.02]"
+                  }`}
                 >
                   <div className="flex min-w-0 items-center gap-3.5">
                     {/* Visual Thumbnail */}
@@ -229,6 +247,12 @@ export function WorkspaceHistoryDrawer({
                             Produksi
                           </span>
                         ) : null}
+                        {isActive ? (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                            <Check className="size-2.5" />
+                            Sedang Aktif
+                          </span>
+                        ) : null}
                       </div>
 
                       <span className="text-[11px] text-muted-foreground dark:text-surface-warm-white/55">
@@ -239,25 +263,37 @@ export function WorkspaceHistoryDrawer({
 
                   {/* Action */}
                   <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      variant="default"
-                      className="cursor-pointer font-medium text-xs shadow-2xs"
-                      disabled={
-                        !snapshot.restorable ||
-                        checkingOutId === snapshot.id ||
-                        checkoutMutation.isPending
-                      }
-                      onClick={async () => {
-                        setCheckingOutId(snapshot.id);
-                        await checkoutMutation.mutateAsync(snapshot.id);
-                        setCheckingOutId(null);
-                        onOpenChange(false);
-                      }}
-                    >
-                      <Check className="size-3.5" />
-                      Pilih Versi Ini
-                    </Button>
+                    {isActive ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled
+                        className="font-medium text-xs opacity-75"
+                      >
+                        <Check className="size-3.5 text-primary" />
+                        Aktif
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="default"
+                        className="cursor-pointer font-medium text-xs shadow-2xs"
+                        disabled={
+                          !snapshot.restorable ||
+                          checkingOutId === snapshot.id ||
+                          checkoutMutation.isPending
+                        }
+                        onClick={async () => {
+                          setCheckingOutId(snapshot.id);
+                          await checkoutMutation.mutateAsync(snapshot.id);
+                          setCheckingOutId(null);
+                          onOpenChange(false);
+                        }}
+                      >
+                        <Check className="size-3.5" />
+                        Pilih Versi Ini
+                      </Button>
+                    )}
                   </div>
                 </li>
               );

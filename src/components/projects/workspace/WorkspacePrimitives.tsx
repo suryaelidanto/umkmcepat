@@ -51,10 +51,12 @@ export {
 export type { BuildProgressStep } from "@/components/projects/build/WorkspaceBuildProgress";
 
 export type WorkspaceRuntimeControl = {
+  activeSnapshotId?: string | null;
   canPublish?: boolean;
   hasUnpublishedPreview?: boolean;
   isPublishing?: boolean;
   onPublish?: () => void;
+  onReload?: () => void;
   publishedPath?: string | null;
   publishedState?: "live" | "not_live" | "unpublished";
 };
@@ -300,7 +302,13 @@ export function WorkspaceTopBar({
               </Button>
             </div>
           ) : null}
-          {projectId ? <WorkspaceHistoryButton projectId={projectId} /> : null}
+          {projectId ? (
+            <WorkspaceHistoryButton
+              projectId={projectId}
+              activeSnapshotId={runtime?.activeSnapshotId}
+              onCheckout={runtime?.onReload}
+            />
+          ) : null}
           {projectId ? <EnergyLedgerButton projectId={projectId} /> : null}
           {runtime ? <RuntimeControl runtime={runtime} /> : null}
 
@@ -492,6 +500,8 @@ export function MobileMenuContent({
               onActivate={onClose}
               projectId={projectId}
               variant="row"
+              activeSnapshotId={runtime?.activeSnapshotId}
+              onCheckout={runtime?.onReload}
             />
           ) : null}
           {projectId ? (

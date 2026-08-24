@@ -40,12 +40,22 @@ export const Route = createFileRoute(
           );
         }
 
+        const snapshot = await prisma.projectSnapshot.findFirst({
+          where: { id: snapshotId, projectId: id },
+          select: { id: true, parentSnapshotId: true },
+        });
+
         const build = await prisma.projectBuild.findFirst({
           where: {
-            snapshotId,
             projectId: id,
             status: "succeeded",
             artifactRef: { not: null },
+            OR: [
+              { snapshotId },
+              ...(snapshot?.parentSnapshotId
+                ? [{ snapshotId: snapshot.parentSnapshotId }]
+                : []),
+            ],
           },
           orderBy: { createdAt: "desc" },
           select: { id: true, artifactRef: true },

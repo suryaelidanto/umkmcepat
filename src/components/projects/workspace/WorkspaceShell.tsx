@@ -1387,6 +1387,10 @@ export function WorkspaceShell({
         buildStatus,
         isPublishing,
         onPublish: publishProject,
+        onReload: () => {
+          void loadRuntimeState();
+          setSourceReloadKey((current) => current + 1);
+        },
         publishedPath,
         runtimeState,
         sourceStatus,
@@ -4375,6 +4379,7 @@ function createRuntimeControl({
   buildStatus,
   isPublishing,
   onPublish,
+  onReload,
   publishedPath,
   runtimeState,
   sourceStatus,
@@ -4382,6 +4387,7 @@ function createRuntimeControl({
   buildStatus: string;
   isPublishing: boolean;
   onPublish: () => void;
+  onReload?: () => void;
   publishedPath: string | null;
   runtimeState: RuntimeWorkspaceState | null;
   sourceStatus: string;
@@ -4416,8 +4422,10 @@ function createRuntimeControl({
 
   return {
     ...release,
+    activeSnapshotId: runtimeState?.activePreviewDeployment?.snapshotId ?? null,
     isPublishing,
     onPublish,
+    onReload,
     publishedPath: runtimePublishedPath,
   };
 }
