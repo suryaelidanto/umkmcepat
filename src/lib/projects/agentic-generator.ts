@@ -763,6 +763,10 @@ FACT AND SAFETY RULES:
 - Keep interactive parent controls at least 44px without enlarging their inner SVG icons. Preserve focus-visible states and reduced motion.
 - Avoid nested cards, equal-card soup, gradient-tech styling, technical headings, starter residue, fake progress, and decorative interaction.
 
+BUTTON AND LINK COMPOSITION:
+- When using \`Button\` as a link (e.g. CTA or navigation), use either \`render={<a href="..." />}\`, \`<Button asChild><a href="...">...</a></Button>\`, or \`className={cn(buttonVariants({ ... }))}\`. Both \`render\` and \`asChild\` are fully supported and valid.
+- Primary CTA buttons (in Header, Hero, and Footer/Contact) must link directly to \`site.primaryCtaTarget\` (e.g. WhatsApp wa.me link) when available.
+
 PROTECTED FILES:
 The platform owns src/content/site.ts, src/index.css, src/main.tsx, src/router.tsx, src/routes/__root.tsx, src/routes/not-found.tsx, src/lib/preview-ready.ts, src/lib/utils.ts, src/components/ui/button.tsx, and src/components/ui/card.tsx. Never write them. Write src/routes/index.tsx, modular components under src/components/, supported data modules under src/content/ when needed, and approved public assets only.
 
