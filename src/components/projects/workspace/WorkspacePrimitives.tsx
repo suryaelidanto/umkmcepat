@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArrowLeft,
   ChevronRight,
   Code2,
   ExternalLink,
@@ -107,13 +108,15 @@ export function WorkspaceTopBar({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   return (
     <>
-      <div className="hidden min-h-14 flex-wrap items-center justify-between gap-spacing-2 border-b border-black/10 bg-[#eceae4] px-spacing-3 py-spacing-2 text-[#1c1c1c] transition-colors duration-200 dark:border-surface-warm-white/10 dark:bg-[#171715] dark:text-surface-warm-white sm:flex sm:h-14 sm:flex-nowrap sm:gap-spacing-4 sm:px-spacing-4 sm:py-0">
-        <div className="hidden min-w-0 items-center justify-start gap-spacing-3 sm:flex sm:w-auto">
+      {/* Tier 1: Global User Bar (Toggle panel, Dashboard link, Energy, Theme, Profile) */}
+      <div className="hidden h-11 w-full items-center justify-between border-b border-black/10 bg-[#f4f2ec] px-4 text-[#1c1c1c] transition-colors duration-200 dark:border-surface-warm-white/10 dark:bg-[#121210] dark:text-surface-warm-white sm:flex">
+        <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={chatCollapsed ? openChatPanel : closeChatPanel}
-            className="hidden h-9 w-9 items-center justify-center rounded-radius-md border border-black/10 p-spacing-2 text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/10 dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white md:inline-flex cursor-pointer"
-            aria-label={chatCollapsed ? "Buka chat" : "Tutup chat"}
+            className="inline-flex size-8 items-center justify-center rounded-radius-md border border-black/10 p-spacing-2 text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/10 dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white cursor-pointer"
+            aria-label={chatCollapsed ? "Buka panel chat" : "Tutup panel chat"}
+            title={chatCollapsed ? "Buka panel chat" : "Tutup panel chat"}
           >
             {chatCollapsed ? (
               <PanelLeftOpen className="size-4" />
@@ -121,10 +124,29 @@ export function WorkspaceTopBar({
               <PanelLeftClose className="size-4" />
             )}
           </button>
+          <a
+            href="/"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-[#5f5f5d] transition-colors hover:text-[#1c1c1c] dark:text-surface-warm-white/60 dark:hover:text-surface-warm-white"
+          >
+            <ArrowLeft className="size-3.5" />
+            <span>Dashboard</span>
+          </a>
+        </div>
+
+        <div className="flex items-center gap-3.5">
+          <EnergyDisplay projectId={projectId} />
+          <ThemeToggle />
+          <AuthButton />
+        </div>
+      </div>
+
+      {/* Tier 2: Project & Canvas Toolbar */}
+      <div className="hidden min-h-12 flex-wrap items-center justify-between gap-spacing-3 border-b border-black/10 bg-[#eceae4] px-4 py-spacing-2 text-[#1c1c1c] transition-colors duration-200 dark:border-surface-warm-white/10 dark:bg-[#171715] dark:text-surface-warm-white sm:flex sm:h-12 sm:flex-nowrap sm:py-0">
+        <div className="hidden min-w-0 items-center justify-start gap-3.5 sm:flex sm:w-auto">
           <div
             role="tablist"
             aria-label="Konten tampilan"
-            className="hidden md:flex h-9 items-center rounded-radius-md border border-black/10 bg-black/5 p-0.5 text-xs dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5"
+            className="hidden md:flex h-8 items-center rounded-radius-md border border-black/10 bg-black/5 p-0.5 text-xs dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5"
           >
             <TabButton
               active={activeTab === "preview"}
@@ -140,7 +162,7 @@ export function WorkspaceTopBar({
                   )?.focus();
                 }
               }}
-              icon={<Globe2 className="size-4" />}
+              icon={<Globe2 className="size-3.5" />}
               layoutId="workspace-active-tab"
             >
               Tampilan
@@ -159,7 +181,7 @@ export function WorkspaceTopBar({
                   )?.focus();
                 }
               }}
-              icon={<Code2 className="size-4" />}
+              icon={<Code2 className="size-3.5" />}
               layoutId="workspace-active-tab"
             >
               Kode
@@ -168,11 +190,11 @@ export function WorkspaceTopBar({
 
           {activeTab === "preview" ? (
             <>
-              <div className="hidden h-4 w-px bg-black/10 dark:bg-surface-warm-white/10 md:block" />
+              <div className="hidden h-3.5 w-px bg-black/10 dark:bg-surface-warm-white/10 md:block" />
               <div
                 role="tablist"
                 aria-label="Tampilan viewport"
-                className="hidden md:flex h-9 items-center rounded-radius-md border border-black/10 bg-black/5 p-0.5 text-xs dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5"
+                className="hidden md:flex h-8 items-center rounded-radius-md border border-black/10 bg-black/5 p-0.5 text-xs dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5"
               >
                 <TabButton
                   active={viewport === "desktop"}
@@ -188,7 +210,7 @@ export function WorkspaceTopBar({
                       )?.focus();
                     }
                   }}
-                  icon={<Monitor className="size-4" />}
+                  icon={<Monitor className="size-3.5" />}
                   layoutId="workspace-viewport-tab"
                 >
                   Komputer
@@ -208,7 +230,7 @@ export function WorkspaceTopBar({
                       )?.focus();
                     }
                   }}
-                  icon={<Smartphone className="size-4" />}
+                  icon={<Smartphone className="size-3.5" />}
                   layoutId="workspace-viewport-tab"
                 >
                   HP
@@ -218,11 +240,12 @@ export function WorkspaceTopBar({
                 <button
                   type="button"
                   onClick={onRefreshPreview}
-                  className="hidden md:inline-flex size-9 items-center justify-center rounded-radius-md border border-black/10 text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/10 dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white cursor-pointer transition-colors"
+                  className="hidden md:inline-flex h-8 items-center gap-1.5 rounded-radius-md border border-black/10 bg-transparent px-2.5 text-xs font-medium text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/10 dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white cursor-pointer transition-colors"
                   aria-label="Muat ulang tampilan website"
-                  title="Muat ulang tampilan"
+                  title="Muat ulang tampilan website"
                 >
                   <RotateCw className="size-3.5" />
+                  <span>Muat Ulang</span>
                 </button>
               ) : null}
             </>
@@ -239,9 +262,9 @@ export function WorkspaceTopBar({
                   : "Aktifkan mode tunjuk & ubah"
               }
               aria-pressed={directEditActive}
-              className={`hidden md:inline-flex h-9 items-center gap-spacing-2 rounded-radius-md border px-spacing-3 py-spacing-2 text-xs transition cursor-pointer ${directEditActive ? "border-[#8fd3ff]/35 bg-[#8fd3ff]/12 text-[#d6f0ff]" : "border-surface-warm-white/10 bg-surface-warm-white/5 text-surface-warm-white/64 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"}`}
+              className={`hidden md:inline-flex h-8 items-center gap-spacing-2 rounded-radius-md border px-2.5 py-1 text-xs transition cursor-pointer ${directEditActive ? "border-[#8fd3ff]/35 bg-[#8fd3ff]/12 text-[#d6f0ff]" : "border-surface-warm-white/10 bg-surface-warm-white/5 text-surface-warm-white/64 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"}`}
             >
-              <MessageSquarePlus className="size-4" />
+              <MessageSquarePlus className="size-3.5" />
               <span className="hidden sm:inline">
                 {directEditActive ? "Mode Tunjuk Aktif" : "Tunjuk & Ubah"}
               </span>
@@ -260,8 +283,8 @@ export function WorkspaceTopBar({
           className="hidden"
         />
 
-        {/* Desktop cluster: 1) Project Canvas Tools, 2) Project Actions, 3) User Preferences & Billing */}
-        <div className="hidden min-w-0 w-full items-center justify-between gap-3 sm:flex sm:w-auto sm:shrink-0 sm:justify-end sm:gap-4">
+        {/* Desktop project actions */}
+        <div className="hidden min-w-0 items-center justify-end gap-3 sm:flex sm:w-auto sm:shrink-0">
           {/* Direct edit controls (if active) */}
           {directEditFlagEnabled && directEditActive && directEditActions ? (
             <div className="flex items-center gap-spacing-1">
@@ -303,27 +326,15 @@ export function WorkspaceTopBar({
             </div>
           ) : null}
 
-          {/* Section 1: Project Actions (History & Publish/Visit) */}
-          <div className="flex items-center gap-2">
-            {projectId ? (
-              <WorkspaceHistoryButton
-                projectId={projectId}
-                activeSnapshotId={runtime?.activeSnapshotId}
-                onCheckout={runtime?.onReload}
-              />
-            ) : null}
-            {runtime ? <RuntimeControl runtime={runtime} /> : null}
-          </div>
-
-          {/* Clear section divider between project tools and user account */}
-          <div className="h-5 w-px bg-black/15 dark:bg-surface-warm-white/15" />
-
-          {/* Section 2: User Preferences & Billing */}
-          <div className="flex items-center gap-2.5">
-            <EnergyDisplay projectId={projectId} />
-            <ThemeToggle />
-            <AuthButton />
-          </div>
+          {/* Section: Project Actions */}
+          {projectId ? (
+            <WorkspaceHistoryButton
+              projectId={projectId}
+              activeSnapshotId={runtime?.activeSnapshotId}
+              onCheckout={runtime?.onReload}
+            />
+          ) : null}
+          {runtime ? <RuntimeControl runtime={runtime} /> : null}
         </div>
       </div>
       <MobileSheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
