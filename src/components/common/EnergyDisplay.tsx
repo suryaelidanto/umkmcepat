@@ -1,10 +1,18 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { PlusIcon } from "lucide-react";
+import { PlusIcon, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { EnergyLedger } from "@/components/common/EnergyLedger";
 import { EnergyBoosterModal } from "@/components/payment/EnergyBoosterModal";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useSession } from "@/lib/auth/auth-client";
 import { fetchJson, queryKeys } from "@/lib/query-client";
 
@@ -20,9 +28,10 @@ function formatNumber(value: number): string {
   return new Intl.NumberFormat("id-ID").format(value);
 }
 
-export function EnergyDisplay() {
+export function EnergyDisplay({ projectId }: { projectId?: string }) {
   const queryClient = useQueryClient();
   const [modalOpen, setModalOpen] = useState(false);
+  const [ledgerOpen, setLedgerOpen] = useState(false);
   const { data: session, status } = useSession();
   const hasUser = Boolean(session?.user) && status !== "loading";
   const energyQuery = useQuery({
@@ -72,42 +81,59 @@ export function EnergyDisplay() {
   const isEmpty = stats.remaining === 0;
 
   return (
-    <div
-      className="flex items-center gap-2"
-      title={[
-        `Energi tersisa: ${formatNumber(stats.remaining)}`,
-        `Diberikan: ${formatNumber(stats.granted)}`,
-        `Terpakai: ${formatNumber(stats.used)}`,
-        `Input: ${formatNumber(stats.inputTokens)} token`,
-        `Output: ${formatNumber(stats.outputTokens)} token`,
-        "Energi = biaya model (USD) × 1.000.000",
-        energyQuery.isFetching ? "Memperbarui…" : "",
-      ]
-        .filter(Boolean)
-        .join("\n")}
-    >
-      <div className="flex items-center gap-1 sm:gap-1.5">
+    <div className="flex items-center gap-1.5 sm:gap-2">
+      <div
+        className="flex cursor-pointer items-center gap-1 rounded-lg border border-black/5 bg-black/[0.03] px-2 py-1 transition-colors hover:bg-black/[0.06] dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] sm:gap-1.5"
+        onClick={() => setLedgerOpen(true)}
+        role="button"
+        tabIndex={0}
+        aria-label="Lihat riwayat pemakaian energi"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            setLedgerOpen(true);
+          }
+        }}
+        title="Klik untuk melihat riwayat pemakaian energi"
+      >
         <div
           className={`size-2 shrink-0 rounded-full ${isEmpty ? "bg-[#ffb4a6]" : isLow ? "bg-yellow-400" : "bg-green-400"} ${energyQuery.isFetching ? "animate-pulse" : ""}`}
         />
-        <span className="text-xs font-medium text-[#1c1c1c] dark:text-surface-warm-white/78">
+        <span className="text-xs font-semibold text-[#1c1c1c] dark:text-surface-warm-white/90">
           {formatNumber(stats.remaining)}
         </span>
         <span className="hidden text-xs text-[#5f5f5d] dark:text-surface-warm-white/50 md:inline">
           Energi
         </span>
-        <button
-          type="button"
-          onClick={() => setModalOpen(true)}
-          className="ml-0.5 inline-flex items-center gap-0.5 rounded-full bg-accent-orange-subtle border border-accent-orange-border px-1.5 py-0.5 text-[10px] font-semibold text-accent-orange transition hover:opacity-90 active:scale-95 focus:outline-none sm:ml-1 sm:gap-1 sm:px-2 sm:text-[11px]"
-          title="Tambah Energi"
-        >
-          <PlusIcon className="size-3" />
-          <span>Tambah</span>
-        </button>
       </div>
 
+      <button
+        type="button"
+        onClick={() => setModalOpen(true)}
+        className="inline-flex cursor-pointer items-center gap-0.5 rounded-full border border-accent-orange-border bg-accent-orange-subtle px-2 py-1 text-[11px] font-semibold text-accent-orange transition hover:opacity-90 active:scale-95 focus:outline-none"
+        title="Tambah Energi"
+      >
+        <PlusIcon className="size-3" />
+        <span>Tambah</span>
+      </button>
+
       <EnergyBoosterModal open={modalOpen} onOpenChange={setModalOpen} />
+
+      <Dialog open={ledgerOpen} onOpenChange={setLedgerOpen}>
+        <DialogContent className="flex max-h-[80dvh] flex-col gap-spacing-7 overflow-hidden sm:max-w-lg">
+          <DialogHeader className="shrink-0">
+            <DialogTitle className="flex items-center gap-spacing-3">
+              <Zap className="size-4" />
+              Riwayat Energi
+            </DialogTitle>
+            <DialogDescription>
+              Daftar pemakaian energi per langkah untuk akun dan proyek ini.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]">
+            <EnergyLedger projectId={projectId} limit={50} />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
