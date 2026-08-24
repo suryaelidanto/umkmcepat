@@ -3426,35 +3426,7 @@ export function WorkspaceShell({
             />
           ) : null}
 
-          {isRetrying === "card" ? (
-            <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/46">
-              Menata ulang pilihan jawaban...
-            </p>
-          ) : (isResponding ||
-              isPreparingNextQuestion ||
-              isRetrying === "response") &&
-            hasActiveTurnAssistantText &&
-            workspaceCard.type === "none" ? (
-            <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/46">
-              Sedang menyiapkan pilihan...
-            </p>
-          ) : isRetrying === "response" ? (
-            <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/46">
-              Menyempurnakan balasan...
-            </p>
-          ) : isResponding ? (
-            <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/46">
-              AI sedang menulis balasan...
-            </p>
-          ) : isPreparingNextQuestion ? (
-            <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/46">
-              Menyiapkan pertanyaan berikutnya...
-            </p>
-          ) : firstTurnPending ? (
-            <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/46">
-              AI sedang merancang website...
-            </p>
-          ) : rateLimitError ? (
+          {rateLimitError ? (
             <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
               <p className="text-sm font-medium text-[#ffb4a6]">
                 {rateLimitError.message}
@@ -3569,16 +3541,12 @@ export function WorkspaceShell({
                   discussPhase={
                     isRetrying === "card"
                       ? "retrying_card"
-                      : (isResponding ||
-                            isPreparingNextQuestion ||
-                            isRetrying === "response") &&
-                          hasActiveTurnAssistantText &&
-                          workspaceCard.type === "none"
-                        ? "preparing_options"
-                        : isRetrying === "response"
-                          ? "retrying_response"
+                      : isRetrying === "response"
+                        ? "retrying_response"
+                        : isResponding && hasActiveTurnAssistantText
+                          ? "streaming"
                           : isResponding
-                            ? "streaming"
+                            ? "processing"
                             : isPreparingNextQuestion
                               ? "preparing_card"
                               : firstTurnPending

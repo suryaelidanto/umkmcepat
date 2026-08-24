@@ -283,7 +283,7 @@ export function ProcessingControl({
     preparing_card: "Menyiapkan pertanyaan berikutnya...",
     retrying_response: "Menyempurnakan balasan...",
     retrying_card: "Menata ulang pilihan jawaban...",
-    processing: "AI sedang menunggu balasan...",
+    processing: "AI sedang menganalisis jawaban...",
   };
   const discussDetails: Record<NonNullable<typeof discussPhase>, string> = {
     streaming: "Balasan AI akan muncul di atas.",
@@ -291,7 +291,7 @@ export function ProcessingControl({
     preparing_card: "Merangkum konteks dan opsi jawaban.",
     retrying_response: "Tunggu sebentar, AI sedang menyusun ulang teks.",
     retrying_card: "Sedang menyiapkan tombol pilihan untukmu.",
-    processing: "Tunggu sebentar, jawaban akan muncul di sini.",
+    processing: "Merangkum konteks untuk langkah berikutnya.",
   };
 
   const activeDiscussPhase = discussPhase ?? "processing";
