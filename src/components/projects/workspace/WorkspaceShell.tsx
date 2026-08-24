@@ -349,7 +349,7 @@ export function WorkspaceShell({
   );
   const [hasMoreChat, setHasMoreChat] = useState(initialChatHasMore);
   const [isLoadingOlderChat, setIsLoadingOlderChat] = useState(false);
-  const prompt = initialPrompt.trim();
+  const prompt = (initialPrompt ?? "").trim();
   const buildRecommendationStorageKey = `umkmcepat:build-recommendation-hold:${projectId}`;
   const buildRecommendationConsumedKey = `umkmcepat:build-recommendation-consumed:${projectId}`;
   const handoffProofStorageKey = `umkmcepat:handoff-proof:${projectId}`;
@@ -3713,34 +3713,7 @@ export function WorkspaceShell({
                           className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-foreground outline-none [scrollbar-width:none] placeholder:text-muted-foreground disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
                         />
                         <div className="flex items-center justify-between gap-spacing-4">
-                          <div className="flex items-center gap-spacing-2">
-                            {!isBuilding && !isProcessing ? (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => {
-                                  if (canStartBuildNow) {
-                                    void handleStartBuild();
-                                  } else {
-                                    submitChatText(
-                                      buildComplete
-                                        ? "Perbarui website sekarang"
-                                        : "Buat website sekarang",
-                                    );
-                                  }
-                                }}
-                                disabled={
-                                  sessionExpired ||
-                                  authStatus !== "authenticated"
-                                }
-                                className="h-8 rounded-full border border-border/90 bg-card px-3 text-xs font-semibold text-foreground shadow-2xs transition-all hover:border-foreground/30 hover:bg-muted active:scale-95 cursor-pointer dark:border-white/15 dark:bg-[#252522] dark:hover:bg-[#2e2e2a]"
-                              >
-                                {buildComplete
-                                  ? "Perbarui website"
-                                  : "Buat website"}
-                              </Button>
-                            ) : null}
-                          </div>
+                          <div className="flex items-center gap-spacing-2" />
                           <div className="flex items-center gap-spacing-2">
                             {composerUploadsEnabled ? (
                               <ComposerAttachButton
@@ -3902,33 +3875,7 @@ export function WorkspaceShell({
                     disabled={sessionExpired || authStatus !== "authenticated"}
                   />
                   <div className="flex items-center justify-between gap-spacing-4">
-                    <div className="flex items-center gap-spacing-2">
-                      {!isBuilding &&
-                      !isProcessing &&
-                      composerState !== "held_build_recommendation" ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => {
-                            if (canStartBuildNow) {
-                              void handleStartBuild();
-                            } else {
-                              submitChatText(
-                                buildComplete
-                                  ? "Perbarui website sekarang"
-                                  : "Buat website sekarang",
-                              );
-                            }
-                          }}
-                          disabled={
-                            sessionExpired || authStatus !== "authenticated"
-                          }
-                          className="h-8 rounded-full border border-border/90 bg-card px-3 text-xs font-semibold text-foreground shadow-2xs transition-all hover:border-foreground/30 hover:bg-muted active:scale-95 cursor-pointer dark:border-white/15 dark:bg-[#252522] dark:hover:bg-[#2e2e2a]"
-                        >
-                          {buildComplete ? "Perbarui website" : "Buat website"}
-                        </Button>
-                      ) : null}
-                    </div>
+                    <div className="flex items-center gap-spacing-2" />
                     <div className="flex items-center gap-spacing-2">
                       {composerUploadsEnabled ? (
                         <ComposerAttachButton

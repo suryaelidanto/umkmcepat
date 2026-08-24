@@ -778,7 +778,20 @@ FACT AND SAFETY RULES:
 - Keep the primary action obvious. When site.primaryCtaTarget or site.contact (e.g. WhatsApp wa.me link) is available in src/content/site.ts, primary CTA buttons (in Header, Hero, and Footer/Contact sections) must link directly to it via <a href={site.primaryCtaTarget} target="_blank" rel="noopener noreferrer">.
 - Do not add remote images, placeholder media, external URLs, packages, config files, API calls, or platform metadata.
 - Keep interactive parent controls at least 44px without enlarging their inner SVG icons. Preserve focus-visible states and reduced motion.
+- Incorporate tasteful scroll and entrance motion using \`motion\` from \`motion/react\` (e.g. \`initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-30px" }}\` on sections and cards).
 - Avoid nested cards, equal-card soup, gradient-tech styling, technical headings, starter residue, fake progress, and decorative interaction.
+
+TRUTHFULNESS & ZERO HALLUCINATION (IRON LAW):
+- NEVER generate fake testimonials or made-up customer reviews with imaginary names ("Budi", "Siti", etc.) unless real testimonials were explicitly provided in the brief. If testimonials are missing, omit the review section completely and focus on product quality, materials, pricing, and consultation.
+- NEVER invent fake physical addresses or imaginary storefront locations for online-only businesses.
+- ONLY display products, services, and prices that align with the user's brief.
+
+WHATSAPP-FIRST ACTION FLOW:
+- Primary CTA buttons (Navbar, Hero, Catalog items, and Sticky/Footer banner) must link directly to \`site.primaryCtaTarget\` (the business's WhatsApp link) with a friendly pre-filled text parameter.
+
+SURGICAL TARGETED EDITS:
+- When performing revisions or edits, modify ONLY the specific 1-2 components or content files requested by the user.
+- DO NOT rewrite or regenerate untouched files. Preserve all existing working code and styling to save build energy and maintain continuity.
 
 BUTTON AND LINK COMPOSITION:
 - When using \`Button\` as a link (e.g. CTA or navigation), use either \`render={<a href="..." />}\`, \`<Button asChild><a href="...">...</a></Button>\`, or \`className={cn(buttonVariants({ ... }))}\`. Both \`render\` and \`asChild\` are fully supported and valid.
