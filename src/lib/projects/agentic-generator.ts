@@ -153,12 +153,17 @@ export async function runAgenticGenerate(input: {
     onFileStaged({ path: "src/content/site.ts", content: siteTsContent });
   }
 
+  const isRevisionMode = Boolean(
+    input.initialFiles && input.initialFiles.length > 0,
+  );
   const touched = new Set<string>();
   const operationTrace: AgenticGeneratedSourceResult["operationTrace"] = [];
-  const skillsRead = new Set<ProjectSkillName>();
+  const skillsRead = new Set<ProjectSkillName>(
+    isRevisionMode ? PROJECT_CORE_SKILL_NAMES : [],
+  );
   let checkAppCalls = 0;
   let lastCheckOk: boolean | null = null;
-  let designSystemAccepted = false;
+  let designSystemAccepted = isRevisionMode;
   let opSeq = 0;
 
   function missingCoreSkills() {
@@ -839,7 +844,7 @@ Start by inspecting the scaffold and reading the required skills. Then write the
     }),
   });
 
-  if (!checkAppCalls) {
+  if (!checkAppCalls || lastCheckOk !== true) {
     await tools.check_app.execute(
       {
         detail: "Verifikasi deterministik setelah respons AI selesai.",
