@@ -4141,12 +4141,6 @@ export function WorkspaceShell({
                       event.target.value = "";
                     }}
                   />
-                  {isBuilding && hasLastGoodPreview && (
-                    <div className="absolute inset-x-0 top-0 z-10 flex items-center gap-2 bg-[#10100f]/80 px-4 py-2 text-xs text-surface-warm-white/78 backdrop-blur-sm">
-                      <div className="size-3 animate-spin rounded-full border-2 border-surface-warm-white/12 border-t-surface-warm-white/82" />
-                      Membangun ulang website...
-                    </div>
-                  )}
                 </div>
               ) : (
                 <EmptyPreviewState />
