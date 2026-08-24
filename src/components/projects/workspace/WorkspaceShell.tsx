@@ -3343,16 +3343,18 @@ export function WorkspaceShell({
           ) : null}
         </div>
 
-        {/* Close Chat Panel (X Button on right side) */}
-        <button
-          type="button"
-          onClick={closeChatPanel}
-          className="hidden size-7 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-card text-foreground shadow-2xs transition-all hover:border-foreground/30 hover:bg-muted active:scale-95 cursor-pointer dark:border-white/15 dark:bg-[#252522] dark:hover:bg-[#2e2e2a] sm:inline-flex"
-          aria-label="Tutup panel diskusi (layar penuh tampilan)"
-          title="Tutup panel diskusi"
-        >
-          <X className="size-3.5 text-muted-foreground hover:text-foreground dark:text-surface-warm-white/70 dark:hover:text-surface-warm-white" />
-        </button>
+        {/* Close Chat Panel (X Button on right side - only when preview exists) */}
+        {hasPreview ? (
+          <button
+            type="button"
+            onClick={closeChatPanel}
+            className="hidden size-7 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-card text-foreground shadow-2xs transition-all hover:border-foreground/30 hover:bg-muted active:scale-95 cursor-pointer dark:border-white/15 dark:bg-[#252522] dark:hover:bg-[#2e2e2a] sm:inline-flex"
+            aria-label="Tutup panel diskusi (layar penuh tampilan)"
+            title="Tutup panel diskusi"
+          >
+            <X className="size-3.5 text-muted-foreground hover:text-foreground dark:text-surface-warm-white/70 dark:hover:text-surface-warm-white" />
+          </button>
+        ) : null}
       </div>
 
       <div className="relative flex min-h-0 flex-1 flex-col p-4">
