@@ -289,15 +289,10 @@ export function WorkspaceHistoryDrawer({
                     {/* Action Button */}
                     <div className="flex shrink-0 items-center justify-end sm:pl-2">
                       {isActive ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled
-                          className="h-9 px-4 text-xs font-semibold text-foreground/75 opacity-90"
-                        >
-                          <Check className="mr-1.5 size-4 text-emerald-600 dark:text-emerald-400" />
-                          Aktif
-                        </Button>
+                        <div className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3.5 text-xs font-bold text-emerald-600 dark:border-emerald-400/30 dark:bg-emerald-400/15 dark:text-emerald-400">
+                          <Check className="size-3.5" />
+                          <span>Aktif</span>
+                        </div>
                       ) : (
                         <Button
                           size="sm"
