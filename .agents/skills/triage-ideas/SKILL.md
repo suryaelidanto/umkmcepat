@@ -9,11 +9,19 @@ Read raw developer brain dumps from `docs/notes/ideas.md`, ask clarifying questi
 
 ## Workflow & Alignment First (95% Confidence Rule)
 
-1. **Relentless Probing (95%+ Confidence Gate)**:
+1. **Relentless Probing with Lazy Multiple-Choice Options (A/B/C/D)**:
    - Read `docs/notes/ideas.md`.
-   - Never assume, extrapolate, or guess developer intent from brief fragments (e.g. *"super prevent placeholder"*).
-   - Relentlessly question the developer across multiple turns until 95%+ confident about exact mechanics, domain boundaries, and implementation target.
-   - Ask: What is the exact failure mode? Is this engine, UI, prompt, or schema? What should happen when edge cases occur?
+   - Never assume, extrapolate, or guess developer intent from brief fragments.
+   - Relentlessly question the developer until 95%+ confident, but **make answering dead simple for lazy developers**:
+     - Format every question with clear multiple-choice options: `[A]`, `[B]`, `[C]`, `[Custom]`.
+     - The developer can simply reply with single letters (e.g. `1A, 2B, 3A, 4C`).
+     - Example:
+       ```
+       1. "super prevent placeholder":
+          [A] In Discuss: AI must not emit cards without conversational preamble text.
+          [B] In Generator: Banned words check (e.g. "Lorem Ipsum", "Contoh Menu") fails build.
+          [C] Both A and B.
+       ```
 2. **Route Confirmed Items**:
    - **Tasks, Bugs, & Features** $\rightarrow$ Add as checkable items under `## Backlog` in `docs/notes/backlog.md` with relevant domain tags (`#engine`, `#ux`, `#conversion`, `#security`, `#pricing`, `#architecture`).
    - **Architectural Decisions** $\rightarrow$ If confirmed as a structural change, create a 1-page ADR in `docs/architecture/ADR-<name>.md` and link it inside `docs/notes/backlog.md`.
