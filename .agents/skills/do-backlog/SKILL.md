@@ -6,33 +6,30 @@ disable-model-invocation: true
 
 # Do Backlog Skill
 
-The single, intelligent Kanban execution orchestrator for `docs/notes/backlog.md`. Evaluates priorities like a senior engineering lead, checks revisions, groups related tasks, delivers a high-signal architectural briefing, and waits for explicit user confirmation before touching code.
+Intelligent Kanban orchestrator. Evaluates tasks, checks revisions, groups synergistic tickets, and delivers an unslop, ultra-concise plan before asking for confirmation.
 
 ## Execution Workflow
 
-1. **Holistic Backlog Inspection**:
-   - Read `docs/notes/backlog.md`.
-   - Inspect priority hierarchy:
-     1. `## Needs Revision / Check Again`: Any rejected tasks or items needing deep re-audit.
-     2. `## In Progress`: Any uncompleted active tasks.
-     3. `## Backlog`: Unassigned tasks, analyzed for domain synergy.
+1. **Inspect Backlog Hierarchy**:
+   - `## Needs Revision / Check Again` (Fix first)
+   - `## In Progress` (Resume active work)
+   - `## Backlog` (Analyze for shared files/domains)
 
-2. **High-Signal Architectural Briefing (MANDATORY)**:
-   - Deliver a clear, insightful briefing following this exact structure:
-     - **Status Papan Kanban**: Quick snapshot of all columns.
-     - **Analisis Masalah & Dampak Pengguna**: Plain-English/Indonesian explanation of the UX/business problem and why these tasks matter.
-     - **Rencana Implementasi Terpadu**:
-       - Touched modules and contracts.
-       - Concrete *Before vs After* behavioral comparison.
-       - Verification & test invariant strategy.
-     - **Pilihan Keputusan**: Provide clear multiple-choice options (`[Y]` Batch recommended, `[1]` Single ticket, etc.).
+2. **Ultra-Concise Proposal (Max 15 lines)**:
+   - Apply `.agents/skills/unslop/SKILL.md`. Cut filler words, long tables, and AI fluff.
+   - Present only:
+     - **Status**: Active task counts.
+     - **Why**: 1-2 sharp sentences on the problem.
+     - **Proposed Batch**: Which `[T-XX]` tickets to group and why.
+     - **Key Change**: 2 bullet points on what actually changes in the UI/code.
+     - **Decision**: `[Y]` Batch, `[1]` Ticket A, `[2]` Ticket B.
    - **MANDATORY**: Wait for explicit user confirmation before writing code.
 
-3. **Execution & Strict Invariant Testing**:
+3. **Execution & Strict Invariants**:
    - Move confirmed ticket(s) to `## In Progress`.
-   - Write minimal, surgical code + colocated `.test.ts` tests.
-   - Follow the **Iron Law**: Assert only deterministic JSON schemas, data structures, and type contracts. Never assert AI response prose, classNames, CSS styles, or DOM markup.
+   - Implement minimal clean code + colocated tests.
+   - Follow the **Iron Law**: Assert only Zod schemas, data structures, and deterministic contracts. Never assert AI response prose, classNames, CSS styles, or DOM markup.
 
-4. **Verification & Stage**:
+4. **Verify & Stage**:
    - Run `bun run check`.
-   - Move completed ticket(s) from `## In Progress` to `## Ready for Review`.
+   - Move completed ticket(s) to `## Ready for Review`.
