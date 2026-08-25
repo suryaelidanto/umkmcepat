@@ -13,13 +13,13 @@ kanban-plugin: board
 
 ## In Progress
 
-## Ready for Review
-
-- [ ] **[T-01] Contextual WhatsApp CTA Copy**: Fix hardcoded `?text=Halo` to generate rich contextual WhatsApp prefilled messages based on business name and offering #engine #conversion #whatsapp
-
 ## Needs Revision
 
 - [ ] **[T-08] Photo Upload MVP Stabilization**: Stabilize photo upload pipeline and storage client with static public image output while keeping visual-edit experimental #media #upload
+
+## Ready for Review
+
+- [ ] **[T-01] Contextual WhatsApp CTA Copy**: Fix hardcoded `?text=Halo` to generate rich contextual WhatsApp prefilled messages based on business name and offering #engine #conversion #whatsapp
 
 ## Done
 

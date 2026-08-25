@@ -57,9 +57,9 @@ A restrained, trustworthy site generation engine for Indonesian small business o
 
 ## Task Execution & Obsidian Backlog (Autonomous Loop)
 
-- `docs/notes/backlog.md` is the single source of truth for work items (`Backlog`, `In Progress`, `Ready for Review`, `Needs Revision`, `Done`).
+- `docs/notes/backlog.md` is the single source of truth for work items (`Backlog`, `In Progress`, `Needs Revision`, `Ready for Review`, `Done`).
 - **Autonomous Execution Priority**:
-  1. **Priority #1 (Revisions)**: If items exist in `## Needs Revision`, read developer notes/wikilinks, fix issues, verify with `bun run check`, and move to `## Ready for Review`.
+  1. **Priority #1 (Revisions)**: If items exist in `## Needs Revision`, read developer notes/wikilinks (or perform a full end-to-end audit if notes are empty), fix issues, verify with `bun run check`, and move to `## Ready for Review`.
   2. **Priority #2 (Resume)**: If an item is under `## In Progress`, drive that task to completion.
   3. **Priority #3 (Next Task)**: If `## In Progress` and `## Needs Revision` are empty, pick the topmost priority from `## Backlog`, move it to `## In Progress`, implement colocated tests + minimal clean code, verify 100% green via `bun run check`, and move to `## Ready for Review`.
   4. **Approval & Commit**: Once approved by the user, move task from `## Ready for Review` to `## Done` and commit atomically. If rejected by user, it moves to `## Needs Revision`.
