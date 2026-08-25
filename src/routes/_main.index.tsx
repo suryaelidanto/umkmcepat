@@ -240,8 +240,8 @@ function CaraKerjaSection() {
               Bagikan ke pembeli
             </h3>
             <p className="mt-2 text-sm leading-relaxed text-[#5f5f5d] dark:text-surface-warm-white/60">
-              Sebar link ke WhatsApp, bio Instagram, atau Google Maps agar
-              pembeli bisa pesan langsung.
+              Sebar tautan ke bio Instagram atau Google Maps agar calon
+              pelanggan bisa chat dan pesan langsung ke WhatsApp.
             </p>
           </div>
         </div>

@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto";
-
 import {
   parseContact,
   validateBrief,
@@ -11,7 +9,6 @@ import {
   type TestimonialValue,
   type UmkmType,
 } from "./brief-rich-fields";
-import { canonicalJson } from "./build-hash";
 import {
   normalizeVisitorJobs,
   parseVisitorJobs,
@@ -66,7 +63,6 @@ export type ProjectBriefV2 = {
   };
 };
 
-const BRIEF_HASH_PREFIX = "umkmcepat:project-brief:v2:";
 const UMKM_TYPES: ReadonlySet<string> = new Set([
   "fnb",
   "retail",
@@ -181,12 +177,6 @@ export function migrateLegacyBrief(
       decisions: parseDecisions(source.decisions),
     },
   };
-}
-
-export function hashCanonicalBrief(brief: ProjectBriefV2): string {
-  return createHash("sha256")
-    .update(BRIEF_HASH_PREFIX + canonicalJson(brief), "utf8")
-    .digest("hex");
 }
 
 export function getPrimaryOfferName(brief: ProjectBriefV2): string | null {

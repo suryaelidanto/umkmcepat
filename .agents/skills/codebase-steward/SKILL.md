@@ -1,6 +1,7 @@
 ---
 name: codebase-steward
 description: Use when auditing, organizing, simplifying, refining, or perfecting the codebase architecture, type safety, test invariants, directory layout, comment hygiene, and unslop engineering standards.
+disable-model-invocation: true
 ---
 
 # Codebase Steward

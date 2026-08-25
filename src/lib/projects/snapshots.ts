@@ -114,6 +114,14 @@ export async function listSnapshots(
         (fileCount != null && fileCount > 0) || Boolean(snapshot.sourceRef);
       const build = buildBySnapshot.get(snapshot.id);
       const { summary, changes } = extractSnapshotChangelog(snapshot.metadata);
+      const meta = snapshot.metadata as {
+        generation?: { touchedFiles?: string[] };
+      } | null;
+      const touchedFileCount =
+        Array.isArray(meta?.generation?.touchedFiles) &&
+        meta.generation.touchedFiles.length > 0
+          ? meta.generation.touchedFiles.length
+          : null;
       return {
         buildId: build?.id ?? null,
         buildStatus: build?.status ?? null,
@@ -126,6 +134,7 @@ export async function listSnapshots(
         published: publishedSnapshotIds.has(snapshot.id),
         restorable,
         summary,
+        touchedFileCount,
       };
     });
 }

@@ -28,6 +28,26 @@ Write the test first. Watch it fail. Write minimal code to pass.
 
 Thinking "skip TDD just this once"? Stop. That's rationalization.
 
+## The Iron Law of AI & Generated Output Testing (MANDATORY)
+
+```
+NEVER TEST AI RESPONSE CONTENT, CLASSNAMES, CSS STYLES, OR HTML MARKUP
+```
+
+In AI-powered generation engines, unit and TDD tests MUST NOT assert:
+- AI model answer wording or prose
+- Exact `className` strings or Tailwind utility lists
+- HTML tag names, DOM trees, or section sequence
+- CSS rules, color hexes, OKLCH strings, or style declarations
+- Generated source snapshots
+
+**What tests DO assert (Deterministic Mechanical Invariants Only):**
+1. **JSON Schemas & Types**: Zod schema parsing, data structures, required keys (`ok: true`, `error: ...`).
+2. **Type Narrowing**: Type safety, boundaries, error cases, null handling.
+3. **Hard Boundaries**: Action URLs, route topology, package policies, security permissions, compilation.
+
+Testing markup, styling, or prose forces rigid, template-ish AI output. Default styling (e.g. `scroll-behavior: smooth`, tokens) belongs in the static starter scaffold, not in string-matching test assertions. Visual and aesthetic appeal belongs strictly to human visual inspection.
+
 ## The Iron Law
 
 ```

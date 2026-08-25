@@ -75,7 +75,7 @@ export function WorkspaceTopBar({
   runtime,
   projectId,
   title: _title,
-  onPickTab,
+  onPickTab: _onPickTab,
   onRefreshPreview,
 }: {
   activeTab: BuildTab;
@@ -327,23 +327,56 @@ export function WorkspaceTopBar({
           {runtime ? <RuntimeControl runtime={runtime} /> : null}
         </div>
       </div>
-      <MobileSheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-        <MobileMenuContent
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          viewport={viewport}
-          setViewport={setViewport}
-          annotationAvailable={annotationAvailable}
-          directEditActive={directEditActive}
-          directEditFlagEnabled={directEditFlagEnabled}
-          onToggleDirectEdit={onToggleDirectEdit}
-          runtime={runtime}
-          projectId={projectId}
-          onPickTab={onPickTab}
-          onClose={() => setIsMobileMenuOpen(false)}
-        />
-      </MobileSheet>
     </>
+  );
+}
+
+export function WorkspaceMobileMenuSheet({
+  open,
+  onOpenChange,
+  activeTab,
+  setActiveTab,
+  viewport,
+  setViewport,
+  annotationAvailable,
+  directEditActive,
+  directEditFlagEnabled,
+  onToggleDirectEdit,
+  runtime,
+  projectId,
+  onPickTab,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  activeTab: BuildTab;
+  setActiveTab: (tab: BuildTab) => void;
+  viewport: "desktop" | "mobile";
+  setViewport: (viewport: "desktop" | "mobile") => void;
+  annotationAvailable?: boolean;
+  directEditActive?: boolean;
+  directEditFlagEnabled?: boolean;
+  onToggleDirectEdit?: () => void;
+  runtime?: WorkspaceRuntimeControl;
+  projectId?: string;
+  onPickTab?: (tab: BuildTab) => void;
+}) {
+  return (
+    <MobileSheet open={open} onOpenChange={onOpenChange}>
+      <MobileMenuContent
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        viewport={viewport}
+        setViewport={setViewport}
+        annotationAvailable={Boolean(annotationAvailable)}
+        directEditActive={Boolean(directEditActive)}
+        directEditFlagEnabled={Boolean(directEditFlagEnabled)}
+        onToggleDirectEdit={onToggleDirectEdit}
+        runtime={runtime}
+        projectId={projectId}
+        onPickTab={onPickTab}
+        onClose={() => onOpenChange(false)}
+      />
+    </MobileSheet>
   );
 }
 
@@ -830,35 +863,35 @@ export function WorkspaceCardView({
 
   if (card.type === "build_recommendation") {
     return (
-      <div className="rounded-2xl border border-black/10 bg-[#fcfbf8] px-spacing-5 py-spacing-5 shadow-sm transition-colors duration-200 dark:border-surface-warm-white/10 dark:bg-[#1b1b18] dark:shadow-none">
-        <div className="grid items-start gap-spacing-5 md:grid-cols-[minmax(0,1fr)_auto]">
+      <div className="rounded-xl border border-black/10 bg-[#fcfbf8] p-4 shadow-sm transition-colors duration-200 dark:border-surface-warm-white/10 dark:bg-[#1b1b18] dark:shadow-none">
+        <div className="flex flex-col gap-3.5">
           <div className="min-w-0 flex-1">
-            <h2 className="text-base font-semibold leading-6 text-[#1c1c1c] dark:text-surface-warm-white">
+            <h2 className="text-sm font-semibold leading-5 text-[#1c1c1c] dark:text-surface-warm-white">
               {card.title}
             </h2>
-            <ul className="mt-spacing-4 divide-y divide-black/5 text-sm leading-6 text-[#5f5f5d] dark:divide-surface-warm-white/8 dark:text-surface-warm-white/66">
+            <ul className="mt-2.5 divide-y divide-black/5 text-xs leading-5 text-[#5f5f5d] dark:divide-surface-warm-white/8 dark:text-surface-warm-white/66">
               {card.summary.slice(0, 7).map((item, index) => (
                 <li
                   key={`${item}-${index}`}
-                  className="break-words py-spacing-3 first:pt-0 last:pb-0 [overflow-wrap:anywhere]"
+                  className="break-words py-1.5 first:pt-0 last:pb-0 [overflow-wrap:anywhere]"
                 >
                   {item}
                 </li>
               ))}
             </ul>
             {!canBuild ? (
-              <p className="mt-spacing-4 rounded-[12px] border border-status-warning-border bg-status-warning-subtle px-spacing-4 py-spacing-3 text-sm leading-6 text-foreground">
+              <p className="mt-2.5 rounded-lg border border-status-warning-border bg-status-warning-subtle px-3 py-2 text-xs leading-5 text-foreground">
                 Ada informasi yang masih perlu dilengkapi. Lanjutkan diskusi
                 dulu sebelum membuat website.
               </p>
             ) : null}
           </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-spacing-3 md:mt-spacing-6 md:flex-col md:items-stretch">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <Button
               type="button"
               disabled={!canBuild}
               onClick={onBuild}
-              className="rounded-[12px] bg-[#1c1c1c] px-spacing-5 text-white hover:bg-black disabled:opacity-50 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/86"
+              className="h-9 flex-1 rounded-lg bg-[#1c1c1c] px-4 text-xs font-semibold text-white hover:bg-black disabled:opacity-50 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/86"
             >
               {buildComplete ? "Perbarui website" : "Mulai buat website"}
             </Button>
@@ -867,7 +900,7 @@ export function WorkspaceCardView({
                 type="button"
                 variant="outline"
                 onClick={onDiscuss}
-                className="rounded-[12px] border-black/15 bg-transparent px-spacing-5 text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/12 dark:text-surface-warm-white/78 dark:hover:bg-surface-warm-white/8"
+                className="h-9 rounded-lg border-black/15 bg-transparent px-4 text-xs font-medium text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/12 dark:text-surface-warm-white/78 dark:hover:bg-surface-warm-white/8"
               >
                 Lanjut diskusi dulu
               </Button>

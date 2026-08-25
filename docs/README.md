@@ -6,9 +6,11 @@ Obsidian-compatible knowledge base for UMKM Cepat.
 
 - **[[architecture/overview]]**: System architecture and core design principles
 - **[[guides/local-development]]**: Local setup, environment, and development commands
-- **[[notes/backlog]]**: Product backlog, Kanban task board, and milestones
-- **[[notes/ideas]]**: Private local scratchpad for raw developer brain dumps and complaints (gitignored). Run `.agents/skills/triage-ideas/` to triage into backlog.
-- **[[notes/ideas-archive]]**: Private local history log of past processed dumps (gitignored).
+- **[[notes/backlog]]**: Product backlog with `[#XX]` task codes and Kanban board
+- **[[notes/notes]]**: Private local second brain for casual notes, rants, and scratchpads (gitignored)
+- **[[notes/ideas]]**: Private local scratchpad for ideas to triage into backlog (gitignored)
+- **[[notes/ideas-old]]**: Private local timestamped backups of past triaged ideas (gitignored)
+- **[[notes/attachments]]**: Private local attachments and screenshots for notes/backlog (gitignored)
 
 ## Workflow for Developers & Agents
 

@@ -57,15 +57,17 @@ A restrained, trustworthy site generation engine for Indonesian small business o
 
 ## Task Execution & Obsidian Backlog (Autonomous Loop)
 
-- `docs/notes/backlog.md` is the single source of truth for work items.
-- **Session Start Protocol**:
-  1. Inspect `docs/notes/backlog.md`.
-  2. If an item is under `## In Progress`, drive that task to completion.
-  3. If `## In Progress` is empty, pick the topmost priority from `## Backlog` and move it to `## In Progress`.
-  4. Write colocated unit/integration tests (`.test.ts`), implement minimal clean code, and run `bun run check`.
-  5. When verified 100% green, move the task to `## Ready for Review` for user inspection.
-  6. Once approved by the user, move the task to `## Done` and commit atomically. If rejected, move back to `## In Progress`.
-- Raw developer brain dumps go into `docs/notes/ideas.md` and are triaged via `.agents/skills/triage-ideas/`.
+- `docs/notes/backlog.md` is the single source of truth for work items (`Backlog`, `In Progress`, `Needs Revision / Check Again`, `Ready for Review`, `Done`, `Future / Icebox`).
+- **Autonomous Backlog Skills**:
+  - `add-backlog`: Add isolated tasks with next sequential `[#XX]` code and domain tags.
+  - `do-backlog`: The unified execution orchestrator. Inspects revisions, ranks priorities, groups synergistic tasks into a clear plan, asks for developer confirmation, implements code + tests, and verifies via `bun run check`.
+  - `triage-ideas`: Triage raw thoughts from `ideas.md` into backlog tasks.
+- **Execution Priority**:
+  1. **Priority #1 (Revisions / Check Again)**: If items exist in `## Needs Revision / Check Again`, read developer notes/wikilinks (or perform a full end-to-end audit if notes are empty), fix issues until rock-solid, verify with `bun run check`, and move to `## Ready for Review`.
+  2. **Priority #2 (Resume)**: If an item is under `## In Progress`, drive that task to completion.
+  3. **Priority #3 (Next Task / Batch)**: If `## In Progress` and `## Needs Revision / Check Again` are empty, evaluate `## Backlog`, propose an execution batch to the user, move to `## In Progress`, implement colocated tests + minimal clean code, verify 100% green via `bun run check`, and move to `## Ready for Review`.
+  4. **Approval & Commit**: Once approved by the user, move task from `## Ready for Review` to `## Done` and commit atomically. If rejected by user, it moves back to `## Needs Revision / Check Again`.
+- Raw developer brain dumps go into `docs/notes/ideas.md` and are triaged via `.agents/skills/triage-ideas/`. Timestamped backups of raw ideas live in `docs/notes/ideas-old/`. Personal notes live in `docs/notes/notes.md`. Long-term items park in `## Future / Icebox`.
 
 ---
 

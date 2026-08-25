@@ -31,7 +31,8 @@ import {
   selectQualifiedHandoff,
 } from "./build-handoffs";
 import { hashBuildContract, hashBuildPlan } from "./build-hash";
-import { hashCanonicalBrief, parseCanonicalBrief } from "./canonical-brief";
+import { parseCanonicalBrief } from "./canonical-brief";
+import { hashCanonicalBrief } from "./canonical-brief-hash";
 
 import type { BuildContractV1 } from "./build-contract";
 import type { BuildPlanV1 } from "./build-plan";

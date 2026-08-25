@@ -196,8 +196,18 @@ export function compileOutcomeDesignSystem(
 
 @layer base {
   * { @apply border-border outline-ring/50; }
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 5rem;
+  }
   html, body { overflow-x: clip; }
   body { @apply bg-background text-foreground font-body; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }
 `;
 

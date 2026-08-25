@@ -35,10 +35,8 @@ import { loadActiveHandoff } from "@/lib/projects/build-handoffs";
 import { prepareBuildHandoff } from "@/lib/projects/build-planner";
 import { evaluateBuildReadiness } from "@/lib/projects/build-readiness";
 import { describeBuildRecommendation } from "@/lib/projects/build-recommendation-summary";
-import {
-  hashCanonicalBrief,
-  parseCanonicalBrief,
-} from "@/lib/projects/canonical-brief";
+import { parseCanonicalBrief } from "@/lib/projects/canonical-brief";
+import { hashCanonicalBrief } from "@/lib/projects/canonical-brief-hash";
 import { ensureQuestionCardRichness } from "@/lib/projects/card-richness";
 import {
   buildProjectChatContext,

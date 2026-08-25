@@ -1,6 +1,7 @@
 ---
 name: push-dev
 description: Use when changes on `dev` must be committed, pushed, and validated by CI.
+disable-model-invocation: true
 ---
 
 # Push Dev
