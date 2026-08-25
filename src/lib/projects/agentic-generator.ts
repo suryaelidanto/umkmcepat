@@ -916,6 +916,12 @@ Start by setting up necessary shadcn components and theme color, then immediatel
           response: { modelId: servedModelId },
           reason: toolReason,
         });
+
+        if (stepCharger.isExhausted()) {
+          throw new Error(
+            "Energi akun telah habis. Silakan isi ulang energi untuk melanjutkan pembuatan website.",
+          );
+        }
       }
     },
     telemetry: getAiTelemetry("project-agentic-generate", {

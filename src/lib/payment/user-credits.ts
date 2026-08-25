@@ -89,7 +89,7 @@ export async function checkEnergy(
 ): Promise<{ allowed: boolean; remaining: number }> {
   const resolvedCost = cost ?? getEnergyConfig().minDiscuss;
   const remaining = await getRemainingEnergy(userId);
-  return { allowed: remaining >= resolvedCost, remaining };
+  return { allowed: remaining > 0 && remaining >= resolvedCost, remaining };
 }
 
 export async function addEnergyUsage(
@@ -286,7 +286,7 @@ export async function getEnergyStats(userId: string): Promise<{
   `;
 
   return {
-    remaining: Math.max(0, row?.balance ?? 0),
+    remaining: row?.balance ?? 0,
     granted: row?.granted ?? 0,
     used: row?.used ?? 0,
     inputTokens: row?.inputTokens ?? 0,
