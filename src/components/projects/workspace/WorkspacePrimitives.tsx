@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  ArrowLeft,
   ChevronRight,
   Code2,
   ExternalLink,
@@ -107,17 +106,9 @@ export function WorkspaceTopBar({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   return (
     <>
-      {/* Tier 1: Global User Bar (Back, Toggle Diskusi, Energy, Theme, Profile) */}
+      {/* Tier 1: Global User Bar (Toggle Diskusi, Energy, Theme, Profile) */}
       <div className="hidden h-11 w-full items-center justify-between border-b border-black/10 bg-[#f4f2ec] px-4 text-[#1c1c1c] transition-colors duration-200 dark:border-surface-warm-white/10 dark:bg-[#121210] dark:text-surface-warm-white sm:flex">
         <div className="flex items-center gap-2">
-          <a
-            href="/"
-            className="inline-flex size-8 items-center justify-center rounded-lg border border-border/90 bg-card text-foreground shadow-2xs transition-all hover:border-foreground/30 hover:bg-muted active:scale-95 cursor-pointer dark:border-white/15 dark:bg-[#252522] dark:hover:bg-[#2e2e2a] dark:text-surface-warm-white"
-            title="Kembali ke Beranda"
-            aria-label="Kembali ke Beranda"
-          >
-            <ArrowLeft className="size-3.5 text-foreground/80 dark:text-surface-warm-white" />
-          </a>
           {chatCollapsed ? (
             <button
               type="button"

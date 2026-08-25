@@ -6,7 +6,7 @@ import {
   recordAiCall,
   startAiCallTimer,
 } from "@/lib/ai/ai-call-record";
-import { getModerationModel } from "@/lib/ai/ai-models";
+import { getModerationModel, getVisionModel } from "@/lib/ai/ai-models";
 import { getAiTimeoutMs, withAiTimeout } from "@/lib/ai/ai-timeouts";
 import { devLog } from "@/lib/dev-log";
 
@@ -76,7 +76,7 @@ export async function moderateProjectRequest(
     });
   }
 
-  const requestedModel = getModerationModel();
+  const requestedModel = hasImages ? getVisionModel() : getModerationModel();
   // Non-streaming generateText: ttftMs = requestMs on success (buffered
   const stopTimer = startAiCallTimer({ withTtft: true });
   let attemptedRetry = false;

@@ -61,3 +61,10 @@ export function getGenerationModel() {
     "AI_GENERATION_MODEL",
   ]);
 }
+
+export function getVisionModel() {
+  return resolveTaskModel("ai.model.vision", [
+    "AI_MODEL_VISION",
+    "AI_VISION_MODEL",
+  ]);
+}

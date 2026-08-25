@@ -626,6 +626,8 @@ export async function runAgenticGenerate(input: {
           /\bcontoh\s+menu\b/i,
           /\bdeskripsi\s+disini\b/i,
           /\[nama\s+(produk|toko|menu)\]/i,
+          /\btidak\s+ada\s+(foto|gambar)\b/i,
+          /\b(foto|gambar)\s+belum\s+(tersedia|diunggah|ada)\b/i,
         ];
         const placeholderIssues: string[] = [];
         for (const [path, content] of fileMap.entries()) {
@@ -782,6 +784,8 @@ FACT AND SAFETY RULES:
 - Avoid nested cards, equal-card soup, gradient-tech styling, technical headings, starter residue, fake progress, and decorative interaction.
 
 ANTI-SLOP & REFINED VISUAL STANDARDS:
+- REAL UPLOADED PHOTOS: If \`site.images\` is populated in \`src/content/site.ts\`, you MUST display these genuine store photos prominently (e.g. as Hero showcase visual, gallery cards, or menu highlight images) with rounded borders and clean framing (\`<img src={site.images[0].url} alt={site.images[0].alt || site.businessName} className="w-full h-80 object-cover rounded-2xl shadow-md" />\`).
+- NEVER CREATE "NO PHOTO / TIDAK ADA FOTO" PLACEHOLDERS: If photos are missing or \`site.images\` is empty, NEVER render boxes saying "Tidak ada foto", gray placeholder squares, or camera icons. Instead, design a purely typographic, content-led layout (H1, headline, USP grid, pricing badges, address and hours info).
 - NO FAKE/SIMULATED PRODUCT SHAPES: If the user did not upload photos, NEVER draw fake CSS/SVG t-shirt silhouettes, coffee cup wireframes, or mockup graphics. Instead, present clean, elegant editorial typographic cards with bold titles, price tags, specification bullets, and WhatsApp action buttons.
 - NO PILL / BADGE OVERLOAD: Max 1 subtle badge in the entire Hero. NEVER put floating rounded pill tags above section titles (no "[• Profil Kedai]", no "[• Katalog & Pilihan]", no "[• Untuk Semua kalangan]"). Let clean typography hierarchy (H2, H3, clean paragraphs) define the structure.
 - NO FAKE LOGO BOXES: In Header/Navbar, render the brand as a confident typographic wordmark (e.g. bold serif or sans title). DO NOT create colored square icon boxes with single letters ("D", "K") or generic icon circles to fake a logo.

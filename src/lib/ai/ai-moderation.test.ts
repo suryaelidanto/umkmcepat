@@ -20,6 +20,7 @@ vi.mock("@/lib/ai/ai-models", () => ({
   DEFAULT_AI_MODEL: "default-combo",
   getDefaultAiModel: vi.fn(() => "default-combo"),
   getModerationModel: vi.fn(() => "default-combo"),
+  getVisionModel: vi.fn(() => "vision-combo"),
   getDiscussModel: vi.fn(() => "default-combo"),
   getGenerationModel: vi.fn(() => "default-combo"),
 }));

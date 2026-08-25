@@ -661,10 +661,17 @@ export async function runBuildAttempt({
         ),
         recipe: generatedSiteRecipe,
       });
+      const briefSchema = createProjectSiteSchemaFromBrief(brief);
       finalSchema = createProjectSiteSchemaFromGeneratedContract({
         contract: generatedSiteContract,
         theme: finalSchema.theme,
       });
+      if (!finalSchema.images?.length && briefSchema.images?.length) {
+        finalSchema.images = briefSchema.images;
+      }
+      if (briefSchema.primaryCtaTarget) {
+        finalSchema.primaryCtaTarget = briefSchema.primaryCtaTarget;
+      }
     } else {
       const implementationSpecPrompt = buildImplementationSpecPrompt(brief);
       const specStartedAt = Date.now();
