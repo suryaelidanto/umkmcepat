@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # Do Backlog Skill
 
-Intelligent Kanban orchestrator. Evaluates tasks, checks revisions, groups synergistic tickets, and delivers an unslop, ultra-concise plan before asking for confirmation.
+Kanban orchestrator. Evaluates tasks, prioritizes revisions, clusters synergistic tickets, and delivers an ultra-scannable vertical top-to-bottom proposal before asking for confirmation.
 
 ## Execution Workflow
 
@@ -15,14 +15,33 @@ Intelligent Kanban orchestrator. Evaluates tasks, checks revisions, groups syner
    - `## In Progress` (Resume active work)
    - `## Backlog` (Analyze for shared files/domains)
 
-2. **Ultra-Concise Proposal (Max 15 lines)**:
-   - Apply `.agents/skills/unslop/SKILL.md`. Cut filler words, long tables, and AI fluff.
-   - Present only:
-     - **Status**: Active task counts.
-     - **Why**: 1-2 sharp sentences on the problem.
-     - **Proposed Batch**: Which `[#XX]` tickets to group and why.
-     - **Key Change**: 2 bullet points on what actually changes in the UI/code.
-     - **Decision**: `[Y]` Batch, `[1]` Ticket A, `[2]` Ticket B.
+2. **Vertical Top-to-Bottom Proposal (Strict Template)**:
+   - Present strictly top-to-bottom for near-zero cognitive load and fast vertical scanning:
+
+```markdown
+📋 **Backlog Status**
+• Revisions: 0
+• Active: 0
+• Queued: 2 ([#14], [#15])
+
+🎯 **Target Batch**
+• [#14] Persistent Workspace Composer Action Button
+• [#15] Tiered Brief Priority & Proactive Enrichment
+
+💡 **The Why**
+• User lacks clear 1-click build action in chat.
+• Engine rushes to build before gathering photos/menu.
+
+⚡ **The Change**
+• Persistent [🚀 Buat Website] button in composer.
+• 3-tier brief logic (Core -> Enrichment -> Polish).
+
+👉 **Next Step**
+[Y] Run recommended batch [#14] + [#15]
+[1] Run [#14] only
+[2] Run [#15] only
+```
+
    - **MANDATORY**: Wait for explicit user confirmation before writing code.
 
 3. **Execution & Strict Invariants**:
