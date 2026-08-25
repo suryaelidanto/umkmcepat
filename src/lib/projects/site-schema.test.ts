@@ -65,7 +65,7 @@ describe("project site schema", () => {
     });
 
     expect(schema.images).toEqual([
-      { url: "/media/asset_abc", purpose: "hero", alt: "Kedai Kopi" },
+      { url: "/images/asset_abc.png", purpose: "hero", alt: "Kedai Kopi" },
     ]);
   });
 

@@ -21,6 +21,7 @@ import {
 import { getSettingSync } from "@/lib/config/app-settings";
 import { isGeneratedBuildExecutionEnabled } from "@/lib/config/config";
 import { devLog } from "@/lib/dev-log";
+import { prisma } from "@/lib/prisma";
 import { sanitizeBuildLog } from "@/lib/projects/build-logs";
 import { validateGeneratedAppManifest } from "@/lib/projects/generated-app-manifest";
 import { validateGeneratedBuildPolicy } from "@/lib/projects/generated-build-policy";
@@ -28,6 +29,7 @@ import {
   assertGeneratedResourceBudget,
   getGeneratedResourceBudget,
 } from "@/lib/projects/generated-resource-budget";
+import { readProjectAsset } from "@/lib/projects/project-assets";
 import {
   ensureSharedNodeModules,
   linkSharedNodeModules,
@@ -332,6 +334,7 @@ async function buildGeneratedProjectInWorkspace(
 
     await mkdir(workspace, { recursive: true });
     await syncGeneratedProjectFiles(workspace, files);
+    await materializeProjectAssetsToWorkspace(workspace, manifest.projectId);
 
     // Link the shared golden node_modules (read-only) before the install check.
     let goldenLinked = false;
@@ -791,8 +794,13 @@ async function collectDistFiles(root: string): Promise<GeneratedDistFile[]> {
         );
       }
 
+      const isBinaryImage = /\.(png|jpe?g|webp|gif|ico)$/i.test(relativePath);
+      const content = isBinaryImage
+        ? (await readFile(absolute)).toString("base64")
+        : await readFile(absolute, "utf8");
+
       files.push({
-        content: await readFile(absolute, "utf8"),
+        content,
         contentType: getContentType(relativePath),
         path: relativePath,
       });
@@ -824,7 +832,60 @@ function getContentType(filePath: string) {
     return "image/svg+xml";
   }
 
+  if (filePath.endsWith(".png")) {
+    return "image/png";
+  }
+
+  if (filePath.endsWith(".jpg") || filePath.endsWith(".jpeg")) {
+    return "image/jpeg";
+  }
+
+  if (filePath.endsWith(".webp")) {
+    return "image/webp";
+  }
+
   return "text/plain; charset=utf-8";
+}
+
+async function materializeProjectAssetsToWorkspace(
+  workspace: string,
+  projectId: string,
+): Promise<void> {
+  if (
+    !projectId ||
+    projectId.includes("test") ||
+    projectId.includes("mock") ||
+    projectId === "prewarm"
+  ) {
+    return;
+  }
+  try {
+    const assets = await prisma.projectAsset.findMany({
+      where: { projectId },
+      select: { id: true, ref: true },
+    });
+    if (!assets.length) {
+      return;
+    }
+    const imagesDir = path.join(workspace, "public", "images");
+    await mkdir(imagesDir, { recursive: true });
+
+    for (const asset of assets) {
+      try {
+        const { body } = await readProjectAsset(asset.ref);
+        const formatMatch = asset.ref.match(/\.([a-z0-9]+)$/i);
+        const ext = formatMatch ? formatMatch[1] : "png";
+        await writeFile(path.join(imagesDir, `${asset.id}.${ext}`), body);
+        if (ext !== "png") {
+          await writeFile(path.join(imagesDir, `${asset.id}.png`), body);
+        }
+      } catch {
+        // Fail open if single asset S3 fetch fails
+      }
+    }
+  } catch {
+    // Fail open if DB unavailable
+  }
 }
 
 export {

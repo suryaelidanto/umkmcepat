@@ -2,8 +2,6 @@ import type { UIMessage } from "ai";
 
 import { readProjectAssetById } from "@/lib/projects/project-asset-upload";
 
-const MEDIA_ASSET_PREFIX = "/media/";
-
 export async function inlineChatAssetFileParts(
   messages: UIMessage[],
 ): Promise<UIMessage[]> {
@@ -14,12 +12,15 @@ export async function inlineChatAssetFileParts(
         message.parts.map(async (part) => {
           if (
             part.type !== "file" ||
-            !part.url.startsWith(MEDIA_ASSET_PREFIX)
+            (!part.url.startsWith("/media/") &&
+              !part.url.startsWith("/api/media/"))
           ) {
             return part;
           }
 
-          const assetId = part.url.slice(MEDIA_ASSET_PREFIX.length);
+          const assetId = part.url.startsWith("/api/media/")
+            ? part.url.slice("/api/media/".length)
+            : part.url.slice("/media/".length);
           const stored = await readProjectAssetById(assetId);
           if (!stored) {
             return part;

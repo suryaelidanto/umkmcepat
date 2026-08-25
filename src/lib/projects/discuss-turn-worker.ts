@@ -17,7 +17,7 @@ import {
   recordAiCall,
   startAiCallTimer,
 } from "@/lib/ai/ai-call-record";
-import { getDiscussModel } from "@/lib/ai/ai-models";
+import { getDiscussModel, getVisionModel } from "@/lib/ai/ai-models";
 import { writeAiRequestLog } from "@/lib/ai/ai-request-log";
 import { getAiTimeoutMs } from "@/lib/ai/ai-timeouts";
 import { primeSettingCache } from "@/lib/config/app-settings";
@@ -129,7 +129,48 @@ export async function runDiscussTurn({
       });
       return;
     }
-    const modelName = getDiscussModel();
+    // Extract any user-attached media assets from messages and sync into brief
+    const uploadedAssetIds: string[] = [];
+    for (const msg of messages) {
+      if (msg.role === "user" && Array.isArray(msg.parts)) {
+        for (const part of msg.parts) {
+          if (
+            part.type === "file" &&
+            typeof part.url === "string" &&
+            (part.url.startsWith("/media/") ||
+              part.url.startsWith("/api/media/"))
+          ) {
+            const assetId = part.url.startsWith("/api/media/")
+              ? part.url.slice("/api/media/".length)
+              : part.url.slice("/media/".length);
+            if (assetId && !uploadedAssetIds.includes(assetId)) {
+              uploadedAssetIds.push(assetId);
+            }
+          }
+        }
+      }
+    }
+
+    if (uploadedAssetIds.length > 0) {
+      const existing = (effectiveBrief.businessImages ?? []).map(
+        (img) => img.id,
+      );
+      const newImages = uploadedAssetIds
+        .filter((id) => !existing.includes(id))
+        .map((id) => ({ id, purpose: "business-image" as const }));
+      if (newImages.length > 0) {
+        effectiveBrief = {
+          ...effectiveBrief,
+          businessImages: [
+            ...(effectiveBrief.businessImages ?? []),
+            ...newImages,
+          ],
+        };
+      }
+    }
+
+    const hasAttachedImages = uploadedAssetIds.length > 0;
+    const modelName = hasAttachedImages ? getVisionModel() : getDiscussModel();
     const model = modelOverride ?? getAiModel(modelName);
     const lastUserText = [...messages]
       .reverse()

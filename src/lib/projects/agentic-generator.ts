@@ -628,6 +628,7 @@ export async function runAgenticGenerate(input: {
           /\[nama\s+(produk|toko|menu)\]/i,
           /\btidak\s+ada\s+(foto|gambar)\b/i,
           /\b(foto|gambar)\s+belum\s+(tersedia|diunggah|ada)\b/i,
+          /data:image\/(png|jpeg|webp|gif);base64/i,
         ];
         const placeholderIssues: string[] = [];
         for (const [path, content] of fileMap.entries()) {

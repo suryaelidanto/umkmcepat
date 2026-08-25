@@ -19,7 +19,6 @@ export function resolveMediaRedirect(
   if (!asset) {
     return { status: 404 };
   }
-  // If publicUrl is a real public HTTPS CDN (e.g. Cloudflare R2 / S3), redirect directly
   if (
     asset.publicUrl &&
     asset.publicUrl.startsWith("https://") &&
@@ -30,14 +29,17 @@ export function resolveMediaRedirect(
   return { stream: true, status: 200 };
 }
 
-export const Route = createFileRoute("/media/$assetId")({
+export const Route = createFileRoute("/api/media/$assetId")({
   server: {
     handlers: {
-      // Public media serve: owner-uploaded display media embedded in generated sites
       GET: async ({ params }) => {
+        const { assetId } = params;
+        if (!assetId) {
+          return new Response(null, { status: 404 });
+        }
         const asset = await prisma.projectAsset.findUnique({
           select: { id: true, publicUrl: true, ref: true, contentType: true },
-          where: { id: params.assetId },
+          where: { id: assetId },
         });
         const resolved = resolveMediaRedirect(asset);
         if (resolved.status === 404 || !asset) {
