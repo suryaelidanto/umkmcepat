@@ -60,10 +60,11 @@ A restrained, trustworthy site generation engine for Indonesian small business o
 - `docs/notes/backlog.md` is the single source of truth for work items.
 - **Session Start Protocol**:
   1. Inspect `docs/notes/backlog.md`.
-  2. If an item is already under `## In Progress`, immediately resume and drive that task to completion.
-  3. If `## In Progress` is empty, ask the developer which item to tackle or pick the topmost priority from `## Backlog`, move it to `## In Progress`, and execute.
+  2. If an item is under `## In Progress`, drive that task to completion.
+  3. If `## In Progress` is empty, pick the topmost priority from `## Backlog` and move it to `## In Progress`.
   4. Write colocated unit/integration tests (`.test.ts`), implement minimal clean code, and run `bun run check`.
-  5. When verified 100% green, move the task to `## Done` in `docs/notes/backlog.md` and commit atomically.
+  5. When verified 100% green, move the task to `## Ready for Review` for user inspection.
+  6. Once approved by the user, move the task to `## Done` and commit atomically. If rejected, move back to `## In Progress`.
 - Raw developer brain dumps go into `docs/notes/ideas.md` and are triaged via `.agents/skills/triage-ideas/`.
 
 ---

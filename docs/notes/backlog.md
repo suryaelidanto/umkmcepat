@@ -1,12 +1,11 @@
 ---
-kanban-plugin: basic
+kanban-plugin: board
 ---
 
 ## Backlog
 
 - [ ] **Contextual WhatsApp CTA Copy**: Fix hardcoded `?text=Halo` to generate rich contextual WhatsApp prefilled messages based on business name and offering #engine #conversion #whatsapp
 - [ ] **Modular Contributor SKILL.md Dropzone**: Decouple and organize engine skill dropzone for plug-and-play community skills #engine #architecture
-- [ ] **Photo Upload MVP Stabilization**: Stabilize photo upload pipeline and storage client while keeping visual-edit experimental #media #upload
 - [ ] **High & Medium Security Audit**: Audit tenant isolation, project deletion authorization, auth headers, and prompt injection defense #security #audit
 - [ ] **TanStack Mutation Ergonomics**: Standardize workspace API calls and state invalidations using TanStack Query #architecture #data
 - [ ] **Prevent Placeholder Dummy Copy**: Fail generator check if banned dummy copy appears in generated files, and ensure chat streams preambles before cards #engine #quality
@@ -16,12 +15,16 @@ kanban-plugin: basic
 
 ## In Progress
 
+## Ready for Review
+
+- [ ] **Photo Upload MVP Stabilization**: Stabilize photo upload pipeline and storage client while keeping visual-edit experimental #media #upload
+
 ## Done
 
 %% kanban:settings
 
 ```
-{"kanban-plugin":"basic"}
+{"kanban-plugin":"board"}
 ```
 
 %%

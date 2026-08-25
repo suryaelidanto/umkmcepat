@@ -17,7 +17,8 @@ Workflow and engineering standards for UMKM Cepat. For high-level design princip
 - **Task Tracking in `docs/notes/backlog.md`**: Living project backlog is maintained as an Obsidian-compatible Kanban board. When picking up tasks:
   1. Move item from `## Backlog` $\rightarrow$ `## In Progress`.
   2. Implement code and verify with `bun run check`.
-  3. Move item from `## In Progress` $\rightarrow$ `## Done`.
+  3. Move item from `## In Progress` $\rightarrow$ `## Ready for Review`.
+  4. On user approval, move from `## Ready for Review` $\rightarrow$ `## Done`. If rejected, return to `## In Progress`.
 
 ---
 
