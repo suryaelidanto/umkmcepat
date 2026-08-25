@@ -57,13 +57,13 @@ A restrained, trustworthy site generation engine for Indonesian small business o
 
 ## Task Execution & Obsidian Backlog (Autonomous Loop)
 
-- `docs/notes/backlog.md` is the single source of truth for work items (`Backlog`, `In Progress`, `Needs Revision / Check Again`, `Ready for Review`, `Done`).
+- `docs/notes/backlog.md` is the single source of truth for work items (`Backlog`, `In Progress`, `Needs Revision / Check Again`, `Ready for Review`, `Done`, `Future / Icebox`).
 - **Autonomous Execution Priority**:
   1. **Priority #1 (Revisions / Check Again)**: If items exist in `## Needs Revision / Check Again`, read developer notes/wikilinks (or perform a full end-to-end audit, browser check, and regression test if notes are empty), fix all issues until rock-solid, verify with `bun run check`, and move to `## Ready for Review`.
   2. **Priority #2 (Resume)**: If an item is under `## In Progress`, drive that task to completion.
   3. **Priority #3 (Next Task)**: If `## In Progress` and `## Needs Revision / Check Again` are empty, pick the topmost priority from `## Backlog`, move it to `## In Progress`, implement colocated tests + minimal clean code, verify 100% green via `bun run check`, and move to `## Ready for Review`.
   4. **Approval & Commit**: Once approved by the user, move task from `## Ready for Review` to `## Done` and commit atomically. If rejected by user, it moves back to `## Needs Revision / Check Again`.
-- Raw developer brain dumps go into `docs/notes/ideas.md` and are triaged via `.agents/skills/triage-ideas/`. Personal notes live in `docs/notes/notes.md`.
+- Raw developer brain dumps go into `docs/notes/ideas.md` and are triaged via `.agents/skills/triage-ideas/`. Timestamped backups of raw ideas live in `docs/notes/ideas-old/`. Personal notes live in `docs/notes/notes.md`. Long-term items park in `## Future / Icebox`.
 
 ---
 
