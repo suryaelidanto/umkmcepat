@@ -55,11 +55,15 @@ A restrained, trustworthy site generation engine for Indonesian small business o
 
 ---
 
-## Task Execution & Obsidian Backlog
+## Task Execution & Obsidian Backlog (Autonomous Loop)
 
-- Tasks originate in `docs/notes/backlog.md`.
-- When starting work on an item, move it to `## In Progress`.
-- When work is verified (`bun run check`), move it to `## Done`.
+- `docs/notes/backlog.md` is the single source of truth for work items.
+- **Session Start Protocol**:
+  1. Inspect `docs/notes/backlog.md`.
+  2. If an item is already under `## In Progress`, immediately resume and drive that task to completion.
+  3. If `## In Progress` is empty, ask the developer which item to tackle or pick the topmost priority from `## Backlog`, move it to `## In Progress`, and execute.
+  4. Write colocated unit/integration tests (`.test.ts`), implement minimal clean code, and run `bun run check`.
+  5. When verified 100% green, move the task to `## Done` in `docs/notes/backlog.md` and commit atomically.
 - Raw developer brain dumps go into `docs/notes/ideas.md` and are triaged via `.agents/skills/triage-ideas/`.
 
 ---
