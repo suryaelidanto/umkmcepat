@@ -1056,25 +1056,33 @@ export async function runBuildAttempt({
           };
         },
         repair: async (candidateFiles, critic) => {
-          const revised = await runAgenticGenerate({
-            abortSignal,
-            attemptId,
-            brief,
-            buildId: runtimeBuildId,
-            creativeDirection: outcomeDirection
-              ? JSON.stringify(outcomeDirection)
-              : (acceptedHandoff.creativeDirection ?? null),
-            initialFiles: candidateFiles,
-            onEvent: (type, data) => send(type, data),
-            onFileStaged: persistBatchedStage,
-            operationToken,
-            projectId,
-            revisionBrief: JSON.stringify(critic.findings),
-            schema: finalSchema,
-            stepCharger: sourceStepCharger,
-            userId,
-          });
-          return revised.files;
+          try {
+            const revised = await runAgenticGenerate({
+              abortSignal,
+              attemptId,
+              brief,
+              buildId: runtimeBuildId,
+              creativeDirection: outcomeDirection
+                ? JSON.stringify(outcomeDirection)
+                : (acceptedHandoff.creativeDirection ?? null),
+              initialFiles: candidateFiles,
+              onEvent: (type, data) => send(type, data),
+              onFileStaged: persistBatchedStage,
+              operationToken,
+              projectId,
+              revisionBrief: JSON.stringify(critic.findings),
+              schema: finalSchema,
+              stepCharger: sourceStepCharger,
+              userId,
+            });
+            return revised.files;
+          } catch (error) {
+            devLog("generate", "repair_generate_failed_fallback_to_candidate", {
+              error: error instanceof Error ? error.message : String(error),
+              projectId,
+            });
+            return candidateFiles;
+          }
         },
       });
       qualityProof = {

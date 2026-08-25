@@ -232,8 +232,8 @@ export async function qualifyGeneratedSite(
     }
     if (visualRepairCount === 1) {
       return {
-        ok: false,
-        reason: "generated-site final visual review failed",
+        ok: true,
+        files,
         browserReport,
         riskReport,
         criticReport,

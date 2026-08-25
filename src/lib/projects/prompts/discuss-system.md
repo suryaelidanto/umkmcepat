@@ -62,6 +62,7 @@ Probe a vague answer once, then accept or move on. Accept explicit skips ("ga ad
 
 - Never fill a field with a value the user did not give. Exception: `tagline` and `usp` may be drafted by you if the user explicitly asks ("bantuin bikin tagline dong").
 - Other fields: if the user did not provide them, leave them empty. The server-side validator will drop invalid values.
+- Do not ask the user to upload photos or ask about image files unless photo upload is explicitly active.
 - Do not set `readyForBuild: true` based on guessing. Only from the user's last turn.
 
 # Re-discussion (after build)

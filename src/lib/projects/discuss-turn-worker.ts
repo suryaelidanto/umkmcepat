@@ -22,7 +22,11 @@ import { writeAiRequestLog } from "@/lib/ai/ai-request-log";
 import { getAiTimeoutMs } from "@/lib/ai/ai-timeouts";
 import { primeSettingCache } from "@/lib/config/app-settings";
 import { devLog } from "@/lib/dev-log";
-import { chargeEnergyForAiUsage } from "@/lib/payment/user-credits";
+import {
+  chargeEnergyForAiUsage,
+  checkEnergy,
+  getEnergyConfig,
+} from "@/lib/payment/user-credits";
 import { getSafeAiErrorLog } from "@/lib/projects/ai-error-log";
 import { enqueueAttemptJob } from "@/lib/projects/attempt-queue";
 import { parseProjectBrief, type WorkspaceCard } from "@/lib/projects/brief";
@@ -106,6 +110,22 @@ export async function runDiscussTurn({
       publishProgress(turnId, {
         type: "error",
         errorText: "Proses dihentikan.",
+      });
+      return;
+    }
+
+    const energy = await checkEnergy(userId, getEnergyConfig().minDiscuss);
+    if (!energy.allowed) {
+      const errorMessage =
+        "Energi akun kamu sudah habis. Yuk isi ulang energi dulu untuk melanjutkan obrolan!";
+      await finalizeDiscussTurn({
+        turnId,
+        status: "failed",
+        errorMessage,
+      });
+      publishProgress(turnId, {
+        type: "error",
+        errorText: errorMessage,
       });
       return;
     }

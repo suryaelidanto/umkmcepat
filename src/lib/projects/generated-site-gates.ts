@@ -68,7 +68,8 @@ function findMatchingClose(
   searchFrom: number,
   tagName: string,
 ): number {
-  const marker = new RegExp(`<${tagName}\\b|</${tagName}>`, "g");
+  const escapedTag = tagName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const marker = new RegExp(`<${escapedTag}\\b|</${escapedTag}>`, "g");
   marker.lastIndex = searchFrom;
   let depth = 1;
   let match: RegExpExecArray | null;
@@ -175,7 +176,7 @@ function accentSurfaceSpans(
 ): Array<{ start: number; end: number; token: "accent" | "primary" }> {
   return [
     ...source.matchAll(
-      /<([A-Za-z][\w.]*)\b[^>]*\bclassName=["'][^"']*\bbg-(accent|primary)\b[^"']*["'][^>]*>/g,
+      /<([A-Za-z][\w.]*)\b[^>]*\bclassName=["'][^"']*(?<!\b(?:hover|focus|active|group-hover):)bg-(accent|primary)\b(?!\/)[^"']*["'][^>]*>/g,
     ),
   ].flatMap((match) =>
     match[1] && (match[2] === "accent" || match[2] === "primary")
@@ -195,15 +196,24 @@ function hasAccentSurfaceTextMismatch(source: string): boolean {
 }
 
 function healAccentSurfaceText(content: string): string {
-  const spans = accentSurfaceSpans(content);
+  // Heal misplaced text-accent-foreground on outline/ghost or low-opacity tints (bg-accent/5, bg-accent/10, etc.)
+  const normalized = content.replace(
+    /<([A-Za-z][\w.]*)\b(?=[^>]*\b(?:variant=["'](?:outline|ghost)["']|bg-(?:accent|primary)\/(?:[1-9]|1\d|2\d|3\d)\b))[^>]*>/g,
+    (tagMatch: string) => {
+      return tagMatch
+        .replace(/\btext-accent-foreground\b/g, "text-foreground")
+        .replace(/\btext-primary-foreground\b/g, "text-primary");
+    },
+  );
+  const spans = accentSurfaceSpans(normalized);
   if (!spans.length) {
-    return content;
+    return normalized;
   }
   const pattern = new RegExp(
     `\\btext-(?:background|${LIGHT_SURFACE_TEXT_TOKEN})\\b(?!-)(/\\d{1,3})?`,
     "g",
   );
-  return content.replace(
+  return normalized.replace(
     pattern,
     (match: string, opacity: string | undefined, offset: number) => {
       const span = spans.find(
@@ -1054,14 +1064,34 @@ export function normalizeGeneratedSiteContent(content: string): string {
     normalizedSvgAttributes,
   );
   return deduplicateJsxAttributes(
-    normalizeGeneratedContrastSurfaces(
-      normalizeGeneratedInteractiveContent(normalizedComponentTokens),
+    healNestedLightSurfaceText(
+      healDynamicContrastSurfaceText(
+        healContrastSurfaceText(
+          healAccentSurfaceText(
+            normalizeGeneratedContrastSurfaces(
+              normalizeGeneratedInteractiveContent(normalizedComponentTokens),
+            ),
+          ),
+        ),
+      ),
     ),
   );
 }
 
 function normalizeGeneratedComponentTokens(content: string): string {
-  const normalized = replaceJsxOpeningTags(content, ["Badge"], (tagSource) => {
+  // Replace any text-accent-foreground or text-primary-foreground on outline/ghost buttons with text-accent / text-primary
+  let normalized = content.replace(
+    /<Button\b([\s\S]*?)>/g,
+    (fullTag, attributes) => {
+      if (/\bvariant=["'](?:outline|ghost)["']/.test(attributes)) {
+        return fullTag
+          .replace(/\btext-accent-foreground\b/g, "text-accent")
+          .replace(/\btext-primary-foreground\b/g, "text-primary");
+      }
+      return fullTag;
+    },
+  );
+  normalized = replaceJsxOpeningTags(normalized, ["Badge"], (tagSource) => {
     if (!/\bvariant=["']secondary["']/.test(tagSource)) {
       return tagSource;
     }
@@ -1502,8 +1532,10 @@ function ensureButtonTouchTargets(content: string): string {
 
 function normalizeSmallTouchHeight(match: string): string {
   return match
-    .replace(/\bmin-h-(?:6|7|8|9|10)\b/g, "min-h-11")
-    .replace(/\bh-(?:6|7|8|9|10)\b/g, "min-h-11 h-11");
+    .replace(/\bmin-h-\[(?:[1-3]\d|4[0-3])px\]/g, "min-h-12")
+    .replace(/\bh-\[(?:[1-3]\d|4[0-3])px\]/g, "min-h-12 h-12")
+    .replace(/\bmin-h-(?:6|7|8|9|10)\b/g, "min-h-12")
+    .replace(/\bh-(?:6|7|8|9|10)\b/g, "min-h-12 h-12");
 }
 
 function makeTouchSafeAnchor(match: string): string {
