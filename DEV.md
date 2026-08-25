@@ -14,11 +14,12 @@ Workflow and engineering standards for UMKM Cepat. For high-level design princip
 - **Fail loud at trust boundaries**: Validate untrusted input at server boundaries, check object ownership on every mutation, and fail closed on auth, payment, or publishing failures.
 - **English for developer surfaces, Indonesian for user copy**: Developer tools, errors, logs, prompts, comments, and documentation are strictly in English. Customer-facing product UI copy is in Indonesian.
 - **No secrets in tracked files**: Environment variables, API keys, tokens, and credentials belong only in `.env` (gitignored). Documentation examples use empty `""` values.
-- **Task Tracking in `docs/notes/backlog.md`**: Living project backlog is maintained as an Obsidian-compatible Kanban board. When picking up tasks:
-  1. Move item from `## Backlog` $\rightarrow$ `## In Progress`.
-  2. Implement code and verify with `bun run check`.
-  3. Move item from `## In Progress` $\rightarrow$ `## Ready for Review`.
-  4. On user approval, move from `## Ready for Review` $\rightarrow$ `## Done`. If rejected, return to `## In Progress`.
+- **Task Tracking in `docs/notes/backlog.md`**: Living project backlog is maintained as an Obsidian-compatible Kanban board (`Backlog` $\rightarrow$ `In Progress` $\rightarrow$ `Ready for Review` $\leftrightarrow$ `Needs Revision` $\rightarrow$ `Done`). When picking up tasks:
+  1. Priority #1: Address items in `## Needs Revision`.
+  2. Priority #2: Resume item in `## In Progress`.
+  3. Priority #3: Pull top item from `## Backlog` $\rightarrow$ `## In Progress`.
+  4. Implement code, write colocated tests, and verify with `bun run check`.
+  5. Move item to `## Ready for Review`. On approval $\rightarrow$ `## Done`.
 
 ---
 

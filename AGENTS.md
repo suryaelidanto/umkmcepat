@@ -57,15 +57,13 @@ A restrained, trustworthy site generation engine for Indonesian small business o
 
 ## Task Execution & Obsidian Backlog (Autonomous Loop)
 
-- `docs/notes/backlog.md` is the single source of truth for work items.
-- **Session Start Protocol**:
-  1. Inspect `docs/notes/backlog.md`.
-  2. If an item is under `## In Progress`, drive that task to completion.
-  3. If `## In Progress` is empty, pick the topmost priority from `## Backlog` and move it to `## In Progress`.
-  4. Write colocated unit/integration tests (`.test.ts`), implement minimal clean code, and run `bun run check`.
-  5. When verified 100% green, move the task to `## Ready for Review` for user inspection.
-  6. Once approved by the user, move the task to `## Done` and commit atomically. If rejected, move back to `## In Progress`.
-- Raw developer brain dumps go into `docs/notes/ideas.md` and are triaged via `.agents/skills/triage-ideas/`.
+- `docs/notes/backlog.md` is the single source of truth for work items (`Backlog`, `In Progress`, `Ready for Review`, `Needs Revision`, `Done`).
+- **Autonomous Execution Priority**:
+  1. **Priority #1 (Revisions)**: If items exist in `## Needs Revision`, read developer notes/wikilinks, fix issues, verify with `bun run check`, and move to `## Ready for Review`.
+  2. **Priority #2 (Resume)**: If an item is under `## In Progress`, drive that task to completion.
+  3. **Priority #3 (Next Task)**: If `## In Progress` and `## Needs Revision` are empty, pick the topmost priority from `## Backlog`, move it to `## In Progress`, implement colocated tests + minimal clean code, verify 100% green via `bun run check`, and move to `## Ready for Review`.
+  4. **Approval & Commit**: Once approved by the user, move task from `## Ready for Review` to `## Done` and commit atomically. If rejected by user, it moves to `## Needs Revision`.
+- Raw developer brain dumps go into `docs/notes/ideas.md` and are triaged via `.agents/skills/triage-ideas/`. Personal notes live in `docs/notes/notes.md`.
 
 ---
 

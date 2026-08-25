@@ -4,7 +4,6 @@ kanban-plugin: board
 
 ## Backlog
 
-- [ ] **[T-01] Contextual WhatsApp CTA Copy**: Fix hardcoded `?text=Halo` to generate rich contextual WhatsApp prefilled messages based on business name and offering #engine #conversion #whatsapp
 - [ ] **[T-02] Modular Contributor SKILL.md Dropzone**: Decouple and organize engine skill dropzone for plug-and-play community skills #engine #architecture
 - [ ] **[T-03] High & Medium Security Audit**: Audit tenant isolation, project deletion authorization, auth headers, and prompt injection defense #security #audit
 - [ ] **[T-04] TanStack Mutation Ergonomics**: Standardize workspace API calls and state invalidations using TanStack Query #architecture #data
@@ -15,6 +14,10 @@ kanban-plugin: board
 ## In Progress
 
 ## Ready for Review
+
+- [ ] **[T-01] Contextual WhatsApp CTA Copy**: Fix hardcoded `?text=Halo` to generate rich contextual WhatsApp prefilled messages based on business name and offering #engine #conversion #whatsapp
+
+## Needs Revision
 
 - [ ] **[T-08] Photo Upload MVP Stabilization**: Stabilize photo upload pipeline and storage client with static public image output while keeping visual-edit experimental #media #upload
 
