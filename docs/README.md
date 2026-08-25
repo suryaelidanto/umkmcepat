@@ -5,7 +5,6 @@ Obsidian-compatible knowledge base for UMKM Cepat.
 ## Navigation
 
 - **[[architecture/overview]]**: System architecture and core design principles
-- **[[roadmap/roadmap]]**: Product vision and release milestones
 - **[[guides/local-development]]**: Local setup, environment, and development commands
 - **[[notes/backlog]]**: Product backlog, tasks, and future improvements
 - **[[notes/ideas]]**: Raw ideas, feature brainstorming, and research
