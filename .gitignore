@@ -62,6 +62,7 @@ graphify-out/
 /dev.log.1
 *.err.log
 docs/notes/ideas.md
+docs/notes/ideas-archive.md
 # Local dev process files
 *.pid
 

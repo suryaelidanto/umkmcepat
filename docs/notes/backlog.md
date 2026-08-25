@@ -1,5 +1,5 @@
 ---
-kanban-plugin: basic
+kanban-plugin: board
 ---
 
 ## Backlog
@@ -38,7 +38,7 @@ kanban-plugin: basic
 %% kanban:settings
 
 ```
-{"kanban-plugin":"basic"}
+{"kanban-plugin":"board"}
 ```
 
 %%
