@@ -5,30 +5,40 @@ description: Triage raw thoughts from docs/notes/ideas.md into structured Kanban
 
 # Triage Ideas Skill
 
-Read raw developer brain dumps from `docs/notes/ideas.md`, ask clarifying questions to align with the developer's exact mental model, categorize and route them to their proper documentation homes, and archive processed notes safely.
+Interview the developer relentlessly to map their raw thoughts into a precise decision tree. Triage notes from `docs/notes/ideas.md` into high-signal Kanban tasks in `docs/notes/backlog.md`, architectural decisions in `docs/architecture/`, and engineering rules in `AGENTS.md` / `DEV.md`.
 
-## Workflow & Alignment First (95% Confidence Rule)
+## Workflow & Alignment First (95% Confidence Frontier)
 
-1. **Relentless Probing with Lazy Multiple-Choice Options (A/B/C/D)**:
+1. **Relentless Frontier Probing (Grilling Mechanics)**:
    - Read `docs/notes/ideas.md`.
    - Never assume, extrapolate, or guess developer intent from brief fragments.
-   - Relentlessly question the developer until 95%+ confident, but **make answering dead simple for lazy developers**:
-     - Format every question with clear multiple-choice options: `[A]`, `[B]`, `[C]`, `[Custom]`.
-     - The developer can simply reply with single letters (e.g. `1A, 2B, 3A, 4C`).
-     - Example:
-       ```
-       1. "super prevent placeholder":
-          [A] In Discuss: AI must not emit cards without conversational preamble text.
-          [B] In Generator: Banned words check (e.g. "Lorem Ipsum", "Contoh Menu") fails build.
-          [C] Both A and B.
-       ```
-2. **Route Confirmed Items**:
+   - Work the decision tree in **rounds**. The **frontier** is every decision whose prerequisites are already settled.
+   - Present up to 5 rich, highly intentional options (`[A]`, `[B]`, `[C]`, `[D]`, `[E]`) per question that anticipate the developer's exact mind and technical nuances.
+   - Always provide an explicit recommendation (`➡️`) with concise technical rationale so the developer can answer with zero friction.
+   - Format each question clearly:
+     ```markdown
+     ❓ **Q1** - **<Topic Title>**: <Context and implications>
+     - **[A]** <Option 1>
+     - **[B]** <Option 2>
+     - **[C]** <Option 3>
+     - **[D]** <Option 4>
+     - **[E]** <Option 5 / Custom>
+
+     ➡️ **Recommended: [X]** — <1-line senior dev rationale>
+     ```
+
+2. **Lazy Developer Reply**:
+   - The developer can reply simply by typing letters (e.g. `1C, 2A, 3B, 4D`) or saying *"accept all recommendations"*.
+
+3. **Route Confirmed Items**:
    - **Tasks, Bugs, & Features** $\rightarrow$ Add as checkable items under `## Backlog` in `docs/notes/backlog.md` with relevant domain tags (`#engine`, `#ux`, `#conversion`, `#security`, `#pricing`, `#architecture`).
    - **Architectural Decisions** $\rightarrow$ If confirmed as a structural change, create a 1-page ADR in `docs/architecture/ADR-<name>.md` and link it inside `docs/notes/backlog.md`.
    - **Repository Standards** $\rightarrow$ If confirmed as a permanent engineering rule, update `AGENTS.md` or `DEV.md` directly.
-3. **Preserve Untriaged Thoughts & Archive**:
+
+4. **Preserve Untriaged Thoughts & Archive**:
    - Only remove lines from `ideas.md` that have been explicitly discussed and confirmed.
    - Append processed raw dumps into `docs/notes/ideas-archive.md` (timestamped).
    - Keep unconfirmed or WIP notes intact in `ideas.md`.
    - When all items are processed, reset `ideas.md` to a completely blank, empty file (zero bytes, no markdown headers or comments).
-4. **Verification**: Run `bun run check` to verify formatting and link integrity.
+
+5. **Verification**: Run `bun run check` to verify formatting and link integrity.
