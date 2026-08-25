@@ -132,6 +132,7 @@ export function compileShadcnTheme(
 
   html {
     scroll-behavior: smooth;
+    scroll-padding-top: 5rem;
   }
 
   body {

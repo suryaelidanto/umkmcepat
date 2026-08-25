@@ -27,12 +27,13 @@ type SnapshotSummary = {
   published: boolean;
   restorable: boolean;
   summary?: string | null;
+  touchedFileCount?: number | null;
 };
 
 const KIND_LABEL: Record<string, string> = {
   edit: "Pembaruan Website",
-  initial: "Pembuatan Awal",
-  repair: "Pembaruan Website",
+  initial: "Desain Awal",
+  repair: "Pembaruan Tampilan",
   restore: "Versi Dipilih",
 };
 
@@ -249,7 +250,11 @@ export function WorkspaceHistoryDrawer({
                           <span className="text-sm font-bold tracking-tight text-foreground dark:text-surface-warm-white">
                             {label}
                           </span>
-                          {snapshot.fileCount != null ? (
+                          {snapshot.touchedFileCount != null ? (
+                            <span className="text-xs text-muted-foreground">
+                              ({snapshot.touchedFileCount} file diubah)
+                            </span>
+                          ) : snapshot.fileCount != null ? (
                             <span className="text-xs text-muted-foreground">
                               ({snapshot.fileCount} file)
                             </span>
