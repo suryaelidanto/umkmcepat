@@ -247,29 +247,6 @@ describe("runAgenticGenerate", () => {
     });
   });
 
-  it("repairs common internal anchor aliases before the final build", async () => {
-    generateTextMock.mockImplementationOnce(async (args: unknown) => {
-      const tools = getTools(args);
-      await readCoreSkills(tools);
-      await tools.write_file.execute({
-        content: '<section id="chat">Kontak</section>',
-        path: "src/components/site/Contact.tsx",
-      });
-      await tools.write_file.execute({
-        content: '<a href="#chat-box">Kontak</a>',
-        path: "src/routes/index.tsx",
-      });
-      await tools.check_app.execute({});
-      return { text: "Done", steps: [] };
-    });
-
-    const result = await runAgenticGenerate(createInput());
-    expect(
-      result.files.find((file) => file.path === "src/routes/index.tsx")
-        ?.content,
-    ).toContain('href="#chat"');
-  });
-
   it("rejects protected scaffold writes after the skill gate", async () => {
     generateTextMock.mockImplementationOnce(async (args: unknown) => {
       const tools = getTools(args);

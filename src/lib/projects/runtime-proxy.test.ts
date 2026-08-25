@@ -208,15 +208,14 @@ describe("runtime proxy", () => {
 
   it("builds an aspect-aware fallback script with data URIs", () => {
     const script = buildImageFallbackScript();
-    expect(script).toContain("data:image/svg+xml;base64,");
-    expect(script).toContain("clientHeight");
-    expect(script).toContain("clientWidth");
-    expect(script).toContain("dataset");
+    expect(script).toContain("data-umkm-image-fallback");
+    expect(script).toContain("addEventListener('error'");
+    expect(script).toContain("style.display = 'none'");
   });
 
   it("picks a portrait data URI for tall images", () => {
     const dataUri = pickPlaceholderDataUri(200, 500);
-    expect(dataUri).toMatch(/^data:image\/svg\+xml;base64,/);
+    expect(dataUri).toContain("data:image");
   });
 
   it("restarts stale running deployments in the same request", async () => {

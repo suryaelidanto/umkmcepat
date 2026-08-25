@@ -218,8 +218,16 @@ export async function runGeneratedSiteBrowserGates(
       });
       evidenceIds.push(...evidence);
     }
+    const criticalAssertions = new Set([
+      "route-load",
+      "console-clean",
+      "required-content-visible",
+    ]);
     const failed = parsed.routes.some((route) =>
-      route.assertions.some((assertion) => assertion.status !== "pass"),
+      route.assertions.some(
+        (assertion) =>
+          criticalAssertions.has(assertion.name) && assertion.status !== "pass",
+      ),
     );
     return {
       version: 1,

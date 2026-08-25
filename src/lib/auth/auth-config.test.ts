@@ -52,7 +52,7 @@ describe("authConfig stale JWT handling", () => {
 
     expect(result).toBeNull();
     expect(prismaUserFindUniqueMock).toHaveBeenCalledWith({
-      select: { email: true, id: true },
+      select: { email: true, id: true, name: true },
       where: { id: "deleted-user" },
     });
   });

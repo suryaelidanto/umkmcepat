@@ -55,6 +55,11 @@ export type ProjectSiteSchema = {
   address?: string;
   deliveryArea?: string;
   primaryCtaTarget?: string;
+  images?: Array<{
+    url: string;
+    purpose?: string;
+    alt?: string;
+  }>;
   contact?: {
     channel: string;
     value: string;
@@ -161,6 +166,32 @@ export function createFallbackProjectSiteSchema(
   };
 }
 
+export function buildContextualWhatsAppHref(
+  rawPhone: string,
+  businessName?: string,
+  offer?: string,
+): string {
+  const digits = rawPhone.replace(/\D/g, "");
+  const normalizedPhone = digits.startsWith("0")
+    ? `62${digits.slice(1)}`
+    : digits;
+  const name = (businessName ?? "").trim();
+  const mainOffer = (offer ?? "").trim();
+
+  let message = "Halo";
+  if (name && mainOffer) {
+    message = `Halo ${name}, saya mau tanya info dan pesan ${mainOffer}.`;
+  } else if (name) {
+    message = `Halo ${name}, saya mau tanya informasi dan pemesanan.`;
+  } else if (mainOffer) {
+    message = `Halo, saya mau tanya informasi mengenai ${mainOffer}.`;
+  } else {
+    message = "Halo, saya tertarik dan ingin tanya informasi lebih lanjut.";
+  }
+
+  return `https://wa.me/${normalizedPhone}?text=${encodeURIComponent(message)}`;
+}
+
 export function createProjectSiteSchemaFromBrief(
   brief: ProjectBrief,
 ): ProjectSiteSchema {
@@ -251,9 +282,17 @@ export function createProjectSiteSchemaFromBrief(
     priceRange: brief.priceRange?.trim() || undefined,
     address: brief.address?.trim() || undefined,
     deliveryArea: brief.deliveryArea?.trim() || undefined,
+    images:
+      brief.businessImages && brief.businessImages.length > 0
+        ? brief.businessImages.map((img) => ({
+            url: `/images/${img.id}.png`,
+            purpose: img.purpose || "business-image",
+            alt: businessName,
+          }))
+        : undefined,
     primaryCtaTarget:
       brief.contact?.channel === "whatsapp" && brief.contact?.value
-        ? `https://wa.me/${brief.contact.value.replace(/\D/g, "").startsWith("0") ? `62${brief.contact.value.replace(/\D/g, "").slice(1)}` : brief.contact.value.replace(/\D/g, "")}?text=Halo`
+        ? buildContextualWhatsAppHref(brief.contact.value, businessName, offer)
         : undefined,
     contact:
       brief.contact?.channel && brief.contact?.value
@@ -285,33 +324,60 @@ export function createProjectSiteSchemaFromGeneratedContract(input: {
     audience,
     offer,
     theme: input.theme ?? defaultTheme,
-    trustPoints: c.content.trustPoints.slice(0, MAX_TRUST_POINTS),
-    sections: c.page.requiredSections.slice(0, MAX_SECTIONS).map((s) => ({
-      title: cleanText(s.purpose, "Bagian", 80),
-      body: cleanText(s.purpose, "Konten bagian.", 260),
-    })),
-    tagline: c.content.headline || undefined,
-    usp: c.content.usp.length ? c.content.usp.slice(0, MAX_USP) : undefined,
-    products: c.content.products.length
+    trustPoints: c.content?.trustPoints
+      ? c.content.trustPoints.slice(0, MAX_TRUST_POINTS)
+      : [],
+    sections: c.page?.requiredSections
+      ? c.page.requiredSections.slice(0, MAX_SECTIONS).map((s) => ({
+          title: cleanText(s.purpose, "Bagian", 80),
+          body: cleanText(s.purpose, "Konten bagian.", 260),
+        }))
+      : [],
+    tagline: c.content?.headline || undefined,
+    usp: c.content?.usp?.length ? c.content.usp.slice(0, MAX_USP) : undefined,
+    products: c.content?.products?.length
       ? c.content.products.slice(0, MAX_PRODUCTS)
       : undefined,
-    testimonials: c.content.testimonials.length
+    testimonials: c.content?.testimonials?.length
       ? c.content.testimonials.slice(0, MAX_TESTIMONIALS)
       : undefined,
     faq: [],
-    socialLinks: c.content.socialLinks.length
+    socialLinks: c.content?.socialLinks?.length
       ? c.content.socialLinks.slice(0, MAX_SOCIAL)
       : undefined,
-    currentPromo: c.content.promotion || undefined,
-    hours: c.content.hours.length
+    currentPromo: c.content?.promotion || undefined,
+    hours: c.content?.hours?.length
       ? c.content.hours.slice(0, MAX_HOURS)
       : undefined,
-    paymentMethods: c.content.paymentMethods.length
+    paymentMethods: c.content?.paymentMethods?.length
       ? c.content.paymentMethods.slice(0, MAX_PAYMENTS)
       : undefined,
-    priceRange: c.content.priceRange || undefined,
-    address: c.content.address || undefined,
-    deliveryArea: c.content.deliveryArea || undefined,
+    priceRange: c.content?.priceRange || undefined,
+    address: c.content?.address || undefined,
+    deliveryArea: c.content?.deliveryArea || undefined,
+    images: (() => {
+      const contractObj = c as unknown as {
+        design?: {
+          approvedAssets?: Array<{ assetId: string; purpose?: string }>;
+        };
+        media?: {
+          approvedAssets?: Array<{ assetId: string; purpose?: string }>;
+        };
+      };
+      const assets =
+        contractObj.design?.approvedAssets &&
+        contractObj.design.approvedAssets.length > 0
+          ? contractObj.design.approvedAssets
+          : contractObj.media?.approvedAssets;
+      if (assets && assets.length > 0) {
+        return assets.map((asset) => ({
+          url: `/images/${asset.assetId}.png`,
+          purpose: asset.purpose || "business-image",
+          alt: businessName,
+        }));
+      }
+      return undefined;
+    })(),
     routes: c.page.routes.map((r) => ({
       path: r.path,
       title: r.purpose,
@@ -320,7 +386,11 @@ export function createProjectSiteSchemaFromGeneratedContract(input: {
       c.business.primaryCta.kind === "whatsapp" && c.business.primaryCta.target
         ? c.business.primaryCta.target.startsWith("http")
           ? c.business.primaryCta.target
-          : `https://wa.me/${c.business.primaryCta.target.replace(/\D/g, "").startsWith("0") ? `62${c.business.primaryCta.target.replace(/\D/g, "").slice(1)}` : c.business.primaryCta.target.replace(/\D/g, "")}?text=Halo`
+          : buildContextualWhatsAppHref(
+              c.business.primaryCta.target,
+              businessName,
+              offer,
+            )
         : undefined,
     contact:
       c.business.primaryCta.kind && c.business.primaryCta.target

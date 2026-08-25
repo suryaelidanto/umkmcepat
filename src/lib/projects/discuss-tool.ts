@@ -294,7 +294,7 @@ export function buildOneCallSystemPrompt({
     }
   })();
   const photoRule = photoEnabled
-    ? ""
+    ? '\nPHOTO FEATURE ON: Photo uploads are enabled. For businesses with visual products (food, fashion, craft, salon, cafe), you can emit type="image_upload" with purpose="business-image" to ask the owner for photos of their storefront, menu, or products. The UI allows them to upload or easily skip with a button.'
     : "\nPHOTO FEATURE OFF: Photo uploads are disabled via /admin/settings (feature.composer_uploads_enabled=false). NEVER mention, suggest, or ask photo/image upload questions in chat or option cards. Focus strictly on text, typography, color palette, trust points, and content details.";
 
   if (hasBuiltSite) {

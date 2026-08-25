@@ -20,6 +20,7 @@ vi.mock("@/lib/ai/ai-models", () => ({
   DEFAULT_AI_MODEL: "default-combo",
   getDefaultAiModel: vi.fn(() => "default-combo"),
   getModerationModel: vi.fn(() => "default-combo"),
+  getVisionModel: vi.fn(() => "vision-combo"),
   getDiscussModel: vi.fn(() => "default-combo"),
   getGenerationModel: vi.fn(() => "default-combo"),
 }));
@@ -138,7 +139,7 @@ describe("moderateProjectRequest", () => {
         role: "user",
         content: [
           { type: "text", text: "jual baju" },
-          { type: "file", data: imageBytes, mediaType: "image/png" },
+          { type: "image", image: imageBytes, mimeType: "image/png" },
         ],
       },
     ]);

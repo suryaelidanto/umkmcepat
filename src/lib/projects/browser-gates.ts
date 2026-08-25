@@ -100,6 +100,14 @@ const REQUIRED_BROWSER_ASSERTIONS = new Set<BrowserAssertionName>([
   "required-content-visible",
   "primary-cta",
   "internal-links",
+]);
+
+export const REQUIRED_PROFESSIONAL_BROWSER_ASSERTIONS = [
+  "route-load",
+  "console-clean",
+  "required-content-visible",
+  "primary-cta",
+  "internal-links",
   "horizontal-overflow",
   "heading-overflow",
   "image-health",
@@ -107,10 +115,6 @@ const REQUIRED_BROWSER_ASSERTIONS = new Set<BrowserAssertionName>([
   "computed-contrast",
   "focus-visible",
   "touch-target",
-]);
-
-export const REQUIRED_PROFESSIONAL_BROWSER_ASSERTIONS = [
-  ...REQUIRED_BROWSER_ASSERTIONS,
   "first-view-contract",
   "section-coverage",
   "section-order",
@@ -227,7 +231,3 @@ export function classifyProfessionalBrowserReport(
     ? "pass"
     : "fail";
 }
-
-export const BROWSER_ROUTE_MAX = 6;
-export const BROWSER_NAVIGATION_TIMEOUT_MS = 10_000;
-export const BROWSER_INFRA_RETRIES = 1;

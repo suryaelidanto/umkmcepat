@@ -10,7 +10,7 @@ Boot instructions for AI agents working on UMKM Cepat.
 - `PRODUCT.md` → product definition and business context
 - `DESIGN.md` → design system tokens and UI standards
 - `.agents/skills/unslop/SKILL.md` → unslop writing standard (cut AI tells, active voice, plain speech)
-- `docs/superpowers/README.md` → decision trail and specs
+- `docs/` → Obsidian-ready documentation hub and architecture overview
 
 ---
 
@@ -27,12 +27,12 @@ A restrained, trustworthy site generation engine for Indonesian small business o
 
 ## Rules — god-tier
 
-- **NEVER TEST AI RESPONSE CONTENT OR STOCHASTIC OUTPUT (IRON LAW)**: Unit and TDD tests MUST NOT assert AI model prose, answer wording, Indonesian phrasing, taste, palette hues, fonts, layout structure, card counts, section sequences, or generated source snapshots. Tests assert deterministic mechanical invariants only:
+- **NEVER TEST AI RESPONSE CONTENT, CLASSNAMES, ANCHORS, OR STOCHASTIC OUTPUT (IRON LAW)**: Unit and TDD tests MUST NOT assert AI model prose, answer wording, Indonesian phrasing, exact className strings, Tailwind utility lists, HTML tag structures, anchor hrefs/IDs, palette hues, fonts, layout structure, card counts, section sequences, or generated source snapshots. Tests assert deterministic mechanical invariants only:
   1. JSON Schemas (Zod validation)
-  2. Structure conformance and presence of required keys
+  2. Structure conformance, data types, and presence of required keys
   3. Type narrowing and contract error handling
-  4. Hard deterministic boundaries (action URLs, route topology, package policies, accessibility, security, compilation)
-     Rendered quality, copy appeal, and aesthetic taste belong exclusively to calibrated review and evaluation corpora.
+  4. Hard deterministic boundaries (action URLs, route topology, package policies, security, compilation)
+     Never test exact className values, HTML markup strings, or regex-matched styling strings. Testing markup or styling creates rigid template-ish generator behavior. Rendered aesthetic quality and copy appeal belong exclusively to human evaluation and live browser reviews.
 - **Domain before file type**: Organize by feature or domain first (`src/components/admin/`, `src/lib/projects/`). Never create generic catch-all directories (`hooks/`, `utils/`, `helpers/`, `misc/`).
 - **Colocated tests by default**: Unit, component, and route tests sit directly beside the module they verify (`foo.ts` + `foo.test.ts`). Top-level `tests/` is strictly for cross-domain integration, real DB infrastructure, or browser audits.
 - **No `any` or `@ts-ignore`**: `any` disables the type-checker. Use `unknown` with narrowing or schema validation. Fix actual root causes.
@@ -51,6 +51,21 @@ A restrained, trustworthy site generation engine for Indonesian small business o
 - `src/components/projects/workspace/` — workspace shell, history drawer, and canvas controls
 - `src/lib/storage/` — S3/R2 object storage client
 - `src/lib/projects/scaffold/` — shadcn Base UI registry and starter scaffold
+- `docs/notes/backlog.md` — Active Kanban task board (`Backlog`, `In Progress`, `Done`)
+
+---
+
+## Task Execution & Obsidian Backlog (Autonomous Loop)
+
+- `docs/notes/backlog.md` is the single source of truth for work items.
+- **Session Start Protocol**:
+  1. Inspect `docs/notes/backlog.md`.
+  2. If an item is under `## In Progress`, drive that task to completion.
+  3. If `## In Progress` is empty, pick the topmost priority from `## Backlog` and move it to `## In Progress`.
+  4. Write colocated unit/integration tests (`.test.ts`), implement minimal clean code, and run `bun run check`.
+  5. When verified 100% green, move the task to `## Ready for Review` for user inspection.
+  6. Once approved by the user, move the task to `## Done` and commit atomically. If rejected, move back to `## In Progress`.
+- Raw developer brain dumps go into `docs/notes/ideas.md` and are triaged via `.agents/skills/triage-ideas/`.
 
 ---
 

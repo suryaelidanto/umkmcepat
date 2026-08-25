@@ -62,11 +62,11 @@ Open PRs into `dev` first unless maintainers say otherwise.
 
 ## Where to read next
 
-- `ROADMAP.md`: the vision, ordered milestones, and where to start.
+- `docs/notes/backlog.md`: active backlog, tasks, and future improvements.
 - `PRINCIPLES.md`: quality bar and operating taste.
 - `DEV.md`: maintainer workflow, commands, Storybook, Graphify, checks.
 - `DESIGN.md`: visual system and UI rules.
-- `docs/superpowers/specs/` and `docs/superpowers/plans/`: the decision trail behind project, runtime, provider, storage, auth, AI-gateway, and deployment behavior.
+- `docs/`: the decision trail, architecture overview, and guides behind project, runtime, provider, storage, auth, AI-gateway, and deployment behavior.
 
 ## Safety
 

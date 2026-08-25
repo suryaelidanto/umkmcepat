@@ -17,13 +17,6 @@ import { devLog } from "@/lib/dev-log";
 import { classifyBuildFailure } from "@/lib/projects/build-logs";
 import { generateDiff, type DiffLine } from "@/lib/projects/diff";
 import {
-  findGeneratedCustomerLiteralIssues,
-  findGeneratedInternalLinkIssues,
-  findGeneratedPrimaryActionIssues,
-  normalizeGeneratedInternalLinks,
-  normalizeGeneratedSiteContent,
-} from "@/lib/projects/generated-site-gates";
-import {
   buildGeneratedProject,
   createGeneratedViteTanStackStarterFiles,
 } from "@/lib/projects/generated-source";
@@ -537,12 +530,13 @@ export async function runAgenticGenerate(input: {
           };
         }
         const oldContent = fileMap.get(path) ?? "";
-        const normalizedContent =
-          path.endsWith(".tsx") || path.endsWith(".css")
-            ? normalizeGeneratedSiteContent(content)
-            : content;
-        const diff = generateDiff(oldContent, normalizedContent);
-        fileMap.set(path, normalizedContent);
+        // Only strip any remote font imports if model accidentally added them
+        const cleanedContent = content.replace(
+          /@import\s+url\(\s*["']https:\/\/fonts\.googleapis\.com\/[^)]*["']\s*\)\s*;?/gi,
+          "",
+        );
+        const diff = generateDiff(oldContent, cleanedContent);
+        fileMap.set(path, cleanedContent);
         touched.add(path);
         opSeq++;
         const fallbackTitle = path.endsWith("index.tsx")
@@ -570,7 +564,7 @@ export async function runAgenticGenerate(input: {
           onEvent("operation", op);
         }
         if (onFileStaged) {
-          onFileStaged({ path, content: normalizedContent });
+          onFileStaged({ path, content: cleanedContent });
         }
         await renewProjectOperation({
           projectId,
@@ -580,7 +574,7 @@ export async function runAgenticGenerate(input: {
         return {
           success: true,
           path,
-          bytes: normalizedContent.length,
+          bytes: cleanedContent.length,
         };
       },
     }),
@@ -625,36 +619,43 @@ export async function runAgenticGenerate(input: {
           path,
           content,
         }));
-        const normalizedFiles = normalizeGeneratedInternalLinks(
-          currentFiles.map((file) => ({
-            ...file,
-            content:
-              file.path.endsWith(".tsx") || file.path.endsWith(".css")
-                ? normalizeGeneratedSiteContent(file.content)
-                : file.content,
-          })),
-        );
-        for (const file of normalizedFiles) {
-          fileMap.set(file.path, file.content);
-        }
-        const preflightIssues = [
-          ...findGeneratedCustomerLiteralIssues(normalizedFiles),
-          ...findGeneratedInternalLinkIssues(normalizedFiles),
-          ...findGeneratedPrimaryActionIssues(normalizedFiles),
-        ];
         checkAppCalls += 1;
         opSeq++;
-        const buildResult = preflightIssues.length
-          ? {
-              log: `Generated source preflight failed:\n${preflightIssues
-                .slice(0, 20)
-                .map((issue) => `- ${issue}`)
-                .join("\n")}`,
-              ok: false,
+        const dummyPlaceholders = [
+          /\blorem\s+ipsum\b/i,
+          /\bcontoh\s+menu\b/i,
+          /\bdeskripsi\s+disini\b/i,
+          /\[nama\s+(produk|toko|menu)\]/i,
+          /\btidak\s+ada\s+(foto|gambar)\b/i,
+          /\b(foto|gambar)\s+belum\s+(tersedia|diunggah|ada)\b/i,
+          /data:image\/(png|jpeg|webp|gif);base64/i,
+        ];
+        const placeholderIssues: string[] = [];
+        for (const [path, content] of fileMap.entries()) {
+          if (
+            path.startsWith("src/components/") ||
+            path.startsWith("src/routes/")
+          ) {
+            for (const re of dummyPlaceholders) {
+              if (re.test(content)) {
+                placeholderIssues.push(
+                  `Dummy placeholder copy '${content.match(re)?.[0]}' detected in ${path}. Replace with real, grounded Indonesian text based on src/content/site.ts.`,
+                );
+              }
             }
-          : await buildGeneratedProject(normalizedFiles, {
-              workspaceKey: `${projectId}-agentic-check`,
-            });
+          }
+        }
+        if (placeholderIssues.length > 0) {
+          return {
+            ok: false,
+            failureReason: "placeholder_copy_detected",
+            errors: placeholderIssues,
+          };
+        }
+
+        const buildResult = await buildGeneratedProject(currentFiles, {
+          workspaceKey: `${projectId}-agentic-check`,
+        });
         lastCheckOk = buildResult.ok;
         const op = {
           id: `op-${opSeq}`,
@@ -784,6 +785,8 @@ FACT AND SAFETY RULES:
 - Avoid nested cards, equal-card soup, gradient-tech styling, technical headings, starter residue, fake progress, and decorative interaction.
 
 ANTI-SLOP & REFINED VISUAL STANDARDS:
+- REAL UPLOADED PHOTOS: If \`site.images\` is populated in \`src/content/site.ts\`, you MUST display these genuine store photos prominently (e.g. as Hero showcase visual, gallery cards, or menu highlight images) with rounded borders and clean framing (\`<img src={site.images[0].url} alt={site.images[0].alt || site.businessName} className="w-full h-80 object-cover rounded-2xl shadow-md" />\`).
+- NEVER CREATE "NO PHOTO / TIDAK ADA FOTO" PLACEHOLDERS: If photos are missing or \`site.images\` is empty, NEVER render boxes saying "Tidak ada foto", gray placeholder squares, or camera icons. Instead, design a purely typographic, content-led layout (H1, headline, USP grid, pricing badges, address and hours info).
 - NO FAKE/SIMULATED PRODUCT SHAPES: If the user did not upload photos, NEVER draw fake CSS/SVG t-shirt silhouettes, coffee cup wireframes, or mockup graphics. Instead, present clean, elegant editorial typographic cards with bold titles, price tags, specification bullets, and WhatsApp action buttons.
 - NO PILL / BADGE OVERLOAD: Max 1 subtle badge in the entire Hero. NEVER put floating rounded pill tags above section titles (no "[• Profil Kedai]", no "[• Katalog & Pilihan]", no "[• Untuk Semua kalangan]"). Let clean typography hierarchy (H2, H3, clean paragraphs) define the structure.
 - NO FAKE LOGO BOXES: In Header/Navbar, render the brand as a confident typographic wordmark (e.g. bold serif or sans title). DO NOT create colored square icon boxes with single letters ("D", "K") or generic icon circles to fake a logo.
@@ -857,7 +860,12 @@ ${formatPromptValue(schema)}
 FROZEN CREATIVE DIRECTION (taste only; it cannot introduce a fact):
 ${formatPromptValue(input.creativeDirection)}
 
-Start by setting up necessary shadcn components and theme color, then immediately write the modular components under src/components/site/ (Hero, Products/Services, Contact/WhatsApp CTA, Footer) and assemble them in src/routes/index.tsx. Incorporate tasteful motion with motion/react, call check_app to verify the build, and finish.`;
+MANDATORY EXECUTION SEQUENCE:
+1. Call set_design_system on step 1.
+2. Call copy_shadcn_component for required primitives (e.g. badge, separator, button).
+3. Write the modular site components under src/components/site/ (Header.tsx, Hero.tsx, MenuOrCatalog.tsx, LocationAndContact.tsx, Footer.tsx).
+4. Write src/routes/index.tsx importing and rendering all the components above with site.* data.
+5. Call check_app to verify build and finish. You MUST NOT finish until src/routes/index.tsx is written and check_app passes.`;
 
   const requestedModel = getGenerationModel();
   const maxSteps = getAgentMaxSteps("generate");

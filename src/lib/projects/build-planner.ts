@@ -2,6 +2,7 @@
 import {
   parseBuildContract,
   type BuildContractV1,
+  type ContractAsset,
   type ContractFactV1,
 } from "./build-contract";
 import { generateBuildCreativeDirection } from "./build-creative-direction";
@@ -28,6 +29,25 @@ export type PlannerDeps = {
 
 export type ContractDraftResult =
   { ok: true; value: BuildContractV1 } | { ok: false; reason: string };
+
+function mapApprovedPurpose(
+  purpose?: string,
+): ContractAsset["approvedPurpose"] {
+  switch (purpose) {
+    case "logo":
+      return "logo";
+    case "reference":
+      return "reference";
+    case "hero":
+      return "hero";
+    case "product":
+      return "product";
+    case "gallery":
+      return "gallery";
+    default:
+      return "hero";
+  }
+}
 
 export function buildContractFromBrief(
   brief: ProjectBrief,
@@ -162,7 +182,10 @@ export function buildContractFromBrief(
       density: null,
       motion: null,
     },
-    assets: [],
+    assets: (brief.businessImages ?? []).map((img) => ({
+      assetId: img.id,
+      approvedPurpose: mapApprovedPurpose(img.purpose),
+    })),
     blockers: [],
     omissions: [],
   };

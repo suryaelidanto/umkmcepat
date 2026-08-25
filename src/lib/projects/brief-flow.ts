@@ -250,6 +250,17 @@ function isBuildConfirmCard(card: WorkspaceCard | undefined): boolean {
   return card?.type === "question" && isBuildConfirmQuestion(card.question);
 }
 
+function isUserRequestingPostBuildUpdate(text: string | undefined): boolean {
+  if (!text || typeof text !== "string") {
+    return false;
+  }
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return false;
+  }
+  return isUserAffirmingBuild(trimmed) || trimmed.length >= 2;
+}
+
 function withHandoffReadiness(brief: ProjectBrief): ProjectBrief {
   // Auto-derive businessType when missing so the 5-field gate is sufficient
   let businessType = brief.businessType;
@@ -301,15 +312,32 @@ export function normalizeWorkspaceTurn(
     unstringifyJsonObject(value.workspaceCard) as { type?: string } | null
   )?.type;
 
-  // Server-side enforcement: when a site is built, allow build_recommendation if the user affirms updating/rebuilding
-  if (
-    options.hasBuiltSite &&
-    (workspaceCard.type === "build_recommendation" ||
+  // Server-side enforcement: when a site is built, allow build_recommendation when user requests changes or affirms update
+  if (options.hasBuiltSite) {
+    const isUpdateRequested =
+      Boolean(
+        options.lastUserText &&
+        isUserRequestingPostBuildUpdate(options.lastUserText),
+      ) ||
+      (Array.isArray(brief.businessImages) && brief.businessImages.length > 0);
+
+    if (
+      workspaceCard.type === "build_recommendation" ||
       originalCardType === "build_recommendation" ||
-      originalCardType === "brief_review")
-  ) {
-    if (!isUserAffirmingBuild(options.lastUserText)) {
-      workspaceCard = { type: "none" };
+      originalCardType === "brief_review"
+    ) {
+      if (!isUpdateRequested) {
+        workspaceCard = { type: "none" };
+      }
+    } else if (
+      isUpdateRequested &&
+      (workspaceCard.type === "none" || !workspaceCard.type)
+    ) {
+      workspaceCard = {
+        type: "build_recommendation",
+        title: "Perbarui website",
+        summary: ["Terapkan perubahan dan foto baru ke website"],
+      };
     }
   } else if (!options.hasBuiltSite) {
     // Reliable handoff: promote to build_recommendation when build-time is
@@ -468,9 +496,15 @@ export function normalizeWorkspaceTurn(
       return value !== null && value !== undefined;
     })();
 
+    const isExplicitBuildAffirmation =
+      briefIsReady &&
+      typeof options.lastUserText === "string" &&
+      USER_AFFIRM_BUILD_RE.test(options.lastUserText.trim());
+
     if (
       promoteBuildConfirmQuestion ||
       promoteAfterAffirm ||
+      isExplicitBuildAffirmation ||
       (isDuplicateStall && briefIsReady) ||
       (briefIsReady && isQuestionAlreadyAnswered)
     ) {

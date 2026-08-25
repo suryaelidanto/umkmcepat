@@ -6,7 +6,6 @@ const {
   buildGeneratedProjectMock,
   generateTextMock,
   loadAcceptedHandoffMock,
-  qualifyGeneratedSiteMock,
   prismaMock,
 } = vi.hoisted(() => {
   const pMock = {
@@ -136,20 +135,6 @@ const {
       ],
     })),
     loadAcceptedHandoffMock: pMock.projectBuildHandoff.findFirst,
-    qualifyGeneratedSiteMock: vi.fn(async (files) => ({
-      ok: true,
-      files,
-      browserReport: {
-        version: 1,
-        status: "pass",
-        routes: [],
-        evidenceIds: [],
-        overheadMs: 1,
-      },
-      riskReport: { version: 1, risky: false, reasons: [] },
-      criticReport: null,
-      visualRepairCount: 0,
-    })),
     generateTextMock: vi.fn(async (args: unknown) => {
       const prompt = (args as { prompt?: string })?.prompt || "";
       if (prompt.includes("<implementation_spec>")) {
@@ -261,10 +246,6 @@ vi.mock("@/lib/projects/generated-source", async (importOriginal) => {
     writeProjectSourceArtifact: vi.fn(async () => "artifact-1"),
   };
 });
-
-vi.mock("@/lib/projects/generated-site-qualification", () => ({
-  qualifyGeneratedSite: (files: unknown) => qualifyGeneratedSiteMock(files),
-}));
 
 vi.mock("@/lib/projects/build-handoffs", () => ({
   loadAcceptedHandoffForAttempt: vi.fn(async () => null),

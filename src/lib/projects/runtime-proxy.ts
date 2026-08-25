@@ -1,9 +1,6 @@
 import { devLog } from "@/lib/dev-log";
 import { escapeHtml } from "@/lib/escape-html";
-import {
-  PLACEHOLDER_DATA_URIS,
-  pickPlaceholderDataUri,
-} from "@/lib/projects/placeholders";
+import { pickPlaceholderDataUri } from "@/lib/projects/placeholders";
 import {
   createPreviewAssetToken,
   PREVIEW_ASSET_TOKEN_PARAM,
@@ -191,13 +188,10 @@ export function injectPreviewAnnotationBridge(html: string) {
 
 export function buildImageFallbackScript(): string {
   return `<script data-umkm-image-fallback>(() => {
-  const LANDSCAPE = ${JSON.stringify(PLACEHOLDER_DATA_URIS.landscape)};
-  const PORTRAIT = ${JSON.stringify(PLACEHOLDER_DATA_URIS.portrait)};
   document.addEventListener('error', (e) => {
     const t = e.target;
-    if (!t || t.tagName !== 'IMG' || t.dataset.umkmPlaceholder) return;
-    t.dataset.umkmPlaceholder = '1';
-    t.src = t.clientHeight > t.clientWidth ? PORTRAIT : LANDSCAPE;
+    if (!t || t.tagName !== 'IMG') return;
+    t.style.display = 'none';
   }, true);
 })();</script>`;
 }

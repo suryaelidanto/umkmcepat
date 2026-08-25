@@ -23,7 +23,7 @@ The platform is 100% free for users — every feature is usable without paying. 
 
 The goal: help an Indonesian UMKM owner make their first website — one that actually sells, and that they are proud to show people.
 
-[ROADMAP.md](ROADMAP.md) has the vision, the ordered milestones, the honest gaps, and where to start if you want to help build it.
+See `docs/` for architecture overview, honest gaps, and development setup if you want to help build it.
 
 ## Tech overview
 

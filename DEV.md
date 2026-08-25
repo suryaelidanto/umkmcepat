@@ -9,10 +9,16 @@ Workflow and engineering standards for UMKM Cepat. For high-level design princip
 - **Domain before file type**: Organize all features by product area or domain first. Never use generic catch-all folders (`hooks`, `utils`, `helpers`, `misc`). Local hooks, schemas, types, and helpers live beside the feature.
 - **Colocated tests**: Single-module unit and component tests sit directly beside the source (`foo.ts` + `foo.test.ts`). Top-level `tests/` is strictly for cross-domain (`tests/unit`), real DB integration (`tests/integration/*.itest.ts`), browser audits (`tests/browser/*.browser.test.ts`), and test harnesses (`tests/support`).
 - **Zero `any`**: `any` disables the type-checker. Use `unknown` with explicit narrowing or Zod parsing. Never commit `@ts-ignore` or `eslint-disable`.
+- **Never test stochastic output, classNames, or HTML markup**: Unit and component tests must assert data structures, Zod schemas, and deterministic contracts. Never assert exact className strings, Tailwind utility lists, HTML tag trees, anchor strings, model answer wording, palette hues, or AI generated snapshots. Testing markup or styling creates rigid template-ish generator behavior. Rendered aesthetic quality belongs to visual inspection.
 - **Single-line comments only**: Write self-explanatory code. Never narrate code, write block comments, or draw ASCII banners (`// ---`). Authored comments delete by default. Keep only strictly necessary single-line explanations for non-obvious invariants.
 - **Fail loud at trust boundaries**: Validate untrusted input at server boundaries, check object ownership on every mutation, and fail closed on auth, payment, or publishing failures.
 - **English for developer surfaces, Indonesian for user copy**: Developer tools, errors, logs, prompts, comments, and documentation are strictly in English. Customer-facing product UI copy is in Indonesian.
 - **No secrets in tracked files**: Environment variables, API keys, tokens, and credentials belong only in `.env` (gitignored). Documentation examples use empty `""` values.
+- **Task Tracking in `docs/notes/backlog.md`**: Living project backlog is maintained as an Obsidian-compatible Kanban board. When picking up tasks:
+  1. Move item from `## Backlog` $\rightarrow$ `## In Progress`.
+  2. Implement code and verify with `bun run check`.
+  3. Move item from `## In Progress` $\rightarrow$ `## Ready for Review`.
+  4. On user approval, move from `## Ready for Review` $\rightarrow$ `## Done`. If rejected, return to `## In Progress`.
 
 ---
 

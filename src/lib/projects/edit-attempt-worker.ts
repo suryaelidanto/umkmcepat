@@ -1,9 +1,8 @@
 import { getGenerationModel } from "@/lib/ai/ai-models";
 import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
+import { runAgenticGenerate } from "@/lib/projects/agentic-generator";
 import { enqueueAndWaitEditBuild } from "@/lib/projects/attempt-queue";
-import { runBatchedEdit } from "@/lib/projects/batched-edit";
-import { isBatchedFilePersistable } from "@/lib/projects/batched-generator";
 import { publishBuildProgress } from "@/lib/projects/build-attempt-pubsub";
 import { selectActivePreviewDeployment } from "@/lib/projects/deployment-resolution";
 import { type DiffLine } from "@/lib/projects/diff";
@@ -33,6 +32,15 @@ import {
   type ProjectDeploymentStatus,
 } from "@/lib/projects/runtime-types";
 import { parseProjectSiteSchema } from "@/lib/projects/site-schema";
+
+function isPersistableSourceFile(file: GeneratedProjectFile): boolean {
+  return (
+    typeof file.path === "string" &&
+    file.path.trim().length > 0 &&
+    typeof file.content === "string" &&
+    (file.path.startsWith("src/") || file.path.startsWith("public/"))
+  );
+}
 
 async function updateProjectEditAttempt(
   id: string,
@@ -111,6 +119,8 @@ export async function runEditAttempt({
       buildStatus: true,
       siteSchema: true,
       prompt: true,
+      title: true,
+      userId: true,
     },
   });
   if (!project) {
@@ -267,7 +277,7 @@ export async function runEditAttempt({
     // Contract-v1 batched writer: the ONLY edit path. It tries the edit as ONE
     const batchedStageFiles = new Map<string, GeneratedProjectFile>();
     const persistBatchedStage = (file: GeneratedProjectFile) => {
-      if (!isBatchedFilePersistable(file)) {
+      if (!isPersistableSourceFile(file)) {
         return;
       }
       batchedStageFiles.set(file.path, file);
@@ -281,47 +291,36 @@ export async function runEditAttempt({
       onFilesChanged([...merged.values()]);
     };
 
-    const batched = await runBatchedEdit({
+    const agenticResult = await runAgenticGenerate({
       abortSignal,
       attemptId: attempt.id,
-      instruction,
-      onEvent(type, data) {
-        send(type, data);
+      brief: {
+        prompt: instruction,
+        businessName: project.title,
+      },
+      initialFiles: baseFiles,
+      onEvent(type: string, data: unknown) {
+        send(type, data as Record<string, unknown>);
       },
       onFileStaged: persistBatchedStage,
       projectId: project.id,
-      sourceFiles: baseFiles,
+      revisionBrief: `User edit instruction: ${instruction}`,
+      schema: parseProjectSiteSchema(project.siteSchema),
       stepCharger: editStepCharger,
+      userId: project.userId,
     });
-
-    if (!batched.ok) {
-      devLog("edit", "batched.failed", {
-        projectId: project.id,
-        reason: batched.reason,
-        repairRounds: batched.repairRounds,
-      });
-      throw new Error(batched.reason || "Batched edit failed.");
-    }
 
     const editResult = {
       check: null,
-      files: batched.files,
+      files: agenticResult.files,
       modelId: getGenerationModel(),
       ok: true as const,
-      operations: batched.writtenPaths.map((path) => ({
-        detail: "Bagian website selesai diperbarui.",
-        id: path,
-        path,
-        state: "succeeded",
-        title: "Menulis file",
-        type: "write_file",
-      })),
+      operations: agenticResult.operationTrace,
       outputs: [],
-      sideEffects: batched.writtenPaths.map((path) => ({
+      sideEffects: agenticResult.touchedFiles.map((path: string) => ({
         path,
         type: "write_file",
       })),
-      usage: { inputTokens: 0, outputTokens: 0 },
     };
     devLog("edit", "tools.finished", {
       ok: editResult.ok,

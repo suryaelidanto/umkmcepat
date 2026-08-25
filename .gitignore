@@ -44,6 +44,7 @@ next-env.d.ts
 # Sentry Config File
 .env.sentry-build-plugin
 .qodo
+**/.obsidian/
 
 # Local automation/browser artifacts
 .browser/
@@ -60,6 +61,10 @@ graphify-out/
 /dev.log
 /dev.log.1
 *.err.log
+docs/notes/ideas.md
+docs/notes/ideas-archive.md
+docs/notes/ideas-changelog.md
+docs/notes/attachments
 # Local dev process files
 *.pid
 

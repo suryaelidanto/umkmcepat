@@ -727,6 +727,16 @@ export const APP_SETTINGS: ConfigEntry[] = [
     optionsSource: "nine_router_models",
   },
   {
+    key: "ai.model.vision",
+    category: "ai",
+    tier: "advanced",
+    type: "string",
+    label: "AI — vision / image model id",
+    fallback: "",
+    env: "AI_MODEL_VISION",
+    optionsSource: "nine_router_models",
+  },
+  {
     key: "ai.timeout.discuss_card_ms",
     category: "ai",
     tier: "advanced",
