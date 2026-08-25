@@ -77,13 +77,18 @@ export function EnergyDisplay({ projectId }: { projectId?: string }) {
     stats.granted > 0
       ? Math.min(100, Math.round((stats.remaining / stats.granted) * 100))
       : 0;
-  const isLow = percentage < 20;
+  const isDebt = stats.remaining < 0;
   const isEmpty = stats.remaining === 0;
+  const isLow = !isDebt && !isEmpty && percentage < 20;
 
   return (
     <div className="flex items-center gap-1.5 sm:gap-2">
       <div
-        className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-border/90 bg-card px-2.5 py-1 shadow-2xs transition-colors hover:border-foreground/30 hover:bg-muted dark:border-white/15 dark:bg-[#252522] dark:hover:bg-[#2e2e2a]"
+        className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1 shadow-2xs transition-colors ${
+          isDebt
+            ? "border-red-500/40 bg-red-500/10 hover:border-red-500/60 hover:bg-red-500/15 text-red-700 dark:text-red-400"
+            : "border-border/90 bg-card hover:border-foreground/30 hover:bg-muted dark:border-white/15 dark:bg-[#252522] dark:hover:bg-[#2e2e2a]"
+        }`}
         onClick={() => setLedgerOpen(true)}
         role="button"
         tabIndex={0}
@@ -96,9 +101,11 @@ export function EnergyDisplay({ projectId }: { projectId?: string }) {
         title="Klik untuk melihat riwayat pemakaian energi"
       >
         <div
-          className={`size-2 shrink-0 rounded-full ${isEmpty ? "bg-[#ffb4a6]" : isLow ? "bg-amber-400" : "bg-emerald-500"} ${energyQuery.isFetching ? "animate-pulse" : ""}`}
+          className={`size-2 shrink-0 rounded-full ${isDebt || isEmpty ? "bg-red-500" : isLow ? "bg-amber-400" : "bg-emerald-500"} ${energyQuery.isFetching ? "animate-pulse" : ""}`}
         />
-        <span className="text-xs font-bold text-foreground dark:text-surface-warm-white">
+        <span
+          className={`text-xs font-bold ${isDebt ? "text-red-600 dark:text-red-400" : "text-foreground dark:text-surface-warm-white"}`}
+        >
           {formatNumber(stats.remaining)}
         </span>
         <span className="hidden text-xs font-medium text-muted-foreground md:inline">
