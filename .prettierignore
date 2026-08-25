@@ -26,9 +26,8 @@ skills-lock.json
 src/routeTree.gen.ts
 src/lib/projects/scaffold/shadcn-registry/
 .claude/
-.superpowers/
-docs/superpowers/
 
 .playwright-mcp/
 .firecrawl/
+**/.obsidian/
 tmp/

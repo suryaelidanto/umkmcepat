@@ -125,11 +125,7 @@ The product runs on the maintainer's laptop. It does not run on the internet. No
 
 **Design and plans already written:**
 
-- [`specs/2026-07-28-production-security-hardening-design.md`](docs/superpowers/specs/2026-07-28-production-security-hardening-design.md) — every finding verified against real code, not inferred.
-- [Phase 1 · security correctness](docs/superpowers/plans/2026-07-28-prod-hardening-phase-1-security-correctness.md)
-- [Phase 2 · image, headers, streaming `/edit`](docs/superpowers/plans/2026-07-28-prod-hardening-phase-2-image-headers-streaming.md)
-- [Phase 3 · ingress and working CD](docs/superpowers/plans/2026-07-28-prod-hardening-phase-3-ingress-and-cd.md)
-- [`specs/2026-07-28-streamer-mode-design.md`](docs/superpowers/specs/2026-07-28-streamer-mode-design.md)
+The security and production hardening audit covering real code verification, ingress, image headers, streaming edits, and streamer mode.
 
 Phases are strictly ordered: Phase 2's SSE conversion is a hard prerequisite for Phase 3, because Cloudflare terminates non-streaming requests at ~100s and `/edit` previously ran to 600s.
 
@@ -177,7 +173,7 @@ Candidate shape, drawn from the research: waitlist as a real product surface wit
 
 No dates. No promises. Listed so contributors know these are _thought about_, not _planned_. Each needs a spec and an argument against the two numbers before it becomes real.
 
-- **A real self-hosting story.** The repo is AGPLv3 and public. `docker-compose.prod.yml` and `docs/superpowers/plans/` document _our_ VPS deploy — it is not a path anyone else has ever walked, and no independent instance has ever been stood up.
+- **A real self-hosting story.** The repo is AGPLv3 and public. `docker-compose.prod.yml` and `docs/guides/` document our VPS deploy.
 - **Generated apps beyond static frontend.** `PRODUCT.md` says "full-stack customer-facing web apps"; static-only is present scope. That gap is real and unresolved — it will be closed by a decision, in a spec, not by drift.
 - **Grant / CSR funding.** Gojek onboarded 100k+ SMEs funded by Facebook and PayPal; the government targeted 30M UMKM digital. The narrative and the funders both exist.
 - **Marketplace adjacency.** UMKM already live on Shopee, Tokopedia, TikTok Shop, Instagram. Complement, don't compete.
@@ -191,13 +187,13 @@ No dates. No promises. Listed so contributors know these are _thought about_, no
 What protects quality is not a closed surface, it's the **spec-first workflow** this repo already runs on:
 
 1. **Small and obvious** — bug fix, test, a11y fix, doc correction, perf win: just open a PR into `dev`.
-2. **Non-trivial** — new behavior, new UI, prompt or generation changes, architecture: **open an issue first, or write a design doc in `docs/superpowers/specs/`.** Agree the shape before writing code. Every milestone above followed this path; see the specs folder for worked examples of the expected depth.
+2. **Non-trivial** — new behavior, new UI, prompt or generation changes, architecture: **open an issue first, or propose a design doc in `docs/architecture/`.** Agree the shape before writing code.
 
 This is how taste stays consistent without gatekeeping who is allowed to touch what. It also means your work gets merged instead of closed.
 
 Start with [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup, then look for [`good first issue`](https://github.com/suryaelidanto/umkmcepat/labels/good%20first%20issue) or [`ready-for-agent`](https://github.com/suryaelidanto/umkmcepat/labels/ready-for-agent).
 
-Read before you build: [`PRINCIPLES.md`](PRINCIPLES.md) for the quality bar, [`PRODUCT.md`](PRODUCT.md) for positioning, [`DESIGN.md`](DESIGN.md) before any UI, and `docs/superpowers/specs/` + `docs/superpowers/plans/` before touching project, workspace, renderer, publishing, provider, storage, auth, or AI-gateway boundaries.
+Read before you build: [`PRINCIPLES.md`](PRINCIPLES.md) for the quality bar, [`PRODUCT.md`](PRODUCT.md) for positioning, [`DESIGN.md`](DESIGN.md) before any UI, and `docs/` before touching project, workspace, renderer, publishing, provider, storage, auth, or AI-gateway boundaries.
 
 ## How this file changes
 

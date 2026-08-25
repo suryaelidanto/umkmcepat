@@ -10,7 +10,7 @@ Boot instructions for AI agents working on UMKM Cepat.
 - `PRODUCT.md` → product definition and business context
 - `DESIGN.md` → design system tokens and UI standards
 - `.agents/skills/unslop/SKILL.md` → unslop writing standard (cut AI tells, active voice, plain speech)
-- `docs/superpowers/README.md` → decision trail and specs
+- `docs/` → Obsidian-ready documentation hub and architecture overview
 
 ---
 
