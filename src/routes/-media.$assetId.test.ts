@@ -15,9 +15,10 @@ describe("resolveMediaRedirect", () => {
     });
   });
 
-  it("returns 404 when publicUrl is null", () => {
+  it("streams binary when publicUrl is null or local", () => {
     expect(resolveMediaRedirect({ id: "a1", publicUrl: null })).toEqual({
-      status: 404,
+      stream: true,
+      status: 200,
     });
   });
 
