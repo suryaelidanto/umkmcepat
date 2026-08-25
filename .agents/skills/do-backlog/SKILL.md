@@ -6,23 +6,26 @@ disable-model-invocation: true
 
 # Do Backlog Skill
 
-The single, intelligent Kanban execution orchestrator for `docs/notes/backlog.md`. Evaluates priorities like a senior engineering lead, checks revisions, groups related tasks, proposes a high-conviction execution plan, and waits for user confirmation before touching code.
+The single, intelligent Kanban execution orchestrator for `docs/notes/backlog.md`. Evaluates priorities like a senior engineering lead, checks revisions, groups related tasks, delivers a high-signal architectural briefing, and waits for explicit user confirmation before touching code.
 
-## Execution Order & Senior Assessment
+## Execution Workflow
 
 1. **Holistic Backlog Inspection**:
    - Read `docs/notes/backlog.md`.
-   - Priority Hierarchy:
-     1. **`## Needs Revision / Check Again`**: Any rejected tasks or items needing deep re-audit.
-     2. **`## In Progress`**: Any uncompleted active tasks.
-     3. **`## Backlog`**: Unassigned tasks, grouped by architectural synergy (files/domains touched).
+   - Inspect priority hierarchy:
+     1. `## Needs Revision / Check Again`: Any rejected tasks or items needing deep re-audit.
+     2. `## In Progress`: Any uncompleted active tasks.
+     3. `## Backlog`: Unassigned tasks, analyzed for domain synergy.
 
-2. **Wise Proposal & Grouping Recommendation**:
-   - Analyze which tasks share the same domain (e.g. workspace composer UI + brief flow).
-   - Present a concise, high-signal proposal to the developer:
-     > *"Found 2 related tasks with shared domain: `[T-14]` (Persistent Composer Action Button) and `[T-15]` (Tiered Brief Priority & Proactive Enrichment). Both touch `WorkspaceShell.tsx` and `brief-flow.ts`.
-     > 
-     > Proposed Plan: Group and execute `[T-14]` + `[T-15]` in one clean pass. Proceed? [Y/n]"*
+2. **High-Signal Architectural Briefing (MANDATORY)**:
+   - Deliver a clear, insightful briefing following this exact structure:
+     - **Status Papan Kanban**: Quick snapshot of all columns.
+     - **Analisis Masalah & Dampak Pengguna**: Plain-English/Indonesian explanation of the UX/business problem and why these tasks matter.
+     - **Rencana Implementasi Terpadu**:
+       - Touched modules and contracts.
+       - Concrete *Before vs After* behavioral comparison.
+       - Verification & test invariant strategy.
+     - **Pilihan Keputusan**: Provide clear multiple-choice options (`[Y]` Batch recommended, `[1]` Single ticket, etc.).
    - **MANDATORY**: Wait for explicit user confirmation before writing code.
 
 3. **Execution & Strict Invariant Testing**:
