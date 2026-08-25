@@ -1,6 +1,7 @@
 ---
 name: drive-backlog
 description: Use when the user asks to drive, check, process, or execute tasks from docs/notes/backlog.md, or when resuming autonomous backlog execution across Kanban columns.
+disable-model-invocation: true
 ---
 
 # Drive Backlog Skill

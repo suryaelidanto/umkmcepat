@@ -1,6 +1,7 @@
 ---
 name: push-main
 description: "Use when completed work on `dev` must be released to protected `main` branch via individual PRs per task."
+disable-model-invocation: true
 ---
 
 # Push Main

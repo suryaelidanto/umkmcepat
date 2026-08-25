@@ -1,6 +1,7 @@
 ---
 name: triage-ideas
 description: Triage raw thoughts from docs/notes/ideas.md into structured Kanban tasks with T-XX codes in docs/notes/backlog.md, backup to docs/notes/ideas-old/<timestamp>.md, and clear ideas.md.
+disable-model-invocation: true
 ---
 
 # Triage Ideas Skill
