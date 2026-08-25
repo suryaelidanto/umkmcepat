@@ -1,19 +1,19 @@
-export type ImageFormat = "png" | "jpeg" | "webp" | "gif";
+export type ImageFormat = "png" | "jpeg" | "webp";
 
 export const EXT_CONTENT_TYPE: Record<ImageFormat, string> = {
-  gif: "image/gif",
   jpeg: "image/jpeg",
   png: "image/png",
   webp: "image/webp",
 };
 
 const EXT_TO_CONTENT_TYPE: Record<string, string> = {
-  gif: "image/gif",
   jpg: "image/jpeg",
   jpeg: "image/jpeg",
   png: "image/png",
   webp: "image/webp",
 };
+
+export const MAX_IMAGE_FILE_BYTES = 5 * 1024 * 1024; // 5 MB
 
 export function contentTypeFromExt(ext: string): string {
   return EXT_TO_CONTENT_TYPE[ext.toLowerCase()] ?? "application/octet-stream";
@@ -57,17 +57,35 @@ export function detectImageFormat(bytes: Buffer): ImageFormat | null {
   ) {
     return "webp";
   }
-  // GIF: "GIF87a" or "GIF89a" (6 bytes)
-  if (
-    bytes.length >= 6 &&
-    bytes[0] === 0x47 &&
-    bytes[1] === 0x49 &&
-    bytes[2] === 0x46 &&
-    bytes[3] === 0x38 &&
-    (bytes[4] === 0x37 || bytes[4] === 0x39) &&
-    bytes[5] === 0x61
-  ) {
-    return "gif";
-  }
   return null;
+}
+
+export function validateImageUploadBuffer(bytes: Buffer):
+  | {
+      ok: true;
+      format: ImageFormat;
+      contentType: string;
+    }
+  | {
+      ok: false;
+      error: string;
+    } {
+  if (!bytes || bytes.length === 0) {
+    return { ok: false, error: "File gambar kosong." };
+  }
+  if (bytes.length > MAX_IMAGE_FILE_BYTES) {
+    return { ok: false, error: "Ukuran gambar maksimal 5 MB." };
+  }
+  const format = detectImageFormat(bytes);
+  if (!format) {
+    return {
+      ok: false,
+      error: "Format gambar tidak didukung. Gunakan PNG, JPG, atau WEBP.",
+    };
+  }
+  return {
+    ok: true,
+    format,
+    contentType: EXT_CONTENT_TYPE[format],
+  };
 }

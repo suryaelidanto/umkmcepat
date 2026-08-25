@@ -107,8 +107,7 @@ export const Route = createFileRoute("/api/waitlist")({
             try {
               const bytes = Buffer.from(await file.arrayBuffer());
               const format = detectImageFormat(bytes);
-              // GIF and unknown formats are rejected; only PNG/JPEG/WEBP are
-              if (!format || format === "gif") {
+              if (!format) {
                 return Response.json(
                   { message: "File bukan gambar (PNG/JPEG/WEBP)." },
                   { status: 400 },

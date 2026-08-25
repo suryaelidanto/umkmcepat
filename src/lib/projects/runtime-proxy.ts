@@ -207,32 +207,53 @@ export function rewritePreviewAssetUrls(
   },
 ) {
   const token = createPreviewAssetToken({ deploymentId, projectId });
+  const tokenParam = `${PREVIEW_ASSET_TOKEN_PARAM}=${encodeURIComponent(token)}`;
 
-  return html.replace(
-    /\b(src|href)="\.\/assets\/([^"]+)"/g,
-    (_match, attribute: string, assetPath: string) => {
-      const encodedPath = assetPath
-        .split("/")
-        .map((segment) => encodeURIComponent(segment))
-        .join("/");
-
-      return `${attribute}="/api/projects/${encodeURIComponent(projectId)}/assets/${encodedPath}?${PREVIEW_ASSET_TOKEN_PARAM}=${encodeURIComponent(token)}"`;
-    },
-  );
+  return html
+    .replace(
+      /\b(src|href)="\.\/assets\/([^"]+)"/g,
+      (_match, attribute: string, assetPath: string) => {
+        const encodedPath = assetPath
+          .split("/")
+          .map((segment) => encodeURIComponent(segment))
+          .join("/");
+        return `${attribute}="/api/projects/${encodeURIComponent(projectId)}/assets/${encodedPath}?${tokenParam}"`;
+      },
+    )
+    .replace(
+      /\b(src|href)="(?:(?:\.\/)?images\/([^"]+))"/g,
+      (_match, attribute: string, assetPath: string) => {
+        const encodedPath = assetPath
+          .split("/")
+          .map((segment) => encodeURIComponent(segment))
+          .join("/");
+        return `${attribute}="/api/projects/${encodeURIComponent(projectId)}/assets/images/${encodedPath}?${tokenParam}"`;
+      },
+    );
 }
 
 export function rewritePublicAssetUrls(html: string, slug: string) {
-  return html.replace(
-    /\b(src|href)="\.\/assets\/([^"]+)"/g,
-    (_match, attribute: string, assetPath: string) => {
-      const encodedPath = assetPath
-        .split("/")
-        .map((segment) => encodeURIComponent(segment))
-        .join("/");
-
-      return `${attribute}="/p/${encodeURIComponent(slug)}/assets/${encodedPath}"`;
-    },
-  );
+  return html
+    .replace(
+      /\b(src|href)="\.\/assets\/([^"]+)"/g,
+      (_match, attribute: string, assetPath: string) => {
+        const encodedPath = assetPath
+          .split("/")
+          .map((segment) => encodeURIComponent(segment))
+          .join("/");
+        return `${attribute}="/p/${encodeURIComponent(slug)}/assets/${encodedPath}"`;
+      },
+    )
+    .replace(
+      /\b(src|href)="(?:(?:\.\/)?images\/([^"]+))"/g,
+      (_match, attribute: string, assetPath: string) => {
+        const encodedPath = assetPath
+          .split("/")
+          .map((segment) => encodeURIComponent(segment))
+          .join("/");
+        return `${attribute}="/p/${encodeURIComponent(slug)}/images/${encodedPath}"`;
+      },
+    );
 }
 
 // Inject a per-page <title>/meta/og/canonical/LocalBusiness JSON-LD into the

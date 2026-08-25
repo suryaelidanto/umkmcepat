@@ -334,7 +334,12 @@ async function buildGeneratedProjectInWorkspace(
 
     await mkdir(workspace, { recursive: true });
     await syncGeneratedProjectFiles(workspace, files);
-    await materializeProjectAssetsToWorkspace(workspace, manifest.projectId);
+    const resolvedProjectId = (
+      options.workspaceKey ||
+      manifest.projectId ||
+      ""
+    ).replace(/-agentic-check$/i, "");
+    await materializeProjectAssetsToWorkspace(workspace, resolvedProjectId);
 
     // Link the shared golden node_modules (read-only) before the install check.
     let goldenLinked = false;
