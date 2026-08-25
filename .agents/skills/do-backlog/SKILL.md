@@ -6,49 +6,35 @@ disable-model-invocation: true
 
 # Do Backlog Skill
 
-Kanban orchestrator. Evaluates tasks, prioritizes revisions, clusters synergistic tickets, and delivers an ultra-scannable vertical top-to-bottom proposal before asking for confirmation.
+Kanban orchestrator. Evaluates backlog priorities, checks revisions, groups related work sensibly, and writes a clear, substantive proposal before asking for confirmation.
+
+## Principles
+
+- **Speak like an engineer, not a bot**: Write naturally. No decorative emoji spam (`📋`, `💡`, `⚡`, `🎯`), no rigid template headings (`The Why`, `The Change`), and no fake cheerfulness.
+- **Substance over extreme brevity**: Explain what the tickets actually do, how current code behaves, what breaks or feels clunky today, and how the changes fit together. Don't compress so hard that context is lost.
+- **Unslop writing**: Follow `.agents/skills/unslop/SKILL.md`. Clear, direct sentences, active voice, zero fluff words.
 
 ## Execution Workflow
 
 1. **Inspect Backlog Hierarchy**:
-   - `## Needs Revision / Check Again` (Fix first)
-   - `## In Progress` (Resume active work)
-   - `## Backlog` (Analyze for shared files/domains)
+   - `## Needs Revision / Check Again` (Fix first if any exist)
+   - `## In Progress` (Resume active work if any exist)
+   - `## Backlog` (Analyze remaining queue for logical grouping)
 
-2. **Vertical Top-to-Bottom Proposal (Strict Template)**:
-   - Present strictly top-to-bottom for near-zero cognitive load and fast vertical scanning:
-
-```markdown
-📋 **Backlog Status**
-• Revisions: 0
-• Active: 0
-• Queued: 2 ([#14], [#15])
-
-🎯 **Target Batch**
-• [#14] Persistent Workspace Composer Action Button
-• [#15] Tiered Brief Priority & Proactive Enrichment
-
-💡 **The Why**
-• User lacks clear 1-click build action in chat.
-• Engine rushes to build before gathering photos/menu.
-
-⚡ **The Change**
-• Persistent [🚀 Buat Website] button in composer.
-• 3-tier brief logic (Core -> Enrichment -> Polish).
-
-👉 **Next Step**
-[Y] Run recommended batch [#14] + [#15]
-[1] Run [#14] only
-[2] Run [#15] only
-```
-
+2. **Present the Proposal**:
+   - State board state (revisions, active, queued).
+   - Explain the proposed task or batch in plain terms:
+     - What the tickets actually do in the app.
+     - Why grouping them makes sense (or why doing them individually is better).
+     - Which files/modules will change and what the concrete user experience becomes.
+   - Present straightforward options for the developer to confirm.
    - **MANDATORY**: Wait for explicit user confirmation before writing code.
 
-3. **Execution & Strict Invariants**:
+3. **Implement & Test Invariants**:
    - Move confirmed ticket(s) to `## In Progress`.
-   - Implement minimal clean code + colocated tests.
-   - Follow the **Iron Law**: Assert only Zod schemas, data structures, and deterministic contracts. Never assert AI response prose, classNames, CSS styles, or DOM markup.
+   - Write minimal, surgical code + colocated tests.
+   - Follow the **Iron Law**: Assert only deterministic JSON schemas, data contracts, and error boundaries. Never assert AI prose, classNames, CSS styles, or DOM markup.
 
 4. **Verify & Stage**:
    - Run `bun run check`.
-   - Move completed ticket(s) to `## Ready for Review`.
+   - Move completed ticket(s) from `## In Progress` to `## Ready for Review`.
