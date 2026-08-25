@@ -285,7 +285,7 @@ export function createProjectSiteSchemaFromBrief(
     images:
       brief.businessImages && brief.businessImages.length > 0
         ? brief.businessImages.map((img) => ({
-            url: `/images/${img.id}.png`,
+            url: `/api/media/${img.id}`,
             purpose: img.purpose || "business-image",
             alt: businessName,
           }))
@@ -371,7 +371,7 @@ export function createProjectSiteSchemaFromGeneratedContract(input: {
           : contractObj.media?.approvedAssets;
       if (assets && assets.length > 0) {
         return assets.map((asset) => ({
-          url: `/images/${asset.assetId}.png`,
+          url: `/api/media/${asset.assetId}`,
           purpose: asset.purpose || "business-image",
           alt: businessName,
         }));
