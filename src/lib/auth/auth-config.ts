@@ -72,11 +72,17 @@ export const authConfig: AuthConfig = {
       try {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.sub },
-          select: { id: true, email: true },
+          select: { id: true, email: true, name: true },
         });
         if (!dbUser) {
           return null;
         }
+
+        if (dbUser.name) {
+          token.name = dbUser.name;
+          token.picture = getDiceBearAvatarUrl(dbUser.name);
+        }
+
         // Keep admin flag fresh if allowlist changed since login.
         if (dbUser.email) {
           (token as { admin?: boolean }).admin = isAdminEmail(dbUser.email);
