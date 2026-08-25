@@ -10,7 +10,7 @@ Obsidian-compatible knowledge base for UMKM Cepat.
 - **[[notes/notes]]**: Private local second brain for casual notes, rants, and scratchpads (gitignored)
 - **[[notes/ideas]]**: Private local scratchpad for ideas to triage into backlog (gitignored)
 - **[[notes/ideas-old]]**: Private local timestamped backups of past triaged ideas (gitignored)
-- **[[attachments]]**: Local attachment files and media (gitignored)
+- **[[notes/attachments]]**: Private local attachments and screenshots for notes/backlog (gitignored)
 
 ## Workflow for Developers & Agents
 

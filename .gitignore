@@ -65,8 +65,8 @@ docs/notes/ideas.md
 docs/notes/notes.md
 docs/notes/ideas-old/*
 !docs/notes/ideas-old/.gitkeep
-docs/attachments/*
-!docs/attachments/.gitkeep
+docs/notes/attachments/*
+!docs/notes/attachments/.gitkeep
 # Local dev process files
 *.pid
 
