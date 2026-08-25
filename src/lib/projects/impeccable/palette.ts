@@ -34,9 +34,113 @@ function fallbackSeedFromKey(key?: string): { seed: string; mood: string } {
   return VIBRANT_SEEDS[index]!;
 }
 
+function resolveColorHintSeed(
+  key?: string,
+): { seed: string; mood: string } | null {
+  if (!key) {
+    return null;
+  }
+  const lower = key.toLowerCase();
+  if (
+    lower.includes("hitam") ||
+    lower.includes("monokrom") ||
+    lower.includes("black") ||
+    lower.includes("putih") ||
+    lower.includes("grayscale")
+  ) {
+    return {
+      seed: "#09090b",
+      mood: "Ultra-clean monochrome & raw editorial minimal",
+    };
+  }
+  if (
+    lower.includes("kopi") ||
+    lower.includes("coffee") ||
+    lower.includes("espresso") ||
+    lower.includes("cokelat") ||
+    lower.includes("brown") ||
+    lower.includes("roasted")
+  ) {
+    return {
+      seed: "#7c2d12",
+      mood: "Warm roasted espresso & earthy sanctuary",
+    };
+  }
+  if (
+    lower.includes("hijau") ||
+    lower.includes("green") ||
+    lower.includes("organik") ||
+    lower.includes("matcha") ||
+    lower.includes("botanical")
+  ) {
+    return { seed: "#047857", mood: "Fresh emerald artisan & organic craft" };
+  }
+  if (
+    lower.includes("biru") ||
+    lower.includes("blue") ||
+    lower.includes("navy") ||
+    lower.includes("laut")
+  ) {
+    return {
+      seed: "#1e3a8a",
+      mood: "Deep corporate navy & clean modern trust",
+    };
+  }
+  if (
+    lower.includes("merah") ||
+    lower.includes("red") ||
+    lower.includes("crimson") ||
+    lower.includes("pedas") ||
+    lower.includes("berani")
+  ) {
+    return { seed: "#be123c", mood: "Rich crimson & bold energetic retail" };
+  }
+  if (
+    lower.includes("emas") ||
+    lower.includes("gold") ||
+    lower.includes("madu") ||
+    lower.includes("honey") ||
+    lower.includes("amber") ||
+    lower.includes("kuning")
+  ) {
+    return {
+      seed: "#854d0e",
+      mood: "Warm amber honey & nostalgic artisanal bakery",
+    };
+  }
+  if (
+    lower.includes("ungu") ||
+    lower.includes("purple") ||
+    lower.includes("violet") ||
+    lower.includes("indigo")
+  ) {
+    return {
+      seed: "#4338ca",
+      mood: "Electric indigo & contemporary tech streetwear",
+    };
+  }
+  if (
+    lower.includes("tosca") ||
+    lower.includes("teal") ||
+    lower.includes("cyan")
+  ) {
+    return { seed: "#0f766e", mood: "Teal botanical & tranquil apothecary" };
+  }
+  return null;
+}
+
 export async function generatePaletteInMemory(
   seedKey?: string,
 ): Promise<GeneratedPaletteResult> {
+  const explicit = resolveColorHintSeed(seedKey);
+  if (explicit) {
+    return {
+      seed: explicit.seed,
+      mood: explicit.mood,
+      formula: "OKLCH semantic palette ramp",
+    };
+  }
+
   try {
     const paletteModule = await import(pathToFileURL(PALETTE_SCRIPT_PATH).href);
     const { getPaletteSeed } = paletteModule;

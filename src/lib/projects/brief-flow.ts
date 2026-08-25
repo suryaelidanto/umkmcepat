@@ -482,9 +482,15 @@ export function normalizeWorkspaceTurn(
       return value !== null && value !== undefined;
     })();
 
+    const isExplicitBuildAffirmation =
+      briefIsReady &&
+      typeof options.lastUserText === "string" &&
+      USER_AFFIRM_BUILD_RE.test(options.lastUserText.trim());
+
     if (
       promoteBuildConfirmQuestion ||
       promoteAfterAffirm ||
+      isExplicitBuildAffirmation ||
       (isDuplicateStall && briefIsReady) ||
       (briefIsReady && isQuestionAlreadyAnswered)
     ) {

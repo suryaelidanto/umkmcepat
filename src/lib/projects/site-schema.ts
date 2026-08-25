@@ -161,6 +161,32 @@ export function createFallbackProjectSiteSchema(
   };
 }
 
+export function buildContextualWhatsAppHref(
+  rawPhone: string,
+  businessName?: string,
+  offer?: string,
+): string {
+  const digits = rawPhone.replace(/\D/g, "");
+  const normalizedPhone = digits.startsWith("0")
+    ? `62${digits.slice(1)}`
+    : digits;
+  const name = (businessName ?? "").trim();
+  const mainOffer = (offer ?? "").trim();
+
+  let message = "Halo";
+  if (name && mainOffer) {
+    message = `Halo ${name}, saya mau tanya info dan pesan ${mainOffer}.`;
+  } else if (name) {
+    message = `Halo ${name}, saya mau tanya informasi dan pemesanan.`;
+  } else if (mainOffer) {
+    message = `Halo, saya mau tanya informasi mengenai ${mainOffer}.`;
+  } else {
+    message = "Halo, saya tertarik dan ingin tanya informasi lebih lanjut.";
+  }
+
+  return `https://wa.me/${normalizedPhone}?text=${encodeURIComponent(message)}`;
+}
+
 export function createProjectSiteSchemaFromBrief(
   brief: ProjectBrief,
 ): ProjectSiteSchema {
@@ -253,7 +279,7 @@ export function createProjectSiteSchemaFromBrief(
     deliveryArea: brief.deliveryArea?.trim() || undefined,
     primaryCtaTarget:
       brief.contact?.channel === "whatsapp" && brief.contact?.value
-        ? `https://wa.me/${brief.contact.value.replace(/\D/g, "").startsWith("0") ? `62${brief.contact.value.replace(/\D/g, "").slice(1)}` : brief.contact.value.replace(/\D/g, "")}?text=Halo`
+        ? buildContextualWhatsAppHref(brief.contact.value, businessName, offer)
         : undefined,
     contact:
       brief.contact?.channel && brief.contact?.value
@@ -320,7 +346,11 @@ export function createProjectSiteSchemaFromGeneratedContract(input: {
       c.business.primaryCta.kind === "whatsapp" && c.business.primaryCta.target
         ? c.business.primaryCta.target.startsWith("http")
           ? c.business.primaryCta.target
-          : `https://wa.me/${c.business.primaryCta.target.replace(/\D/g, "").startsWith("0") ? `62${c.business.primaryCta.target.replace(/\D/g, "").slice(1)}` : c.business.primaryCta.target.replace(/\D/g, "")}?text=Halo`
+          : buildContextualWhatsAppHref(
+              c.business.primaryCta.target,
+              businessName,
+              offer,
+            )
         : undefined,
     contact:
       c.business.primaryCta.kind && c.business.primaryCta.target

@@ -621,6 +621,35 @@ export async function runAgenticGenerate(input: {
         }));
         checkAppCalls += 1;
         opSeq++;
+        const dummyPlaceholders = [
+          /\blorem\s+ipsum\b/i,
+          /\bcontoh\s+menu\b/i,
+          /\bdeskripsi\s+disini\b/i,
+          /\[nama\s+(produk|toko|menu)\]/i,
+        ];
+        const placeholderIssues: string[] = [];
+        for (const [path, content] of fileMap.entries()) {
+          if (
+            path.startsWith("src/components/") ||
+            path.startsWith("src/routes/")
+          ) {
+            for (const re of dummyPlaceholders) {
+              if (re.test(content)) {
+                placeholderIssues.push(
+                  `Dummy placeholder copy '${content.match(re)?.[0]}' detected in ${path}. Replace with real, grounded Indonesian text based on src/content/site.ts.`,
+                );
+              }
+            }
+          }
+        }
+        if (placeholderIssues.length > 0) {
+          return {
+            ok: false,
+            failureReason: "placeholder_copy_detected",
+            errors: placeholderIssues,
+          };
+        }
+
         const buildResult = await buildGeneratedProject(currentFiles, {
           workspaceKey: `${projectId}-agentic-check`,
         });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildContextualWhatsAppHref,
   createProjectSiteSchemaFromBrief,
   createFallbackProjectSiteSchema,
   parseProjectSiteSchema,
@@ -14,6 +15,22 @@ import {
 import type { ProjectBrief } from "./brief";
 
 describe("project site schema", () => {
+  it("builds rich contextual WhatsApp hrefs based on business name and offer", () => {
+    const full = buildContextualWhatsAppHref(
+      "081234567890",
+      "Kopi Senja",
+      "Kopi Susu Gula Aren",
+    );
+    expect(full).toBe(
+      "https://wa.me/6281234567890?text=Halo%20Kopi%20Senja%2C%20saya%20mau%20tanya%20info%20dan%20pesan%20Kopi%20Susu%20Gula%20Aren.",
+    );
+
+    const nameOnly = buildContextualWhatsAppHref("081234567890", "Kopi Senja");
+    expect(nameOnly).toBe(
+      "https://wa.me/6281234567890?text=Halo%20Kopi%20Senja%2C%20saya%20mau%20tanya%20informasi%20dan%20pemesanan.",
+    );
+  });
+
   it("creates a safe fallback schema from a prompt", () => {
     expect(
       createFallbackProjectSiteSchema("  Saya jual kopi susu  "),
