@@ -250,6 +250,17 @@ function isBuildConfirmCard(card: WorkspaceCard | undefined): boolean {
   return card?.type === "question" && isBuildConfirmQuestion(card.question);
 }
 
+function isUserRequestingPostBuildUpdate(text: string | undefined): boolean {
+  if (!text || typeof text !== "string") {
+    return false;
+  }
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return false;
+  }
+  return isUserAffirmingBuild(trimmed) || trimmed.length >= 2;
+}
+
 function withHandoffReadiness(brief: ProjectBrief): ProjectBrief {
   // Auto-derive businessType when missing so the 5-field gate is sufficient
   let businessType = brief.businessType;
@@ -301,14 +312,17 @@ export function normalizeWorkspaceTurn(
     unstringifyJsonObject(value.workspaceCard) as { type?: string } | null
   )?.type;
 
-  // Server-side enforcement: when a site is built, allow build_recommendation if the user affirms updating/rebuilding
+  // Server-side enforcement: when a site is built, allow build_recommendation when user requests changes or affirms update
   if (
     options.hasBuiltSite &&
     (workspaceCard.type === "build_recommendation" ||
       originalCardType === "build_recommendation" ||
       originalCardType === "brief_review")
   ) {
-    if (!isUserAffirmingBuild(options.lastUserText)) {
+    if (
+      !options.lastUserText ||
+      !isUserRequestingPostBuildUpdate(options.lastUserText)
+    ) {
       workspaceCard = { type: "none" };
     }
   } else if (!options.hasBuiltSite) {

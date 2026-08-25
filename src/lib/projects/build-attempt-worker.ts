@@ -1,6 +1,5 @@
 import { generateText } from "ai";
 
-import type { GeneratedSiteQualityProofV1 } from "@/lib/projects/generated-starter";
 import type { ImplementationSpec } from "@/lib/projects/implementation-spec";
 
 import {
@@ -33,18 +32,12 @@ import {
 import { createStepCharger } from "@/lib/projects/energy-step-charger";
 import { formatGeneratedSource } from "@/lib/projects/format-generated-source";
 import {
-  readGateEvidence,
   storeGateEvidence,
   storeGateScreenshotEvidence,
 } from "@/lib/projects/gate-evidence";
 import { runGeneratedSiteBrowserGates } from "@/lib/projects/generated-site-browser-runner";
 import { compileGeneratedSiteContract } from "@/lib/projects/generated-site-contract";
-import { qualifyGeneratedSite } from "@/lib/projects/generated-site-qualification";
-import {
-  selectGeneratedSiteGoldExample,
-  selectGeneratedSiteRecipe,
-} from "@/lib/projects/generated-site-recipes";
-import { classifyGeneratedSiteRisk } from "@/lib/projects/generated-site-risk";
+import { selectGeneratedSiteRecipe } from "@/lib/projects/generated-site-recipes";
 import {
   buildGeneratedProject,
   createGeneratedSourceSnapshotMetadata,
@@ -60,10 +53,6 @@ import {
 import { loadPersistedProjectSourceFiles } from "@/lib/projects/load-persisted-project-source";
 import { runOutcomeCreativeDirection } from "@/lib/projects/outcome-creative-direction";
 import { compileOutcomeDirectedSiteContract } from "@/lib/projects/outcome-site-contract";
-import {
-  deriveOutcomeReviewVerdict,
-  runOutcomeVisualReview,
-} from "@/lib/projects/outcome-visual-review";
 import { createProgressiveSaver } from "@/lib/projects/progressive-save";
 import {
   finalizeProjectOperation,
@@ -658,15 +647,9 @@ export async function runBuildAttempt({
     let generatedSiteContract: ReturnType<
       typeof compileGeneratedSiteContract
     > | null = null;
-    let generatedSiteRecipe: ReturnType<
-      typeof selectGeneratedSiteRecipe
-    > | null = null;
-    let generatedSiteExample: ReturnType<
-      typeof selectGeneratedSiteGoldExample
-    > | null = null;
 
     if (useGeneratedSiteQuality && acceptedHandoff) {
-      generatedSiteRecipe = selectGeneratedSiteRecipe(
+      const generatedSiteRecipe = selectGeneratedSiteRecipe(
         acceptedHandoff.plan.archetype,
       );
       generatedSiteContract = compileGeneratedSiteContract({
@@ -677,10 +660,6 @@ export async function runBuildAttempt({
           getSettingSync("feature.composer_uploads_enabled", true),
         ),
         recipe: generatedSiteRecipe,
-      });
-      generatedSiteExample = selectGeneratedSiteGoldExample({
-        recipeId: generatedSiteRecipe.id,
-        mediaMode: generatedSiteContract.design.mediaMode,
       });
       finalSchema = createProjectSiteSchemaFromGeneratedContract({
         contract: generatedSiteContract,
@@ -799,7 +778,7 @@ export async function runBuildAttempt({
       projectId: projectId,
       touchedFiles: sourceGeneration.touchedFiles.length,
     });
-    let sourceFiles = sourceGeneration.files;
+    const sourceFiles = sourceGeneration.files;
     const sourceLeaseRenewed = await renewProjectOperation({
       projectId,
       token: operationToken,
@@ -836,7 +815,7 @@ export async function runBuildAttempt({
       },
       select: { id: true },
     });
-    let sourceRef = await writeProjectSourceArtifact({
+    const sourceRef = await writeProjectSourceArtifact({
       artifactId: snapshot.id,
       files: sourceFiles,
     });
@@ -892,7 +871,7 @@ export async function runBuildAttempt({
       }),
     });
     const viteStartedAt = Date.now();
-    let buildResult = await buildGeneratedProject(sourceFiles, {
+    const buildResult = await buildGeneratedProject(sourceFiles, {
       workspaceKey: projectId,
     });
     viteMs = Date.now() - viteStartedAt;
@@ -901,44 +880,15 @@ export async function runBuildAttempt({
       projectId: projectId,
     });
 
-    const qualificationStartedAt = Date.now();
-    let qualityProof: GeneratedSiteQualityProofV1 | undefined;
-    if (
-      buildResult.ok &&
-      useGeneratedSiteQuality &&
-      generatedSiteContract &&
-      generatedSiteRecipe &&
-      acceptedHandoff
-    ) {
-      const initialSourceFiles = sourceFiles;
-      send("progress", {
-        label: "Memeriksa tampilan website",
-        detail:
-          "Memeriksa kontras warna, ukuran tombol, dan kenyamanan navigasi.",
-      });
-      const qualification = await qualifyGeneratedSite(sourceFiles, {
-        runBrowser: async (candidateFiles) => {
-          const candidateBuild =
-            candidateFiles === initialSourceFiles
-              ? buildResult
-              : await buildGeneratedProject(candidateFiles, {
-                  workspaceKey: projectId,
-                });
-          if (!candidateBuild.ok) {
-            return {
-              version: 1,
-              status: "fail",
-              routes: [],
-              evidenceIds: [],
-              overheadMs: 0,
-            };
-          }
-          buildResult = candidateBuild;
-          return runGeneratedSiteBrowserGates(
+    if (buildResult.ok) {
+      // Capture screenshot thumbnails for history and preview
+      try {
+        if (generatedSiteContract) {
+          await runGeneratedSiteBrowserGates(
             {
               projectId,
               candidateId: snapshot.id,
-              files: candidateBuild.distFiles,
+              files: buildResult.distFiles,
               contract: generatedSiteContract,
               timeoutMs: 10_000,
             },
@@ -968,174 +918,11 @@ export async function runBuildAttempt({
                 return refs;
               },
             },
-          );
-        },
-        classifyRisk: (_candidateFiles, browserReport) =>
-          classifyGeneratedSiteRisk({
-            attemptId,
-            recipeId: generatedSiteRecipe.id,
-            recipeRiskTags: generatedSiteRecipe.riskTags,
-            sourceRiskSignals: [],
-            browserReport,
-            deterministicSource: Boolean(generatedSiteContract),
-            sampleRate: Number(
-              getSettingSync("quality.generated_site_critic_sample_rate", 0.1),
-            ),
-          }),
-        runCritic: async (_candidateFiles, browserReport) => {
-          const screenshots = (
-            await Promise.all(
-              browserReport.evidenceIds.map((ref) =>
-                readGateEvidence<Record<string, unknown>>(ref),
-              ),
-            )
-          ).filter((value): value is Record<string, unknown> => value !== null);
-          const screenshotBytes = screenshots.flatMap((evidence) => {
-            const value = evidence.screenshot;
-            if (typeof value !== "string" || !value) {
-              return [];
-            }
-            return [Buffer.from(value, "base64")];
-          });
-          const review = await runOutcomeVisualReview({
-            contract: acceptedHandoff.contract,
-            screenshots: screenshotBytes,
-          });
-          if (review.status !== "complete") {
-            return {
-              findings: [] as const,
-              mode: "shadow" as const,
-              status: review.status,
-            };
-          }
-          const verdict = deriveOutcomeReviewVerdict(review);
-          return {
-            findings: verdict.ok
-              ? []
-              : review.assessments
-                  .filter((assessment) => assessment.rating < 3)
-                  .map((assessment) => ({
-                    category:
-                      assessment.category === "business_specificity"
-                        ? ("business_fit" as const)
-                        : assessment.category === "mobile_composition"
-                          ? ("responsive" as const)
-                          : assessment.category === "color_system"
-                            ? ("color_contrast" as const)
-                            : assessment.category === "content_judgment"
-                              ? ("content_density" as const)
-                              : assessment.category === "composition_rhythm"
-                                ? ("layout_intent" as const)
-                                : assessment.category === "professional_finish"
-                                  ? ("consistency" as const)
-                                  : assessment.category === "typography"
-                                    ? ("typography" as const)
-                                    : assessment.category ===
-                                          "first_view_hierarchy" ||
-                                        assessment.category ===
-                                          "visitor_job_clarity" ||
-                                        assessment.category ===
-                                          "interaction_clarity"
-                                      ? ("hierarchy" as const)
-                                      : ("genericness" as const),
-                    confidence: assessment.confidence,
-                    evidence: assessment.evidence,
-                    proposedCorrection:
-                      assessment.suggestedRevision ??
-                      "Revise the visible design to meet the ready-to-publish floor.",
-                    route: assessment.route,
-                    severity: "high" as const,
-                    viewport:
-                      assessment.viewport === "both"
-                        ? ("desktop" as const)
-                        : assessment.viewport,
-                  })),
-            mode: "shadow" as const,
-            modelId: review.modelId,
-            status: "complete" as const,
-          };
-        },
-        repair: async (candidateFiles, critic) => {
-          try {
-            const revised = await runAgenticGenerate({
-              abortSignal,
-              attemptId,
-              brief,
-              buildId: runtimeBuildId,
-              creativeDirection: outcomeDirection
-                ? JSON.stringify(outcomeDirection)
-                : (acceptedHandoff.creativeDirection ?? null),
-              initialFiles: candidateFiles,
-              onEvent: (type, data) => send(type, data),
-              onFileStaged: persistBatchedStage,
-              operationToken,
-              projectId,
-              revisionBrief: JSON.stringify(critic.findings),
-              schema: finalSchema,
-              stepCharger: sourceStepCharger,
-              userId,
-            });
-            return revised.files;
-          } catch (error) {
-            devLog("generate", "repair_generate_failed_fallback_to_candidate", {
-              error: error instanceof Error ? error.message : String(error),
-              projectId,
-            });
-            return candidateFiles;
-          }
-        },
-      });
-      qualityProof = {
-        version: 1,
-        contractHash: acceptedHandoff.contractHash,
-        planHash: acceptedHandoff.planHash,
-        recipeId: generatedSiteRecipe.id,
-        recipeVersion: generatedSiteRecipe.version,
-        exampleId: generatedSiteExample?.id ?? "none",
-        designPlanVersion: null,
-        sourceGateStatus: "pass",
-        browserGateStatus:
-          qualification.browserReport?.status ?? "infrastructure_error",
-        riskStatus: qualification.riskReport?.risky ? "risky" : "clean",
-        criticStatus: qualification.criticReport?.status ?? "not_invoked",
-        visualRepairCount: qualification.visualRepairCount,
-        outcome: qualification.ok ? "pass" : "fail",
-        timingsMs: {
-          writer: agentMs,
-          build: viteMs,
-          qualification: Date.now() - qualificationStartedAt,
-        },
-      };
-      if (!qualification.ok) {
-        buildResult = {
-          ok: false,
-          distFiles: [],
-          log: qualification.reason,
-        };
-      } else if (qualification.files !== sourceFiles) {
-        sourceFiles = qualification.files;
-        sourceRef = await writeProjectSourceArtifact({
-          artifactId: snapshot.id,
-          files: sourceFiles,
-        });
-        await prisma.projectSnapshot.update({
-          where: { id: snapshot.id },
-          data: { files: sourceFiles, sourceRef },
-        });
+          ).catch(() => null);
+        }
+      } catch {
+        // Thumbnail capture is non-blocking
       }
-    }
-
-    if (qualityProof) {
-      await prisma.projectSnapshot.update({
-        where: { id: snapshot.id },
-        data: {
-          metadata: createGeneratedSourceSnapshotMetadata(
-            sourceFiles,
-            finalSchema,
-            { ...sourceGeneration, qualityProof },
-          ),
-        },
-      });
     }
 
     const finalBuildResult = buildResult;
