@@ -138,7 +138,7 @@ describe("moderateProjectRequest", () => {
         role: "user",
         content: [
           { type: "text", text: "jual baju" },
-          { type: "file", data: imageBytes, mediaType: "image/png" },
+          { type: "image", image: imageBytes, mimeType: "image/png" },
         ],
       },
     ]);

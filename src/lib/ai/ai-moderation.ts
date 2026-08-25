@@ -63,16 +63,16 @@ export async function moderateProjectRequest(
 
   const contentParts: Array<
     | { type: "text"; text: string }
-    | { type: "file"; data: Buffer; mediaType: string }
+    | { type: "image"; image: Buffer; mimeType?: string }
   > = [];
   if (prompt.trim()) {
     contentParts.push({ type: "text", text: prompt.trim() });
   }
   for (const image of images) {
     contentParts.push({
-      type: "file",
-      data: image.bytes,
-      mediaType: image.mediaType,
+      type: "image",
+      image: image.bytes,
+      mimeType: image.mediaType,
     });
   }
 

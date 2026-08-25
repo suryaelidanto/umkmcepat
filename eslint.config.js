@@ -15,6 +15,8 @@ const eslintConfig = [
       ".tanstack/**",
       ".pi/**",
       ".agents/**",
+      "**/.obsidian/**",
+      "tmp/**",
       "src/lib/projects/skills/impeccable/scripts/**",
       "src/lib/projects/scaffold/shadcn-registry/**",
       "graphify-out/**",

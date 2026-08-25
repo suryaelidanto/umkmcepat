@@ -2740,12 +2740,12 @@ export function WorkspaceShell({
               );
             }
             const asset = (await res.json()) as {
-              id: string;
-              publicUrl: string | null;
+              id?: string;
+              publicUrl?: string | null;
             };
-            if (!asset.publicUrl) {
+            if (!asset?.id) {
               throw new Error(
-                `Gambar belum tersedia (${item.file.name}). Aktifkan R2.`,
+                `Gambar belum tersedia (${item.file.name}). Coba lagi.`,
               );
             }
             fileParts.push(
