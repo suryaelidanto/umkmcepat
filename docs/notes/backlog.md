@@ -13,7 +13,7 @@ kanban-plugin: board
 
 ## In Progress
 
-## Needs Revision
+## Needs Revision / Check Again
 
 - [ ] **[T-08] Photo Upload MVP Stabilization**: Stabilize photo upload pipeline and storage client with static public image output while keeping visual-edit experimental #media #upload
 
