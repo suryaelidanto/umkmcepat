@@ -205,16 +205,21 @@ async function getStoredPreviewResponse({
   }
 
   const isHtml = file.contentType.toLowerCase().includes("text/html");
-  const content = isHtml
-    ? injectPreviewAnnotationBridge(
-        rewritePreviewAssetUrls(file.content, {
-          deploymentId: "stored",
-          projectId,
-        }),
-      )
-    : file.content;
+  const isImage =
+    file.contentType.toLowerCase().startsWith("image/") &&
+    !file.contentType.includes("svg");
+  const body = isImage
+    ? Buffer.from(file.content, "base64")
+    : isHtml
+      ? injectPreviewAnnotationBridge(
+          rewritePreviewAssetUrls(file.content, {
+            deploymentId: "stored",
+            projectId,
+          }),
+        )
+      : file.content;
 
-  return new Response(content, {
+  return new Response(body, {
     headers: applyPreviewSandboxHeaders(
       new Headers({ "Content-Type": file.contentType }),
     ),

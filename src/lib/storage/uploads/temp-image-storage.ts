@@ -32,7 +32,7 @@ export async function uploadTempImage(
 
   const bytes = Buffer.from(await file.arrayBuffer());
   const format = detectImageFormat(bytes);
-  if (!format || format === "gif") {
+  if (!format) {
     throw new Error(
       "Format gambar tidak didukung. Gunakan PNG, JPEG, atau WEBP.",
     );

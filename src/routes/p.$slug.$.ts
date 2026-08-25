@@ -193,17 +193,22 @@ async function getPublishedArtifactResponse({
   }
 
   const isHtml = file.contentType.toLowerCase().includes("text/html");
-  const content = isHtml
-    ? injectPublishedHead(rewritePublicAssetUrls(file.content, slug), {
-        businessName,
-        noindex: false,
-        slug,
-      })
-    : file.content;
+  const isImage =
+    file.contentType.toLowerCase().startsWith("image/") &&
+    !file.contentType.includes("svg");
+  const body = isImage
+    ? Buffer.from(file.content, "base64")
+    : isHtml
+      ? injectPublishedHead(rewritePublicAssetUrls(file.content, slug), {
+          businessName,
+          noindex: false,
+          slug,
+        })
+      : file.content;
   const headers = applyPreviewSandboxHeaders(
     new Headers({ "Content-Type": file.contentType }),
     { noindex: false },
   );
 
-  return new Response(content, { headers });
+  return new Response(body, { headers });
 }

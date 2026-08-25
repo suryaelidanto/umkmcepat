@@ -653,6 +653,20 @@ export async function runAgenticGenerate(input: {
           };
         }
 
+        const homeRouteContent = fileMap.get("src/routes/index.tsx") ?? "";
+        if (
+          !homeRouteContent.trim() ||
+          homeRouteContent.includes("data-generated-site-starter")
+        ) {
+          return {
+            ok: false,
+            failureReason: "home_route_not_assembled",
+            errors: [
+              "Home route 'src/routes/index.tsx' has not been assembled yet. Write the complete home route assembling your modular components before checking.",
+            ],
+          };
+        }
+
         const buildResult = await buildGeneratedProject(currentFiles, {
           workspaceKey: `${projectId}-agentic-check`,
         });
@@ -785,7 +799,7 @@ FACT AND SAFETY RULES:
 - Avoid nested cards, equal-card soup, gradient-tech styling, technical headings, starter residue, fake progress, and decorative interaction.
 
 ANTI-SLOP & REFINED VISUAL STANDARDS:
-- REAL UPLOADED PHOTOS: If \`site.images\` is populated in \`src/content/site.ts\`, you MUST display these genuine store photos prominently (e.g. as Hero showcase visual, gallery cards, or menu highlight images) with rounded borders and clean framing (\`<img src={site.images[0].url} alt={site.images[0].alt || site.businessName} className="w-full h-80 object-cover rounded-2xl shadow-md" />\`).
+- REAL UPLOADED PHOTOS: If \`site.images\` is populated in \`src/content/site.ts\`, you MUST display these genuine store photos prominently (e.g. as Hero showcase visual, gallery cards, or menu highlight images) with rounded borders, responsive aspect ratio, and clean framing (\`<img src={site.images[0].url} alt={site.images[0].alt || site.businessName} className="w-full h-72 sm:h-96 lg:h-[420px] object-cover rounded-2xl shadow-xl" />\`).
 - NEVER CREATE "NO PHOTO / TIDAK ADA FOTO" PLACEHOLDERS: If photos are missing or \`site.images\` is empty, NEVER render boxes saying "Tidak ada foto", gray placeholder squares, or camera icons. Instead, design a purely typographic, content-led layout (H1, headline, USP grid, pricing badges, address and hours info).
 - NO FAKE/SIMULATED PRODUCT SHAPES: If the user did not upload photos, NEVER draw fake CSS/SVG t-shirt silhouettes, coffee cup wireframes, or mockup graphics. Instead, present clean, elegant editorial typographic cards with bold titles, price tags, specification bullets, and WhatsApp action buttons.
 - NO PILL / BADGE OVERLOAD: Max 1 subtle badge in the entire Hero. NEVER put floating rounded pill tags above section titles (no "[• Profil Kedai]", no "[• Katalog & Pilihan]", no "[• Untuk Semua kalangan]"). Let clean typography hierarchy (H2, H3, clean paragraphs) define the structure.
@@ -860,12 +874,12 @@ ${formatPromptValue(schema)}
 FROZEN CREATIVE DIRECTION (taste only; it cannot introduce a fact):
 ${formatPromptValue(input.creativeDirection)}
 
-MANDATORY EXECUTION SEQUENCE:
-1. Call set_design_system on step 1.
-2. Call copy_shadcn_component for required primitives (e.g. badge, separator, button).
-3. Write the modular site components under src/components/site/ (Header.tsx, Hero.tsx, MenuOrCatalog.tsx, LocationAndContact.tsx, Footer.tsx).
-4. Write src/routes/index.tsx importing and rendering all the components above with site.* data.
-5. Call check_app to verify build and finish. You MUST NOT finish until src/routes/index.tsx is written and check_app passes.`;
+MANDATORY EXECUTION SEQUENCE (STRICT SPEED & COMPLETION):
+1. Call set_design_system on step 1 with your chosen semantic palette and typography.
+2. Call copy_shadcn_component to vendor needed components (e.g. badge, separator).
+3. Immediately write the site components under src/components/site/ (Header.tsx, Hero.tsx, MenuOrCatalog.tsx, LocationAndContact.tsx, Footer.tsx) using write_file. If site.images is present, render <img src={site.images[0].url} alt={site.images[0].alt || site.businessName} /> in Hero or Gallery.
+4. Immediately write src/routes/index.tsx assembling all components.
+5. Run check_app to verify compilation and finish. Do not loop reading files or idling.`;
 
   const requestedModel = getGenerationModel();
   const maxSteps = getAgentMaxSteps("generate");

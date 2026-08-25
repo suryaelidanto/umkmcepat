@@ -126,7 +126,7 @@ export const Route = createFileRoute("/api/projects/$id/assets/upload")({
 
         const bytes = Buffer.from(await file.arrayBuffer());
         const detectedFormat = detectImageFormat(bytes);
-        if (!detectedFormat || detectedFormat === "gif") {
+        if (!detectedFormat) {
           return Response.json(
             {
               message:

@@ -57,7 +57,7 @@ async function getAssetResponse({
   path: string[];
   request: Request;
 }) {
-  const assetPath = ["assets", ...path];
+  const assetPath = path[0] === "images" ? path : ["assets", ...path];
   const deployments = await prisma.projectDeployment.findMany({
     where: { kind: "preview", projectId: id },
     orderBy: { createdAt: "desc" },
@@ -230,7 +230,11 @@ async function getStoredAssetResponse({
         item.path === requestedPath || item.path === `assets/${requestedPath}`,
     );
     if (file) {
-      return new Response(file.content, {
+      const isImage =
+        file.contentType.toLowerCase().startsWith("image/") &&
+        !file.contentType.includes("svg");
+      const body = isImage ? Buffer.from(file.content, "base64") : file.content;
+      return new Response(body, {
         headers: applyPreviewSandboxHeaders(
           new Headers({ "Content-Type": file.contentType }),
         ),
@@ -248,7 +252,12 @@ async function getStoredAssetResponse({
     return null;
   }
 
-  return new Response(file.content, {
+  const isImage =
+    file.contentType.toLowerCase().startsWith("image/") &&
+    !file.contentType.includes("svg");
+  const body = isImage ? Buffer.from(file.content, "base64") : file.content;
+
+  return new Response(body, {
     headers: applyPreviewSandboxHeaders(
       new Headers({ "Content-Type": file.contentType }),
     ),
