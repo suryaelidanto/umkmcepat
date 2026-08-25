@@ -30,7 +30,7 @@ Gather brief information in 3 clear priority tiers:
   4. Real owner photos / media availability.
 
 - **Tier 3 — Polish (Optional Refinement)**:
-  Operating hours (`hours`), founding year (`since`), current promotion (`currentPromo`), and social media (`socialLinks`). Do not stall builds waiting for Tier 3 if the user is ready.
+  Operating hours (`hours`), founding year (`since`), current promotion (`currentPromo`), social media (`socialLinks`), target customer (`targetCustomer`), tagline (`tagline`), visuals (`visuals`), testimonials (`testimonials`), certifications (`certifications`), payment methods (`paymentMethods`), and secondary action (`secondaryCta`). Do not stall builds waiting for Tier 3 if the user is ready.
 
 Never guess or fabricate missing data. If the user doesn't have testimonials or a physical address, skip them cleanly rather than creating fake assumptions.
 
