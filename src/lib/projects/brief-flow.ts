@@ -313,17 +313,31 @@ export function normalizeWorkspaceTurn(
   )?.type;
 
   // Server-side enforcement: when a site is built, allow build_recommendation when user requests changes or affirms update
-  if (
-    options.hasBuiltSite &&
-    (workspaceCard.type === "build_recommendation" ||
-      originalCardType === "build_recommendation" ||
-      originalCardType === "brief_review")
-  ) {
+  if (options.hasBuiltSite) {
+    const isUpdateRequested =
+      Boolean(
+        options.lastUserText &&
+        isUserRequestingPostBuildUpdate(options.lastUserText),
+      ) ||
+      (Array.isArray(brief.businessImages) && brief.businessImages.length > 0);
+
     if (
-      !options.lastUserText ||
-      !isUserRequestingPostBuildUpdate(options.lastUserText)
+      workspaceCard.type === "build_recommendation" ||
+      originalCardType === "build_recommendation" ||
+      originalCardType === "brief_review"
     ) {
-      workspaceCard = { type: "none" };
+      if (!isUpdateRequested) {
+        workspaceCard = { type: "none" };
+      }
+    } else if (
+      isUpdateRequested &&
+      (workspaceCard.type === "none" || !workspaceCard.type)
+    ) {
+      workspaceCard = {
+        type: "build_recommendation",
+        title: "Perbarui website",
+        summary: ["Terapkan perubahan dan foto baru ke website"],
+      };
     }
   } else if (!options.hasBuiltSite) {
     // Reliable handoff: promote to build_recommendation when build-time is

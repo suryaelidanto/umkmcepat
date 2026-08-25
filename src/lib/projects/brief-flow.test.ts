@@ -1171,6 +1171,32 @@ describe("normalizeWorkspaceTurn", () => {
     expect(turn.workspaceCard.type).toBe("build_recommendation");
   });
 
+  it("automatically emits build_recommendation post-build when user asks for an edit even if model emitted type none", () => {
+    const brief = parseProjectBrief(
+      {
+        businessName: "Kopi Senja",
+        businessType: "Kedai Kopi",
+        offer: "Kopi Nusantara",
+        targetCustomer: "Pecinta kopi lokal",
+        contactOrCta: "WhatsApp 08123456789",
+        stylePreference: "Warm and cozy",
+      },
+      "jualan kopi",
+    );
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: { type: "none" },
+      },
+      brief,
+      {
+        hasBuiltSite: true,
+        lastUserText: "tambahin gambar itu di hero",
+      },
+    );
+
+    expect(turn.workspaceCard.type).toBe("build_recommendation");
+  });
+
   it("still allows a question card pre-build (hasBuiltSite: false / omitted) — same input as the built-site test above", () => {
     const brief = parseProjectBrief(
       { businessType: "Kopi Senja Roastery", offer: "Biji kopi roasting" },
