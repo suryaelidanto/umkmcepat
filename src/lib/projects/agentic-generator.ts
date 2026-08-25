@@ -742,11 +742,13 @@ export async function runAgenticGenerate(input: {
           .string()
           .optional()
           .describe(
-            "Seed key or brand hex code, e.g. '#f05a28' or business name",
+            "Business name, niche keyword, or brand hue, e.g. 'streetwear clothing', 'coffee shop', 'laundry'",
           ),
       }),
       execute: async ({ seedKey }: { seedKey?: string }) => {
-        return generatePaletteInMemory(seedKey);
+        return generatePaletteInMemory(
+          seedKey || brief.businessName || brief.offer || undefined,
+        );
       },
     }),
   };
@@ -780,6 +782,15 @@ FACT AND SAFETY RULES:
 - Keep interactive parent controls at least 44px without enlarging their inner SVG icons. Preserve focus-visible states and reduced motion.
 - Incorporate tasteful scroll and entrance motion using \`motion\` from \`motion/react\` (e.g. \`initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-30px" }}\` on sections and cards).
 - Avoid nested cards, equal-card soup, gradient-tech styling, technical headings, starter residue, fake progress, and decorative interaction.
+
+ANTI-SLOP & REFINED VISUAL STANDARDS:
+- NO FAKE/SIMULATED PRODUCT SHAPES: If the user did not upload photos, NEVER draw fake CSS/SVG t-shirt silhouettes, coffee cup wireframes, or mockup graphics. Instead, present clean, elegant editorial typographic cards with bold titles, price tags, specification bullets, and WhatsApp action buttons.
+- NO PILL / BADGE OVERLOAD: Max 1 subtle badge in the entire Hero. NEVER put floating rounded pill tags above section titles (no "[• Profil Kedai]", no "[• Katalog & Pilihan]", no "[• Untuk Semua kalangan]"). Let clean typography hierarchy (H2, H3, clean paragraphs) define the structure.
+- NO FAKE LOGO BOXES: In Header/Navbar, render the brand as a confident typographic wordmark (e.g. bold serif or sans title). DO NOT create colored square icon boxes with single letters ("D", "K") or generic icon circles to fake a logo.
+- NO ICON SPAM: Cut gratuitous icons across headings and card headers. Only use functional icons (e.g. MessageCircle on WhatsApp CTA, MapPin on address).
+- GENEROUS WHITESPACE & CONCISE COPY: Use generous section vertical spacing (py-20 to py-28). Write short, punchy Indonesian copy (1-2 sentences per paragraph). Avoid walls of text or repeating the same USP multiple times.
+- DIVERSE COLOR PALETTES: Tailor colors to the business niche (e.g. coffee gets warm espresso and crema tones; streetwear gets bold monochrome/electric accent; services get clean ocean/teal). Never force the same orange/terracotta palette across different industries.
+- CONSISTENT SCROLL MOTION: Use \`motion\` from \`motion/react\` for subtle, tasteful scroll entrance on Hero, feature cards, and CTA banners (\`initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-30px" }}\`).
 
 TRUTHFULNESS & ZERO HALLUCINATION (IRON LAW):
 - NEVER generate fake testimonials or made-up customer reviews with imaginary names ("Budi", "Siti", etc.) unless real testimonials were explicitly provided in the brief. If testimonials are missing, omit the review section completely and focus on product quality, materials, pricing, and consultation.
@@ -818,7 +829,16 @@ The website owner is a non-technical Indonesian business owner (UMKM). They watc
       ? `\nREQUIRED ROUTES TO IMPLEMENT:\nThis project has multiple accepted pages. You MUST write and render all required routes:\n${schema.routes.map((r) => `- "${r.path}" (${r.title}) -> write component or route for it`).join("\n")}`
       : `\nREQUIRED ROUTES:\nThis project is a single-page storefront. Implement the complete home page in src/routes/index.tsx with all relevant sections.`;
 
-  const userPrompt = `Build the complete static website from the accepted project data below.
+  const userPrompt = input.revisionBrief
+    ? `This is a SURGICAL REVISION PASS to polish specific findings from visual review.
+Review findings:
+${formatPromptValue(input.revisionBrief)}
+
+SURGICAL REVISION INSTRUCTIONS:
+1. Modify ONLY the 1 specific file mentioned in the findings (e.g. adjust contrast or typography).
+2. DO NOT re-read or rewrite existing working components.
+3. Call check_app to verify compilation and finish immediately in 2-3 steps.`
+    : `Build the complete static website from the accepted project data below.
 
 Brief prompt: ${formatPromptValue(brief.prompt)}
 Business name from brief: ${formatPromptValue(brief.businessName)}
@@ -836,10 +856,6 @@ ${formatPromptValue(schema)}
 
 FROZEN CREATIVE DIRECTION (taste only; it cannot introduce a fact):
 ${formatPromptValue(input.creativeDirection)}
-
-REVIEWED REVISION BRIEF:
-${formatPromptValue(input.revisionBrief)}
-${input.revisionBrief ? "Revise the existing source to resolve only these rendered quality findings. Preserve accepted facts, routes, and actions. Re-check the complete app." : ""}
 
 Start by setting up necessary shadcn components and theme color, then immediately write the modular components under src/components/site/ (Hero, Products/Services, Contact/WhatsApp CTA, Footer) and assemble them in src/routes/index.tsx. Incorporate tasteful motion with motion/react, call check_app to verify the build, and finish.`;
 

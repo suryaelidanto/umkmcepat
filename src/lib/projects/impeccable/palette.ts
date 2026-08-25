@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -12,6 +13,27 @@ const PALETTE_SCRIPT_PATH = path.resolve(
   "src/lib/projects/skills/impeccable/scripts/palette.mjs",
 );
 
+// Diverse fallback seeds across different business vibes
+const VIBRANT_SEEDS = [
+  { seed: "#1e3a8a", mood: "Deep corporate navy & clean modern trust" },
+  { seed: "#047857", mood: "Fresh emerald artisan & organic craft" },
+  { seed: "#7c2d12", mood: "Warm roasted espresso & earthy sanctuary" },
+  { seed: "#4338ca", mood: "Electric indigo & contemporary tech streetwear" },
+  { seed: "#0f766e", mood: "Teal botanical & tranquil apothecary" },
+  { seed: "#be123c", mood: "Rich crimson & bold energetic retail" },
+  { seed: "#854d0e", mood: "Warm amber honey & nostalgic artisanal bakery" },
+  { seed: "#09090b", mood: "Ultra-clean monochrome & raw editorial minimal" },
+];
+
+function fallbackSeedFromKey(key?: string): { seed: string; mood: string } {
+  if (!key) {
+    return VIBRANT_SEEDS[0]!;
+  }
+  const hash = crypto.createHash("sha256").update(key).digest("hex");
+  const index = parseInt(hash.slice(0, 8), 16) % VIBRANT_SEEDS.length;
+  return VIBRANT_SEEDS[index]!;
+}
+
 export async function generatePaletteInMemory(
   seedKey?: string,
 ): Promise<GeneratedPaletteResult> {
@@ -21,19 +43,21 @@ export async function generatePaletteInMemory(
 
     if (typeof getPaletteSeed === "function") {
       const result = getPaletteSeed(seedKey);
+      const fallback = fallbackSeedFromKey(seedKey);
       return {
-        seed: result.seed || "#f05a28",
-        mood: result.mood || "Energetic, approachable Indonesian commerce",
-        formula: result.formula || "OKLCH 5-role palette ramp",
+        seed: result?.seed || fallback.seed,
+        mood: result?.mood || fallback.mood,
+        formula: result?.formula || "OKLCH semantic palette ramp",
       };
     }
   } catch {
-    // Fallback safe seed
+    // Fallback dynamic seed
   }
 
+  const fallback = fallbackSeedFromKey(seedKey);
   return {
-    seed: "#f05a28",
-    mood: "Warm & trustworthy commerce",
-    formula: "OKLCH semantic palette",
+    seed: fallback.seed,
+    mood: fallback.mood,
+    formula: "OKLCH semantic palette ramp",
   };
 }
