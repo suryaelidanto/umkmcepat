@@ -16,11 +16,10 @@ Workflow and engineering standards for UMKM Cepat. For high-level design princip
 - **No secrets in tracked files**: Environment variables, API keys, tokens, and credentials belong only in `.env` (gitignored). Documentation examples use empty `""` values.
 - **Task Tracking in `docs/notes/backlog.md`**: Living project backlog is maintained as an Obsidian-compatible Kanban board (`Backlog` $\rightarrow$ `In Progress` $\rightarrow$ `Needs Revision / Check Again` $\rightarrow$ `Ready for Review` $\rightarrow$ `Done` $\rightarrow$ `Future / Icebox`).
   - Use `add-backlog` to append isolated tasks directly with sequential `[T-XX]` codes.
-  - Use `do-backlog` to group related tickets and confirm batching before execution.
-  - Use `drive-backlog` to execute top-priority tasks autonomously.
+  - Use `do-backlog` to inspect revisions, evaluate priorities, propose task grouping, confirm with the developer, and execute with full verification.
   - Priority #1: Address items in `## Needs Revision / Check Again`.
   - Priority #2: Resume items in `## In Progress`.
-  - Priority #3: Pull tasks from `## Backlog` $\rightarrow$ `## In Progress`.
+  - Priority #3: Propose and pull tasks from `## Backlog` $\rightarrow$ `## In Progress`.
   - Implement minimal code, assert deterministic invariants in tests, and verify with `bun run check`.
   - Move completed tasks to `## Ready for Review`. On user approval $\rightarrow$ `## Done`. If rejected $\rightarrow$ `## Needs Revision / Check Again`.
 
