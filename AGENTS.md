@@ -59,7 +59,7 @@ A restrained, trustworthy site generation engine for Indonesian small business o
 
 - `docs/notes/backlog.md` is the single source of truth for work items (`Backlog`, `In Progress`, `Needs Revision / Check Again`, `Ready for Review`, `Done`, `Future / Icebox`).
 - **Autonomous Backlog Skills**:
-  - `add-backlog`: Add isolated tasks with next sequential `[T-XX]` code and domain tags.
+  - `add-backlog`: Add isolated tasks with next sequential `[#XX]` code and domain tags.
   - `do-backlog`: The unified execution orchestrator. Inspects revisions, ranks priorities, groups synergistic tasks into a clear plan, asks for developer confirmation, implements code + tests, and verifies via `bun run check`.
   - `triage-ideas`: Triage raw thoughts from `ideas.md` into backlog tasks.
 - **Execution Priority**:

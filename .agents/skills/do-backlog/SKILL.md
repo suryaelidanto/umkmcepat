@@ -20,7 +20,7 @@ Intelligent Kanban orchestrator. Evaluates tasks, checks revisions, groups syner
    - Present only:
      - **Status**: Active task counts.
      - **Why**: 1-2 sharp sentences on the problem.
-     - **Proposed Batch**: Which `[T-XX]` tickets to group and why.
+     - **Proposed Batch**: Which `[#XX]` tickets to group and why.
      - **Key Change**: 2 bullet points on what actually changes in the UI/code.
      - **Decision**: `[Y]` Batch, `[1]` Ticket A, `[2]` Ticket B.
    - **MANDATORY**: Wait for explicit user confirmation before writing code.

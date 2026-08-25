@@ -15,7 +15,7 @@ Workflow and engineering standards for UMKM Cepat. For high-level design princip
 - **English for developer surfaces, Indonesian for user copy**: Developer tools, errors, logs, prompts, comments, and documentation are strictly in English. Customer-facing product UI copy is in Indonesian.
 - **No secrets in tracked files**: Environment variables, API keys, tokens, and credentials belong only in `.env` (gitignored). Documentation examples use empty `""` values.
 - **Task Tracking in `docs/notes/backlog.md`**: Living project backlog is maintained as an Obsidian-compatible Kanban board (`Backlog` $\rightarrow$ `In Progress` $\rightarrow$ `Needs Revision / Check Again` $\rightarrow$ `Ready for Review` $\rightarrow$ `Done` $\rightarrow$ `Future / Icebox`).
-  - Use `add-backlog` to append isolated tasks directly with sequential `[T-XX]` codes.
+  - Use `add-backlog` to append isolated tasks directly with sequential `[#XX]` codes.
   - Use `do-backlog` to inspect revisions, evaluate priorities, propose task grouping, confirm with the developer, and execute with full verification.
   - Priority #1: Address items in `## Needs Revision / Check Again`.
   - Priority #2: Resume items in `## In Progress`.

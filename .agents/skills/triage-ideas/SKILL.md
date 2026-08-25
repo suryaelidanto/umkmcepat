@@ -18,7 +18,7 @@ Interview the developer relentlessly to map raw thoughts from `docs/notes/ideas.
    - The developer can reply simply by typing letters (e.g. `1C, 2A, 3B`).
 
 2. **Non-Destructive Backlog Routing**:
-   - **Actionable Tasks, Bugs, & Features** $\rightarrow$ Append as checkable items under `## Backlog` in `docs/notes/backlog.md` using the next incremental `T-XX` code (e.g. `[T-09]`, `[T-10]`) and domain tags (`#engine`, `#ui`, `#security`).
+   - **Actionable Tasks, Bugs, & Features** $\rightarrow$ Append as checkable items under `## Backlog` in `docs/notes/backlog.md` using the next incremental `[#XX]` code (e.g. `[#09]`, `[#10]`) and domain tags (`#engine`, `#ui`, `#security`).
    - **Future / Long-Term Explorations** $\rightarrow$ Append under `## Future / Icebox` in `docs/notes/backlog.md` with `[T-XX]` code and tags.
    - **Preserve Existing Board State**: Never delete, reorder, or alter items in other columns (`In Progress`, `Needs Revision / Check Again`, `Ready for Review`, `Done`).
    - **Architectural Decisions** $\rightarrow$ Create a 1-page ADR in `docs/architecture/ADR-<name>.md` and reference it inside the new backlog item.

@@ -6,20 +6,20 @@ disable-model-invocation: true
 
 # Add Backlog Skill
 
-Add isolated, actionable tasks directly into `docs/notes/backlog.md` with deterministic `T-XX` numbering and clear domain tags.
+Add isolated, actionable tasks directly into `docs/notes/backlog.md` with deterministic `[#XX]` numbering and clear domain tags.
 
 ## Workflow
 
 1. **Inspect Existing Backlog**:
    - Read `docs/notes/backlog.md`.
-   - Find the highest existing ticket number (e.g. `[T-13]`).
-   - Assign the next sequential code (e.g. `[T-14]`).
+   - Find the highest existing ticket number (e.g. `[#13]`).
+   - Assign the next sequential code (e.g. `[#14]`).
 
 2. **Format Isolated Task Card**:
    - Every ticket must represent a single, isolated concern.
    - Format:
      ```markdown
-     - [ ] **[T-XX] Title**: Concrete description explaining what needs to change, why, and the acceptance boundary #tag1 #tag2
+     - [ ] **[#XX] Title**: Concrete description explaining what needs to change, why, and the acceptance boundary #tag1 #tag2
      ```
    - Standard domain tags: `#engine`, `#ui`, `#ux`, `#workspace`, `#security`, `#copy`, `#scaffold`, `#media`, `#data`, `#future`.
 
