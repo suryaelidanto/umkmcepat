@@ -19,7 +19,8 @@ Read raw developer brain dumps from `docs/notes/ideas.md`, ask clarifying questi
    - **Architectural Decisions** $\rightarrow$ If confirmed as a structural change, create a 1-page ADR in `docs/architecture/ADR-<name>.md` and link it inside `docs/notes/backlog.md`.
    - **Repository Standards** $\rightarrow$ If confirmed as a permanent engineering rule, update `AGENTS.md` or `DEV.md` directly.
 3. **Preserve Untriaged Thoughts & Archive**:
-   - Only remove lines from `ideas.md` that have been explicitly discussed and converted.
+   - Only remove lines from `ideas.md` that have been explicitly discussed and confirmed.
    - Append processed raw dumps into `docs/notes/ideas-archive.md` (timestamped).
    - Keep unconfirmed or WIP notes intact in `ideas.md`.
+   - When all items are processed, reset `ideas.md` to a completely blank, empty file (zero bytes, no markdown headers or comments).
 4. **Verification**: Run `bun run check` to verify formatting and link integrity.
