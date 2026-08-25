@@ -8,18 +8,20 @@ kanban-plugin: basic
 - [ ] **Discuss Tool Call Retries**: Ensure `build_recommendation` and discuss tool calls are reliably invoked on state changes #discuss #ai
 - [ ] **Decouple Workspace Back Button**: Decouple top-level navigation back button from inner preview history #ux #workspace
 - [ ] **Perbarui Sekarang CTA Behavior**: Decide and refine "Perbarui sekarang" CTA button state in chat composer #ux #chat
-- [ ] **Modular Contributor SKILL.md Dropzone**: Organize engine skill system so future open-source contributors can easily drop in new `SKILL.md` rules #engine #architecture
-- [ ] **Minimum Build Requirement Policy**: Review whether to remove or adjust minimum step requirements during generation #engine #policy
-- [ ] **Energy Pricing & Calibration**: Optimize energy metering and per-step token deduction to make runs affordable #pricing #energy
-- [ ] **Security Audit & Boundary Scans**: Perform high/critical vulnerability audit across auth boundaries, project deletion, tenant isolation, and prompt injection #security #audit
-- [ ] **Dynamic Color Seed Variation**: Investigate and fix why palette seeds feel repetitive across runs #design #palette
-- [ ] **WhatsApp Lead Generation Engine**: Implement high-converting landing page layouts routing directly to dynamic WhatsApp leads (`wa.me`) #conversion #whatsapp
+- [ ] **Modular Contributor SKILL.md Dropzone**: Organize engine skill system so future contributors can easily drop in new niche skills #engine #architecture
+- [ ] **Dynamic Color Seed Variation**: Ensure dynamic OKLCH palette seeds vary predictably across different business niches #design #palette
+- [ ] **WhatsApp Lead Generation Engine**: High-converting landing page layouts routing directly to dynamic WhatsApp leads (`wa.me`) #conversion #whatsapp
 - [ ] **Initial Creation History Tracking**: Ensure complete version history and snapshots are tracked from the very first generation #history #workspace
 - [ ] **TanStack Mutation Ergonomics**: Standardize data mutation patterns and cache invalidation across workspace API routes #architecture #data
-- [ ] **Evaluate External Taste Skills**: Audit curated niche skills from `/mnt/data/code/side/taste-skill/.agents/skills/` for dynamic engine injection #design #impeccable
-- [ ] **Multi-Route Site Generation**: Enable TanStack Router sub-routes (e.g. `/menu`, `/tentang`) when explicitly requested in brief #generator #routing
-- [ ] **Photo Upload Feature Flag & Visual Edit**: Stabilize photo upload feature flag and finish direct visual edit integration #media #upload
-- [ ] **User & Platform Analytics**: Implement click tracking, bounce rates, and CSV export for UMKM business owners and platform admin #analytics #reporting
+- [ ] **Multi-Route Subpage Support**: Generate TanStack Router sub-pages (`/menu`, `/layanan`) when brief calls for it (see [[architecture/ADR-001-multi-route-strategy]]) #engine #routing
+- [ ] **Photo Upload & Frontend Image Compression**: Implement client-side image compression and photo upload integration #media #upload
+- [ ] **Affiliate & Referral System**: Referral engine with revenue sharing (e.g. 50:50) and bonus generation credits #growth #marketing
+- [ ] **Energy Pricing & Calibration**: Optimize energy metering and per-step token deduction for cost efficiency #pricing #energy
+- [ ] **Security Audit & Boundary Scans**: Perform high/critical vulnerability audit across auth boundaries, project deletion, tenant isolation, and prompt injection #security #audit
+- [ ] **SEO & Local JSON-LD Injection**: Schema.org LocalBusiness JSON-LD and meta tags injection for Indonesian local search ranking #seo #engine
+- [ ] **Owner & Business Interaction Analytics**: Simple analytics tracking clicks, bounce rate, and CSV exports for UMKM owners and platform admin #analytics #reporting
+- [ ] **Drag and Drop Section Reordering**: Visual section arrangement in workspace canvas #ux #workspace
+- [ ] **QRIS Payment & Image Integration**: Direct QRIS payment banner generator for UMKM storefronts #conversion #payment
 
 ## In Progress
 
