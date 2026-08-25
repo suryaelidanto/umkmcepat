@@ -6,23 +6,25 @@ disable-model-invocation: true
 
 # Triage Ideas Skill
 
-Interview the developer relentlessly to map raw thoughts into a precise decision tree. Triage notes from `docs/notes/ideas.md` into high-signal Kanban tasks with compact `T-XX` codes in `docs/notes/backlog.md`, save timestamped backups in `docs/notes/ideas-old/`, and maintain personal notes in `docs/notes/notes.md`.
+Interview the developer relentlessly to map raw thoughts from `docs/notes/ideas.md` into precise Kanban tasks with `T-XX` codes in `docs/notes/backlog.md`, save timestamped backups in `docs/notes/ideas-old/`, and keep `docs/notes/ideas.md` clean for the next dump.
 
-## Workflow & Alignment First (95% Confidence Frontier)
+## Workflow & Non-Destructive Principles
 
-1. **Relentless Frontier Probing (Grilling Mechanics)**:
+1. **Zero Assumption Frontier Probing (Grilling Mechanics)**:
    - Read `docs/notes/ideas.md`.
-   - Never assume or guess developer intent from brief fragments.
-   - Present up to 5 rich options (`[A]`, `[B]`, `[C]`, `[D]`, `[E]`) per question with an explicit recommendation (`➡️ **Recommended: [X]**`).
+   - Never assume, guess, or jump to conclusions from brief fragments.
+   - Present up to 5 rich multiple-choice options (`[A]`, `[B]`, `[C]`, `[D]`, `[E]`) per question with an explicit recommendation (`➡️ **Recommended: [X]**`).
+   - Keep asking until all ambiguous intentions and scope boundaries are 100% clarified.
    - The developer can reply simply by typing letters (e.g. `1C, 2A, 3B`).
 
-2. **Route Confirmed Items**:
-   - **Tasks, Bugs, & Features** $\rightarrow$ Add as checkable items under `## Backlog` in `docs/notes/backlog.md` with compact incremental `T-XX` codes (e.g. `[T-01]`, `[T-02]`) and domain tags.
-   - **Architectural Decisions** $\rightarrow$ Create a 1-page ADR in `docs/architecture/ADR-<name>.md` and link it inside `docs/notes/backlog.md`.
+2. **Non-Destructive Backlog Routing**:
+   - **New Tasks, Bugs, & Features** $\rightarrow$ Append as checkable items under `## Backlog` in `docs/notes/backlog.md` using the next incremental `T-XX` code (e.g. `[T-09]`, `[T-10]`) and domain tags (`#engine`, `#ui`, `#security`).
+   - **Preserve Existing Board State**: Never delete, reorder, or alter items in other columns (`In Progress`, `Needs Revision / Check Again`, `Ready for Review`, `Done`).
+   - **Architectural Decisions** $\rightarrow$ Create a 1-page ADR in `docs/architecture/ADR-<name>.md` and reference it inside the new backlog item.
    - **Repository Standards** $\rightarrow$ Update `AGENTS.md` or `DEV.md` directly.
 
-3. **Backup & Clean Reset**:
+3. **Timestamped Backup & Clean Reset**:
    - Save the raw contents of `ideas.md` to `docs/notes/ideas-old/<YYYY-MM-DD-HHmm>.md`.
-   - Reset `docs/notes/ideas.md` to a completely blank, 0-byte file for the next session.
+   - Reset `docs/notes/ideas.md` to a blank 0-byte file.
 
-4. **Verification**: Run `bun run check` to verify formatting and link integrity.
+4. **Verification**: Run `bun run check` to verify markdown formatting and link integrity.
