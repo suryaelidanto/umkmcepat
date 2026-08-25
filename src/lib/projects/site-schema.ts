@@ -55,6 +55,11 @@ export type ProjectSiteSchema = {
   address?: string;
   deliveryArea?: string;
   primaryCtaTarget?: string;
+  images?: Array<{
+    url: string;
+    purpose?: string;
+    alt?: string;
+  }>;
   contact?: {
     channel: string;
     value: string;
@@ -277,6 +282,14 @@ export function createProjectSiteSchemaFromBrief(
     priceRange: brief.priceRange?.trim() || undefined,
     address: brief.address?.trim() || undefined,
     deliveryArea: brief.deliveryArea?.trim() || undefined,
+    images:
+      brief.businessImages && brief.businessImages.length > 0
+        ? brief.businessImages.map((img) => ({
+            url: `/media/${img.id}`,
+            purpose: img.purpose || "business-image",
+            alt: businessName,
+          }))
+        : undefined,
     primaryCtaTarget:
       brief.contact?.channel === "whatsapp" && brief.contact?.value
         ? buildContextualWhatsAppHref(brief.contact.value, businessName, offer)
@@ -311,33 +324,60 @@ export function createProjectSiteSchemaFromGeneratedContract(input: {
     audience,
     offer,
     theme: input.theme ?? defaultTheme,
-    trustPoints: c.content.trustPoints.slice(0, MAX_TRUST_POINTS),
-    sections: c.page.requiredSections.slice(0, MAX_SECTIONS).map((s) => ({
-      title: cleanText(s.purpose, "Bagian", 80),
-      body: cleanText(s.purpose, "Konten bagian.", 260),
-    })),
-    tagline: c.content.headline || undefined,
-    usp: c.content.usp.length ? c.content.usp.slice(0, MAX_USP) : undefined,
-    products: c.content.products.length
+    trustPoints: c.content?.trustPoints
+      ? c.content.trustPoints.slice(0, MAX_TRUST_POINTS)
+      : [],
+    sections: c.page?.requiredSections
+      ? c.page.requiredSections.slice(0, MAX_SECTIONS).map((s) => ({
+          title: cleanText(s.purpose, "Bagian", 80),
+          body: cleanText(s.purpose, "Konten bagian.", 260),
+        }))
+      : [],
+    tagline: c.content?.headline || undefined,
+    usp: c.content?.usp?.length ? c.content.usp.slice(0, MAX_USP) : undefined,
+    products: c.content?.products?.length
       ? c.content.products.slice(0, MAX_PRODUCTS)
       : undefined,
-    testimonials: c.content.testimonials.length
+    testimonials: c.content?.testimonials?.length
       ? c.content.testimonials.slice(0, MAX_TESTIMONIALS)
       : undefined,
     faq: [],
-    socialLinks: c.content.socialLinks.length
+    socialLinks: c.content?.socialLinks?.length
       ? c.content.socialLinks.slice(0, MAX_SOCIAL)
       : undefined,
-    currentPromo: c.content.promotion || undefined,
-    hours: c.content.hours.length
+    currentPromo: c.content?.promotion || undefined,
+    hours: c.content?.hours?.length
       ? c.content.hours.slice(0, MAX_HOURS)
       : undefined,
-    paymentMethods: c.content.paymentMethods.length
+    paymentMethods: c.content?.paymentMethods?.length
       ? c.content.paymentMethods.slice(0, MAX_PAYMENTS)
       : undefined,
-    priceRange: c.content.priceRange || undefined,
-    address: c.content.address || undefined,
-    deliveryArea: c.content.deliveryArea || undefined,
+    priceRange: c.content?.priceRange || undefined,
+    address: c.content?.address || undefined,
+    deliveryArea: c.content?.deliveryArea || undefined,
+    images: (() => {
+      const contractObj = c as unknown as {
+        design?: {
+          approvedAssets?: Array<{ assetId: string; purpose?: string }>;
+        };
+        media?: {
+          approvedAssets?: Array<{ assetId: string; purpose?: string }>;
+        };
+      };
+      const assets =
+        contractObj.design?.approvedAssets &&
+        contractObj.design.approvedAssets.length > 0
+          ? contractObj.design.approvedAssets
+          : contractObj.media?.approvedAssets;
+      if (assets && assets.length > 0) {
+        return assets.map((asset) => ({
+          url: `/media/${asset.assetId}`,
+          purpose: asset.purpose || "business-image",
+          alt: businessName,
+        }));
+      }
+      return undefined;
+    })(),
     routes: c.page.routes.map((r) => ({
       path: r.path,
       title: r.purpose,

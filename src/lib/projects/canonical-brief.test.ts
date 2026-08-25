@@ -8,6 +8,14 @@ import {
 } from "./canonical-brief";
 
 describe("parseCanonicalBrief", () => {
+  it("parses assets from brief containing assetId objects", () => {
+    const brief = parseCanonicalBrief({
+      businessName: "Toko Kue",
+      assets: [{ assetId: "asset_123", purpose: "hero" }],
+    });
+    expect(brief.assets).toEqual([{ id: "asset_123", purpose: "hero" }]);
+  });
+
   it("promotes a legacy offer when productOrService is missing", () => {
     const brief = parseCanonicalBrief({
       businessName: "HP Surya",

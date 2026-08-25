@@ -93,6 +93,9 @@ const IMAGE_PURPOSES: ReadonlySet<string> = new Set([
   "business-image",
   "logo",
   "reference",
+  "hero",
+  "product",
+  "gallery",
 ]);
 
 export function createInitialCanonicalBrief(prompt = ""): ProjectBriefV2 {
@@ -172,7 +175,7 @@ export function migrateLegacyBrief(
     visualDirection: cleanOptionalText(source.stylePreference),
     fieldState: parseFieldState(source.fieldState),
     content: contentFromCleaned(cleaned),
-    assets: parseAssets(source.businessImages),
+    assets: parseAssets(source.assets ?? source.businessImages),
     provenance: {
       facts: parseFacts(source.facts),
       decisions: parseDecisions(source.decisions),
@@ -600,8 +603,8 @@ function parseAssets(value: unknown): BusinessImageRef[] {
   const result: BusinessImageRef[] = [];
   for (const candidate of value) {
     const item = asRecord(candidate);
-    const id = cleanText(item?.id);
-    const purpose = cleanText(item?.purpose);
+    const id = cleanText(item?.id) || cleanText(item?.assetId);
+    const purpose = cleanText(item?.purpose) || "business-image";
     if (!id || !IMAGE_PURPOSES.has(purpose)) {
       continue;
     }

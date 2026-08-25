@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildContextualWhatsAppHref,
-  createProjectSiteSchemaFromBrief,
   createFallbackProjectSiteSchema,
+  createProjectSiteSchemaFromBrief,
+  createProjectSiteSchemaFromGeneratedContract,
   parseProjectSiteSchema,
 } from "./site-schema";
 import {
@@ -29,6 +30,69 @@ describe("project site schema", () => {
     expect(nameOnly).toBe(
       "https://wa.me/6281234567890?text=Halo%20Kopi%20Senja%2C%20saya%20mau%20tanya%20informasi%20dan%20pemesanan.",
     );
+  });
+
+  it("populates images array in site schema from generated contract approvedAssets", () => {
+    const schema = createProjectSiteSchemaFromGeneratedContract({
+      contract: {
+        business: {
+          name: "Kedai Kopi",
+          primaryCta: { kind: "whatsapp", label: "Chat", target: "0812" },
+          primaryJob: "Pesan kopi",
+        },
+        content: {
+          headline: "Kopi Nikmat",
+          subheadline: "Kedai lokal",
+          offer: "Espresso",
+          trustPoints: [],
+          products: [],
+          testimonials: [],
+          hours: [],
+          paymentMethods: [],
+          socialLinks: [],
+        },
+        page: { requiredSections: [], routes: [] },
+        design: {
+          approvedAssets: [
+            {
+              assetId: "asset_abc",
+              mediaPath: "/media/asset_abc",
+              purpose: "hero",
+            },
+          ],
+        },
+      } as unknown as import("./generated-site-contract").GeneratedSiteContractV1,
+    });
+
+    expect(schema.images).toEqual([
+      { url: "/media/asset_abc", purpose: "hero", alt: "Kedai Kopi" },
+    ]);
+  });
+
+  it("leaves images undefined when no assets were uploaded (images is strictly optional)", () => {
+    const schema = createProjectSiteSchemaFromGeneratedContract({
+      contract: {
+        business: {
+          name: "Kedai Kopi",
+          primaryCta: { kind: "whatsapp", label: "Chat", target: "0812" },
+          primaryJob: "Pesan kopi",
+        },
+        content: {
+          headline: "Kopi Nikmat",
+          subheadline: "Kedai lokal",
+          offer: "Espresso",
+          trustPoints: [],
+          products: [],
+          testimonials: [],
+          hours: [],
+          paymentMethods: [],
+          socialLinks: [],
+        },
+        page: { requiredSections: [], routes: [] },
+      } as unknown as import("./generated-site-contract").GeneratedSiteContractV1,
+    });
+
+    expect(schema.images).toBeUndefined();
   });
 
   it("creates a safe fallback schema from a prompt", () => {

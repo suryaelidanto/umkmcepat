@@ -846,9 +846,9 @@ export function compileGeneratedSiteContract(
       name: input.contract.identity.businessName,
       type:
         input.contract.identity.businessType ??
-        input.briefSnapshot.business.type ??
+        input.briefSnapshot?.business?.type ??
         "",
-      audience: input.briefSnapshot.audience || null,
+      audience: input.briefSnapshot?.audience || null,
       primaryJob: primaryJob.goal,
       primaryCta: {
         kind: normalizeCtaKind(primaryCta.kind),
@@ -862,7 +862,15 @@ export function compileGeneratedSiteContract(
       offer:
         snapshotPrimaryOffer(input.briefSnapshot) ||
         products.map((item) => item.name).join(", "),
-      promotion: input.briefSnapshot.content.currentPromo,
+      promotion:
+        (
+          input.briefSnapshot as unknown as {
+            content?: { tagline?: string };
+            tagline?: string;
+          }
+        )?.content?.tagline ??
+        (input.briefSnapshot as unknown as { tagline?: string })?.tagline ??
+        null,
       trustPoints: publicTrustPoints(input.briefSnapshot, primaryCta.label),
       products: products.map(publicProductCopy),
       testimonials,
@@ -870,7 +878,16 @@ export function compileGeneratedSiteContract(
       usp: publicTrustPoints(input.briefSnapshot, primaryCta.label),
       hours,
       paymentMethods,
-      priceRange: input.briefSnapshot.content.priceRange,
+      priceRange:
+        (
+          input.briefSnapshot as unknown as {
+            content?: { priceRange?: string };
+            priceRange?: string;
+          }
+        )?.content?.priceRange ??
+        (input.briefSnapshot as unknown as { priceRange?: string })
+          ?.priceRange ??
+        null,
       address: addressText(input.contract.facts),
       deliveryArea: serviceAreaText(input.contract.facts),
       socialLinks,
@@ -1471,17 +1488,49 @@ function serviceAreaText(facts: ContractFactV1[]): string | null {
   return areas.length ? areas.map((item) => item.area).join(", ") : null;
 }
 
-function snapshotPrimaryOffer(snapshot: ProjectBriefV2): string | null {
-  const primary = snapshot.offers.find((offer) => offer.isPrimary);
-  return (primary ?? snapshot.offers[0])?.name ?? null;
+function snapshotPrimaryOffer(
+  snapshot?: Partial<ProjectBriefV2> & Record<string, unknown>,
+): string | null {
+  if (!snapshot) {
+    return null;
+  }
+  if (Array.isArray(snapshot.offers) && snapshot.offers.length > 0) {
+    const primary = snapshot.offers.find((offer) => offer.isPrimary);
+    return (primary ?? snapshot.offers[0])?.name ?? null;
+  }
+  if (typeof snapshot.offer === "string" && snapshot.offer.trim()) {
+    return snapshot.offer.trim();
+  }
+  const pos = snapshot.productOrService;
+  if (Array.isArray(pos) && pos.length > 0) {
+    const primary = (pos as Array<{ isPrimary?: boolean; name: string }>).find(
+      (item) => item.isPrimary,
+    );
+    return (primary ?? (pos[0] as { name: string }))?.name ?? null;
+  }
+  return null;
 }
 
-function publicHeadline(snapshot: ProjectBriefV2, _archetype: string): string {
-  const tagline = snapshot.content.tagline?.trim();
+function publicHeadline(
+  snapshot?: Partial<ProjectBriefV2> & Record<string, unknown>,
+  _archetype?: string,
+): string {
+  if (!snapshot) {
+    return "";
+  }
+  const tagline = (
+    snapshot.content?.tagline ?? (snapshot.tagline as string | undefined)
+  )?.trim();
   if (tagline && !isInternalCopy(tagline)) {
     return tagline;
   }
-  return snapshotPrimaryOffer(snapshot) ?? snapshot.business.name?.trim() ?? "";
+  return (
+    snapshotPrimaryOffer(snapshot) ??
+    (
+      snapshot.business?.name ?? (snapshot.businessName as string | undefined)
+    )?.trim() ??
+    ""
+  );
 }
 
 function publicSectionPurpose(purpose: string, id: string): string {
@@ -1498,21 +1547,31 @@ function publicSectionPurpose(purpose: string, id: string): string {
 }
 
 function publicSubheadline(
-  snapshot: ProjectBriefV2,
-  _ctaLabel: string,
+  snapshot?: Partial<ProjectBriefV2> & Record<string, unknown>,
+  _ctaLabel?: string,
 ): string {
-  return snapshot.audience?.trim() ?? snapshotPrimaryOffer(snapshot) ?? "";
+  if (!snapshot) {
+    return "";
+  }
+  return (
+    (
+      snapshot.audience ?? (snapshot.targetCustomer as string | undefined)
+    )?.trim() ??
+    snapshotPrimaryOffer(snapshot) ??
+    ""
+  );
 }
 
 function publicTrustPoints(
-  snapshot: ProjectBriefV2,
-  _ctaLabel: string,
+  snapshot?: Partial<ProjectBriefV2> & Record<string, unknown>,
+  _ctaLabel?: string,
 ): string[] {
-  const supplied = snapshot.content.usp
-    ?.map((item) => item.trim())
-    .filter(Boolean);
-  if (supplied?.length) {
-    return supplied;
+  if (!snapshot) {
+    return [];
+  }
+  const usp = snapshot.content?.usp ?? (snapshot.usp as string[] | undefined);
+  if (Array.isArray(usp) && usp.length > 0) {
+    return usp.map((u: string) => u.trim()).filter(Boolean);
   }
   return [];
 }
