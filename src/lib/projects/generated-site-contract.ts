@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
 
 import { canonicalJson } from "./build-hash";
-import { hashCanonicalBrief, type ProjectBriefV2 } from "./canonical-brief";
+import { type ProjectBriefV2 } from "./canonical-brief";
+import { hashCanonicalBrief } from "./canonical-brief-hash";
 
 import type {
   CertificationValue,

@@ -1,6 +1,8 @@
 // src/lib/projects/build-hash.ts
 import { createHash } from "node:crypto";
 
+import { canonicalJson } from "./canonical-json";
+
 import type { BuildContractV1 } from "./build-contract";
 import type { BuildPlanV1 } from "./build-plan";
 import type { ReviewItemV1 } from "./review-items";
@@ -63,27 +65,7 @@ function planHashInput(p: BuildPlanV1): unknown {
   };
 }
 
-function canonicalize(v: unknown): unknown {
-  if (typeof v === "string") {
-    return v.normalize("NFC").replace(/\r\n/g, "\n");
-  }
-  if (Array.isArray(v)) {
-    return v.map(canonicalize);
-  }
-  if (v !== null && typeof v === "object") {
-    const record = v as Record<string, unknown>;
-    const out: Record<string, unknown> = {};
-    for (const key of Object.keys(record).sort()) {
-      out[key] = canonicalize(record[key]);
-    }
-    return out;
-  }
-  return v;
-}
-
-export function canonicalJson(value: unknown): string {
-  return JSON.stringify(canonicalize(value)) ?? "null";
-}
+export { canonicalJson } from "./canonical-json";
 
 export function hashBuildContract(c: BuildContractV1): string {
   return sha256Hex(CONTRACT_PREFIX + canonicalJson(contractHashInput(c)));

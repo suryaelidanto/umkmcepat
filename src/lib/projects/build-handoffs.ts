@@ -11,10 +11,10 @@ import {
   validatePlanAgainstContract,
 } from "@/lib/projects/build-plan";
 import {
-  hashCanonicalBrief,
   parseCanonicalBrief,
   type ProjectBriefV2,
 } from "@/lib/projects/canonical-brief";
+import { hashCanonicalBrief } from "@/lib/projects/canonical-brief-hash";
 
 export type ActiveHandoff = {
   id: string;

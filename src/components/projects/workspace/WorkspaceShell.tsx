@@ -12,6 +12,8 @@ import {
   Menu,
   MessageCircle,
   Pencil,
+  Rocket,
+  Sparkles,
   X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -75,6 +77,7 @@ import { track } from "@/lib/analytics";
 import { signOut, useSession } from "@/lib/auth/auth-client";
 import { useFeatureFlag } from "@/lib/config/use-feature-flag";
 import { type ProjectBrief, type WorkspaceCard } from "@/lib/projects/brief";
+import { evaluateTieredBriefReadiness } from "@/lib/projects/brief-tiered-readiness";
 import { buildHandoffLine } from "@/lib/projects/build-handoff";
 import {
   appendBuildProgressStep,
@@ -2886,6 +2889,42 @@ export function WorkspaceShell({
     submitChatText(message);
   }
 
+  const briefReadiness = useMemo(
+    () => evaluateTieredBriefReadiness(latestBrief),
+    [latestBrief],
+  );
+
+  const handlePrimaryComposerAction = useCallback(async () => {
+    if (readOnly || isBuilding) {
+      return;
+    }
+
+    if (buildComplete) {
+      if (message.trim()) {
+        submitChatText(message);
+        return;
+      }
+      toast.info("Tuliskan arahan perubahan di chat, lalu kirim.");
+      return;
+    }
+
+    if (!briefReadiness.tier1.satisfied) {
+      const missingText = briefReadiness.tier1.missingLabels.join(", ");
+      toast.info(`Mohon lengkapi ${missingText} terlebih dahulu.`);
+      return;
+    }
+
+    await handleStartBuild();
+  }, [
+    briefReadiness,
+    buildComplete,
+    handleStartBuild,
+    isBuilding,
+    message,
+    readOnly,
+    submitChatText,
+  ]);
+
   function handleMessageKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (
       event.key !== "Enter" ||
@@ -3715,7 +3754,28 @@ export function WorkspaceShell({
                           className="w-full resize-none bg-transparent px-spacing-3 py-spacing-3 text-sm leading-6 text-foreground outline-none [scrollbar-width:none] placeholder:text-muted-foreground disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
                         />
                         <div className="flex items-center justify-between gap-spacing-4">
-                          <div className="flex items-center gap-spacing-2" />
+                          <div className="flex items-center gap-spacing-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => void handlePrimaryComposerAction()}
+                              disabled={isBuilding || readOnly}
+                              className="h-8 rounded-full border-black/10 bg-white/80 px-3 text-xs font-medium text-foreground hover:bg-black/5 hover:text-foreground active:scale-95 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
+                            >
+                              {buildComplete ? (
+                                <>
+                                  <Sparkles className="mr-1.5 size-3.5 text-amber-500" />
+                                  Perbarui Website
+                                </>
+                              ) : (
+                                <>
+                                  <Rocket className="mr-1.5 size-3.5 text-emerald-500" />
+                                  Buat Website
+                                </>
+                              )}
+                            </Button>
+                          </div>
                           <div className="flex items-center gap-spacing-2">
                             {composerUploadsEnabled ? (
                               <ComposerAttachButton
@@ -3877,7 +3937,28 @@ export function WorkspaceShell({
                     disabled={sessionExpired || authStatus !== "authenticated"}
                   />
                   <div className="flex items-center justify-between gap-spacing-4">
-                    <div className="flex items-center gap-spacing-2" />
+                    <div className="flex items-center gap-spacing-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void handlePrimaryComposerAction()}
+                        disabled={isBuilding || readOnly}
+                        className="h-8 rounded-full border-black/10 bg-white/80 px-3 text-xs font-medium text-foreground hover:bg-black/5 hover:text-foreground active:scale-95 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
+                      >
+                        {buildComplete ? (
+                          <>
+                            <Sparkles className="mr-1.5 size-3.5 text-amber-500" />
+                            Perbarui Website
+                          </>
+                        ) : (
+                          <>
+                            <Rocket className="mr-1.5 size-3.5 text-emerald-500" />
+                            Buat Website
+                          </>
+                        )}
+                      </Button>
+                    </div>
                     <div className="flex items-center gap-spacing-2">
                       {composerUploadsEnabled ? (
                         <ComposerAttachButton

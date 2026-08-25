@@ -13,7 +13,8 @@ import {
   hashReviewItems,
 } from "./build-hash";
 import { parseBuildPlan } from "./build-plan";
-import { hashCanonicalBrief, parseCanonicalBrief } from "./canonical-brief";
+import { parseCanonicalBrief } from "./canonical-brief";
+import { hashCanonicalBrief } from "./canonical-brief-hash";
 import { deriveReviewItems } from "./review-items";
 import { parseVisitorJobs, type VisitorJob } from "./visitor-jobs";
 

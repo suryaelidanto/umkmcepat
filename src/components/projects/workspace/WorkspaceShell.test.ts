@@ -303,3 +303,31 @@ describe("image replace instruction", () => {
     expect(instruction).toContain("/placeholder.svg");
   });
 });
+
+describe("tiered brief readiness integration", () => {
+  it("renders composer with persistent action button", () => {
+    const queryClient = new QueryClient();
+    const html = renderToStaticMarkup(
+      createElement(
+        QueryClientProvider,
+        { client: queryClient },
+        createElement(WorkspaceShell, {
+          projectId: "p1",
+          initialTitle: "Kopi Nusantara",
+          initialStatus: "discussing",
+          initialMessages: [],
+          initialChatCursor: null,
+          initialChatHasMore: false,
+          initialWorkspaceCard: { type: "none" },
+          initialBrief: makeBrief({
+            businessName: "Kopi Senja",
+            productOrService: [{ name: "Kopi Susu", isPrimary: true }],
+            contact: { channel: "whatsapp", value: "08123456789" },
+          }),
+        }),
+      ),
+    );
+
+    expect(html).toContain("Buat Website");
+  });
+});

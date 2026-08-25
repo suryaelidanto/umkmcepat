@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   applyAiBriefPatch,
   createInitialCanonicalBrief,
-  hashCanonicalBrief,
   parseCanonicalBrief,
 } from "./canonical-brief";
+import { hashCanonicalBrief } from "./canonical-brief-hash";
 
 describe("parseCanonicalBrief", () => {
   it("parses assets from brief containing assetId objects", () => {
