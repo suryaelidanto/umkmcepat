@@ -14,13 +14,15 @@ Workflow and engineering standards for UMKM Cepat. For high-level design princip
 - **Fail loud at trust boundaries**: Validate untrusted input at server boundaries, check object ownership on every mutation, and fail closed on auth, payment, or publishing failures.
 - **English for developer surfaces, Indonesian for user copy**: Developer tools, errors, logs, prompts, comments, and documentation are strictly in English. Customer-facing product UI copy is in Indonesian.
 - **No secrets in tracked files**: Environment variables, API keys, tokens, and credentials belong only in `.env` (gitignored). Documentation examples use empty `""` values.
-- **Task Tracking in `docs/notes/backlog.md`**: Living project backlog is maintained as an Obsidian-compatible Kanban board (`Backlog` $\rightarrow$ `In Progress` $\rightarrow$ `Needs Revision / Check Again` $\rightarrow$ `Ready for Review` $\rightarrow$ `Done` $\rightarrow$ `Future / Icebox`). When picking up tasks:
-  1. Priority #1: Address items in `## Needs Revision / Check Again` (perform full end-to-end audit, test, and verification if notes are empty).
-  2. Priority #2: Resume item in `## In Progress`.
-  3. Priority #3: Pull top item from `## Backlog` $\rightarrow$ `## In Progress`.
-  4. Implement code, write colocated tests, and verify with `bun run check`.
-  5. Move item to `## Ready for Review`. On approval $\rightarrow$ `## Done`. If rejected $\rightarrow$ `## Needs Revision / Check Again`.
-  6. Long-term, non-blocking roadmap tasks stay parked in `## Future / Icebox`.
+- **Task Tracking in `docs/notes/backlog.md`**: Living project backlog is maintained as an Obsidian-compatible Kanban board (`Backlog` $\rightarrow$ `In Progress` $\rightarrow$ `Needs Revision / Check Again` $\rightarrow$ `Ready for Review` $\rightarrow$ `Done` $\rightarrow$ `Future / Icebox`).
+  - Use `add-backlog` to append isolated tasks directly with sequential `[T-XX]` codes.
+  - Use `do-backlog` to group related tickets and confirm batching before execution.
+  - Use `drive-backlog` to execute top-priority tasks autonomously.
+  - Priority #1: Address items in `## Needs Revision / Check Again`.
+  - Priority #2: Resume items in `## In Progress`.
+  - Priority #3: Pull tasks from `## Backlog` $\rightarrow$ `## In Progress`.
+  - Implement minimal code, assert deterministic invariants in tests, and verify with `bun run check`.
+  - Move completed tasks to `## Ready for Review`. On user approval $\rightarrow$ `## Done`. If rejected $\rightarrow$ `## Needs Revision / Check Again`.
 
 ---
 
