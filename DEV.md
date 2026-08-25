@@ -14,6 +14,7 @@ Workflow and engineering standards for UMKM Cepat. For high-level design princip
 - **Fail loud at trust boundaries**: Validate untrusted input at server boundaries, check object ownership on every mutation, and fail closed on auth, payment, or publishing failures.
 - **English for developer surfaces, Indonesian for user copy**: Developer tools, errors, logs, prompts, comments, and documentation are strictly in English. Customer-facing product UI copy is in Indonesian.
 - **No secrets in tracked files**: Environment variables, API keys, tokens, and credentials belong only in `.env` (gitignored). Documentation examples use empty `""` values.
+- **Task Tracking in `docs/notes/backlog.md`**: Living project backlog is maintained as an Obsidian-compatible Kanban board. When picking up tasks, move items from `## Backlog` $\rightarrow$ `## In Progress` $\rightarrow$ `## Done`.
 
 ---
 

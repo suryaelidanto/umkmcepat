@@ -51,6 +51,16 @@ A restrained, trustworthy site generation engine for Indonesian small business o
 - `src/components/projects/workspace/` — workspace shell, history drawer, and canvas controls
 - `src/lib/storage/` — S3/R2 object storage client
 - `src/lib/projects/scaffold/` — shadcn Base UI registry and starter scaffold
+- `docs/notes/backlog.md` — Active Kanban task board (`Backlog`, `In Progress`, `Done`)
+
+---
+
+## Task Execution & Obsidian Backlog
+
+- Tasks originate in `docs/notes/backlog.md`.
+- When starting work on an item, move it to `## In Progress`.
+- When work is verified (`bun run check`), move it to `## Done`.
+- Raw developer brain dumps go into `docs/notes/ideas.md` and are triaged via `.agents/skills/triage-ideas/`.
 
 ---
 
