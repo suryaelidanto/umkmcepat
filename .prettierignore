@@ -30,4 +30,6 @@ src/lib/projects/scaffold/shadcn-registry/
 .playwright-mcp/
 .firecrawl/
 **/.obsidian/
+docs/notes/ideas.md
+docs/notes/ideas-archive.md
 tmp/
