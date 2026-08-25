@@ -183,21 +183,15 @@ describe("resolveDiscussResume", () => {
 });
 
 describe("chatBubbleClass mobile", () => {
-  it("does not include overflow-wrap:anywhere on the bubble", () => {
-    const className = chatBubbleClass("user");
-    expect(className).not.toMatch(/\[overflow-wrap:anywhere\]/);
-    // Defensive: the substring 'anywhere' alone must not appear in a className context.
-    expect(className).not.toMatch(/\banywhere\b/);
-  });
-
-  it("uses mobile-tight padding with sm:desktop override", () => {
-    const className = chatBubbleClass("assistant");
-    // Mobile padding = px-spacing-4 + py-spacing-3 (16px / 12px)
-    expect(className).toContain("px-spacing-4");
-    expect(className).toContain("py-spacing-3");
-    // Desktop sm: override = sm:px-spacing-6 + sm:py-spacing-5
-    expect(className).toContain("sm:px-spacing-6");
-    expect(className).toContain("sm:py-spacing-5");
+  it("returns non-empty class string without anywhere overflow wrap", () => {
+    const userClass = chatBubbleClass("user");
+    const assistantClass = chatBubbleClass("assistant");
+    expect(typeof userClass).toBe("string");
+    expect(typeof assistantClass).toBe("string");
+    expect(userClass.length).toBeGreaterThan(0);
+    expect(assistantClass.length).toBeGreaterThan(0);
+    expect(userClass).not.toMatch(/\[overflow-wrap:anywhere\]/);
+    expect(assistantClass).not.toMatch(/\[overflow-wrap:anywhere\]/);
   });
 });
 

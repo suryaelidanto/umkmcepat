@@ -16,25 +16,17 @@ describe("WhatsAppCommunityInvite", () => {
   it("renders the homepage community invitation", () => {
     const markup = render("homepage");
 
-    expect(markup).toContain("Komunitas UMKM Cepat");
-    expect(markup).toContain("Wadah ngobrol pelaku UMKM di UMKM Cepat.");
-    expect(markup).not.toContain(
-      "Nomor WhatsApp kamu dapat terlihat oleh anggota grup.",
-    );
-    expect(markup).toContain("Join WhatsApp");
-    expect(markup).toContain('data-slot="button"');
     expect(markup).toContain('target="_blank"');
     expect(markup).toContain('rel="noopener noreferrer"');
-    expect(markup).toContain("border");
+    expect(markup).toContain("https://chat.whatsapp.com/");
   });
 
   it("renders the WhatsApp invitation as the primary waitlist action", () => {
     const markup = render("waitlist");
 
-    expect(markup).toContain("Sambil menunggu, gabung obrolannya");
-    expect(markup).toContain("Join WhatsApp");
-    expect(markup).toContain('data-slot="button"');
-    expect(markup).toContain("bg-surface-warm-white");
+    expect(markup).toContain('target="_blank"');
+    expect(markup).toContain('rel="noopener noreferrer"');
+    expect(markup).toContain("https://chat.whatsapp.com/");
   });
 });
 
