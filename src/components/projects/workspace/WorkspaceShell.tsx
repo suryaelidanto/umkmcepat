@@ -153,7 +153,6 @@ import {
 import { fetchJson, queryKeys, useCacheMutation } from "@/lib/query-client";
 import { uploadTempImageFile } from "@/lib/storage/uploads/temp-image-client";
 import { useIsDesktopViewport } from "@/lib/use-is-desktop-viewport";
-import { cn } from "@/lib/utils";
 
 // Must match the server limit in api.projects.preview.ts
 export const MAX_CHAT_BYTES = 16 * 1024;
@@ -436,9 +435,9 @@ export function WorkspaceShell({
     message: string;
     retryAfter: number;
   } | null>(null);
-  const [questionComposerMode, setQuestionComposerMode] = useState<
-    "options" | "free"
-  >("options");
+  const [dismissedQuestionKey, setDismissedQuestionKey] = useState<
+    string | null
+  >(null);
   const [mobileSurface, setMobileSurface] = useState<"chat" | "preview">(
     hasInitialPreview ? "preview" : "chat",
   );
@@ -1688,7 +1687,7 @@ export function WorkspaceShell({
   }, [buildProgress.length, scrollChatToBottom]);
 
   useEffect(() => {
-    setQuestionComposerMode("options");
+    setDismissedQuestionKey(null);
     setMessage("");
   }, [activeQuestionKey]);
 
@@ -1716,7 +1715,7 @@ export function WorkspaceShell({
     if (shouldStickToBottomRef.current) {
       requestAnimationFrame(() => scrollChatToBottom({ behavior: "smooth" }));
     }
-  }, [questionComposerMode, workspaceCard, scrollChatToBottom]);
+  }, [workspaceCard, scrollChatToBottom]);
 
   useEffect(() => {
     workspaceCardRef.current = workspaceCard;
@@ -3451,26 +3450,26 @@ export function WorkspaceShell({
             ) : null}
 
             {rateLimitError ? (
-              <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
+              <div className="rounded-none border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
                 <p className="text-sm font-medium text-[#ffb4a6]">
                   {rateLimitError.message}
                 </p>
               </div>
             ) : sessionExpired ? (
-              <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
+              <div className="rounded-none border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
                 <p className="text-sm font-medium text-[#ffb4a6]">
                   Sesi kamu sudah habis.
                 </p>
                 <Button
                   type="button"
                   onClick={() => void signOut({ callbackUrl: "/" })}
-                  className="mt-spacing-3 h-9 rounded-full bg-surface-warm-white px-spacing-5 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
+                  className="mt-spacing-3 h-9 rounded-none bg-surface-warm-white px-spacing-5 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
                 >
                   Login ulang
                 </Button>
               </div>
             ) : workspaceCardError ? (
-              <div className="rounded-[18px] border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
+              <div className="rounded-none border border-[#ffb4a6]/24 bg-[#ffb4a6]/[0.06] px-spacing-5 py-spacing-4">
                 <p className="text-sm font-medium text-[#ffb4a6]">
                   Pertanyaan berikutnya belum berhasil dibuat.
                 </p>
@@ -3478,7 +3477,7 @@ export function WorkspaceShell({
                   <Button
                     type="button"
                     onClick={() => void retryWorkspaceCard()}
-                    className="mt-spacing-3 h-9 rounded-full bg-surface-warm-white px-spacing-5 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
+                    className="mt-spacing-3 h-9 rounded-none bg-surface-warm-white px-spacing-5 text-xs text-foreground-primary hover:bg-surface-warm-white/86"
                   >
                     Coba lagi
                   </Button>
@@ -3486,7 +3485,7 @@ export function WorkspaceShell({
               </div>
             ) : error &&
               (error as ChatError).code === "project_request_blocked" ? (
-              <div className="rounded-[18px] border border-status-warning-border bg-status-warning-subtle px-spacing-5 py-spacing-4">
+              <div className="rounded-none border border-status-warning-border bg-status-warning-subtle px-spacing-5 py-spacing-4">
                 <div className="flex items-start gap-spacing-3">
                   <span className="mt-0.5 text-status-warning" aria-hidden>
                     ⚠️
@@ -3497,13 +3496,13 @@ export function WorkspaceShell({
                 </div>
               </div>
             ) : error && (error as ChatError).code === "chat_turn_too_large" ? (
-              <div className="rounded-[18px] border border-destructive-border bg-destructive-subtle px-spacing-5 py-spacing-4">
+              <div className="rounded-none border border-destructive-border bg-destructive-subtle px-spacing-5 py-spacing-4">
                 <p className="text-sm font-medium text-destructive">
                   Pesan terlalu panjang. Ringkas dulu sebelum dikirim.
                 </p>
               </div>
             ) : error && !isRetrying ? (
-              <div className="rounded-[18px] border border-destructive-border bg-destructive-subtle px-spacing-5 py-spacing-4">
+              <div className="rounded-none border border-destructive-border bg-destructive-subtle px-spacing-5 py-spacing-4">
                 <p className="text-sm font-medium text-destructive">
                   {toUserFacingDiscussError(error.message)}
                 </p>
@@ -3511,14 +3510,14 @@ export function WorkspaceShell({
                   <Button
                     type="button"
                     onClick={() => void retryChat()}
-                    className="mt-spacing-3 h-9 rounded-full bg-foreground px-spacing-5 text-xs text-background hover:bg-foreground/90 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/86"
+                    className="mt-spacing-3 h-9 rounded-none bg-foreground px-spacing-5 text-xs text-background hover:bg-foreground/90 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/86"
                   >
                     Kirim ulang
                   </Button>
                 ) : null}
               </div>
             ) : resumeError ? (
-              <div className="rounded-[18px] border border-destructive-border bg-destructive-subtle px-spacing-5 py-spacing-4">
+              <div className="rounded-none border border-destructive-border bg-destructive-subtle px-spacing-5 py-spacing-4">
                 <p className="text-sm font-medium text-destructive">
                   {resumeError.message}
                 </p>
@@ -3526,7 +3525,7 @@ export function WorkspaceShell({
                   <Button
                     type="button"
                     onClick={() => void retryChat()}
-                    className="mt-spacing-3 h-9 rounded-full bg-foreground px-spacing-5 text-xs text-background hover:bg-foreground/90 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/86"
+                    className="mt-spacing-3 h-9 rounded-none bg-foreground px-spacing-5 text-xs text-background hover:bg-foreground/90 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/86"
                   >
                     {resumeError.retryText}
                   </Button>
@@ -3585,22 +3584,24 @@ export function WorkspaceShell({
                 <motion.div
                   key="composer-rate-limit"
                   {...COMPOSER_TRANSITION}
-                  className="mt-spacing-3 rounded-[22px] border border-surface-warm-white/10 bg-[#242421] px-spacing-5 py-spacing-4 text-sm text-surface-warm-white/62"
+                  className="rounded-none border border-surface-warm-white/10 bg-[#242421] p-4 text-sm text-surface-warm-white/62"
                 >
                   Tunggu sebentar sebelum mengirim jawaban berikutnya.
                 </motion.div>
               ) : isPreparingNextQuestion ||
                 workspaceCardError ? null : !hasAnsweredActiveQuestion &&
+                dismissedQuestionKey !== activeQuestionKey &&
                 composerState === "question" &&
                 workspaceCard.type === "image_upload" &&
                 composerUploadsEnabled ? (
                 <motion.div
                   key="composer-image-upload"
                   {...COMPOSER_TRANSITION}
-                  className="mt-spacing-3"
+                  className="p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
                 >
                   <ImageUploadComposer
                     imageUpload={workspaceCard.imageUpload}
+                    onClose={() => setDismissedQuestionKey(activeQuestionKey)}
                     onSubmit={(answer, workspaceAnswers) =>
                       submitChatText(answer, { workspaceAnswers })
                     }
@@ -3608,231 +3609,28 @@ export function WorkspaceShell({
                 </motion.div>
               ) : isPreparingNextQuestion ||
                 workspaceCardError ? null : !hasAnsweredActiveQuestion &&
+                dismissedQuestionKey !== activeQuestionKey &&
                 composerState === "question" &&
                 workspaceCard.type === "question" ? (
                 <motion.div
                   key="composer-question"
                   {...COMPOSER_TRANSITION}
-                  className="mt-spacing-3"
+                  className="p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
                 >
-                  <div className="mb-spacing-2 inline-flex h-9 items-center rounded-radius-md border border-black/10 bg-black/5 p-0.5 text-xs w-fit dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5">
-                    {(
-                      [
-                        { label: "Pilihan", value: "options" },
-                        { label: "Tulis bebas", value: "free" },
-                      ] as const
-                    ).map((tab) => (
-                      <button
-                        key={tab.value}
-                        type="button"
-                        onClick={() => {
-                          setQuestionComposerMode(tab.value);
-                          if (tab.value === "options") {
-                            setMessage("");
-                          }
-                        }}
-                        className="relative flex h-8 items-center justify-center gap-spacing-2 rounded-radius-sm px-spacing-4 text-xs font-medium transition focus-visible:outline-none cursor-pointer"
-                      >
-                        {questionComposerMode === tab.value && (
-                          <motion.span
-                            layoutId="question-composer-tab"
-                            className="absolute inset-0 rounded-radius-sm bg-[#fcfbf8] shadow-xs dark:bg-surface-warm-white"
-                            transition={{
-                              type: "spring",
-                              stiffness: 500,
-                              damping: 30,
-                            }}
-                          />
-                        )}
-                        <span
-                          className={cn(
-                            "relative z-10 flex items-center gap-spacing-2",
-                            questionComposerMode === tab.value
-                              ? "text-[#1c1c1c] font-semibold dark:text-foreground-primary"
-                              : "text-[#5f5f5d] hover:text-[#1c1c1c] dark:text-surface-warm-white/58 dark:hover:text-surface-warm-white",
-                          )}
-                        >
-                          {tab.label}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                  <AnimatePresence mode="wait" initial={false}>
-                    {questionComposerMode === "options" ? (
-                      <motion.div
-                        key="question-options"
-                        initial={{
-                          opacity: 0,
-                          y: 12,
-                          scale: 0.985,
-                          filter: "blur(6px)",
-                        }}
-                        animate={{
-                          opacity: 1,
-                          y: 0,
-                          scale: 1,
-                          filter: "blur(0px)",
-                        }}
-                        exit={{
-                          opacity: 0,
-                          y: -10,
-                          scale: 0.985,
-                          filter: "blur(6px)",
-                        }}
-                        transition={{
-                          duration: 0.22,
-                          ease: [0.22, 1, 0.36, 1],
-                        }}
-                      >
-                        <QuestionComposer
-                          question={workspaceCard.question}
-                          onSubmit={(answer, workspaceAnswers) =>
-                            submitChatText(answer, { workspaceAnswers })
-                          }
-                        />
-                      </motion.div>
-                    ) : (
-                      <motion.form
-                        key="question-free"
-                        initial={{
-                          opacity: 0,
-                          y: 12,
-                          scale: 0.985,
-                          filter: "blur(6px)",
-                        }}
-                        animate={{
-                          opacity: 1,
-                          y: 0,
-                          scale: 1,
-                          filter: "blur(0px)",
-                        }}
-                        exit={{
-                          opacity: 0,
-                          y: -10,
-                          scale: 0.985,
-                          filter: "blur(6px)",
-                        }}
-                        transition={{
-                          duration: 0.22,
-                          ease: [0.22, 1, 0.36, 1],
-                        }}
-                        onSubmit={handleMessageSubmit}
-                        className="min-w-0 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
-                      >
-                        <label htmlFor="workspace-message" className="sr-only">
-                          Pesan untuk AI
-                        </label>
-                        {pendingAttachments.length > 0 ? (
-                          <ComposerAttachments
-                            attachments={pendingAttachments}
-                            onRemove={(id) =>
-                              setPendingAttachments((cur) =>
-                                removeAttachment(cur, id),
-                              )
-                            }
-                          />
-                        ) : null}
-                        <textarea
-                          id="workspace-message"
-                          rows={2}
-                          value={message}
-                          onChange={(event) => {
-                            setMessage(event.target.value);
-                            const target = event.currentTarget;
-                            target.style.height = "auto";
-                            target.style.height = `${Math.min(target.scrollHeight, 6 * 24 + 24)}px`;
-                          }}
-                          onKeyDown={handleMessageKeyDown}
-                          inputMode="text"
-                          enterKeyHint="send"
-                          placeholder={
-                            sessionExpired
-                              ? "Sesi habis, login ulang..."
-                              : "Tulis bebas..."
-                          }
-                          disabled={
-                            sessionExpired || authStatus !== "authenticated"
-                          }
-                          className="w-full resize-none bg-transparent px-1 py-1 text-sm leading-6 text-foreground outline-none [scrollbar-width:none] placeholder:text-muted-foreground disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
-                        />
-                        <div className="mt-2 flex items-center justify-between gap-3 border-t border-black/5 pt-2 dark:border-white/5">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => void handlePrimaryComposerAction()}
-                            disabled={isBuilding || readOnly}
-                            className="h-8 rounded-md border-black/10 bg-white/70 px-3 text-xs font-medium text-foreground hover:bg-black/5 hover:text-foreground active:scale-95 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
-                          >
-                            {buildComplete
-                              ? "Perbarui Website"
-                              : "Buat Website"}
-                          </Button>
-                          <div className="flex items-center gap-1.5">
-                            {composerUploadsEnabled ? (
-                              <ComposerAttachButton
-                                attachments={pendingAttachments}
-                                onAdd={(next, rejected) => {
-                                  const added = next.filter(
-                                    (item) =>
-                                      !pendingAttachments.some(
-                                        (prev) => prev.id === item.id,
-                                      ),
-                                  );
-                                  setPendingAttachments(next);
-                                  for (const item of added) {
-                                    void uploadTempImageFile(item.file)
-                                      .then((uploaded) =>
-                                        setPendingAttachments((cur) =>
-                                          cur.map((candidate) =>
-                                            candidate.id === item.id
-                                              ? {
-                                                  ...candidate,
-                                                  assetId: uploaded.assetId,
-                                                  status: "uploaded",
-                                                }
-                                              : candidate,
-                                          ),
-                                        ),
-                                      )
-                                      .catch(() => {
-                                        setPendingAttachments((cur) =>
-                                          removeAttachment(cur, item.id),
-                                        );
-                                        toast.error("Gagal mengunggah gambar.");
-                                      });
-                                  }
-                                  if (rejected.length) {
-                                    toast.error(
-                                      `Maksimal ${MAX_COMPOSER_IMAGES} gambar per pesan.`,
-                                    );
-                                  }
-                                }}
-                              />
-                            ) : null}
-                            <Button
-                              type="submit"
-                              size="icon"
-                              disabled={
-                                !message.trim() ||
-                                hasUploadingAttachments(pendingAttachments)
-                              }
-                              className="size-8.5 rounded-lg bg-[#1c1c1c] text-white shadow-sm transition hover:bg-black active:scale-95 disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/30 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white dark:disabled:bg-white/10 dark:disabled:text-white/30"
-                              aria-label="Kirim pesan"
-                            >
-                              <ArrowUp className="size-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </motion.form>
-                    )}
-                  </AnimatePresence>
+                  <QuestionComposer
+                    question={workspaceCard.question}
+                    onClose={() => setDismissedQuestionKey(activeQuestionKey)}
+                    onSubmit={(answer, workspaceAnswers) =>
+                      submitChatText(answer, { workspaceAnswers })
+                    }
+                  />
                 </motion.div>
               ) : composerState === "build_recommendation" ||
                 composerState === "build_retry" ? (
                 <motion.div
                   key={`composer-${composerState}`}
                   {...COMPOSER_TRANSITION}
+                  className="p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
                 >
                   <WorkspaceCardView
                     buildComplete={buildComplete}
@@ -3844,7 +3642,11 @@ export function WorkspaceShell({
                 </motion.div>
               ) : composerState === "post_build_review" ||
                 composerState === "build_failed_with_last_good" ? (
-                <motion.div key="composer-post-build" {...COMPOSER_TRANSITION}>
+                <motion.div
+                  key="composer-post-build"
+                  {...COMPOSER_TRANSITION}
+                  className="p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+                >
                   <CompletedBuildNotice
                     onDiscuss={() => {
                       // Park only an unconsumed rancangan so free discuss opens
@@ -3879,13 +3681,15 @@ export function WorkspaceShell({
               ) : (
                 <motion.div key="composer-free" {...COMPOSER_TRANSITION}>
                   {composerState === "held_build_recommendation" ? (
-                    <HeldBuildRecommendationNotice
-                      buildComplete={buildComplete}
-                      canBuild={canStartBuildNow}
-                      onBuild={() => void handleStartBuild()}
-                      onDismiss={dismissBuildRecommendation}
-                      onOpen={openBuildRecommendation}
-                    />
+                    <div className="p-3 pb-0">
+                      <HeldBuildRecommendationNotice
+                        buildComplete={buildComplete}
+                        canBuild={canStartBuildNow}
+                        onBuild={() => void handleStartBuild()}
+                        onDismiss={dismissBuildRecommendation}
+                        onOpen={openBuildRecommendation}
+                      />
+                    </div>
                   ) : null}
                   <form
                     onSubmit={handleMessageSubmit}
@@ -3894,106 +3698,108 @@ export function WorkspaceShell({
                     <label htmlFor="workspace-message" className="sr-only">
                       Pesan untuk AI
                     </label>
-                    {pendingAttachments.length > 0 ? (
-                      <ComposerAttachments
-                        attachments={pendingAttachments}
-                        onRemove={(id) =>
-                          setPendingAttachments((cur) =>
-                            removeAttachment(cur, id),
-                          )
+                    <div className="rounded-none border border-black/20 bg-[#faf9f5] p-2.5 shadow-2xs transition-colors focus-within:border-black/50 dark:border-surface-warm-white/20 dark:bg-[#141412] dark:focus-within:border-surface-warm-white/50">
+                      {pendingAttachments.length > 0 ? (
+                        <ComposerAttachments
+                          attachments={pendingAttachments}
+                          onRemove={(id) =>
+                            setPendingAttachments((cur) =>
+                              removeAttachment(cur, id),
+                            )
+                          }
+                        />
+                      ) : null}
+                      <textarea
+                        id="workspace-message"
+                        rows={2}
+                        value={message}
+                        onChange={(event) => {
+                          setMessage(event.target.value);
+                          const target = event.currentTarget;
+                          target.style.height = "auto";
+                          target.style.height = `${Math.min(target.scrollHeight, 6 * 24 + 24)}px`;
+                        }}
+                        onKeyDown={handleMessageKeyDown}
+                        inputMode="text"
+                        enterKeyHint="send"
+                        placeholder={
+                          sessionExpired
+                            ? "Sesi habis, login ulang..."
+                            : mode === "build"
+                              ? "Minta perubahan, contoh: buat lebih premium..."
+                              : "Tulis pesan atau kebutuhanmu di sini..."
+                        }
+                        className="w-full resize-none bg-transparent px-1 py-1 text-sm leading-6 text-foreground outline-none [scrollbar-width:none] placeholder:text-muted-foreground disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
+                        disabled={
+                          sessionExpired || authStatus !== "authenticated"
                         }
                       />
-                    ) : null}
-                    <textarea
-                      id="workspace-message"
-                      rows={2}
-                      value={message}
-                      onChange={(event) => {
-                        setMessage(event.target.value);
-                        const target = event.currentTarget;
-                        target.style.height = "auto";
-                        target.style.height = `${Math.min(target.scrollHeight, 6 * 24 + 24)}px`;
-                      }}
-                      onKeyDown={handleMessageKeyDown}
-                      inputMode="text"
-                      enterKeyHint="send"
-                      placeholder={
-                        sessionExpired
-                          ? "Sesi habis, login ulang..."
-                          : mode === "build"
-                            ? "Minta perubahan, contoh: buat lebih premium..."
-                            : "Jawab pilihan atau tulis kebutuhanmu..."
-                      }
-                      className="w-full resize-none bg-transparent px-1 py-1 text-sm leading-6 text-foreground outline-none [scrollbar-width:none] placeholder:text-muted-foreground disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
-                      disabled={
-                        sessionExpired || authStatus !== "authenticated"
-                      }
-                    />
-                    <div className="mt-2 flex items-center justify-between gap-3 border-t border-black/5 pt-2 dark:border-white/5">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => void handlePrimaryComposerAction()}
-                        disabled={isBuilding || readOnly}
-                        className="h-8 rounded-md border-black/10 bg-white/70 px-3 text-xs font-medium text-foreground hover:bg-black/5 hover:text-foreground active:scale-95 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
-                      >
-                        {buildComplete ? "Perbarui Website" : "Buat Website"}
-                      </Button>
-                      <div className="flex items-center gap-1.5">
-                        {composerUploadsEnabled ? (
-                          <ComposerAttachButton
-                            attachments={pendingAttachments}
-                            onAdd={(next, rejected) => {
-                              const added = next.filter(
-                                (item) =>
-                                  !pendingAttachments.some(
-                                    (prev) => prev.id === item.id,
-                                  ),
-                              );
-                              setPendingAttachments(next);
-                              for (const item of added) {
-                                void uploadTempImageFile(item.file)
-                                  .then((uploaded) =>
-                                    setPendingAttachments((cur) =>
-                                      cur.map((candidate) =>
-                                        candidate.id === item.id
-                                          ? {
-                                              ...candidate,
-                                              assetId: uploaded.assetId,
-                                              status: "uploaded",
-                                            }
-                                          : candidate,
-                                      ),
-                                    ),
-                                  )
-                                  .catch(() => {
-                                    setPendingAttachments((cur) =>
-                                      removeAttachment(cur, item.id),
-                                    );
-                                    toast.error("Gagal mengunggah gambar.");
-                                  });
-                              }
-                              if (rejected.length) {
-                                toast.error(
-                                  `Maksimal ${MAX_COMPOSER_IMAGES} gambar per pesan.`,
-                                );
-                              }
-                            }}
-                          />
-                        ) : null}
+                      <div className="mt-2 flex items-center justify-between gap-3 border-t border-black/10 pt-2 dark:border-white/10">
                         <Button
-                          type="submit"
-                          size="icon"
-                          disabled={
-                            !message.trim() ||
-                            hasUploadingAttachments(pendingAttachments)
-                          }
-                          className="size-8.5 rounded-lg bg-[#1c1c1c] text-white shadow-sm transition hover:bg-black active:scale-95 disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/30 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white dark:disabled:bg-white/10 dark:disabled:text-white/30"
-                          aria-label="Kirim pesan"
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => void handlePrimaryComposerAction()}
+                          disabled={isBuilding || readOnly}
+                          className="h-8 rounded-none border-black/15 bg-white px-3 text-xs font-medium text-foreground hover:bg-black/5 hover:text-foreground active:scale-95 dark:border-white/15 dark:bg-white/5 dark:hover:bg-white/10 cursor-pointer"
                         >
-                          <ArrowUp className="size-4" />
+                          {buildComplete ? "Perbarui Website" : "Buat Website"}
                         </Button>
+                        <div className="flex items-center gap-1.5">
+                          {composerUploadsEnabled ? (
+                            <ComposerAttachButton
+                              attachments={pendingAttachments}
+                              onAdd={(next, rejected) => {
+                                const added = next.filter(
+                                  (item) =>
+                                    !pendingAttachments.some(
+                                      (prev) => prev.id === item.id,
+                                    ),
+                                );
+                                setPendingAttachments(next);
+                                for (const item of added) {
+                                  void uploadTempImageFile(item.file)
+                                    .then((uploaded) =>
+                                      setPendingAttachments((cur) =>
+                                        cur.map((candidate) =>
+                                          candidate.id === item.id
+                                            ? {
+                                                ...candidate,
+                                                assetId: uploaded.assetId,
+                                                status: "uploaded",
+                                              }
+                                            : candidate,
+                                        ),
+                                      ),
+                                    )
+                                    .catch(() => {
+                                      setPendingAttachments((cur) =>
+                                        removeAttachment(cur, item.id),
+                                      );
+                                      toast.error("Gagal mengunggah gambar.");
+                                    });
+                                }
+                                if (rejected.length) {
+                                  toast.error(
+                                    `Maksimal ${MAX_COMPOSER_IMAGES} gambar per pesan.`,
+                                  );
+                                }
+                              }}
+                            />
+                          ) : null}
+                          <Button
+                            type="submit"
+                            size="icon"
+                            disabled={
+                              !message.trim() ||
+                              hasUploadingAttachments(pendingAttachments)
+                            }
+                            className="size-8.5 rounded-none bg-[#1c1c1c] text-white shadow-2xs transition hover:bg-black active:scale-95 disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/30 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white dark:disabled:bg-white/10 dark:disabled:text-white/30 cursor-pointer"
+                            aria-label="Kirim pesan"
+                          >
+                            <ArrowUp className="size-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </form>
