@@ -76,9 +76,9 @@ describe("createViteTanStackShadcnStarterFiles", () => {
 
   it("index.css is present and non-empty", () => {
     const cssFile = files.find((f) => f.path === "src/index.css");
-    expect(cssFile).toBeDefined();
     expect(typeof cssFile?.content).toBe("string");
-    expect(cssFile?.content.length).toBeGreaterThan(0);
+    expect(cssFile?.content.length).toBeGreaterThan(10);
+    expect(cssFile?.content).toContain("@theme");
   });
 
   it("router.tsx has a 404 catch-all route and hash history", () => {

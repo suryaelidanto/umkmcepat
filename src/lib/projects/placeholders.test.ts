@@ -8,15 +8,19 @@ import {
 } from "./placeholders";
 
 describe("placeholder assets", () => {
-  it("exports transparent fallback without text", () => {
-    expect(LANDSCAPE_PLACEHOLDER_SVG).toBeDefined();
-    expect(PORTRAIT_PLACEHOLDER_SVG).toBeDefined();
-    expect(PLACEHOLDER_DATA_URIS.landscape).toContain("data:image");
-    expect(PLACEHOLDER_DATA_URIS.portrait).toContain("data:image");
+  it("exports transparent fallback data URIs", () => {
+    const expected =
+      "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+    expect(LANDSCAPE_PLACEHOLDER_SVG).toBe(expected);
+    expect(PORTRAIT_PLACEHOLDER_SVG).toBe(expected);
+    expect(PLACEHOLDER_DATA_URIS.landscape).toBe(expected);
+    expect(PLACEHOLDER_DATA_URIS.portrait).toBe(expected);
   });
 
-  it("pickPlaceholderDataUri returns a valid data URI", () => {
-    expect(pickPlaceholderDataUri(300, 600)).toContain("data:image");
-    expect(pickPlaceholderDataUri(600, 300)).toContain("data:image");
+  it("pickPlaceholderDataUri returns transparent 1px fallback", () => {
+    const expected =
+      "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+    expect(pickPlaceholderDataUri(300, 600)).toBe(expected);
+    expect(pickPlaceholderDataUri(600, 300)).toBe(expected);
   });
 });
