@@ -21,7 +21,7 @@ Workflow and engineering standards for UMKM Cepat. For high-level design princip
   - Priority #2: Resume items in `## In Progress`.
   - Priority #3: Propose and pull tasks from `## Backlog` $\rightarrow$ `## In Progress`.
   - Implement minimal code, assert deterministic invariants in tests, and verify with `bun run check`.
-  - Move completed tasks to `## Ready for Review`. On user approval $\rightarrow$ `## Done`. If rejected $\rightarrow$ `## Needs Revision / Check Again`.
+  - Completed agent tasks ALWAYS stop at `## Ready for Review`. Agents NEVER move cards to `## Done`. Only the human developer moves approved tasks to `## Done` (or back to `## Needs Revision / Check Again` if rejected).
 
 ---
 

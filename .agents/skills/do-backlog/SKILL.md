@@ -38,3 +38,4 @@ Kanban orchestrator. Evaluates backlog priorities, checks revisions, groups rela
 4. **Verify & Stage**:
    - Run `bun run check`.
    - Move completed ticket(s) from `## In Progress` to `## Ready for Review`.
+   - **IRON RULE**: NEVER move cards to `## Done`. Only the human developer moves approved tasks to `## Done`.
