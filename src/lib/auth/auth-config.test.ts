@@ -22,7 +22,7 @@ describe("authConfig stale JWT handling", () => {
 
   it("returns null when the JWT has no user subject", async () => {
     const jwtCallback = authConfig.callbacks?.jwt;
-    expect(jwtCallback).toBeDefined();
+    expect(typeof jwtCallback).toBe("function");
     if (!jwtCallback) {
       return;
     }
@@ -40,7 +40,7 @@ describe("authConfig stale JWT handling", () => {
     prismaUserFindUniqueMock.mockResolvedValue(null);
 
     const jwtCallback = authConfig.callbacks?.jwt;
-    expect(jwtCallback).toBeDefined();
+    expect(typeof jwtCallback).toBe("function");
     if (!jwtCallback) {
       return;
     }

@@ -423,7 +423,7 @@ describe("POST /api/projects/preview (discuss) — server-side turn flow", () =>
     const briefCall = prismaExecuteRawMock.mock.calls.find((call) =>
       String(call[0] ?? "").includes('"brief"'),
     );
-    expect(briefCall).toBeDefined();
+    expect(Array.isArray(briefCall)).toBe(true);
     const briefText = briefCall
       ? briefCall.map((arg) => String(arg ?? "")).join("\n")
       : "";
