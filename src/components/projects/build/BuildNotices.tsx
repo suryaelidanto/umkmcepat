@@ -18,7 +18,7 @@ export function HeldBuildRecommendationNotice({
   onOpen: () => void;
 }) {
   return (
-    <div className="relative rounded-none border border-border bg-card p-4 shadow-xs">
+    <div className="relative rounded-2xl border border-border bg-card p-4 shadow-xs">
       <div className="flex items-start justify-between gap-2 pr-6">
         <p className="text-sm font-semibold text-foreground">
           Rancangan website disimpan
@@ -28,7 +28,7 @@ export function HeldBuildRecommendationNotice({
             type="button"
             onClick={onDismiss}
             aria-label="Tutup pemberitahuan rancangan"
-            className="absolute right-3 top-3 inline-flex size-6 items-center justify-center rounded-none text-muted-foreground transition-colors hover:bg-muted hover:text-foreground cursor-pointer"
+            className="absolute right-3 top-3 inline-flex size-6 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground cursor-pointer"
           >
             <X className="size-3.5" />
           </button>
@@ -42,7 +42,7 @@ export function HeldBuildRecommendationNotice({
           type="button"
           variant="outline"
           onClick={onOpen}
-          className="h-8 flex-1 rounded-none border-border bg-transparent px-3 text-xs text-foreground hover:bg-muted"
+          className="h-8 flex-1 rounded-lg border-border bg-transparent px-3 text-xs text-foreground hover:bg-muted cursor-pointer"
         >
           Buka rancangan
         </Button>
@@ -50,7 +50,7 @@ export function HeldBuildRecommendationNotice({
           type="button"
           disabled={!canBuild}
           onClick={onBuild}
-          className="h-8 flex-1 rounded-none bg-[#1c1c1c] text-white px-3 text-xs hover:bg-black disabled:opacity-50 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white"
+          className="h-8 flex-1 rounded-lg bg-[#1c1c1c] text-white px-3 text-xs hover:bg-black disabled:opacity-50 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white cursor-pointer"
         >
           {buildComplete ? "Perbarui website" : "Mulai buat website"}
         </Button>
@@ -72,7 +72,7 @@ export function CompletedBuildNotice({
 
   return (
     <div
-      className={`rounded-none border px-spacing-5 py-spacing-4 shadow-xs dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.025)] ${
+      className={`rounded-2xl border px-spacing-5 py-spacing-4 shadow-xs dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.025)] ${
         isRecovery
           ? "border-status-warning-border bg-status-warning-subtle text-foreground dark:border-[#f6d365]/18 dark:bg-[#242015]"
           : "border-status-success-border bg-status-success-subtle text-foreground dark:border-[#8ce99a]/18 dark:bg-[#1d211c]"
@@ -95,7 +95,7 @@ export function CompletedBuildNotice({
           <Button
             type="button"
             onClick={onPreview}
-            className="h-9 rounded-none bg-foreground text-background px-spacing-4 text-xs hover:bg-foreground/90 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/86"
+            className="h-9 rounded-lg bg-foreground text-background px-spacing-4 text-xs hover:bg-foreground/90 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/86 cursor-pointer"
           >
             Lihat website
           </Button>
@@ -103,7 +103,7 @@ export function CompletedBuildNotice({
             type="button"
             variant="outline"
             onClick={onDiscuss}
-            className="h-9 rounded-none border-border bg-transparent px-spacing-4 text-xs text-foreground hover:bg-muted dark:border-surface-warm-white/12 dark:text-surface-warm-white/78 dark:hover:bg-surface-warm-white/8"
+            className="h-9 rounded-lg border-border bg-transparent px-spacing-4 text-xs text-foreground hover:bg-muted dark:border-surface-warm-white/12 dark:text-surface-warm-white/78 dark:hover:bg-surface-warm-white/8 cursor-pointer"
           >
             Chat dengan AI
           </Button>

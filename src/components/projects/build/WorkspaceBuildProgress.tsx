@@ -102,7 +102,7 @@ export function BuildProgressPanel({
       ];
 
   return (
-    <div className="overflow-hidden rounded-none border border-border bg-card shadow-xs">
+    <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-xs">
       <div className="flex items-center justify-between gap-spacing-4 border-b border-border px-spacing-5 py-spacing-4">
         <div>
           <p className="text-sm font-semibold text-foreground">
@@ -119,7 +119,7 @@ export function BuildProgressPanel({
             </p>
           ) : null}
         </div>
-        <div className="rounded-none border border-border bg-muted/60 px-spacing-3 py-spacing-2 text-xs tabular-nums text-muted-foreground">
+        <div className="rounded-full border border-border bg-muted/60 px-spacing-3 py-spacing-2 text-xs tabular-nums text-muted-foreground">
           {elapsedSeconds}s
         </div>
       </div>
@@ -171,15 +171,15 @@ export function BuildProgressPanel({
                     : undefined
                 }
                 aria-expanded={hasDiff ? isExpanded : undefined}
-                className={`flex flex-col rounded-none border border-border/70 bg-card p-spacing-4 select-none ${hasDiff ? "cursor-pointer hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" : ""}`}
+                className={`flex flex-col rounded-xl border border-border/70 bg-card p-spacing-4 select-none ${hasDiff ? "cursor-pointer hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" : ""}`}
               >
                 <div className="flex items-start justify-between gap-spacing-3 w-full">
                   <div className="flex items-start gap-spacing-4 min-w-0 flex-1">
                     <div
-                      className={`mt-0.5 grid size-8 shrink-0 place-items-center rounded-none border ${isError ? "border-destructive/40 bg-destructive/10 text-destructive" : isActive ? "border-primary/40 bg-primary/10 text-primary" : "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"}`}
+                      className={`mt-0.5 grid size-8 shrink-0 place-items-center rounded-full border ${isError ? "border-destructive/40 bg-destructive/10 text-destructive" : isActive ? "border-primary/40 bg-primary/10 text-primary" : "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"}`}
                     >
                       <span
-                        className={`block ${isActive ? "size-3 animate-pulse rounded-none bg-current" : "size-2 bg-current"}`}
+                        className={`block ${isActive ? "size-3 animate-pulse rounded-full bg-current" : "size-2 bg-current"}`}
                       />
                     </div>
                     <span className="text-sm text-foreground text-left pt-1 leading-5 min-w-0">
@@ -223,7 +223,7 @@ export function BuildProgressPanel({
                       <div className="pl-12 pt-spacing-2 text-left">
                         {step.diff && step.diff.length > 0 && (
                           <div className="mt-spacing-3">
-                            <pre className="max-h-64 overflow-auto rounded-none border border-border bg-muted/60 p-spacing-3 font-mono text-xs leading-5 text-foreground [scrollbar-width:thin] dark:bg-black/40">
+                            <pre className="max-h-64 overflow-auto rounded-lg border border-border bg-muted/60 p-spacing-3 font-mono text-xs leading-5 text-foreground [scrollbar-width:thin] dark:bg-black/40">
                               {step.diff.map((line, lineIndex) => (
                                 <div
                                   key={lineIndex}
@@ -309,11 +309,11 @@ export function ProcessingControl({
       : fallbackDetail;
 
   return (
-    <div className="mt-spacing-3 overflow-hidden rounded-none border border-border bg-card shadow-xs">
+    <div className="mt-spacing-3 overflow-hidden rounded-2xl border border-border bg-card shadow-xs">
       <div className="flex items-center justify-between gap-spacing-4 px-spacing-5 py-spacing-4">
         <div className="flex min-w-0 items-center gap-spacing-4">
-          <div className="grid size-10 shrink-0 place-items-center rounded-none border border-border bg-muted/60">
-            <span className="size-4 animate-spin rounded-none border-2 border-primary/30 border-t-primary" />
+          <div className="grid size-10 shrink-0 place-items-center rounded-full border border-border bg-muted/60">
+            <span className="size-4 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
           </div>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-spacing-2">
@@ -328,7 +328,7 @@ export function ProcessingControl({
           type="button"
           variant="outline"
           onClick={onStop}
-          className="h-9 shrink-0 rounded-none border-border bg-transparent px-spacing-4 text-xs text-foreground hover:bg-muted"
+          className="h-9 shrink-0 rounded-lg border-border bg-transparent px-spacing-4 text-xs text-foreground hover:bg-muted cursor-pointer"
         >
           Hentikan
         </Button>
