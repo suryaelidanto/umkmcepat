@@ -268,33 +268,6 @@ export async function loadActiveHandoff(
   };
 }
 
-export async function isSnapshotRestorableAgainstActiveHandoff(input: {
-  projectId: string;
-  snapshotMetadata: unknown;
-}): Promise<boolean> {
-  const active = await loadActiveHandoff(input.projectId);
-  if (!active) {
-    return true;
-  }
-  const meta = asRecord(input.snapshotMetadata);
-  if (!meta) {
-    return false;
-  }
-  const generation = asRecord(meta.generation);
-  const contractHash =
-    generation && typeof generation.contractHash === "string"
-      ? generation.contractHash
-      : null;
-  const planHash =
-    generation && typeof generation.planHash === "string"
-      ? generation.planHash
-      : null;
-  if (typeof contractHash !== "string" || typeof planHash !== "string") {
-    return false;
-  }
-  return contractHash === active.contractHash && planHash === active.planHash;
-}
-
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (value && typeof value === "object" && !Array.isArray(value)) {
     return value as Record<string, unknown>;
