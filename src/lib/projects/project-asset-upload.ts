@@ -6,6 +6,10 @@ import {
   writeProjectAsset,
 } from "@/lib/projects/project-assets";
 
+export const MAX_PROJECT_ASSETS = 20;
+export const MAX_PROJECT_ASSET_BYTES = 50 * 1024 * 1024; // 50 MB
+export const MAX_TURN_IMAGES = 6;
+
 const PURPOSE_TO_KIND: Record<string, ProjectAssetKind> = {
   "business-image": "business-image",
   logo: "logo",
@@ -55,6 +59,20 @@ export async function uploadProjectAsset({
     throw new Error(
       `Invalid asset purpose '${purpose}'. Allowed: ${ALLOWED_PURPOSES.join(", ")}.`,
     );
+  }
+
+  const existing = await prisma.projectAsset.aggregate({
+    where: { projectId },
+    _count: { id: true },
+    _sum: { sizeBytes: true },
+  });
+
+  if (existing._count.id >= MAX_PROJECT_ASSETS) {
+    throw new Error(`Maksimal ${MAX_PROJECT_ASSETS} gambar per proyek.`);
+  }
+
+  if ((existing._sum.sizeBytes || 0) + bytes.length > MAX_PROJECT_ASSET_BYTES) {
+    throw new Error("Kapasitas penyimpanan proyek (50 MB) telah penuh.");
   }
 
   const { publicUrl, ref } = await writeProjectAsset({
