@@ -1,31 +1,35 @@
 ---
 name: add-backlog
-description: Use when adding explicit, isolated tasks, bugs, or feature tickets with [#XX] codes and domain tags directly into docs/notes/backlog.md.
+description: Use when adding explicit, isolated tasks, bugs, or feature tickets with [#XX] codes, priority, contextual icon, author, date, and domain tags directly into docs/notes/backlog.md.
 disable-model-invocation: true
 ---
 
 # Add Backlog Skill
 
-Add isolated, actionable tasks directly into `docs/notes/backlog.md` with deterministic `[#XX]` numbering and clear domain tags.
+Add isolated, actionable tasks directly into `docs/notes/backlog.md` with deterministic `[#XX]` numbering, single contextual emoji, priority indicator, author, date, clean breathing room spacing, and domain tags.
 
 ## Workflow
 
 1. **Inspect Existing Backlog**:
    - Read `docs/notes/backlog.md`.
-   - Find the highest existing ticket number across all columns (e.g. `[#16]`).
-   - Assign the next sequential code (e.g. `[#17]`).
+   - Find the highest existing ticket number across all columns (e.g. `[#26]`).
+   - Assign the next sequential code (e.g. `[#27]`).
 
 2. **Format Isolated Task Card**:
-   - Every ticket must represent a single, isolated concern.
+   - Every ticket represents a single, isolated concern.
    - Format:
      ```markdown
-     - [ ] **[#XX] Title**: Concrete description explaining what needs to change, why, and acceptance boundaries #tag1 #tag2
+     - [ ] <emoji> **[#XX] [P0..P3] Title**: Concrete description explaining what needs to change, why, and acceptance boundaries #tag1 #tag2 @author YYYY-MM-DD
      ```
    - Standard domain tags: `#engine`, `#ui`, `#ux`, `#workspace`, `#security`, `#copy`, `#scaffold`, `#media`, `#data`, `#future`.
+   - Standard priority: `[P0]` (Critical/Blocker), `[P1]` (High), `[P2]` (Medium), `[P3]` (Low/Polish).
+   - Author: `@<git-username>` (e.g. `@suryaelidanto`).
+   - Contextual Emoji: Exactly 1 emoji reflecting the task (e.g. 📸 media, 📜 history/docs, 🎨 UI, 💬 chat, 🛡️ security, ⚡ perf, 🧪 test, 🔄 sync/restore, 🚀 deploy).
+   - **Breathing Room (Spacing)**: Always leave a blank newline between cards in `docs/notes/backlog.md` for clean Obsidian Kanban board rendering.
 
 3. **Append Non-Destructively**:
-   - Write and append the ticket directly to the bottom of `## Backlog` in `docs/notes/backlog.md` (or `## Future / Icebox` for speculative/parking items).
-   - Never modify or reorder existing tickets in any other column.
+   - Write and append the ticket with a newline directly under `## Backlog` in `docs/notes/backlog.md` (or `## Future / Icebox` for speculative items).
+   - Never modify or reorder existing tickets in other columns.
 
 4. **Verify**:
    - Run `bun run check`.
