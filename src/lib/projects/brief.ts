@@ -533,7 +533,10 @@ function normalizeBusinessImages(value: unknown): BusinessImageRef[] {
     ) {
       continue;
     }
-    result.push({ id: input.id.trim().slice(0, 200), purpose: input.purpose });
+    result.push({
+      id: input.id.trim().slice(0, 1024),
+      purpose: input.purpose,
+    });
     if (result.length >= 12) {
       break;
     }

@@ -1,6 +1,13 @@
 "use client";
 
 import { type UIMessage } from "ai";
+import { useState } from "react";
+
+import {
+  ImageLightbox,
+  type LightboxImage,
+} from "@/components/ui/image-lightbox";
+import { ImageUploadThumb } from "@/components/ui/image-upload-thumb";
 
 export const chatBubbleClass = (
   role: "user" | "assistant" | "system",
@@ -12,40 +19,90 @@ export const chatBubbleClass = (
   }`;
 
 export function ChatMessages({ messages }: { messages: UIMessage[] }) {
+  const [lightboxImages, setLightboxImages] = useState<LightboxImage[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+
   if (!messages.length) {
     return null;
   }
 
+  function openLightbox(images: LightboxImage[], index: number) {
+    setLightboxImages(images);
+    setLightboxIndex(index);
+    setLightboxOpen(true);
+  }
+
   return (
-    <div className="space-y-spacing-8">
-      {messages.map((message, messageIndex) => {
-        const textParts = message.parts.filter(
-          (
-            part,
-          ): part is Extract<
-            (typeof message.parts)[number],
-            { type: "text" }
-          > => part.type === "text" && Boolean(part.text.trim()),
-        );
+    <>
+      <div className="space-y-spacing-8">
+        {messages.map((message, messageIndex) => {
+          const textParts = message.parts.filter(
+            (
+              part,
+            ): part is Extract<
+              (typeof message.parts)[number],
+              { type: "text" }
+            > => part.type === "text" && Boolean(part.text.trim()),
+          );
 
-        if (!textParts.length) {
-          return null;
-        }
+          const fileParts = message.parts.filter(
+            (
+              part,
+            ): part is Extract<
+              (typeof message.parts)[number],
+              { type: "file" }
+            > => part.type === "file" && Boolean(part.url),
+          );
 
-        return (
-          <div
-            key={`${message.id || message.role}-${messageIndex}`}
-            className={`flex max-w-full text-base leading-7 ${message.role === "user" ? "justify-end" : "justify-start"}`}
-          >
-            <div className={chatBubbleClass(message.role)}>
-              {textParts.map((part, index) => (
-                <MessageText key={index} text={part.text} />
-              ))}
+          if (!textParts.length && !fileParts.length) {
+            return null;
+          }
+
+          const messageImages: LightboxImage[] = fileParts.map((file, idx) => ({
+            src: file.url,
+            alt: `Gambar ${idx + 1}`,
+          }));
+
+          return (
+            <div
+              key={`${message.id || message.role}-${messageIndex}`}
+              className={`flex max-w-full text-base leading-7 ${message.role === "user" ? "justify-end" : "justify-start"}`}
+            >
+              <div className={chatBubbleClass(message.role)}>
+                {/* Images grid if message has file parts */}
+                {fileParts.length > 0 ? (
+                  <div
+                    className={`flex flex-wrap gap-2 ${textParts.length > 0 ? "mb-2.5" : ""}`}
+                  >
+                    {fileParts.map((file, fileIdx) => (
+                      <ImageUploadThumb
+                        key={`${file.url}-${fileIdx}`}
+                        src={file.url}
+                        alt={`Gambar ${fileIdx + 1}`}
+                        onClick={() => openLightbox(messageImages, fileIdx)}
+                        className="size-20 rounded-xl cursor-pointer"
+                      />
+                    ))}
+                  </div>
+                ) : null}
+
+                {textParts.map((part, index) => (
+                  <MessageText key={index} text={part.text} />
+                ))}
+              </div>
             </div>
-          </div>
-        );
-      })}
-    </div>
+          );
+        })}
+      </div>
+
+      <ImageLightbox
+        open={lightboxOpen}
+        onOpenChange={setLightboxOpen}
+        images={lightboxImages}
+        initialIndex={lightboxIndex}
+      />
+    </>
   );
 }
 

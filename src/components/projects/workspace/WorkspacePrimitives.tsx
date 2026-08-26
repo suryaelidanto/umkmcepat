@@ -345,6 +345,7 @@ export function WorkspaceMobileMenuSheet({
   runtime,
   projectId,
   onPickTab,
+  hasPreview,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -359,6 +360,7 @@ export function WorkspaceMobileMenuSheet({
   runtime?: WorkspaceRuntimeControl;
   projectId?: string;
   onPickTab?: (tab: BuildTab) => void;
+  hasPreview?: boolean;
 }) {
   return (
     <MobileSheet open={open} onOpenChange={onOpenChange}>
@@ -374,6 +376,7 @@ export function WorkspaceMobileMenuSheet({
         runtime={runtime}
         projectId={projectId}
         onPickTab={onPickTab}
+        hasPreview={hasPreview}
         onClose={() => onOpenChange(false)}
       />
     </MobileSheet>
@@ -445,6 +448,7 @@ type MobileMenuContentProps = {
   runtime?: WorkspaceRuntimeControl;
   projectId?: string;
   onPickTab?: (tab: BuildTab) => void;
+  hasPreview?: boolean;
   onClose: () => void;
 };
 
@@ -460,6 +464,7 @@ export function MobileMenuContent({
   runtime,
   projectId,
   onPickTab,
+  hasPreview,
   onClose,
 }: MobileMenuContentProps) {
   void viewport;
@@ -474,44 +479,47 @@ export function MobileMenuContent({
 
   return (
     <div className="flex flex-col gap-spacing-5 text-[#1c1c1c] dark:text-surface-warm-white">
-      <section className="flex flex-col gap-spacing-2">
-        <span className="px-1 text-[11px] font-medium uppercase tracking-wide text-[#5f5f5d] dark:text-surface-warm-white/44">
-          Navigasi Tampilan
-        </span>
-        <div
-          role="tablist"
-          aria-label="Konten tampilan"
-          className="flex h-9 w-full items-center rounded-radius-md border border-black/10 bg-black/5 p-0.5 text-xs dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5"
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === "preview"}
-            onClick={() => pickTab("preview")}
-            className={`relative flex h-8 flex-1 items-center justify-center gap-spacing-2 rounded-radius-sm transition cursor-pointer ${activeTab === "preview" ? "bg-white font-semibold text-[#1c1c1c] shadow-xs dark:bg-surface-warm-white/10 dark:text-surface-warm-white" : "text-[#5f5f5d] hover:text-[#1c1c1c] dark:text-surface-warm-white/58 dark:hover:text-surface-warm-white"}`}
+      {hasPreview ? (
+        <section className="flex flex-col gap-spacing-2">
+          <span className="px-1 text-[11px] font-medium uppercase tracking-wide text-[#5f5f5d] dark:text-surface-warm-white/44">
+            Navigasi Tampilan
+          </span>
+          <div
+            role="tablist"
+            aria-label="Konten tampilan"
+            className="flex h-9 w-full items-center rounded-radius-md border border-black/10 bg-black/5 p-0.5 text-xs dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5"
           >
-            <Globe2 className="size-4" />
-            <span>Tampilan</span>
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === "code"}
-            onClick={() => pickTab("code")}
-            className={`relative flex h-8 flex-1 items-center justify-center gap-spacing-2 rounded-radius-sm transition cursor-pointer ${activeTab === "code" ? "bg-white font-semibold text-[#1c1c1c] shadow-xs dark:bg-surface-warm-white/10 dark:text-surface-warm-white" : "text-[#5f5f5d] hover:text-[#1c1c1c] dark:text-surface-warm-white/58 dark:hover:text-surface-warm-white"}`}
-          >
-            <Code2 className="size-4" />
-            <span>Kode</span>
-          </button>
-        </div>
-      </section>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "preview"}
+              onClick={() => pickTab("preview")}
+              className={`relative flex h-8 flex-1 items-center justify-center gap-spacing-2 rounded-radius-sm transition cursor-pointer ${activeTab === "preview" ? "bg-white font-semibold text-[#1c1c1c] shadow-xs dark:bg-surface-warm-white/10 dark:text-surface-warm-white" : "text-[#5f5f5d] hover:text-[#1c1c1c] dark:text-surface-warm-white/58 dark:hover:text-surface-warm-white"}`}
+            >
+              <Globe2 className="size-4" />
+              <span>Tampilan</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "code"}
+              onClick={() => pickTab("code")}
+              className={`relative flex h-8 flex-1 items-center justify-center gap-spacing-2 rounded-radius-sm transition cursor-pointer ${activeTab === "code" ? "bg-white font-semibold text-[#1c1c1c] shadow-xs dark:bg-surface-warm-white/10 dark:text-surface-warm-white" : "text-[#5f5f5d] hover:text-[#1c1c1c] dark:text-surface-warm-white/58 dark:hover:text-surface-warm-white"}`}
+            >
+              <Code2 className="size-4" />
+              <span>Kode</span>
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       <section className="flex flex-col gap-spacing-2">
         <span className="px-1 text-[11px] font-medium uppercase tracking-wide text-[#5f5f5d] dark:text-surface-warm-white/44">
           Aksi
         </span>
         <div className="flex flex-col gap-spacing-1">
-          {annotationAvailable &&
+          {hasPreview &&
+          annotationAvailable &&
           activeTab === "preview" &&
           directEditFlagEnabled ? (
             <button
@@ -536,7 +544,7 @@ export function MobileMenuContent({
               </span>
             </button>
           ) : null}
-          {projectId ? (
+          {hasPreview && projectId ? (
             <WorkspaceHistoryButton
               onActivate={onClose}
               projectId={projectId}
@@ -558,7 +566,7 @@ export function MobileMenuContent({
               <ChevronRight className="size-4 text-black/30 dark:text-surface-warm-white/40" />
             </a>
           ) : null}
-          {runtime ? (
+          {hasPreview && runtime ? (
             <RuntimeControl
               onActivate={onClose}
               runtime={runtime}

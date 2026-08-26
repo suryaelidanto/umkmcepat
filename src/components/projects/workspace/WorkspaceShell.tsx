@@ -27,6 +27,9 @@ import {
 import { type PanelImperativeHandle } from "react-resizable-panels";
 import { toast } from "sonner";
 
+import { AuthButton } from "@/components/common/AuthButton";
+import { EnergyDisplay } from "@/components/common/EnergyDisplay";
+import { ThemeToggle } from "@/components/common/ThemeToggle";
 import {
   CompletedBuildNotice,
   HeldBuildRecommendationNotice,
@@ -2685,7 +2688,10 @@ export function WorkspaceShell({
   const submitChatText = useCallback(
     async (
       text: string,
-      options: { workspaceAnswers?: WorkspaceAnswerPayload[] } = {},
+      options: {
+        workspaceAnswers?: WorkspaceAnswerPayload[];
+        uploads?: Array<{ assetId: string; url: string }>;
+      } = {},
     ) => {
       if (readOnly) {
         return;
@@ -2699,7 +2705,10 @@ export function WorkspaceShell({
       const hasAnswers = Boolean(options.workspaceAnswers?.length);
 
       if (
-        (!trimmed && !hasAnswers && pendingAttachments.length === 0) ||
+        (!trimmed &&
+          !hasAnswers &&
+          pendingAttachments.length === 0 &&
+          !options.uploads?.length) ||
         isProcessing ||
         rateLimitError ||
         authStatus !== "authenticated" ||
@@ -2713,6 +2722,18 @@ export function WorkspaceShell({
       const fileParts: FileUIPart[] = [];
       const mediaPaths: string[] = [];
       const uploadErrors: { name: string; message: string }[] = [];
+
+      if (options.uploads?.length) {
+        for (const item of options.uploads) {
+          fileParts.push(
+            createUploadedImageFilePart({
+              filename: "gambar-usaha.jpg",
+              mediaType: "image/jpeg",
+              url: item.url,
+            }),
+          );
+        }
+      }
 
       if (pendingAttachments.length) {
         for (const item of toUploadPlan(pendingAttachments)) {
@@ -3383,8 +3404,14 @@ export function WorkspaceShell({
           ) : null}
         </div>
 
-        {/* Close Chat Panel (X Button on right side - only when preview exists) */}
-        {hasPreview ? (
+        {/* Global Controls when pre-build, or Close Button when preview panel is active */}
+        {!hasPreview ? (
+          <div className="flex items-center gap-3.5">
+            <EnergyDisplay projectId={projectId} />
+            <ThemeToggle />
+            <AuthButton />
+          </div>
+        ) : (
           <button
             type="button"
             onClick={closeChatPanel}
@@ -3394,7 +3421,7 @@ export function WorkspaceShell({
           >
             <X className="size-3.5 text-muted-foreground hover:text-foreground dark:text-surface-warm-white/70 dark:hover:text-surface-warm-white" />
           </button>
-        ) : null}
+        )}
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col">
@@ -3551,7 +3578,7 @@ export function WorkspaceShell({
           )}
         </div>
 
-        <div className="shrink-0 border-t border-black/10 bg-white dark:border-surface-warm-white/10 dark:bg-[#1e1e1b]">
+        <div className="shrink-0 bg-transparent">
           {readOnly ? (
             <div className="p-4 text-sm text-[#5f5f5d] dark:text-surface-warm-white/62">
               Mode baca-saja aktif. Chat, build, dan aksi edit tidak tersedia.
@@ -3559,7 +3586,11 @@ export function WorkspaceShell({
           ) : (
             <AnimatePresence mode="wait" initial={false}>
               {isProcessing ? (
-                <motion.div key="composer-processing" {...COMPOSER_TRANSITION}>
+                <motion.div
+                  key="composer-processing"
+                  {...COMPOSER_TRANSITION}
+                  className="p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+                >
                   <ProcessingControl
                     currentStep={resolveCurrentBuildProgressStep(buildProgress)}
                     mode={isBuilding ? "Buat" : "Diskusi"}
@@ -3585,9 +3616,11 @@ export function WorkspaceShell({
                 <motion.div
                   key="composer-rate-limit"
                   {...COMPOSER_TRANSITION}
-                  className="rounded-2xl border border-surface-warm-white/10 bg-[#242421] p-4 text-sm text-surface-warm-white/62"
+                  className="p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
                 >
-                  Tunggu sebentar sebelum mengirim jawaban berikutnya.
+                  <div className="rounded-2xl border border-surface-warm-white/10 bg-[#242421] p-4 text-sm text-surface-warm-white/62">
+                    Tunggu sebentar sebelum mengirim jawaban berikutnya.
+                  </div>
                 </motion.div>
               ) : isPreparingNextQuestion ||
                 workspaceCardError ? null : !hasAnsweredActiveQuestion &&
@@ -3596,32 +3629,34 @@ export function WorkspaceShell({
                     composerUploadsEnabled)) ? (
                 <div className="p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
                   {/* Top Mode Switcher: Separated from the text area */}
-                  <div className="mb-2.5 flex items-center justify-between">
-                    <div className="inline-flex h-8 items-center rounded-full border border-black/10 bg-black/5 p-0.5 text-xs dark:border-white/10 dark:bg-white/5">
+                  <div className="flex items-center justify-between">
+                    <div className="inline-flex h-8 items-center rounded-full border border-black/10 bg-black/5 p-0.5 text-xs dark:border-white/15 dark:bg-white/10">
                       <button
                         type="button"
                         onClick={() => setQuestionComposerMode("card")}
                         className={cn(
-                          "flex h-7 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition cursor-pointer",
+                          "flex h-7 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition cursor-pointer",
                           questionComposerMode === "card"
-                            ? "bg-white text-[#1c1c1c] font-semibold shadow-xs dark:bg-[#2c2c28] dark:text-surface-warm-white"
-                            : "text-muted-foreground hover:text-foreground",
+                            ? "bg-[#1c1c1c] text-white shadow-xs dark:bg-surface-warm-white dark:text-[#10100f]"
+                            : "text-[#5f5f5d] hover:text-[#1c1c1c] dark:text-surface-warm-white/70 dark:hover:text-surface-warm-white",
                         )}
                       >
                         <span>
                           {workspaceCard.type === "image_upload"
                             ? "Unggah Foto"
-                            : "Pilihan"}
+                            : workspaceCard.question?.answerMode === "text"
+                              ? "Pertanyaan"
+                              : "Pilihan"}
                         </span>
                       </button>
                       <button
                         type="button"
                         onClick={() => setQuestionComposerMode("free")}
                         className={cn(
-                          "flex h-7 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition cursor-pointer",
+                          "flex h-7 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition cursor-pointer",
                           questionComposerMode === "free"
-                            ? "bg-white text-[#1c1c1c] font-semibold shadow-xs dark:bg-[#2c2c28] dark:text-surface-warm-white"
-                            : "text-muted-foreground hover:text-foreground",
+                            ? "bg-[#1c1c1c] text-white shadow-xs dark:bg-surface-warm-white dark:text-[#10100f]"
+                            : "text-[#5f5f5d] hover:text-[#1c1c1c] dark:text-surface-warm-white/70 dark:hover:text-surface-warm-white",
                         )}
                       >
                         <span>Tulis bebas</span>
@@ -3637,19 +3672,21 @@ export function WorkspaceShell({
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -6 }}
                         transition={{ duration: 0.18, ease: "easeOut" }}
+                        className="mt-2.5"
                       >
                         {workspaceCard.type === "image_upload" ? (
                           <ImageUploadComposer
                             imageUpload={workspaceCard.imageUpload}
-                            onClose={() => setQuestionComposerMode("free")}
-                            onSubmit={(answer, workspaceAnswers) =>
-                              submitChatText(answer, { workspaceAnswers })
+                            onSubmit={(answer, workspaceAnswers, uploads) =>
+                              submitChatText(answer, {
+                                workspaceAnswers,
+                                uploads,
+                              })
                             }
                           />
                         ) : (
                           <QuestionComposer
                             question={workspaceCard.question}
-                            onClose={() => setQuestionComposerMode("free")}
                             onSubmit={(answer, workspaceAnswers) =>
                               submitChatText(answer, { workspaceAnswers })
                             }
@@ -3664,11 +3701,12 @@ export function WorkspaceShell({
                         exit={{ opacity: 0, y: -6 }}
                         transition={{ duration: 0.18, ease: "easeOut" }}
                         onSubmit={handleMessageSubmit}
+                        className="mt-2.5"
                       >
                         <label htmlFor="workspace-message" className="sr-only">
                           Pesan untuk AI
                         </label>
-                        <div className="rounded-2xl border border-black/20 bg-[#faf9f5] p-2.5 shadow-2xs transition-colors focus-within:border-black/50 dark:border-surface-warm-white/20 dark:bg-[#141412] dark:focus-within:border-surface-warm-white/50">
+                        <div className="rounded-2xl border border-black/10 bg-white p-2.5 shadow-sm transition-colors focus-within:border-black/30 dark:border-white/15 dark:bg-[#282824] dark:shadow-[0_4px_20px_rgba(0,0,0,0.35)] dark:focus-within:border-white/30">
                           {pendingAttachments.length > 0 ? (
                             <ComposerAttachments
                               attachments={pendingAttachments}
@@ -3851,7 +3889,7 @@ export function WorkspaceShell({
                     <label htmlFor="workspace-message" className="sr-only">
                       Pesan untuk AI
                     </label>
-                    <div className="rounded-2xl border border-black/20 bg-[#faf9f5] p-2.5 shadow-2xs transition-colors focus-within:border-black/50 dark:border-surface-warm-white/20 dark:bg-[#141412] dark:focus-within:border-surface-warm-white/50">
+                    <div className="rounded-2xl border border-black/10 bg-white p-2.5 shadow-sm transition-colors focus-within:border-black/30 dark:border-white/15 dark:bg-[#282824] dark:shadow-[0_4px_20px_rgba(0,0,0,0.35)] dark:focus-within:border-white/30">
                       {pendingAttachments.length > 0 ? (
                         <ComposerAttachments
                           attachments={pendingAttachments}
@@ -4169,26 +4207,34 @@ export function WorkspaceShell({
           >
             <ArrowLeft className="size-4" />
           </a>
-          <div className="flex flex-1 items-center gap-1.5 rounded-xl border border-black/10 bg-black/5 p-1 dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5">
-            <button
-              type="button"
-              aria-pressed={mobileSurface === "chat"}
-              onClick={openChatPanel}
-              className="inline-flex h-8 min-w-0 flex-1 items-center justify-center gap-1.5 truncate rounded-lg text-xs font-semibold transition-colors aria-pressed:bg-white aria-pressed:text-[#1c1c1c] aria-pressed:shadow-xs text-[#5f5f5d] dark:aria-pressed:bg-surface-warm-white dark:aria-pressed:text-foreground-primary dark:text-surface-warm-white/70 cursor-pointer"
-            >
-              <MessageCircle className="size-3.5 shrink-0" />
-              <span className="truncate">Diskusi</span>
-            </button>
-            <button
-              type="button"
-              aria-pressed={mobileSurface === "preview"}
-              onClick={openPreviewPanel}
-              className="inline-flex h-8 min-w-0 flex-1 items-center justify-center gap-1.5 truncate rounded-lg text-xs font-semibold transition-colors aria-pressed:bg-white aria-pressed:text-[#1c1c1c] aria-pressed:shadow-xs text-[#5f5f5d] dark:aria-pressed:bg-surface-warm-white dark:aria-pressed:text-foreground-primary dark:text-surface-warm-white/70 cursor-pointer"
-            >
-              <Globe2 className="size-3.5 shrink-0" />
-              <span className="truncate">Tampilan</span>
-            </button>
-          </div>
+          {hasPreview ? (
+            <div className="flex flex-1 items-center gap-1.5 rounded-xl border border-black/10 bg-black/5 p-1 dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5">
+              <button
+                type="button"
+                aria-pressed={mobileSurface === "chat"}
+                onClick={openChatPanel}
+                className="inline-flex h-8 min-w-0 flex-1 items-center justify-center gap-1.5 truncate rounded-lg text-xs font-semibold transition-colors aria-pressed:bg-white aria-pressed:text-[#1c1c1c] aria-pressed:shadow-xs text-[#5f5f5d] dark:aria-pressed:bg-surface-warm-white dark:aria-pressed:text-foreground-primary dark:text-surface-warm-white/70 cursor-pointer"
+              >
+                <MessageCircle className="size-3.5 shrink-0" />
+                <span className="truncate">Diskusi</span>
+              </button>
+              <button
+                type="button"
+                aria-pressed={mobileSurface === "preview"}
+                onClick={openPreviewPanel}
+                className="inline-flex h-8 min-w-0 flex-1 items-center justify-center gap-1.5 truncate rounded-lg text-xs font-semibold transition-colors aria-pressed:bg-white aria-pressed:text-[#1c1c1c] aria-pressed:shadow-xs text-[#5f5f5d] dark:aria-pressed:bg-surface-warm-white dark:aria-pressed:text-foreground-primary dark:text-surface-warm-white/70 cursor-pointer"
+              >
+                <Globe2 className="size-3.5 shrink-0" />
+                <span className="truncate">Tampilan</span>
+              </button>
+            </div>
+          ) : (
+            <div className="flex min-w-0 flex-1 items-center justify-center px-2">
+              <span className="truncate text-xs font-bold text-foreground dark:text-surface-warm-white">
+                {projectTitle}
+              </span>
+            </div>
+          )}
           <button
             type="button"
             aria-label="Buka menu proyek"
@@ -4325,6 +4371,7 @@ export function WorkspaceShell({
         onToggleDirectEdit={toggleDirectEdit}
         runtime={runtimeControl}
         projectId={projectId}
+        hasPreview={hasPreview}
         onPickTab={(tab) => {
           setActiveTab(tab);
           setMobileSurface("preview");

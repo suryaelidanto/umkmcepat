@@ -599,7 +599,7 @@ function parseAssets(value: unknown): BusinessImageRef[] {
       continue;
     }
     result.push({
-      id: id.slice(0, 200),
+      id: id.slice(0, 1024),
       purpose: purpose as BusinessImageRef["purpose"],
     });
     if (result.length === 12) {

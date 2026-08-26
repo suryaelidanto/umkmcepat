@@ -1,4 +1,5 @@
 import { type WorkspaceCard } from "./brief";
+import { fallbackUspOptions } from "./brief-tiered-readiness";
 
 const FALLBACK_PLACEHOLDER = "Tulis jawaban kamu di sini.";
 
@@ -24,6 +25,20 @@ function isChoiceQuestionRichness(id: string, question: string): boolean {
     lowerId.includes("contact") ||
     lowerId.includes("offer") ||
     lowerId.includes("product") ||
+    lowerId.includes("service") ||
+    lowerId.includes("layanan") ||
+    lowerId.includes("menu") ||
+    lowerId.includes("kategori") ||
+    lowerId.includes("paket") ||
+    lowerId.includes("usp") ||
+    q.includes("keunggulan") ||
+    q.includes("kelebihan") ||
+    q.includes("alasan") ||
+    q.includes("layanan") ||
+    q.includes("servis") ||
+    q.includes("produk") ||
+    q.includes("menu") ||
+    q.includes("kategori") ||
     q.includes("tampilan") ||
     q.includes("gaya") ||
     q.includes("desain") ||
@@ -42,6 +57,42 @@ function fallbackOptionsForRichness(
 ): Array<{ label: string; description: string }> {
   const q = question.toLowerCase();
   const lowerId = id.toLowerCase();
+  if (
+    lowerId.includes("usp") ||
+    q.includes("keunggulan") ||
+    q.includes("kelebihan") ||
+    q.includes("alasan")
+  ) {
+    return fallbackUspOptions(question);
+  }
+  if (
+    lowerId.includes("service") ||
+    lowerId.includes("layanan") ||
+    q.includes("bengkel") ||
+    q.includes("servis") ||
+    (q.includes("layanan") &&
+      (q.includes("bengkel") || q.includes("motor") || q.includes("mobil")))
+  ) {
+    return [
+      {
+        label: "Servis Rutin & Ganti Oli",
+        description:
+          "Ganti oli mesin/transmisi, bersihkan filter & setel mesin",
+      },
+      {
+        label: "Tune Up & Perbaikan Mesin",
+        description: "Servis karburator/injeksi, perbaikan mesin & transmisi",
+      },
+      {
+        label: "Ban, Rem & Kaki-kaki",
+        description: "Ganti kampas rem, minyak rem, balancing & ganti ban",
+      },
+      {
+        label: "Kelistrikan & Ganti Aki",
+        description: "Cek aki, starter, lampu & kabel kelistrikan",
+      },
+    ];
+  }
   if (
     lowerId.includes("style") ||
     lowerId.includes("visual") ||
@@ -81,22 +132,41 @@ function fallbackOptionsForRichness(
     lowerId.includes("offer") ||
     lowerId.includes("product") ||
     lowerId.includes("layanan") ||
+    lowerId.includes("service") ||
+    lowerId.includes("menu") ||
     q.includes("jualan") ||
-    q.includes("sate apa")
+    q.includes("sate apa") ||
+    q.includes("menu") ||
+    q.includes("layanan")
   ) {
     return [
-      { label: "Paket Utama", description: "Produk/jasa paling laku" },
-      { label: "Paket Lengkap", description: "Kombinasi beberapa varian" },
-      { label: "Paket Hemat", description: "Pilihan terjangkau" },
+      {
+        label: "Paket Utama",
+        description: "Produk/jasa paling laku dan dicari",
+      },
+      {
+        label: "Paket Lengkap",
+        description: "Kombinasi layanan & produk komplit",
+      },
+      {
+        label: "Paket Hemat",
+        description: "Pilihan terjangkau untuk pelanggan baru",
+      },
     ];
   }
   return [
     {
-      label: "Opsi A",
-      description: "Pilihan pertama yang direkomendasikan",
+      label: "Pilihan Utama",
+      description: "Opsi paling umum dan direkomendasikan",
     },
-    { label: "Opsi B", description: "Pilihan alternatif kedua" },
-    { label: "Opsi C", description: "Pilihan ketiga untuk variasi" },
+    {
+      label: "Pilihan Tambahan",
+      description: "Opsi pelengkap untuk pelanggan",
+    },
+    {
+      label: "Layanan Khusus",
+      description: "Permintaan custom / sesuai kebutuhan",
+    },
   ];
 }
 
@@ -161,19 +231,25 @@ export function ensureQuestionCardRichness(card: WorkspaceCard): WorkspaceCard {
       },
     };
   }
-  // Also cover the case where a choice-intended card was incorrectly
+  // Also cover the case where a choice-intended card was incorrectly emitted as text with empty options
   if (
     q.answerMode === "text" &&
     q.options.length === 0 &&
-    (q.id.toLowerCase().includes("style") ||
-      q.id.toLowerCase().includes("visual"))
+    isChoiceQuestionRichness(q.id, q.question) &&
+    !isPrice
   ) {
-    // Keep as text unless we have strong signal; richness keeps placeholder
+    const fallback = fallbackOptionsForRichness(q.id, q.question);
     return {
       type: "question",
       question: {
         ...q,
-        placeholder: q.placeholder || FALLBACK_PLACEHOLDER,
+        answerMode: "choice",
+        selectionMode:
+          q.id.toLowerCase().includes("style") ||
+          q.id.toLowerCase().includes("visual")
+            ? "single"
+            : "multiple",
+        options: fallback.slice(0, 5),
       },
     };
   }

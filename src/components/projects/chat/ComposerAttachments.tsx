@@ -1,8 +1,9 @@
 "use client";
 
 import { Paperclip } from "lucide-react";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
+import { ImageLightbox } from "@/components/ui/image-lightbox";
 import { ImageUploadThumb } from "@/components/ui/image-upload-thumb";
 import {
   MAX_COMPOSER_IMAGES,
@@ -17,22 +18,41 @@ export function ComposerAttachments({
   attachments: PendingAttachment[];
   onRemove: (id: string) => void;
 }) {
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+
   if (attachments.length === 0) {
     return null;
   }
 
   return (
-    <div className="flex flex-wrap items-end gap-1.5 px-spacing-3 pb-spacing-2">
-      {attachments.map((item) => (
-        <ImageUploadThumb
-          className="size-11"
-          key={item.id}
-          onRemove={() => onRemove(item.id)}
-          src={item.blobUrl}
-          uploading={item.status === "uploading"}
-        />
-      ))}
-    </div>
+    <>
+      <div className="flex flex-wrap items-end gap-1.5 px-spacing-3 pb-spacing-2">
+        {attachments.map((item, idx) => (
+          <ImageUploadThumb
+            className="size-11 cursor-pointer"
+            key={item.id}
+            onClick={() => {
+              setLightboxIndex(idx);
+              setLightboxOpen(true);
+            }}
+            onRemove={() => onRemove(item.id)}
+            src={item.blobUrl}
+            uploading={item.status === "uploading"}
+          />
+        ))}
+      </div>
+
+      <ImageLightbox
+        open={lightboxOpen}
+        onOpenChange={setLightboxOpen}
+        images={attachments.map((a, i) => ({
+          src: a.blobUrl,
+          alt: a.file.name || `Lampiran ${i + 1}`,
+        }))}
+        initialIndex={lightboxIndex}
+      />
+    </>
   );
 }
 
@@ -49,7 +69,7 @@ export function ComposerAttachButton({
     <>
       <button
         aria-label="Lampirkan gambar"
-        className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-surface-warm-white/60 transition hover:bg-surface-warm-white/8 hover:text-surface-warm-white/90 disabled:opacity-30"
+        className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-surface-warm-white/60 transition hover:bg-surface-warm-white/8 hover:text-surface-warm-white/90 disabled:opacity-30 cursor-pointer"
         disabled={attachments.length >= MAX_COMPOSER_IMAGES}
         onClick={() => inputRef.current?.click()}
         title={
@@ -68,8 +88,8 @@ export function ComposerAttachButton({
         onChange={(event) => {
           const files = Array.from(event.target.files ?? []);
           if (files.length) {
-            const { next, rejected } = addAttachments(attachments, files);
-            onAdd(next, rejected);
+            const result = addAttachments(attachments, files);
+            onAdd(result.next, result.rejected);
           }
           event.target.value = "";
         }}

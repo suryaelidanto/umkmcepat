@@ -172,7 +172,7 @@ function normalizeAssetId(value: unknown): string | null {
   if (typeof value !== "string") {
     return null;
   }
-  const trimmed = value.trim().slice(0, 200);
+  const trimmed = value.trim().slice(0, 1024);
   return trimmed ? trimmed : null;
 }
 
