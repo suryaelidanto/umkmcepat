@@ -361,7 +361,7 @@ export function TicketThreadView({
                 onClick={() => resolveMutation.mutate()}
                 size="sm"
                 variant="outline"
-                className="h-8 rounded-lg border-black/15 bg-black/[0.03] px-3 text-xs font-semibold hover:bg-black/[0.07] dark:border-white/14 dark:bg-white/[0.04] dark:hover:bg-white/[0.08]"
+                className="h-8 rounded-lg border-black/15 bg-white px-3 text-xs font-semibold text-foreground hover:bg-black/5 hover:text-foreground dark:border-white/15 dark:bg-white/5 dark:text-surface-warm-white dark:hover:bg-white/10 dark:hover:text-white cursor-pointer"
                 disabled={resolveMutation.isPending}
               >
                 {resolveMutation.isPending ? "Memproses..." : "Tandai Selesai"}
@@ -371,7 +371,7 @@ export function TicketThreadView({
                 onClick={() => reopenMutation.mutate()}
                 size="sm"
                 variant="outline"
-                className="h-8 rounded-lg border-accent-orange/30 bg-accent-orange/10 px-3 text-xs font-semibold text-accent-orange hover:bg-accent-orange/20 dark:border-accent-orange/40 dark:bg-accent-orange/15"
+                className="h-8 rounded-lg border-accent-orange/30 bg-accent-orange/10 px-3 text-xs font-semibold text-accent-orange hover:bg-accent-orange/20 dark:border-accent-orange/40 dark:bg-accent-orange/15 dark:text-accent-orange cursor-pointer"
                 disabled={reopenMutation.isPending}
               >
                 {reopenMutation.isPending ? "Membuka..." : "Buka Kembali"}
