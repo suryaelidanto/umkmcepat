@@ -5,7 +5,7 @@ import { type UIMessage } from "ai";
 export const chatBubbleClass = (
   role: "user" | "assistant" | "system",
 ): string =>
-  `max-w-[88%] overflow-hidden break-words rounded-none px-spacing-4 py-spacing-3 sm:px-spacing-6 sm:py-spacing-5 transition-colors ${
+  `max-w-[88%] overflow-hidden break-words rounded-2xl px-spacing-4 py-spacing-3 sm:px-spacing-6 sm:py-spacing-5 transition-colors ${
     role === "user"
       ? "border border-black/10 bg-[#fcfbf8] text-[#1c1c1c] shadow-xs dark:border-surface-warm-white/12 dark:bg-[#30302c] dark:text-surface-warm-white/88"
       : "border border-black/8 bg-[#f5f3ec] text-[#1c1c1c] shadow-xs dark:border-surface-warm-white/10 dark:bg-[#242421] dark:text-surface-warm-white/80"
