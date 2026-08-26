@@ -66,7 +66,7 @@ A restrained, trustworthy site generation engine for Indonesian small business o
   1. **Priority #1 (Revisions / Check Again)**: If items exist in `## Needs Revision / Check Again`, read developer notes/wikilinks (or perform a full end-to-end audit if notes are empty), fix issues until rock-solid, verify with `bun run check`, and move to `## Ready for Review`.
   2. **Priority #2 (Resume)**: If an item is under `## In Progress`, drive that task to completion.
   3. **Priority #3 (Next Task / Batch)**: If `## In Progress` and `## Needs Revision / Check Again` are empty, evaluate `## Backlog`, propose an execution batch to the user, move to `## In Progress`, implement colocated tests + minimal clean code, verify 100% green via `bun run check`, and move to `## Ready for Review`.
-  4. **Approval & Commit**: Once approved by the user, move task from `## Ready for Review` to `## Done` and commit atomically. If rejected by user, it moves back to `## Needs Revision / Check Again`.
+  4. **Strict Review Boundary**: Agents NEVER move cards to `## Done`. Completed agent work ALWAYS stops at `## Ready for Review`. Only the human developer moves approved tasks to `## Done` (or moves them back to `## Needs Revision / Check Again` if changes are requested).
 - Raw developer brain dumps go into `docs/notes/ideas.md` and are triaged via `.agents/skills/triage-ideas/`. Timestamped backups of raw ideas live in `docs/notes/ideas-old/`. Personal notes live in `docs/notes/notes.md`. Long-term items park in `## Future / Icebox`.
 
 ---

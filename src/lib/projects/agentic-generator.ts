@@ -52,7 +52,7 @@ export type AgenticGeneratedSourceResult = {
     detail: string;
     diff?: DiffLine[];
     path?: string;
-    state: "succeeded" | "failed";
+    state: "succeeded" | "failed" | "active";
   }>;
   skillsRead: ProjectSkillName[];
 };
@@ -97,6 +97,8 @@ export async function runAgenticGenerate(input: {
     address?: string | null;
     hours?: unknown;
     priceRange?: string | null;
+    stylePreference?: string | null;
+    businessType?: string | null;
   };
   buildId?: string | null;
   creativeDirection?: string | null;
@@ -674,14 +676,18 @@ export async function runAgenticGenerate(input: {
         const op = {
           id: `op-${opSeq}`,
           type: "check_app",
-          title: label?.trim() || "Memeriksa build website",
+          title:
+            label?.trim() ||
+            (buildResult.ok
+              ? "Memeriksa kesiapan website"
+              : "Memeriksa & menyesuaikan website"),
           detail:
             detail?.trim() ||
             (buildResult.ok
-              ? "Build sukses dan terverifikasi!"
-              : `Build gagal: ${buildResult.log?.slice(0, 300)}`),
-          state: (buildResult.ok ? "succeeded" : "failed") as
-            "succeeded" | "failed",
+              ? "Build sukses dan terverifikasi"
+              : "Menyesuaikan kode website"),
+          state: (buildResult.ok ? "succeeded" : "active") as
+            "succeeded" | "active",
         };
         operationTrace.push(op);
         if (onEvent) {
@@ -780,7 +786,7 @@ CREATIVE AUTHORITY:
 REQUIRED WORKFLOW:
 1. Call set_design_system on step 1 with your chosen semantic palette, typography, and radius for this business. The platform checks contrast and compiles index.css.
 2. Use copy_shadcn_component to pull any needed official UI primitives (e.g. badge, separator, dialog, tabs) before importing them.
-3. Write your modular UI components under src/components/ and the complete home route in src/routes/index.tsx using write_file. Use site.* for every customer-facing value. Use read_skill for deep reference docs (impeccable-craft-floor, impeccable-layout, impeccable-typeset) when needed.
+3. Write your modular UI components under src/components/ and the complete home route in src/routes/index.tsx using write_file. Use site.* for every customer-facing value. Use read_skill for deep reference docs (impeccable-craft-floor, impeccable-layout, impeccable-typeset) when needed. ROUTING CONTRACT: src/routes/index.tsx MUST export a named function \`export function HomeRouteComponent() { ... }\`.
 4. Write natural, warm, active Indonesian copy. Avoid AI puffery, filler buzzwords ("solusi terbaik", "kualitas terdepan"), em-dashes (—), and decorative badge soup.
 5. Call run_design_audit to inspect your UI against Impeccable contrast and anti-pattern rules.
 6. Call check_app to verify compilation and preflight checks. Finish after check_app returns ok: true.
@@ -847,6 +853,40 @@ The website owner is a non-technical Indonesian business owner (UMKM). They watc
       ? `\nREQUIRED ROUTES TO IMPLEMENT:\nThis project has multiple accepted pages. You MUST write and render all required routes:\n${schema.routes.map((r) => `- "${r.path}" (${r.title}) -> write component or route for it`).join("\n")}`
       : `\nREQUIRED ROUTES:\nThis project is a single-page storefront. Implement the complete home page in src/routes/index.tsx with all relevant sections.`;
 
+  const hasExistingComponents = Boolean(
+    input.initialFiles?.some(
+      (f) =>
+        f.path.startsWith("src/components/site/") ||
+        f.path === "src/routes/index.tsx",
+    ),
+  );
+
+  const existingFileList =
+    input.initialFiles
+      ?.filter(
+        (f) =>
+          f.path.startsWith("src/components/site/") ||
+          f.path === "src/routes/index.tsx" ||
+          f.path === "src/index.css",
+      )
+      .map((f) => `- ${f.path}`)
+      .join("\n") || "";
+
+  const executionSequence = hasExistingComponents
+    ? `EXISTING SITE FILES:
+${existingFileList}
+
+MANDATORY UPDATE SEQUENCE (SURGICAL & FAST — 2-3 STEPS TOTAL):
+1. If the user requested a color/palette change or visual style adjustment, call set_design_system on step 1 with your chosen semantic palette.
+2. Edit ONLY the 1-2 specific files requested by the user. DO NOT re-read or rewrite untouched components.
+3. Call check_app to verify and finish immediately in 2-3 steps.`
+    : `MANDATORY EXECUTION SEQUENCE (STRICT SPEED & COMPLETION):
+1. Call set_design_system on step 1 with your chosen semantic palette and typography suited for this business.
+2. Call copy_shadcn_component to vendor needed components (e.g. badge, separator).
+3. Immediately write the site components under src/components/site/ (Header.tsx, Hero.tsx, MenuOrCatalog.tsx, LocationAndContact.tsx, Footer.tsx) using write_file. If site.images is present, render <img src={site.images[0].url} alt={site.images[0].alt || site.businessName} /> in Hero or Gallery.
+4. Immediately write src/routes/index.tsx assembling all components.
+5. Run check_app to verify compilation and finish. Do not loop reading files or idling.`;
+
   const userPrompt = input.revisionBrief
     ? `This is a SURGICAL REVISION PASS to polish specific findings from visual review.
 Review findings:
@@ -856,7 +896,7 @@ SURGICAL REVISION INSTRUCTIONS:
 1. Modify ONLY the 1 specific file mentioned in the findings (e.g. adjust contrast or typography).
 2. DO NOT re-read or rewrite existing working components.
 3. Call check_app to verify compilation and finish immediately in 2-3 steps.`
-    : `Build the complete static website from the accepted project data below.
+    : `Build or update the static website from the accepted project data below.
 
 Brief prompt: ${formatPromptValue(brief.prompt)}
 Business name from brief: ${formatPromptValue(brief.businessName)}
@@ -865,6 +905,7 @@ Primary offer from brief: ${formatPromptValue(brief.offer)}
 Address from brief: ${formatPromptValue(brief.address)}
 Hours from brief: ${formatPromptValue(brief.hours)}
 Price range from brief: ${formatPromptValue(brief.priceRange)}
+Style / Color preference: ${formatPromptValue(brief.stylePreference)}
 ${routesInstruction}
 
 AUTHORITATIVE SITE SNAPSHOT:
@@ -875,12 +916,7 @@ ${formatPromptValue(schema)}
 FROZEN CREATIVE DIRECTION (taste only; it cannot introduce a fact):
 ${formatPromptValue(input.creativeDirection)}
 
-MANDATORY EXECUTION SEQUENCE (STRICT SPEED & COMPLETION):
-1. Call set_design_system on step 1 with your chosen semantic palette and typography.
-2. Call copy_shadcn_component to vendor needed components (e.g. badge, separator).
-3. Immediately write the site components under src/components/site/ (Header.tsx, Hero.tsx, MenuOrCatalog.tsx, LocationAndContact.tsx, Footer.tsx) using write_file. If site.images is present, render <img src={site.images[0].url} alt={site.images[0].alt || site.businessName} /> in Hero or Gallery.
-4. Immediately write src/routes/index.tsx assembling all components.
-5. Run check_app to verify compilation and finish. Do not loop reading files or idling.`;
+${executionSequence}`;
 
   const requestedModel = getGenerationModel();
   const maxSteps = getAgentMaxSteps("generate");

@@ -331,4 +331,30 @@ describe("runAgenticGenerate", () => {
     expect(captured.prompt).not.toContain("08.00-21.00 WIB");
     expect(captured.prompt).not.toContain("Terjangkau");
   });
+
+  it("passes existing file manifest and surgical update instructions when components exist", async () => {
+    let capturedPrompt = "";
+    generateTextMock.mockImplementationOnce(async (args) => {
+      const parsed = args as { prompt?: string };
+      capturedPrompt = parsed.prompt ?? "";
+      return { text: "Done", steps: [] };
+    });
+
+    await expect(
+      runAgenticGenerate(
+        createInput({
+          initialFiles: [
+            { path: "src/components/site/Hero.tsx", content: "// hero" },
+            { path: "src/routes/index.tsx", content: "// index" },
+          ],
+        }),
+      ),
+    ).rejects.toThrow();
+
+    expect(capturedPrompt).toContain("EXISTING SITE FILES");
+    expect(capturedPrompt).toContain("src/components/site/Hero.tsx");
+    expect(capturedPrompt).toContain(
+      "MANDATORY UPDATE SEQUENCE (SURGICAL & FAST",
+    );
+  });
 });

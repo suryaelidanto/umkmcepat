@@ -49,12 +49,19 @@ describe("parseAdminEnergyGrant", () => {
     });
   });
 
-  it.each([0, 2_000_001, 1.5, "500000", null])(
+  it("accepts numeric string values in range", () => {
+    expect(parseAdminEnergyGrant({ amount: "1.000.000" })).toEqual({
+      ok: true,
+      amount: 1_000_000,
+    });
+  });
+
+  it.each([0, 100_000_001, 1.5, "not-a-number", null])(
     "rejects invalid amount %j",
     (amount) => {
       expect(parseAdminEnergyGrant({ amount })).toEqual({
         ok: false,
-        message: "amount harus bilangan bulat antara 1 dan 2.000.000.",
+        message: "amount harus bilangan bulat antara 1 dan 100.000.000.",
       });
     },
   );

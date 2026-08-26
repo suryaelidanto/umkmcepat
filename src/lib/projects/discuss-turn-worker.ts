@@ -582,6 +582,12 @@ export async function runDiscussTurn({
     if (!chatText) {
       // Post-build: none is a legal card. Do not repair for interview cards
       if (hasBuiltSite) {
+        const fallbackText = "Siap, perubahannya sudah aku catat.";
+        publishProgress(turnId, {
+          type: "text-delta",
+          id: textPartId,
+          delta: fallbackText,
+        });
         const resolvedToolCallId = streamToolCallId || toolCallId;
         publishProgress(turnId, {
           type: "tool-input-available",
@@ -602,6 +608,7 @@ export async function runDiscussTurn({
           id: messageId,
           role: "assistant",
           parts: [
+            { type: "text", text: fallbackText, state: "done" },
             {
               type: `tool-${PRESENT_WORKSPACE_CARD_TOOL_NAME}`,
               toolCallId: resolvedToolCallId,
@@ -976,6 +983,12 @@ export async function runDiscussTurn({
         repairsUsed,
       },
     });
+
+    if (!chatText.trim()) {
+      chatText = hasBuiltSite
+        ? "Siap, perubahannya sudah aku catat. Klik Perbarui Website untuk menerapkan ke websitemu."
+        : "Ada yang bisa aku bantu lagi?";
+    }
 
     // Last word on coherence: the owner answers the card, so a message that
     chatText = alignAssistantTextWithCard(

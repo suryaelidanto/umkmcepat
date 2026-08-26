@@ -16,12 +16,15 @@ function parseGrantArgs(body: unknown): number | null {
     return null;
   }
   const obj = body as Record<string, unknown>;
-  const raw = obj.amount;
+  const raw =
+    typeof obj.amount === "string"
+      ? Number(obj.amount.replaceAll(".", "").replaceAll(",", ""))
+      : obj.amount;
   if (typeof raw !== "number" || Number.isNaN(raw)) {
     return null;
   }
   const n = Math.floor(raw);
-  if (raw !== n || n < 1 || n > 2_000_000) {
+  if (raw !== n || n < 1 || n > 100_000_000) {
     return null;
   }
   return n;
@@ -34,7 +37,7 @@ export function parseAdminEnergyGrant(
   if (amount === null) {
     return {
       ok: false,
-      message: "amount harus bilangan bulat antara 1 dan 2.000.000.",
+      message: "amount harus bilangan bulat antara 1 dan 100.000.000.",
     };
   }
   return { ok: true, amount };
@@ -109,12 +112,11 @@ export const Route = createFileRoute("/api/admin/users/$id")({
               return Response.json({ message: parse.message }, { status: 400 });
             }
             await grantAdminEnergy(id, parse.amount);
-            return Response.json({ granted: parse.amount });
-          } catch {
-            return Response.json(
-              { message: "Internal server error." },
-              { status: 500 },
-            );
+            return Response.json({ granted: parse.amount, ok: true });
+          } catch (err: unknown) {
+            const errorMsg =
+              err instanceof Error ? err.message : "Internal server error.";
+            return Response.json({ message: errorMsg }, { status: 500 });
           }
         }
         return Response.json(

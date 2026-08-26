@@ -356,6 +356,36 @@ const PREVIEW_ANNOTATION_BRIDGE = String.raw`
     window.parent?.postMessage({ type: "umkmcepat-preview-ready" }, "*");
   } catch {}
 
+  // Prevent preview iframe navigation & anchor clicks from polluting parent window browser history
+  document.addEventListener('click', (e) => {
+    const anchor = e.target && e.target.closest ? e.target.closest('a') : null;
+    if (!anchor) return;
+    const href = anchor.getAttribute('href');
+    if (!href) return;
+
+    // In-page hash jumps (#menu, #location, #contact)
+    if (href.startsWith('#')) {
+      e.preventDefault();
+      const id = href.slice(1);
+      const targetEl = id ? document.getElementById(id) : null;
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: 'smooth' });
+      }
+      return;
+    }
+
+    // External links and WhatsApp
+    if (anchor.target === '_blank' || href.startsWith('http://') || href.startsWith('https://') || href.startsWith('mailto:') || href.startsWith('tel:')) {
+      return;
+    }
+
+    // Internal navigation within iframe: use replaceState to keep parent history clean
+    e.preventDefault();
+    if (window.history && window.history.replaceState) {
+      window.history.replaceState(null, '', href);
+    }
+  }, { capture: true });
+
   // The control-plane origin (set by the parent via data-umkm-origin).
   const bridgeScript = document.currentScript || document.querySelector('script[data-umkm-annotation-bridge]');
   const PARENT_ORIGIN = bridgeScript ? bridgeScript.getAttribute('data-umkm-origin') || '*' : '*';
