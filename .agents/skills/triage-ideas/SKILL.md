@@ -1,12 +1,12 @@
 ---
 name: triage-ideas
-description: Triage raw thoughts and inspect all attached images from docs/notes/ideas.md into structured Kanban tasks with [#XX] codes, contextual icon, priority, author, date, and clean spacing in docs/notes/backlog.md, backup to docs/notes/ideas-old/<timestamp>.md, and clear ideas.md.
+description: Triage raw thoughts and inspect all attached images from docs/notes/ideas.md into structured Kanban tasks with [#XX] codes, contextual icon, and clean spacing in docs/notes/backlog.md, backup to docs/notes/ideas-old/<timestamp>.md, and clear ideas.md.
 disable-model-invocation: true
 ---
 
 # Triage Ideas Skill
 
-Interview the developer relentlessly to map raw thoughts and attached visual evidence from `docs/notes/ideas.md` into precise Kanban tasks with `[#XX]` codes, single contextual emoji, priority indicator `[P0..P3]`, `@author`, created date, and clean breathing room spacing in `docs/notes/backlog.md`, save timestamped backups in `docs/notes/ideas-old/`, and keep `docs/notes/ideas.md` clean for the next dump.
+Interview the developer relentlessly to map raw thoughts and attached visual evidence from `docs/notes/ideas.md` into precise Kanban tasks with `[#XX]` codes, single contextual emoji, and clean breathing room spacing in `docs/notes/backlog.md`, save timestamped backups in `docs/notes/ideas-old/`, and keep `docs/notes/ideas.md` clean for the next dump.
 
 ## Workflow & Non-Destructive Principles
 
@@ -21,11 +21,9 @@ Interview the developer relentlessly to map raw thoughts and attached visual evi
 2. **Standardized Card Formatting**:
    - Format:
      ```markdown
-     - [ ] <emoji> **[#XX] [P0..P3] Title**: Concrete description explaining what needs to change, why, and acceptance boundaries #tag1 #tag2 @author YYYY-MM-DD
+     - [ ] <emoji> **[#XX] Title**: Concrete description explaining what needs to change, why, and acceptance boundaries #tag1 #tag2
      ```
    - Standard domain tags: `#engine`, `#ui`, `#ux`, `#workspace`, `#security`, `#copy`, `#scaffold`, `#media`, `#data`, `#future`.
-   - Standard priority: `[P0]` (Critical/Blocker), `[P1]` (High), `[P2]` (Medium), `[P3]` (Low/Polish).
-   - Author: `@<git-username>` (e.g. `@suryaelidanto`).
    - Contextual Emoji: Exactly 1 emoji reflecting the task (e.g. 📸 media, 📜 history/docs, 🎨 UI, 💬 chat, 🛡️ security, ⚡ perf, 🧪 test, 🔄 sync/restore, 🚀 deploy).
    - **Breathing Room (Spacing)**: Always leave a blank newline between cards in `docs/notes/backlog.md` for clean Obsidian Kanban board rendering.
 
