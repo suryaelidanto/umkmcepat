@@ -8,8 +8,6 @@ kanban-plugin: board
 
 - [ ] 📜 **[#26] [P1] Backlog Card Formatting, Contextual Icon, and Skill Standardization**: Standardize all task cards with single contextual icon, priority indicator [P0..P3], @author, created date, and clean spacing across Obsidian Kanban board, updating triage-ideas, add-backlog, and add-do-backlog skills #skills #backlog #ux @suryaelidanto 2026-08-26
 
-- [ ] 🔄 **[#27] [P0] Instant Snapshot History Checkout & Automatic Preview Reload**: Fix 409 plan mismatch blocker in snapshot restore route so selecting previous versions activates immediately and automatically reloads the live preview iframe without requiring manual user refreshes #workspace #history #preview #engine @suryaelidanto 2026-08-26
-
 
 
 ## In Progress
@@ -21,6 +19,8 @@ kanban-plugin: board
 
 
 ## Ready for Review
+
+- [ ] 🔄 **[#27] [P0] Instant Snapshot History Checkout & Automatic Preview Reload**: Fix 409 plan mismatch blocker in snapshot restore route so selecting previous versions activates immediately and automatically reloads the live preview iframe without requiring manual user refreshes #workspace #history #preview #engine @suryaelidanto 2026-08-26
 
 - [ ] 💬 **[#23] [P1] Relentless Multi-Tier Fact Gathering & Anti-Premature Build Guard**: Enforce rigorous sequential probing across Tier 1, Tier 2 (pricing, photos via image_upload, location, USP), and Tier 3 (testimonials, certifications, promo) in discuss prompts and intercept premature build_recommendation cards unless Tier 2 is fully probed or user explicitly triggers manual build #engine #discuss #brief @suryaelidanto 2026-08-26
 
