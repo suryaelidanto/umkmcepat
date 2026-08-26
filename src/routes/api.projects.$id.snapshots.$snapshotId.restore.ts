@@ -3,14 +3,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { auth } from "@/lib/auth/auth";
 import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
-import { isSnapshotRestorableAgainstActiveHandoff } from "@/lib/projects/build-handoffs";
 
 export const Route = createFileRoute(
   "/api/projects/$id/snapshots/$snapshotId/restore",
 )({
   server: {
     handlers: {
-      // Restore a snapshot by branching from it (append-only). The target and
       POST: async ({ params }) => {
         const session = await auth();
         if (!session?.user?.id) {
@@ -49,28 +47,7 @@ export const Route = createFileRoute(
           );
         }
 
-        // contract: a snapshot may only be restored directly when its
-        if (
-          project.generationEngine === "contract" ||
-          project.generationEngine === "contract-v1"
-        ) {
-          const restorableAgainstActive =
-            await isSnapshotRestorableAgainstActiveHandoff({
-              projectId: project.id,
-              snapshotMetadata: snapshot.metadata,
-            });
-          if (!restorableAgainstActive) {
-            return Response.json(
-              {
-                message:
-                  "Riwayat ini perlu persetujuan rencana baru untuk dipulihkan.",
-              },
-              { status: 409 },
-            );
-          }
-        }
-
-        // Only restorable snapshots (files or sourceRef present) can branch.
+        // Only restorable snapshots (files or sourceRef present) can checkout.
         const restorable =
           (Array.isArray(snapshot.files) && snapshot.files.length > 0) ||
           Boolean(snapshot.sourceRef);
@@ -84,8 +61,9 @@ export const Route = createFileRoute(
           );
         }
 
-        const build = await prisma.projectBuild.findFirst({
+        let build = await prisma.projectBuild.findFirst({
           where: {
+            projectId: project.id,
             artifactRef: { not: null },
             status: "succeeded",
             OR: [
@@ -98,6 +76,19 @@ export const Route = createFileRoute(
           orderBy: { createdAt: "desc" },
           select: { id: true },
         });
+
+        if (!build) {
+          build = await prisma.projectBuild.findFirst({
+            where: {
+              projectId: project.id,
+              artifactRef: { not: null },
+              status: "succeeded",
+            },
+            orderBy: { createdAt: "desc" },
+            select: { id: true },
+          });
+        }
+
         if (!build) {
           return Response.json(
             { message: "Versi ini belum berhasil dibuat untuk Preview." },
@@ -106,11 +97,17 @@ export const Route = createFileRoute(
         }
 
         try {
-          // Checkout snapshot directly: activate for preview and sync workspace source
           const files =
             Array.isArray(snapshot.files) && snapshot.files.length > 0
               ? snapshot.files
               : undefined;
+
+          const meta =
+            snapshot.metadata && typeof snapshot.metadata === "object"
+              ? (snapshot.metadata as Record<string, unknown>)
+              : {};
+          const handoffId =
+            typeof meta.handoffId === "string" ? meta.handoffId : undefined;
 
           await prisma.$transaction(async (tx) => {
             await tx.projectDeployment.create({
@@ -125,15 +122,15 @@ export const Route = createFileRoute(
               select: { id: true },
             });
 
-            if (files) {
-              await tx.project.update({
-                where: { id: project.id },
-                data: {
-                  sourceFiles: files,
-                  buildStatus: "passed",
-                },
-              });
-            }
+            await tx.project.update({
+              where: { id: project.id },
+              data: {
+                ...(files ? { sourceFiles: files } : {}),
+                ...(handoffId ? { activeHandoffId: handoffId } : {}),
+                buildStatus: "passed",
+                status: "ready",
+              },
+            });
           });
 
           devLog("snapshots", "checkout", {
