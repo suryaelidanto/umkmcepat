@@ -17,7 +17,8 @@ describe("generatePaletteInMemory", () => {
 
   it("generates deterministic fallback seed from business name", async () => {
     const palette = await generatePaletteInMemory("Warung Bakso Pak Kumis");
-    expect(palette.seed).toBeDefined();
-    expect(palette.mood).toBeDefined();
+    expect(palette.seed).toMatch(/^#[0-9a-f]{6}$/i);
+    expect(typeof palette.mood).toBe("string");
+    expect(palette.mood.length).toBeGreaterThan(0);
   });
 });

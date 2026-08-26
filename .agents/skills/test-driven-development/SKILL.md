@@ -28,6 +28,22 @@ Write the test first. Watch it fail. Write minimal code to pass.
 
 Thinking "skip TDD just this once"? Stop. That's rationalization.
 
+## The Unbreakable Bar (NEVER Lower the Test Standard)
+
+```
+ELEVATE THE CODE TO PASS THE TEST — NEVER LOWER THE BAR OF THE TEST ITSELF
+```
+
+When a test fails:
+1. **Fix the actual production logic and root cause.**
+2. **STRICTLY FORBIDDEN:**
+   - Never soften specific assertions to loose checks (e.g. replacing `expect(x).toEqual(specific)` with `expect(x).toBeDefined()` or `expect(typeof x).toBe("object")`).
+   - Never delete, comment out, or bypass failing test cases to get a cheap green check.
+   - Never weaken error branch validations or contract checks.
+   - Never write shallow "pass-through" tests that merely execute a function without asserting meaningful boundary behavior.
+
+If the test caught a bug, the test did its job. Celebrate the catch and fix the code.
+
 ## The Iron Law of AI & Generated Output Testing (MANDATORY)
 
 ```
@@ -46,7 +62,7 @@ In AI-powered generation engines, unit and TDD tests MUST NOT assert:
 2. **Type Narrowing**: Type safety, boundaries, error cases, null handling.
 3. **Hard Boundaries**: Action URLs, route topology, package policies, security permissions, compilation.
 
-Testing markup, styling, or prose forces rigid, template-ish AI output. Default styling (e.g. `scroll-behavior: smooth`, tokens) belongs in the static starter scaffold, not in string-matching test assertions. Visual and aesthetic appeal belongs strictly to human visual inspection.
+Testing markup, styling, or prose forces rigid, template-ish AI output. Default styling belongs in static starter scaffolds, not in string-matching test assertions. Visual and aesthetic appeal belongs strictly to human visual inspection.
 
 ## The Iron Law
 
@@ -135,7 +151,7 @@ Vague name, tests mock not code
 **MANDATORY. Never skip.**
 
 ```bash
-npm test path/to/test.test.ts
+bun test path/to/test.test.ts
 ```
 
 Confirm:
@@ -190,7 +206,7 @@ Don't add features, refactor other code, or "improve" beyond the test.
 **MANDATORY.**
 
 ```bash
-npm test path/to/test.test.ts
+bun test path/to/test.test.ts
 ```
 
 Confirm:
@@ -215,126 +231,78 @@ Keep tests green. Don't add behavior.
 
 Next failing test for next feature.
 
-## Good Tests
+---
 
-| Quality | Good | Bad |
-|---------|------|-----|
-| **Minimal** | One thing. "and" in name? Split it. | `test('validates email and domain and whitespace')` |
-| **Clear** | Name describes behavior | `test('test1')` |
-| **Shows intent** | Demonstrates desired API | Obscures what code should do |
+## Writing High-Signal, Honest Tests
 
-When writing or changing any test, read [writing-good-tests.md](writing-good-tests.md) for the rules that keep tests honest:
-- Name the production change that would make the test fail — before writing it
-- Assert on real behavior, never on mock behavior
-- Keep test-only code in test utilities, out of production classes
-- Understand a dependency's side effects before mocking it
+A test exists to catch a specific break. Two core principles govern all tests:
+
+```
+1. Every test names the break it catches
+2. Every test exercises the real thing
+```
+
+### Principle 1: Name the Break
+
+Before writing the test body, answer: **what production change should make this test fail — and is that change a bug or a decision?** A test earns its place by catching a wrong branch, missing side effect, wrong argument, boundary case, or broken contract.
+
+**Derive expectations independently.** Use literals and hand-checked fixtures; table-driven tests with literal `want` values are the preferred shape. An expectation computed by the code under test — or its helpers — passes no matter what that code does:
+
+```typescript
+// ❌ Mirror assertion: the same builder computes both sides — always true
+const expected = buildSearchQuery({ tag: 'urgent' });
+expect(buildSearchQuery({ tag: 'urgent' })).toBe(expected);
+
+// ✅ Hand-derived literal
+expect(buildSearchQuery({ tag: 'urgent' })).toBe('tag:"urgent"');
+```
+
+**No change detectors.** If only intentional decisions can fail a test — a constant's value, exact message wording, private structure — it fires on redesign and sleeps through bugs. Test the behavior that depends on the decision: not `expect(MAX_RETRIES).toBe(5)` but "a failing call is retried 5 times and the 6th attempt never happens."
+
+**Your code, not the framework.** Test the contract your code makes at its boundaries — the route you register, the query you emit, the payload you produce. Upstream mechanics belong to upstream test suites. Test constructors, getters, and forwarding only when they validate, normalize, default, derive, or cause side effects.
+
+### Principle 2: Exercise the Real Thing
+
+**The mock earns no assertions.** A mock assertion passes when the mock is present and fails when it is absent — it says nothing about the component. Assert the real component's behavior; if the mock is what you are checking, unmock it or delete the assertion.
+
+**Mock at the right level.** Learn every side effect of the real method before replacing it; mock only the slow or external network/database boundary, and keep everything the test depends on real.
+
+**Make doubles specific.** When arguments, call counts, or ordering are part of the contract, assert them — a fake that accepts anything verifies nothing. Give each branch (success, error, malformed) its own fixture or spy, so the wrong branch cannot satisfy the expectation.
+
+---
 
 ## Common Rationalizations
 
 | Excuse | Reality |
 |--------|---------|
 | "Too simple to test" | Simple code breaks. Test takes 30 seconds. |
-| "I'll test after" | Tests written after pass immediately — which proves nothing. They may test the wrong thing, test the implementation instead of the behavior, or miss the edge case you forgot. You never watched it fail, so you never proved it can catch the bug. Test-first forces that failure. |
-| "Tests after achieve same goals (spirit not ritual)" | Tests-after answer "what does this do?"; tests-first answer "what should this do?" Tests written after are biased by the code you already wrote — you verify the cases you remembered, not the ones you'd have discovered. Coverage without proof the tests work. |
-| "Already manually tested" | Manual testing is ad-hoc: no record of what you covered, no way to re-run it when the code changes, easy to forget cases under pressure. "Worked when I tried it" ≠ comprehensive. Automated tests run the same way every time. |
-| "Deleting X hours is wasteful" | Sunk cost fallacy — that time is already spent either way. The real choice: rewrite with TDD (high confidence) vs. keep it and bolt tests on after (low confidence, likely bugs). Keeping code you can't trust is the waste. |
+| "I'll test after" | Tests written after pass immediately — which proves nothing. They verify the cases you remembered, not the ones you'd have discovered. |
+| "Already manually tested" | Manual testing has no record, cannot re-run in CI, and misses edge cases under pressure. Automated tests run the same way every time. |
+| "Deleting X hours is wasteful" | Sunk cost fallacy. Rewrite with TDD gives high confidence. Keeping code you cannot trust is the real waste. |
 | "Keep as reference, write tests first" | You'll adapt it. That's testing after. Delete means delete. |
-| "Need to explore first" | Fine. Throw away exploration, start with TDD. |
-| "Test hard = design unclear" | Listen to test. Hard to test = hard to use. |
-| "TDD will slow me down" | TDD IS the pragmatic path: catches bugs before commit, prevents regressions, lets you refactor without fear. "Pragmatic" shortcuts mean debugging in production — slower, not faster. |
-| "Manual test faster" | Manual doesn't prove edge cases. You'll re-test every change. |
-| "Existing code has no tests" | You're improving it. Add tests for existing code. |
+| "Lower the test assertion to pass CI" | Pure malpractice. When a test fails, elevate the production code. Never weaken assertions. |
 
 ## Red Flags - STOP and Start Over
 
 - Code before test
 - Test after implementation
-- Test passes immediately
+- Test passes immediately on first run
+- Softening an assertion (`toBeDefined`) to bypass a failure
+- Asserting on AI prose, styling strings, or HTML trees
 - Can't explain why test failed
-- Tests added "later"
-- Rationalizing "just this once"
-- "I already manually tested it"
-- "Tests after achieve the same purpose"
-- "It's about spirit not ritual"
-- "Keep as reference" or "adapt existing code"
-- "Already spent X hours, deleting is wasteful"
 - "TDD is dogmatic, I'm being pragmatic"
-- "This is different because..."
 
 **All of these mean: Delete code. Start over with TDD.**
-
-## Example: Bug Fix
-
-**Bug:** Empty email accepted
-
-**RED**
-```typescript
-test('rejects empty email', async () => {
-  const result = await submitForm({ email: '' });
-  expect(result.error).toBe('Email required');
-});
-```
-
-**Verify RED**
-```bash
-$ npm test
-FAIL: expected 'Email required', got undefined
-```
-
-**GREEN**
-```typescript
-function submitForm(data: FormData) {
-  if (!data.email?.trim()) {
-    return { error: 'Email required' };
-  }
-  // ...
-}
-```
-
-**Verify GREEN**
-```bash
-$ npm test
-PASS
-```
-
-**REFACTOR**
-Extract validation for multiple fields if needed.
 
 ## Verification Checklist
 
 Before marking work complete:
 
-- [ ] Every new function/method has a test
+- [ ] Every new function/method has a colocated test
 - [ ] Watched each test fail before implementing
 - [ ] Each test failed for expected reason (feature missing, not typo)
 - [ ] Wrote minimal code to pass each test
-- [ ] All tests pass
+- [ ] Assertions test deterministic mechanical invariants (Zod, schemas, error boundaries)
+- [ ] No assertions on stochastic AI prose, classNames, or HTML trees
+- [ ] All tests pass cleanly without lowering any test standards
 - [ ] Output pristine (no errors, warnings)
-- [ ] Tests use real code (mocks only if unavoidable)
-- [ ] Edge cases and errors covered
-
-Can't check all boxes? You skipped TDD. Start over.
-
-## When Stuck
-
-| Problem | Solution |
-|---------|----------|
-| Don't know how to test | Write wished-for API. Write assertion first. Ask your human partner. |
-| Test too complicated | Design too complicated. Simplify interface. |
-| Must mock everything | Code too coupled. Use dependency injection. |
-| Test setup huge | Extract helpers. Still complex? Simplify design. |
-
-## Debugging Integration
-
-Bug found? Write failing test reproducing it. Follow TDD cycle. Test proves fix and prevents regression.
-
-Never fix bugs without a test.
-
-## Final Rule
-
-```
-Production code → test exists and failed first
-Otherwise → not TDD
-```
-
-No exceptions without your human partner's permission.

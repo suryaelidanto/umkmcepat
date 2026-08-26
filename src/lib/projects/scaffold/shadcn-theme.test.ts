@@ -46,7 +46,7 @@ describe("compileShadcnTheme", () => {
     const mutedText = /--muted-foreground:\s*(#[0-9a-f]{6})/i.exec(
       result.css,
     )?.[1];
-    expect(mutedText).toBeDefined();
+    expect(mutedText).toMatch(/^#[0-9a-f]{6}$/i);
     expect(mutedText?.toLowerCase()).not.toBe("#1c1c1c");
     expect(contrastRatio(mutedText!, "#0D0D0D")).toBeGreaterThanOrEqual(4.5);
     expect(result.checks.every((check) => check.pass)).toBe(true);
@@ -66,8 +66,8 @@ describe("compileShadcnTheme", () => {
       result.css,
     )?.[1];
 
-    expect(muted).toBeDefined();
-    expect(mutedForeground).toBeDefined();
+    expect(muted).toMatch(/^#[0-9a-f]{6}$/i);
+    expect(mutedForeground).toMatch(/^#[0-9a-f]{6}$/i);
     expect(contrastRatio("#3d2b1f", muted!)).toBeGreaterThanOrEqual(4.5);
     expect(contrastRatio(mutedForeground!, muted!)).toBeGreaterThanOrEqual(4.5);
     expect(
@@ -110,7 +110,7 @@ describe("compileShadcnTheme", () => {
     );
     const accent = /--accent:\s*(#[0-9a-f]{6})/i.exec(result.css)?.[1];
     const primary = /--primary:\s*(#[0-9a-f]{6})/i.exec(result.css)?.[1];
-    expect(accent).toBeDefined();
+    expect(accent).toMatch(/^#[0-9a-f]{6}$/i);
     expect(accent?.toLowerCase()).not.toBe("#0077dd");
     expect(primary?.toLowerCase()).toBe(accent?.toLowerCase());
     expect(result.checks.every((check) => check.pass)).toBe(true);
@@ -163,8 +163,8 @@ describe("compileShadcnTheme", () => {
     );
     const accent = /--accent:\s*(#[0-9a-f]{6})/i.exec(result.css)?.[1];
     const background = /--background:\s*(#[0-9a-f]{6})/i.exec(result.css)?.[1];
-    expect(accent).toBeDefined();
-    expect(background).toBeDefined();
+    expect(accent).toMatch(/^#[0-9a-f]{6}$/i);
+    expect(background).toMatch(/^#[0-9a-f]{6}$/i);
     expect(contrastRatio(accent!, background!)).toBeGreaterThanOrEqual(4.5);
     expect(result.checks.every((check) => check.pass)).toBe(true);
   });

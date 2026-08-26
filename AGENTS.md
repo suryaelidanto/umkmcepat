@@ -27,6 +27,7 @@ A restrained, trustworthy site generation engine for Indonesian small business o
 
 ## Rules — god-tier
 
+- **THE UNBREAKABLE BAR (NEVER LOWER THE TEST STANDARD)**: When a test fails, you MUST fix the production code and elevate the logic. NEVER soften assertions (e.g. replacing specific equality with loose `.toBeDefined()`), never delete or comment out valid boundary tests, and never write shallow pass-through tests just to get a cheap green check. If a test caught a break, fix the root cause.
 - **NEVER TEST AI RESPONSE CONTENT, CLASSNAMES, ANCHORS, OR STOCHASTIC OUTPUT (IRON LAW)**: Unit and TDD tests MUST NOT assert AI model prose, answer wording, Indonesian phrasing, exact className strings, Tailwind utility lists, HTML tag structures, anchor hrefs/IDs, palette hues, fonts, layout structure, card counts, section sequences, or generated source snapshots. Tests assert deterministic mechanical invariants only:
   1. JSON Schemas (Zod validation)
   2. Structure conformance, data types, and presence of required keys
