@@ -1390,6 +1390,7 @@ export function WorkspaceShell({
         onReload: () => {
           void loadRuntimeState();
           setSourceReloadKey((current) => current + 1);
+          setPreviewReloadKey((current) => current + 1);
         },
         publishedPath,
         runtimeState,
@@ -2904,7 +2905,7 @@ export function WorkspaceShell({
         submitChatText(message);
         return;
       }
-      toast.info("Tuliskan arahan perubahan di chat, lalu kirim.");
+      await handleStartBuild();
       return;
     }
 

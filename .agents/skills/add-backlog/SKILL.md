@@ -1,6 +1,6 @@
 ---
 name: add-backlog
-description: Use when adding explicit, isolated tasks, bugs, or feature tickets with T-XX codes and domain tags into docs/notes/backlog.md without running a full idea triage.
+description: Use when adding explicit, isolated tasks, bugs, or feature tickets with [#XX] codes and domain tags directly into docs/notes/backlog.md.
 disable-model-invocation: true
 ---
 
@@ -12,21 +12,23 @@ Add isolated, actionable tasks directly into `docs/notes/backlog.md` with determ
 
 1. **Inspect Existing Backlog**:
    - Read `docs/notes/backlog.md`.
-   - Find the highest existing ticket number (e.g. `[#13]`).
-   - Assign the next sequential code (e.g. `[#14]`).
+   - Find the highest existing ticket number across all columns (e.g. `[#16]`).
+   - Assign the next sequential code (e.g. `[#17]`).
 
 2. **Format Isolated Task Card**:
    - Every ticket must represent a single, isolated concern.
    - Format:
      ```markdown
-     - [ ] **[#XX] Title**: Concrete description explaining what needs to change, why, and the acceptance boundary #tag1 #tag2
+     - [ ] **[#XX] Title**: Concrete description explaining what needs to change, why, and acceptance boundaries #tag1 #tag2
      ```
    - Standard domain tags: `#engine`, `#ui`, `#ux`, `#workspace`, `#security`, `#copy`, `#scaffold`, `#media`, `#data`, `#future`.
 
 3. **Append Non-Destructively**:
-   - Add new actionable tickets to the bottom of `## Backlog`.
-   - Add long-term or speculative items to `## Future / Icebox`.
-   - Never modify or reorder items in `## In Progress`, `## Needs Revision / Check Again`, `## Ready for Review`, or `## Done`.
+   - Write and append the ticket directly to the bottom of `## Backlog` in `docs/notes/backlog.md` (or `## Future / Icebox` for speculative/parking items).
+   - Never modify or reorder existing tickets in any other column.
 
 4. **Verify**:
-   - Run `bunx prettier --write docs/notes/backlog.md && bun run check`.
+   - Run `bun run check`.
+
+5. **Report**:
+   - Show the added ticket clearly to the developer.

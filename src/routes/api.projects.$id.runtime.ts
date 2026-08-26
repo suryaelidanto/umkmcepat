@@ -355,6 +355,8 @@ function createCacheSafeRuntimeBody(body: unknown) {
   ) as unknown;
 }
 
+const FAILED_ATTEMPT_STATUSES = new Set(["canceled", "failed", "stale"]);
+
 function getUserFacingRuntimeState({
   activeJobPhase,
   deploymentStatus,
@@ -399,7 +401,13 @@ function getUserFacingRuntimeState({
     return "preview_failed";
   }
 
-  return latestFailedAttemptId ? "ready_with_failed_latest_attempt" : "ready";
+  const isLatestAttemptFailed = Boolean(
+    latestAttemptStatus && FAILED_ATTEMPT_STATUSES.has(latestAttemptStatus),
+  );
+
+  return isLatestAttemptFailed && latestSuccessfulBuildId
+    ? "ready_with_failed_latest_attempt"
+    : "ready";
 }
 
 function getUserFacingRuntimeMessage(state: string) {

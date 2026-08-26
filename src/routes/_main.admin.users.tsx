@@ -117,18 +117,22 @@ function UsersPage() {
     mutationFn: (vars: { id: string; amount: number }) =>
       fetchJson(`/api/admin/users/${vars.id}?action=grant-energy`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ amount: vars.amount }),
       }),
     onSuccess: (_d, vars) => {
       queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
       toast.success(
         vars.amount >= 1_000_000
-          ? `Energi ${formatGroupedNumber(vars.amount)} ditambahkan.`
-          : "Energi ditambahkan.",
+          ? `Energi ${formatGroupedNumber(vars.amount)} berhasil ditambahkan.`
+          : "Energi berhasil ditambahkan.",
       );
       setGrantTarget(null);
     },
-    onError: () => toast.error("Gagal menambah energi."),
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : "Gagal menambah energi.";
+      toast.error(msg);
+    },
   });
 
   const [grantTarget, setGrantTarget] = useState<AdminUser | null>(null);
@@ -226,14 +230,7 @@ function UsersPage() {
                     </p>
                     <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-[#5f5f5d] dark:text-surface-warm-white/70">
                       <span className="font-bold text-accent-orange">
-                        {streamerMode ? (
-                          <SensitiveText
-                            kind="amount"
-                            value={`${formatGroupedNumber(u.energyRemaining)} Energi`}
-                          />
-                        ) : (
-                          `${formatGroupedNumber(u.energyRemaining)} Energi`
-                        )}
+                        {formatGroupedNumber(u.energyRemaining)} Energi
                       </span>
                       <span>•</span>
                       <span>{u.projectsCount} proyek</span>

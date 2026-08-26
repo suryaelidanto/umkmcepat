@@ -6,28 +6,27 @@ disable-model-invocation: true
 
 # Do Backlog Skill
 
-Kanban orchestrator. Evaluates backlog priorities, checks revisions, groups related work sensibly, and writes a clear, substantive proposal before asking for confirmation.
+Kanban orchestrator. Evaluates backlog priorities, checks revisions, and clusters ONLY tasks with genuine domain and architectural synergy before proposing a batch to the developer.
 
-## Principles
+## Core Rules for Batch Grouping
 
-- **Speak like an engineer, not a bot**: Write naturally. No decorative emoji spam (`📋`, `💡`, `⚡`, `🎯`), no rigid template headings (`The Why`, `The Change`), and no fake cheerfulness.
-- **Substance over extreme brevity**: Explain what the tickets actually do, how current code behaves, what breaks or feels clunky today, and how the changes fit together. Don't compress so hard that context is lost.
-- **Unslop writing**: Follow `.agents/skills/unslop/SKILL.md`. Clear, direct sentences, active voice, zero fluff words.
+- **Strict Domain Synergy**: ONLY group tasks that touch the same domain, shared components, or related data models (e.g. grouping Workspace Shell + History Drawer, or Admin Table + Energy Mutation).
+- **NEVER Mix Unrelated Domains**: Never bundle Admin tasks with Workspace UI, or Media pipeline with Generator prompts in the same batch just because they exist in the backlog. If tasks belong to different domains, propose them as separate, focused iterations.
+- **Surgical Batch Size**: 1 to 2 synergistic tasks max per batch. A clean 50-line focused fix beats an unfocused multi-domain blob.
+- **Unslop writing**: Follow `.agents/skills/unslop/SKILL.md`. Direct, natural engineering voice, zero decorative emoji spam.
 
 ## Execution Workflow
 
 1. **Inspect Backlog Hierarchy**:
    - `## Needs Revision / Check Again` (Fix first if any exist)
    - `## In Progress` (Resume active work if any exist)
-   - `## Backlog` (Analyze remaining queue for logical grouping)
+   - `## Backlog` (Analyze remaining queue for genuine domain clusters)
 
 2. **Present the Proposal**:
-   - State board state (revisions, active, queued).
-   - Explain the proposed task or batch in plain terms:
-     - What the tickets actually do in the app.
-     - Why grouping them makes sense (or why doing them individually is better).
-     - Which files/modules will change and what the concrete user experience becomes.
-   - Present straightforward options for the developer to confirm.
+   - State board state.
+   - Pick the highest priority task or synergistic pair from the same domain.
+   - Explain what the task(s) do, why they belong together (or why it's kept isolated), and which files will change.
+   - Present clear options for developer confirmation.
    - **MANDATORY**: Wait for explicit user confirmation before writing code.
 
 3. **Implement & Test Invariants**:

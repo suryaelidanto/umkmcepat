@@ -20,7 +20,7 @@
     "check:unit": "bun run test:full",
     "db:migrate": "prisma migrate deploy",
     "db:studio": "prisma studio",
-    "dev": "vite dev --port 3000",
+    "dev": "vite dev --host 0.0.0.0 --port 3000",
     "dev:logs": "bun scripts/dev-logs.ts",
     "dev:reset": "bun scripts/dev-reset.ts",
     "discuss:trigger": "bun scripts/trigger-project-discuss.ts",
