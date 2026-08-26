@@ -1,6 +1,6 @@
 import { parseCanonicalBrief, type ProjectBriefV2 } from "./canonical-brief";
 
-import type { ProjectBrief } from "./brief";
+import type { ProjectBrief, WorkspaceCard } from "./brief";
 
 export type Tier1MissingField = "businessName" | "offer" | "contact";
 export type Tier2MissingField = "usp" | "location" | "pricing" | "photos";
@@ -29,6 +29,273 @@ const TIER1_LABELS: Record<Tier1MissingField, string> = {
   offer: "Produk atau layanan utama",
   contact: "Nomor kontak / WhatsApp",
 };
+
+export function isExplicitBuildRequest(text: string): boolean {
+  const normalized = text.toLowerCase().trim();
+  if (!normalized) {
+    return false;
+  }
+  const patterns = [
+    /buat\s+(sekarang|website|web|aja|langsung)/,
+    /bangun\s+(sekarang|website|web|aja|langsung)/,
+    /bikin\s+(sekarang|website|web|aja|langsung|webnya)/,
+    /build\s+(sekarang|now|aja|langsung)/,
+    /langsung\s+(buat|bikin|bangun|build|generate)/,
+    /cukup\s+(itu|segitu|ini|dulu|aja)/,
+    /udah\s+(cukup|lengkap|pas)/,
+    /mulai\s+(buat|bikin|bangun|build)/,
+  ];
+  return patterns.some((p) => p.test(normalized));
+}
+
+export function fallbackUspOptions(
+  context: string,
+): Array<{ label: string; description: string }> {
+  const lower = context.toLowerCase();
+  if (
+    lower.includes("bengkel") ||
+    lower.includes("motor") ||
+    lower.includes("mobil") ||
+    lower.includes("servis") ||
+    lower.includes("otomotif")
+  ) {
+    return [
+      {
+        label: "Mekanik Berpengalaman & Teliti",
+        description: "Pengerjaan rapi dan diagnosis akurat",
+      },
+      {
+        label: "Suku Cadang Asli & Bergaransi",
+        description: "Kualitas terjamin tanpa rasa was-was",
+      },
+      {
+        label: "Biaya Servis Transparan",
+        description: "Estimasi jelas di awal tanpa biaya siluman",
+      },
+      {
+        label: "Pengerjaan Cepat & Bisa Ditunggu",
+        description: "Efisien waktu tanpa antre lama",
+      },
+    ];
+  }
+  if (
+    lower.includes("makan") ||
+    lower.includes("kuliner") ||
+    lower.includes("kopi") ||
+    lower.includes("cafe") ||
+    lower.includes("resto") ||
+    lower.includes("warung") ||
+    lower.includes("sate") ||
+    lower.includes("catering")
+  ) {
+    return [
+      {
+        label: "Bahan Fresh & Higienis",
+        description: "Dimasak segar setiap hari dengan bumbu pilihan",
+      },
+      {
+        label: "Porsi Pas & Mengenyangkan",
+        description: "Cocok untuk makan sendiri atau bersama keluarga",
+      },
+      {
+        label: "Harga Ramah di Kantong",
+        description: "Rasa istimewa dengan harga terjangkau",
+      },
+      {
+        label: "Bisa Pesan Antar / Catering",
+        description: "Siap kirim cepat untuk acara & kantor",
+      },
+    ];
+  }
+  if (
+    lower.includes("laundry") ||
+    lower.includes("barber") ||
+    lower.includes("salon") ||
+    lower.includes("cuci") ||
+    lower.includes("jahit")
+  ) {
+    return [
+      {
+        label: "Hasil Rapi & Bersih Maksimal",
+        description: "Dikerjakan teliti oleh tenaga berpengalaman",
+      },
+      {
+        label: "Pengerjaan Tepat Waktu",
+        description: "Bisa selesai kilat sesuai janji",
+      },
+      {
+        label: "Peralatan Bersih & Terawat",
+        description: "Standar kebersihan dan higienitas terjaga",
+      },
+      {
+        label: "Harga Jujur & Bersahabat",
+        description: "Tarif jelas tanpa biaya tambahan tersembunyi",
+      },
+    ];
+  }
+  return [
+    {
+      label: "Kualitas Terjamin & Bergaransi",
+      description: "Pelayanan terbaik untuk setiap pelanggan",
+    },
+    {
+      label: "Harga Jujur & Transparan",
+      description: "Tanpa biaya siluman dan jelas di awal",
+    },
+    {
+      label: "Respon Cepat via WhatsApp",
+      description: "Konsultasi ramah dan cepat tanggap",
+    },
+    {
+      label: "Berpengalaman & Terpercaya",
+      description: "Sudah melayani banyak pelanggan setia",
+    },
+  ];
+}
+
+export function getNextTieredEnrichmentCard(
+  brief: ProjectBriefV2,
+  options?: { uploadsEnabled?: boolean },
+): WorkspaceCard | null {
+  const name = brief.business.name.trim() || "usahamu";
+  const context = `${brief.business.name} ${brief.business.type} ${brief.prompt}`;
+
+  // Tier 1 Missing:
+  if (!brief.business.name.trim()) {
+    return {
+      type: "question",
+      question: {
+        id: "business_name",
+        question: "Nama brand atau usaha kamu apa?",
+        answerMode: "text",
+        selectionMode: "single",
+        required: true,
+        placeholder: "Contoh: Bengkel Berkah Jaya",
+        options: [],
+      },
+    };
+  }
+
+  if (brief.offers.length === 0) {
+    return {
+      type: "question",
+      question: {
+        id: "services",
+        question: `Layanan atau produk utama yang ditawarkan di ${name} apa saja?`,
+        answerMode: "choice",
+        selectionMode: "multiple",
+        required: true,
+        options: [
+          {
+            label: "Paket Layanan Utama",
+            description: "Pilihan yang paling sering dicari pelanggan",
+          },
+          {
+            label: "Paket Lengkap / Komplit",
+            description: "Solusi menyeluruh dari awal sampai tuntas",
+          },
+          {
+            label: "Konsultasi / Permintaan Khusus",
+            description: "Disesuaikan dengan kebutuhan spesifik pelanggan",
+          },
+        ],
+      },
+    };
+  }
+
+  if (
+    !brief.primaryAction ||
+    !brief.primaryAction.label.trim() ||
+    (brief.primaryAction.kind === "whatsapp" && !brief.primaryAction.target) ||
+    (brief.primaryAction.kind === "phone" && !brief.primaryAction.target)
+  ) {
+    return {
+      type: "question",
+      question: {
+        id: "contact_number",
+        question: "Berapa nomor WhatsApp aktif untuk pemesanan pelanggan?",
+        answerMode: "text",
+        selectionMode: "single",
+        required: true,
+        placeholder: "Contoh: 081234567890",
+        options: [],
+      },
+    };
+  }
+
+  // Tier 2 Missing:
+  const isOnlineOnly =
+    brief.business.category === "jasa_online" ||
+    brief.prompt.toLowerCase().includes("online only") ||
+    brief.prompt.toLowerCase().includes("digital");
+
+  if (
+    !isOnlineOnly &&
+    !brief.content.address?.trim() &&
+    !brief.content.deliveryArea?.trim()
+  ) {
+    return {
+      type: "question",
+      question: {
+        id: "address",
+        question: `Di mana alamat fisik atau patokan lokasi ${name}?`,
+        answerMode: "text",
+        selectionMode: "single",
+        required: false,
+        placeholder: "Contoh: Jl. Kenangan No. 4, Jakarta Utara",
+        options: [],
+      },
+    };
+  }
+
+  const hasPricing =
+    Boolean(brief.content.priceRange?.trim()) ||
+    brief.offers.some((offer) => Boolean(offer.priceRange?.trim()));
+  if (!hasPricing) {
+    return {
+      type: "question",
+      question: {
+        id: "price_range",
+        question: `Berapa kisaran harga atau tarif layanan di ${name}?`,
+        answerMode: "text",
+        selectionMode: "single",
+        required: false,
+        placeholder: "Contoh: Mulai Rp 35.000 (servis ringan)",
+        options: [],
+      },
+    };
+  }
+
+  if (brief.content.usp.length === 0) {
+    return {
+      type: "question",
+      question: {
+        id: "usp",
+        question: `Apa keunggulan utama ${name} yang paling disukai pelanggan?`,
+        answerMode: "choice",
+        selectionMode: "multiple",
+        required: false,
+        options: fallbackUspOptions(context),
+      },
+    };
+  }
+
+  if (brief.assets.length === 0 && options?.uploadsEnabled !== false) {
+    return {
+      type: "image_upload",
+      imageUpload: {
+        id: "business_photos",
+        question: `Ada foto tempat usaha, toko, atau produk ${name} yang mau ditampilkan?`,
+        hint: "Bisa unggah beberapa foto sekaligus atau lewati jika belum ada.",
+        selectionMode: "multiple",
+        purpose: "business-image",
+        required: false,
+      },
+    };
+  }
+
+  return null;
+}
 
 export function evaluateTieredBriefReadiness(
   input: ProjectBrief | ProjectBriefV2 | null | undefined,

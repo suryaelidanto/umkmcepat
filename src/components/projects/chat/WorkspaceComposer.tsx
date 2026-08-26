@@ -4,12 +4,12 @@ import { Check, ImagePlus, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { ImageLightbox } from "@/components/ui/image-lightbox";
 import { ImageUploadThumb } from "@/components/ui/image-upload-thumb";
 import {
   type BriefQuestion,
   type ImageUploadQuestion,
 } from "@/lib/projects/brief";
-import { formatWorkspaceAnswerSelection } from "@/lib/projects/workspace-answer-format";
 import { uploadTempImageFile } from "@/lib/storage/uploads/temp-image-client";
 
 export type WorkspaceAnswerPayload = {
@@ -22,43 +22,43 @@ export type WorkspaceAnswerPayload = {
 
 export function QuestionComposer({
   question,
-  onClose,
   onSubmit,
 }: {
   question: BriefQuestion;
-  onClose?: () => void;
   onSubmit: (
     answer: string,
     workspaceAnswers?: WorkspaceAnswerPayload[],
   ) => void;
 }) {
   const [selected, setSelected] = useState<string[]>([]);
-  const [source, setSource] = useState<"custom" | "option">("option");
   const [customAnswer, setCustomAnswer] = useState("");
   const [customAnswerOpen, setCustomAnswerOpen] = useState(false);
   const isTextQuestion = question.answerMode === "text";
   const isMultiple = question.selectionMode === "multiple";
-  const modeTone = isMultiple
-    ? {
-        accent: "var(--accent, #8fd3ff)",
-        helper: "Pilih beberapa yang berlaku.",
-        option:
-          "border-black/8 hover:bg-black/[0.03] dark:border-surface-warm-white/8 dark:hover:bg-surface-warm-white/[0.045]",
-        selected:
-          "border-primary/30 bg-primary/5 dark:border-[#8fd3ff]/24 dark:bg-[#8fd3ff]/10",
-      }
-    : {
-        accent: "var(--accent, #8ce99a)",
-        helper: "Pilih satu arah utama.",
-        option:
-          "border-black/8 hover:bg-black/[0.03] dark:border-surface-warm-white/8 dark:hover:bg-surface-warm-white/[0.045]",
-        selected:
-          "border-primary/30 bg-primary/5 dark:border-[#8ce99a]/24 dark:bg-[#8ce99a]/10",
-      };
+  const helperText = isMultiple
+    ? "Pilih beberapa yang berlaku."
+    : "Pilih satu arah utama.";
+  const isCustomActive = customAnswerOpen && Boolean(customAnswer.trim());
+  const customAnswerSelected =
+    isCustomActive || (customAnswerOpen && selected.length === 0);
+
+  const combinedSelections = isTextQuestion
+    ? []
+    : isMultiple
+      ? Array.from(
+          new Set([
+            ...selected,
+            ...(isCustomActive ? [customAnswer.trim()] : []),
+          ]),
+        )
+      : isCustomActive
+        ? [customAnswer.trim()]
+        : selected;
+
   const answer = isTextQuestion
     ? customAnswer.trim()
-    : formatWorkspaceAnswerSelection(question, selected, source);
-  const customAnswerSelected = source === "custom";
+    : combinedSelections.join("; ");
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   // ponytail: synchronous lock against double-submit within the same tick.
   const submitLockRef = useRef(false);
@@ -69,26 +69,42 @@ export function QuestionComposer({
   const canSubmit =
     !isSubmitting &&
     !submitLockRef.current &&
-    (isTextQuestion ? Boolean(answer) : selected.length > 0);
+    (isTextQuestion ? Boolean(answer) : combinedSelections.length > 0);
 
   useEffect(() => {
     setSelected([]);
-    setSource("option");
     setCustomAnswer("");
     setCustomAnswerOpen(false);
   }, [question.id]);
 
-  function chooseAnswer(answer: string, nextSource: "custom" | "option") {
-    setSource(nextSource);
-    setSelected((current) => {
-      if (nextSource === "custom" || !isMultiple) {
-        return [answer];
-      }
+  function togglePresetOption(optionLabel: string) {
+    if (!isMultiple) {
+      setCustomAnswerOpen(false);
+      setCustomAnswer("");
+      setSelected([optionLabel]);
+      return;
+    }
 
-      return current.includes(answer)
-        ? current.filter((item) => item !== answer)
-        : [...current, answer];
-    });
+    setSelected((current) =>
+      current.includes(optionLabel)
+        ? current.filter((item) => item !== optionLabel)
+        : [...current, optionLabel],
+    );
+  }
+
+  function toggleCustomAnswer() {
+    if (customAnswerOpen) {
+      setCustomAnswerOpen(false);
+      setCustomAnswer("");
+      if (!isMultiple) {
+        setSelected([]);
+      }
+    } else {
+      setCustomAnswerOpen(true);
+      if (!isMultiple) {
+        setSelected([]);
+      }
+    }
   }
 
   function submitAnswer() {
@@ -98,33 +114,41 @@ export function QuestionComposer({
     submitLockRef.current = true;
     setIsSubmitting(true);
 
+    const resolvedSource = isTextQuestion
+      ? "custom"
+      : selected.length > 0 && isCustomActive
+        ? "option"
+        : isCustomActive
+          ? "custom"
+          : "option";
+
     onSubmit(`${question.question}\nJawaban: ${answer}`, [
       {
         answer,
         question: question.question,
         questionId: question.id,
-        source: isTextQuestion ? "custom" : source,
+        source: resolvedSource,
       },
     ]);
   }
 
   return (
-    <div className="mt-spacing-3 overflow-hidden rounded-2xl border border-black/15 bg-[#faf9f5] shadow-xs transition-colors duration-200 dark:border-surface-warm-white/15 dark:bg-[#181816]">
-      <div className="border-b border-black/10 bg-[#f4f2eb] px-spacing-5 py-spacing-4 dark:border-surface-warm-white/10 dark:bg-[#1d1d1a]">
-        <h2 className="max-w-3xl text-base font-semibold leading-6 text-[#1c1c1c] dark:text-surface-warm-white">
+    <div className="overflow-hidden rounded-2xl border border-black/10 bg-white p-3.5 shadow-sm transition-colors duration-200 dark:border-white/15 dark:bg-[#282824] dark:shadow-[0_4px_20px_rgba(0,0,0,0.35)]">
+      <div>
+        <h2 className="max-w-3xl text-sm font-semibold leading-5 text-foreground dark:text-surface-warm-white">
           {question.question}
         </h2>
-        <p className="mt-spacing-2 max-w-2xl text-xs leading-5 text-[#5f5f5d] dark:text-surface-warm-white/60">
+        <p className="mt-1 max-w-2xl text-xs leading-relaxed text-muted-foreground dark:text-surface-warm-white/60">
           {question.whyThisQuestionMatters ||
             (isTextQuestion
               ? "Tulis jawabannya di kolom khusus ini."
-              : modeTone.helper)}
+              : helperText)}
         </p>
       </div>
 
-      <div className="divide-y divide-black/8 dark:divide-surface-warm-white/8">
+      <div className="mt-2.5 space-y-1.5">
         {isTextQuestion ? (
-          <div className="px-spacing-5 py-spacing-4">
+          <div>
             <label htmlFor={`text-answer-${question.id}`} className="sr-only">
               {question.question}
             </label>
@@ -140,51 +164,49 @@ export function QuestionComposer({
               }}
               placeholder={question.placeholder || "Tulis jawabanmu di sini..."}
               maxLength={16000}
-              className="h-11 w-full rounded-xl border border-black/20 bg-white px-spacing-4 text-sm text-[#1c1c1c] outline-none placeholder:text-[#5f5f5d]/60 focus:border-black/50 dark:border-surface-warm-white/20 dark:bg-[#111110] dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/34 dark:focus:border-surface-warm-white/50"
+              className="h-10 w-full rounded-xl border border-black/10 bg-[#f7f5ef] px-3.5 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-black/30 dark:border-white/15 dark:bg-[#1b1b18] dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/40 dark:focus:border-white/40"
             />
           </div>
         ) : (
           question.options.map((option) => {
-            const isSelected =
-              selected.includes(option.label) && source === "option";
+            const isSelected = selected.includes(option.label);
             const isRecommended =
               question.recommendedOptionLabel === option.label;
             return (
               <button
                 key={option.label}
                 type="button"
-                onClick={() => {
-                  chooseAnswer(option.label, "option");
-                  if (!isMultiple) {
-                    setCustomAnswerOpen(false);
-                  }
-                }}
-                className={`group grid w-full grid-cols-[minmax(0,1fr)_auto] items-start gap-spacing-4 border-b px-spacing-5 py-spacing-4 text-left transition last:border-b-0 ${isSelected ? modeTone.selected : modeTone.option}`}
+                onClick={() => togglePresetOption(option.label)}
+                className={`group flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition cursor-pointer ${isSelected ? "border-primary/50 bg-primary/5 dark:border-white/30 dark:bg-white/10" : "border-black/10 bg-transparent hover:border-black/20 hover:bg-black/[0.02] dark:border-white/10 dark:hover:border-white/20 dark:hover:bg-white/[0.03]"}`}
               >
-                <span className="min-w-0">
-                  <span className="block whitespace-normal break-words text-sm font-semibold text-[#1c1c1c] dark:text-surface-warm-white [overflow-wrap:anywhere]">
-                    {option.label}
-                  </span>
-                  <span className="mt-spacing-1 block whitespace-normal break-words text-xs leading-5 text-[#5f5f5d] dark:text-surface-warm-white/54 [overflow-wrap:anywhere]">
-                    {option.description}
-                  </span>
-                  {isRecommended ? (
-                    <span className="mt-spacing-2 block text-[11px] font-medium text-emerald-600 dark:text-[#c7f8cf]/82">
-                      Rekomendasi paling aman
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-semibold text-foreground dark:text-surface-warm-white">
+                      {option.label}
                     </span>
+                    {isRecommended ? (
+                      <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-1.5 py-0.2 text-[10px] font-medium text-emerald-600 dark:text-[#c7f8cf]/90">
+                        Rekomendasi
+                      </span>
+                    ) : null}
+                  </div>
+                  {option.description ? (
+                    <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground dark:text-surface-warm-white/54">
+                      {option.description}
+                    </p>
                   ) : null}
-                </span>
+                </div>
                 <span
-                  className={`mt-1 grid size-5 shrink-0 place-items-center border-2 transition ${isMultiple ? "rounded-md" : "rounded-full"} ${isSelected ? (isMultiple ? "border-primary bg-primary text-primary-foreground dark:border-[#8ce99a] dark:bg-[#8ce99a]" : "border-primary bg-transparent dark:border-[#8ce99a]") : "border-black/30 bg-black/[0.02] group-hover:border-black/60 dark:border-surface-warm-white/24 dark:bg-transparent dark:group-hover:border-surface-warm-white/48"}`}
+                  className={`grid size-4 shrink-0 place-items-center border transition ${isMultiple ? "rounded" : "rounded-full"} ${isSelected ? (isMultiple ? "border-primary bg-primary text-primary-foreground dark:border-[#8ce99a] dark:bg-[#8ce99a]" : "border-primary bg-transparent dark:border-[#8ce99a]") : "border-black/30 bg-black/[0.02] group-hover:border-black/60 dark:border-surface-warm-white/24 dark:bg-transparent dark:group-hover:border-surface-warm-white/48"}`}
                 >
                   {isSelected ? (
                     isMultiple ? (
                       <Check
-                        className="size-3 text-primary-foreground dark:text-[#10100f]"
+                        className="size-2.5 text-primary-foreground dark:text-[#10100f]"
                         strokeWidth={3}
                       />
                     ) : (
-                      <span className="size-2.5 rounded-full bg-primary dark:bg-[#8ce99a]" />
+                      <span className="size-2 rounded-full bg-primary dark:bg-[#8ce99a]" />
                     )
                   ) : null}
                 </span>
@@ -195,34 +217,30 @@ export function QuestionComposer({
         {!isTextQuestion && !customAnswerOpen ? (
           <button
             type="button"
-            onClick={() => {
-              setCustomAnswerOpen(true);
-              setSource("custom");
-              setSelected(customAnswer.trim() ? [customAnswer.trim()] : []);
-            }}
-            className={`group grid w-full grid-cols-[minmax(0,1fr)_auto] items-start gap-spacing-4 border-b px-spacing-5 py-spacing-4 text-left transition last:border-b-0 ${customAnswerSelected ? modeTone.selected : modeTone.option}`}
+            onClick={toggleCustomAnswer}
+            className={`group flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition cursor-pointer ${customAnswerSelected ? "border-primary/50 bg-primary/5 dark:border-white/30 dark:bg-white/10" : "border-black/10 bg-transparent hover:border-black/20 hover:bg-black/[0.02] dark:border-white/10 dark:hover:border-white/20 dark:hover:bg-white/[0.03]"}`}
           >
-            <span className="min-w-0">
-              <span className="block whitespace-normal break-words text-sm font-semibold text-[#1c1c1c] dark:text-surface-warm-white [overflow-wrap:anywhere]">
+            <div className="min-w-0 flex-1">
+              <span className="text-xs font-semibold text-foreground dark:text-surface-warm-white">
                 Sebutkan sendiri
               </span>
-              <span className="mt-spacing-1 block whitespace-normal break-words text-xs leading-5 text-[#5f5f5d] dark:text-surface-warm-white/54 [overflow-wrap:anywhere]">
-                {customAnswerSelected
-                  ? answer
+              <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground dark:text-surface-warm-white/54">
+                {customAnswer.trim()
+                  ? customAnswer.trim()
                   : "Pakai ini kalau pilihan di atas belum pas."}
-              </span>
-            </span>
+              </p>
+            </div>
             <span
-              className={`mt-1 grid size-5 shrink-0 place-items-center rounded-full border-2 transition ${customAnswerSelected ? (isMultiple ? "border-primary bg-primary text-primary-foreground dark:border-[#8ce99a] dark:bg-[#8ce99a]" : "border-primary bg-transparent dark:border-[#8ce99a]") : "border-black/30 bg-black/[0.02] group-hover:border-black/60 dark:border-surface-warm-white/24 dark:bg-transparent dark:group-hover:border-surface-warm-white/48"}`}
+              className={`grid size-4 shrink-0 place-items-center border transition ${isMultiple ? "rounded" : "rounded-full"} ${customAnswerSelected ? (isMultiple ? "border-primary bg-primary text-primary-foreground dark:border-[#8ce99a] dark:bg-[#8ce99a]" : "border-primary bg-transparent dark:border-[#8ce99a]") : "border-black/30 bg-black/[0.02] group-hover:border-black/60 dark:border-surface-warm-white/24 dark:bg-transparent dark:group-hover:border-surface-warm-white/48"}`}
             >
               {customAnswerSelected ? (
                 isMultiple ? (
                   <Check
-                    className="size-3 text-primary-foreground dark:text-[#10100f]"
+                    className="size-2.5 text-primary-foreground dark:text-[#10100f]"
                     strokeWidth={3}
                   />
                 ) : (
-                  <span className="size-2.5 rounded-full bg-primary dark:bg-[#8ce99a]" />
+                  <span className="size-2 rounded-full bg-primary dark:bg-[#8ce99a]" />
                 )
               ) : null}
             </span>
@@ -230,83 +248,58 @@ export function QuestionComposer({
         ) : null}
 
         {!isTextQuestion && customAnswerOpen ? (
-          <div className="border-b px-spacing-5 py-spacing-4 last:border-b-0">
-            <div className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-start gap-spacing-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setCustomAnswerOpen(false);
-                  setCustomAnswer("");
-                  setSelected([]);
-                  setSource("option");
-                }}
-                className="min-w-0 text-left"
-              >
-                <span className="block whitespace-normal break-words text-sm font-semibold text-[#1c1c1c] dark:text-surface-warm-white [overflow-wrap:anywhere]">
+          <div className="rounded-lg border border-black/15 bg-transparent p-2.5 dark:border-white/15">
+            <button
+              type="button"
+              onClick={toggleCustomAnswer}
+              className="flex w-full items-center justify-between gap-3 text-left cursor-pointer group"
+            >
+              <div className="min-w-0 flex-1">
+                <span className="text-xs font-semibold text-foreground dark:text-surface-warm-white">
                   Sebutkan sendiri
                 </span>
-                <span className="mt-spacing-1 block text-xs text-[#5f5f5d] dark:text-surface-warm-white/54">
-                  Tulis jawabanmu sendiri...
-                </span>
-              </button>
+                <p className="text-[11px] text-muted-foreground dark:text-surface-warm-white/54">
+                  {customAnswer.trim() || "Tulis jawabanmu sendiri..."}
+                </p>
+              </div>
               <span
-                className={`mt-1 grid size-5 shrink-0 place-items-center rounded-full border-2 transition ${customAnswerSelected ? (isMultiple ? "border-primary bg-primary text-primary-foreground dark:border-[#8ce99a] dark:bg-[#8ce99a]" : "border-primary bg-transparent dark:border-[#8ce99a]") : "border-black/30 bg-black/[0.02] dark:border-surface-warm-white/24 dark:bg-transparent"}`}
+                className={`grid size-4 shrink-0 place-items-center border transition ${isMultiple ? "rounded" : "rounded-full"} ${customAnswerSelected ? (isMultiple ? "border-primary bg-primary text-primary-foreground dark:border-[#8ce99a] dark:bg-[#8ce99a]" : "border-primary bg-transparent dark:border-[#8ce99a]") : "border-black/30 bg-black/[0.02] dark:border-surface-warm-white/24 dark:bg-transparent"}`}
               >
                 {customAnswerSelected ? (
                   isMultiple ? (
                     <Check
-                      className="size-3 text-primary-foreground dark:text-[#10100f]"
+                      className="size-2.5 text-primary-foreground dark:text-[#10100f]"
                       strokeWidth={3}
                     />
                   ) : (
-                    <span className="size-2.5 rounded-full bg-primary dark:bg-[#8ce99a]" />
+                    <span className="size-2 rounded-full bg-primary dark:bg-[#8ce99a]" />
                   )
                 ) : null}
               </span>
-            </div>
+            </button>
             <textarea
               id={`custom-answer-${question.id}`}
-              rows={3}
+              rows={2}
               autoFocus
               value={customAnswer}
               maxLength={16000}
-              onChange={(event) => {
-                setCustomAnswer(event.target.value);
-                setSource("custom");
-                setSelected(
-                  event.target.value.trim() ? [event.target.value.trim()] : [],
-                );
-              }}
+              onChange={(event) => setCustomAnswer(event.target.value)}
               placeholder="Tulis jawabanmu sendiri..."
-              className="mt-spacing-3 w-full resize-none rounded-xl border border-black/20 bg-white px-spacing-4 py-spacing-3 text-sm leading-6 text-[#1c1c1c] outline-none placeholder:text-[#5f5f5d]/60 focus:border-black/50 dark:border-surface-warm-white/20 dark:bg-[#111110] dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/34 dark:focus:border-surface-warm-white/50"
+              className="mt-2 w-full resize-none rounded-md border border-black/15 bg-transparent p-2 text-xs leading-5 text-foreground outline-none placeholder:text-muted-foreground focus:border-black/40 dark:border-white/15 dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/34 dark:focus:border-white/40"
             />
           </div>
         ) : null}
       </div>
 
-      <div className="flex items-center justify-between gap-spacing-3 border-t border-black/8 px-spacing-5 py-spacing-4 dark:border-surface-warm-white/8">
-        {onClose ? (
-          <Button
-            type="button"
-            onClick={onClose}
-            variant="outline"
-            className="rounded-lg border-black/15 bg-transparent text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/12 dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white cursor-pointer"
-          >
-            Tulis bebas
-          </Button>
-        ) : (
-          <span />
-        )}
-        <div className="flex items-center gap-spacing-2">
-          <Button
-            type="button"
-            disabled={!canSubmit}
-            onClick={submitAnswer}
-            className="rounded-lg bg-[#1c1c1c] text-white hover:bg-black disabled:opacity-50 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/86 cursor-pointer"
-          >
-            Kirim jawaban
-          </Button>
-        </div>
+      <div className="mt-3 flex items-center justify-end">
+        <Button
+          type="button"
+          disabled={!canSubmit}
+          onClick={submitAnswer}
+          className="h-8 rounded-lg bg-[#1c1c1c] px-4 text-xs font-semibold text-white shadow-2xs transition hover:bg-black active:scale-95 disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/30 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white dark:disabled:bg-white/10 dark:disabled:text-white/30 cursor-pointer"
+        >
+          Kirim jawaban
+        </Button>
       </div>
     </div>
   );
@@ -319,18 +312,20 @@ type PendingImageUpload = {
 
 export function ImageUploadComposer({
   imageUpload,
-  onClose,
   onSubmit,
 }: {
   imageUpload: ImageUploadQuestion;
-  onClose?: () => void;
   onSubmit: (
     answer: string,
     workspaceAnswers?: WorkspaceAnswerPayload[],
+    uploads?: PendingImageUpload[],
   ) => void;
 }) {
   const [uploads, setUploads] = useState<PendingImageUpload[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitLockRef = useRef(false);
@@ -343,11 +338,17 @@ export function ImageUploadComposer({
     submitLockRef.current = false;
   }, [imageUpload.id]);
 
-  async function handleFiles(files: FileList | null) {
+  async function handleFiles(files: FileList | File[] | null) {
     if (!files) {
       return;
     }
-    const list = Array.from(files);
+    const list = Array.from(files).filter((file) =>
+      file.type.startsWith("image/"),
+    );
+    if (list.length === 0) {
+      setError("Hanya format gambar yang didukung (PNG, JPEG, WEBP).");
+      return;
+    }
     if (isMultiple && uploads.length + list.length > max) {
       setError(`Maksimal ${max} gambar.`);
       return;
@@ -370,6 +371,47 @@ export function ImageUploadComposer({
       );
     } finally {
       setUploading(false);
+    }
+  }
+
+  function handleDragOver(event: React.DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!uploading && uploads.length < max) {
+      setIsDragging(true);
+    }
+  }
+
+  function handleDragLeave(event: React.DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragging(false);
+  }
+
+  function handleDrop(event: React.DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragging(false);
+    if (uploading || uploads.length >= max) {
+      return;
+    }
+    void handleFiles(event.dataTransfer.files);
+  }
+
+  function handlePaste(event: React.ClipboardEvent) {
+    const items = Array.from(event.clipboardData.items);
+    const imageFiles: File[] = [];
+    for (const item of items) {
+      if (item.kind === "file" && item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (file) {
+          imageFiles.push(file);
+        }
+      }
+    }
+    if (imageFiles.length > 0) {
+      event.preventDefault();
+      void handleFiles(imageFiles);
     }
   }
 
@@ -399,6 +441,7 @@ export function ImageUploadComposer({
           assetIds: uploads.map((item) => item.assetId),
         },
       ],
+      uploads,
     );
   }
 
@@ -419,17 +462,20 @@ export function ImageUploadComposer({
   }
 
   return (
-    <div className="mt-spacing-3 overflow-hidden rounded-2xl border border-black/15 bg-[#faf9f5] shadow-xs transition-colors duration-200 dark:border-surface-warm-white/15 dark:bg-[#181816]">
-      <div className="border-b border-black/10 bg-[#f4f2eb] px-spacing-5 py-spacing-4 dark:border-surface-warm-white/10 dark:bg-[#1d1d1a]">
-        <h2 className="max-w-3xl text-base font-semibold leading-6 text-[#1c1c1c] dark:text-surface-warm-white">
+    <div
+      onPaste={handlePaste}
+      className="overflow-hidden rounded-2xl border border-black/10 bg-white p-3.5 shadow-sm transition-colors duration-200 dark:border-white/15 dark:bg-[#282824] dark:shadow-[0_4px_20px_rgba(0,0,0,0.35)]"
+    >
+      <div>
+        <h2 className="max-w-3xl text-sm font-semibold leading-5 text-foreground dark:text-surface-warm-white">
           {imageUpload.question}
         </h2>
         {imageUpload.hint ? (
-          <p className="mt-spacing-2 max-w-2xl text-xs leading-5 text-[#5f5f5d] dark:text-surface-warm-white/60">
+          <p className="mt-1 max-w-2xl text-xs leading-relaxed text-muted-foreground dark:text-surface-warm-white/60">
             {imageUpload.hint}
           </p>
         ) : (
-          <p className="mt-spacing-2 max-w-2xl text-xs leading-5 text-[#5f5f5d] dark:text-surface-warm-white/60">
+          <p className="mt-1 max-w-2xl text-xs leading-relaxed text-muted-foreground dark:text-surface-warm-white/60">
             {isMultiple
               ? "Unggah beberapa gambar (maksimal 6)."
               : "Unggah 1 gambar."}
@@ -437,7 +483,7 @@ export function ImageUploadComposer({
         )}
       </div>
 
-      <div className="px-spacing-5 py-spacing-4">
+      <div className="mt-3">
         <input
           ref={fileInputRef}
           type="file"
@@ -452,65 +498,93 @@ export function ImageUploadComposer({
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
+          onDragOver={handleDragOver}
+          onDragEnter={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
           disabled={uploading || uploads.length >= max}
-          className="flex w-full items-center justify-center gap-spacing-2 rounded-xl border border-dashed border-black/25 bg-black/[0.02] px-spacing-4 py-spacing-6 text-sm text-[#5f5f5d] hover:bg-black/5 disabled:opacity-50 dark:border-surface-warm-white/25 dark:bg-[#111110] dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/[0.04] cursor-pointer"
+          className={`flex w-full flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed p-4 text-xs transition cursor-pointer ${
+            isDragging
+              ? "border-primary bg-primary/5 text-primary scale-[1.01] dark:border-white/60 dark:bg-white/10 dark:text-surface-warm-white"
+              : "border-black/20 bg-transparent text-muted-foreground hover:bg-black/[0.02] hover:border-black/30 dark:border-white/20 dark:text-surface-warm-white/70 dark:hover:bg-white/[0.02] dark:hover:border-white/30"
+          } disabled:opacity-50 disabled:cursor-not-allowed`}
         >
           {uploading ? (
-            <Loader2 aria-hidden className="size-4 animate-spin" />
+            <>
+              <Loader2 aria-hidden className="size-5 animate-spin" />
+              <span className="font-medium">Mengunggah gambar...</span>
+            </>
           ) : (
-            <ImagePlus aria-hidden className="size-4" />
+            <>
+              <ImagePlus
+                aria-hidden
+                className={`size-5 ${isDragging ? "text-primary dark:text-white" : ""}`}
+              />
+              <span className="font-medium text-foreground dark:text-surface-warm-white">
+                {isDragging
+                  ? "Lepaskan gambar di sini..."
+                  : uploads.length >= max
+                    ? `Sudah mencapai batas maksimal ${max} gambar`
+                    : "Tarik & lepas gambar ke sini, atau klik untuk memilih"}
+              </span>
+              <span className="text-[11px] text-muted-foreground dark:text-surface-warm-white/50">
+                {isMultiple
+                  ? "PNG, JPEG, WEBP • Bisa pilih banyak sekaligus"
+                  : "PNG, JPEG, WEBP • Maksimal 5 MB"}
+              </span>
+            </>
           )}
-          {uploading
-            ? "Mengunggah..."
-            : uploads.length >= max
-              ? `Maksimal ${max} gambar`
-              : "Pilih gambar (PNG, JPEG, WEBP)"}
         </button>
         {error ? (
-          <p className="mt-spacing-2 text-xs text-destructive">{error}</p>
+          <p className="mt-2 text-xs text-destructive">{error}</p>
         ) : null}
 
         {uploads.length > 0 ? (
-          <div className="mt-spacing-3 flex flex-wrap gap-spacing-2">
-            {uploads.map((item) => (
+          <div className="mt-2.5 flex flex-wrap gap-2">
+            {uploads.map((item, idx) => (
               <ImageUploadThumb
                 key={item.assetId}
                 src={item.url}
                 alt="Gambar yang diunggah"
+                onClick={() => {
+                  setLightboxIndex(idx);
+                  setLightboxOpen(true);
+                }}
                 onRemove={() => removeUpload(item.assetId)}
-                className="size-20 rounded-xl"
+                className="size-20 rounded-xl cursor-pointer"
               />
             ))}
           </div>
         ) : null}
+
+        <ImageLightbox
+          open={lightboxOpen}
+          onOpenChange={setLightboxOpen}
+          images={uploads.map((u, i) => ({
+            src: u.url,
+            alt: `Gambar ${i + 1}`,
+          }))}
+          initialIndex={lightboxIndex}
+        />
       </div>
 
-      <div className="flex items-center justify-between gap-spacing-3 border-t border-black/8 px-spacing-5 py-spacing-4 dark:border-surface-warm-white/8">
+      <div className="mt-3 flex items-center justify-between gap-spacing-3">
         <Button
           type="button"
           onClick={skip}
           disabled={isSubmitting}
           variant="outline"
-          className="rounded-lg border-black/15 bg-transparent text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/12 dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white cursor-pointer"
+          size="sm"
+          className="h-8 rounded-lg border-black/15 bg-white px-3 text-xs font-medium text-foreground hover:bg-black/5 hover:text-foreground dark:border-white/15 dark:bg-white/5 dark:hover:bg-white/10 cursor-pointer"
         >
           Lewati
         </Button>
         <div className="flex items-center gap-spacing-2">
-          {onClose ? (
-            <Button
-              type="button"
-              onClick={onClose}
-              variant="outline"
-              className="rounded-lg border-black/15 bg-transparent text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/12 dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white cursor-pointer"
-            >
-              Tulis bebas
-            </Button>
-          ) : null}
           <Button
             type="button"
             disabled={!canSubmit}
             onClick={submitAnswer}
-            className="rounded-lg bg-[#1c1c1c] text-white hover:bg-black disabled:opacity-50 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/86 cursor-pointer"
+            className="h-8 rounded-lg bg-[#1c1c1c] px-4 text-xs font-semibold text-white shadow-2xs transition hover:bg-black active:scale-95 disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/30 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white dark:disabled:bg-white/10 dark:disabled:text-white/30 cursor-pointer"
           >
             Kirim gambar
           </Button>

@@ -720,6 +720,78 @@ describe("runDiscussTurn worker", () => {
     expect(prepareBuildHandoffMock).not.toHaveBeenCalled();
   });
 
+  it("intercepts premature build recommendation to Tier 2 enrichment when user did not explicitly command build", async () => {
+    const brief = {
+      businessName: "Bengkel Ayah",
+      businessType: "jasa_lokal",
+      productOrService: [{ name: "Servis Motor", isPrimary: true }],
+      targetCustomer: "Pengendara motor",
+      contact: {
+        channel: "whatsapp",
+        value: "08123456789",
+      },
+      contactOrCta: "Pesan via WhatsApp",
+      stylePreference: "Bersih dan modern",
+      address: "Jl. Kenangan No 4 Jakarta Utara",
+    };
+    normalizeWorkspaceTurnMock.mockReturnValueOnce({
+      brief,
+      projectTitle: "Bengkel Ayah",
+      workspaceCard: {
+        type: "build_recommendation",
+        title: "Rekomendasi build siap",
+        summary: ["Bengkel Ayah"],
+      },
+      readyForBuild: true,
+    } as never);
+    streamTextMock.mockReturnValueOnce(
+      makeStreamResult([
+        { type: "text-delta", text: "Informasi sudah cukup" },
+        {
+          type: "tool-call",
+          toolCallId: "tc-tiered-intercept",
+          toolName: "presentWorkspaceCard",
+          input: {
+            assistantText: "Informasi sudah cukup",
+            workspaceCard: { type: "build_recommendation" },
+          },
+        },
+      ]),
+    );
+
+    await runDiscussTurn({
+      turnId: "ct_tiered_intercept",
+      project: { ...baseProject, generationEngine: "contract-v1" },
+      chatContext: baseChatContext,
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages: [
+        {
+          id: "m1",
+          role: "user",
+          parts: [{ type: "text", text: "Jl. Kenangan No 4 Jakarta Utara" }],
+        },
+      ],
+      summary: baseSummary,
+      userId: "u1",
+      modelOverride: "test-model" as never,
+    });
+
+    const cardEvent = publishProgressMock.mock.calls
+      .filter(
+        ([publishedTurnId, event]) =>
+          publishedTurnId === "ct_tiered_intercept" &&
+          event.type === "tool-output-available",
+      )
+      .map(([, event]) => event.output.workspaceCard)[0] as {
+      type: "question";
+      question: { id: string };
+    };
+    expect(cardEvent.type).toBe("question");
+    expect(cardEvent.question.id).toBe("price_range");
+    expect(prepareBuildHandoffMock).not.toHaveBeenCalled();
+  });
+
   it("contract gate never exposes a recommendation when handoff preparation fails", async () => {
     const brief = {
       businessName: "HP Surya",
