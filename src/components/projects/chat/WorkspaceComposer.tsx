@@ -294,11 +294,18 @@ export function QuestionComposer({
       <div className="mt-3 flex items-center justify-end">
         <Button
           type="button"
-          disabled={!canSubmit}
+          disabled={!canSubmit || isSubmitting}
           onClick={submitAnswer}
-          className="h-8 rounded-lg bg-[#1c1c1c] px-4 text-xs font-semibold text-white shadow-2xs transition hover:bg-black active:scale-95 disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/30 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white dark:disabled:bg-white/10 dark:disabled:text-white/30 cursor-pointer"
+          className="h-8 rounded-lg bg-[#1c1c1c] px-4 text-xs font-semibold text-white shadow-2xs transition hover:bg-black active:scale-95 disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/30 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white dark:disabled:bg-white/10 dark:disabled:text-white/30 cursor-pointer flex items-center gap-1.5"
         >
-          Kirim jawaban
+          {isSubmitting ? (
+            <>
+              <Loader2 className="size-3.5 animate-spin" />
+              <span>Mengirim...</span>
+            </>
+          ) : (
+            <span>Kirim jawaban</span>
+          )}
         </Button>
       </div>
     </div>
@@ -582,11 +589,18 @@ export function ImageUploadComposer({
         <div className="flex items-center gap-spacing-2">
           <Button
             type="button"
-            disabled={!canSubmit}
+            disabled={!canSubmit || isSubmitting}
             onClick={submitAnswer}
-            className="h-8 rounded-lg bg-[#1c1c1c] px-4 text-xs font-semibold text-white shadow-2xs transition hover:bg-black active:scale-95 disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/30 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white dark:disabled:bg-white/10 dark:disabled:text-white/30 cursor-pointer"
+            className="h-8 rounded-lg bg-[#1c1c1c] px-4 text-xs font-semibold text-white shadow-2xs transition hover:bg-black active:scale-95 disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/30 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white dark:disabled:bg-white/10 dark:disabled:text-white/30 cursor-pointer flex items-center gap-1.5"
           >
-            Kirim gambar
+            {isSubmitting ? (
+              <>
+                <Loader2 className="size-3.5 animate-spin" />
+                <span>Mengunggah...</span>
+              </>
+            ) : (
+              <span>Kirim gambar</span>
+            )}
           </Button>
         </div>
       </div>
