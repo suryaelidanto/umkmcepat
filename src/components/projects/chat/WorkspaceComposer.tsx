@@ -109,12 +109,12 @@ export function QuestionComposer({
   }
 
   return (
-    <div className="mt-spacing-3 overflow-hidden rounded-2xl border border-black/10 bg-[#fcfbf8] shadow-sm transition-colors duration-200 dark:border-surface-warm-white/10 dark:bg-[#1d1d1a]">
-      <div className="border-b border-black/8 bg-[#f7f4ed] px-spacing-5 py-spacing-4 dark:border-surface-warm-white/8 dark:bg-[#20201d]">
+    <div className="mt-spacing-3 overflow-hidden rounded-none border border-black/15 bg-[#faf9f5] shadow-xs transition-colors duration-200 dark:border-surface-warm-white/15 dark:bg-[#181816]">
+      <div className="border-b border-black/10 bg-[#f4f2eb] px-spacing-5 py-spacing-4 dark:border-surface-warm-white/10 dark:bg-[#1d1d1a]">
         <h2 className="max-w-3xl text-base font-semibold leading-6 text-[#1c1c1c] dark:text-surface-warm-white">
           {question.question}
         </h2>
-        <p className="mt-spacing-2 max-w-2xl text-xs leading-5 text-[#5f5f5d] dark:text-surface-warm-white/50">
+        <p className="mt-spacing-2 max-w-2xl text-xs leading-5 text-[#5f5f5d] dark:text-surface-warm-white/60">
           {question.whyThisQuestionMatters ||
             (isTextQuestion
               ? "Tulis jawabannya di kolom khusus ini."
@@ -140,7 +140,7 @@ export function QuestionComposer({
               }}
               placeholder={question.placeholder || "Tulis jawabanmu di sini..."}
               maxLength={16000}
-              className="h-12 w-full rounded-[14px] border border-black/15 bg-white px-spacing-4 text-sm text-[#1c1c1c] outline-none placeholder:text-[#5f5f5d]/60 focus:border-black/30 dark:border-surface-warm-white/10 dark:bg-[#181817] dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/34 dark:focus:border-surface-warm-white/28"
+              className="h-11 w-full rounded-none border border-black/20 bg-white px-spacing-4 text-sm text-[#1c1c1c] outline-none placeholder:text-[#5f5f5d]/60 focus:border-black/50 dark:border-surface-warm-white/20 dark:bg-[#111110] dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/34 dark:focus:border-surface-warm-white/50"
             />
           </div>
         ) : (
@@ -175,7 +175,7 @@ export function QuestionComposer({
                   ) : null}
                 </span>
                 <span
-                  className={`mt-1 grid size-5 shrink-0 place-items-center border-2 transition ${isMultiple ? "rounded-[4px]" : "rounded-full"} ${isSelected ? (isMultiple ? "border-primary bg-primary text-primary-foreground dark:border-[#8ce99a] dark:bg-[#8ce99a]" : "border-primary bg-transparent dark:border-[#8ce99a]") : "border-black/30 bg-black/[0.02] group-hover:border-black/60 dark:border-surface-warm-white/24 dark:bg-transparent dark:group-hover:border-surface-warm-white/48"}`}
+                  className={`mt-1 grid size-5 shrink-0 place-items-center border-2 transition ${isMultiple ? "rounded-none" : "rounded-full"} ${isSelected ? (isMultiple ? "border-primary bg-primary text-primary-foreground dark:border-[#8ce99a] dark:bg-[#8ce99a]" : "border-primary bg-transparent dark:border-[#8ce99a]") : "border-black/30 bg-black/[0.02] group-hover:border-black/60 dark:border-surface-warm-white/24 dark:bg-transparent dark:group-hover:border-surface-warm-white/48"}`}
                 >
                   {isSelected ? (
                     isMultiple ? (
@@ -278,7 +278,7 @@ export function QuestionComposer({
                 );
               }}
               placeholder="Tulis jawabanmu sendiri..."
-              className="mt-spacing-3 w-full resize-none rounded-radius-md border border-black/15 bg-white px-spacing-4 py-spacing-3 text-sm leading-6 text-[#1c1c1c] outline-none placeholder:text-[#5f5f5d]/60 focus:border-black/30 dark:border-surface-warm-white/10 dark:bg-[#181817] dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/34 dark:focus:border-surface-warm-white/28"
+              className="mt-spacing-3 w-full resize-none rounded-none border border-black/20 bg-white px-spacing-4 py-spacing-3 text-sm leading-6 text-[#1c1c1c] outline-none placeholder:text-[#5f5f5d]/60 focus:border-black/50 dark:border-surface-warm-white/20 dark:bg-[#111110] dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/34 dark:focus:border-surface-warm-white/50"
             />
           </div>
         ) : null}
@@ -290,7 +290,7 @@ export function QuestionComposer({
             type="button"
             onClick={onClose}
             variant="outline"
-            className="rounded-full border-black/15 bg-transparent text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/12 dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white"
+            className="rounded-none border-black/15 bg-transparent text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/12 dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white"
           >
             Tulis bebas
           </Button>
@@ -302,7 +302,7 @@ export function QuestionComposer({
             type="button"
             disabled={!canSubmit}
             onClick={submitAnswer}
-            className="rounded-full bg-[#1c1c1c] text-white hover:bg-black disabled:opacity-50 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/86"
+            className="rounded-none bg-[#1c1c1c] text-white hover:bg-black disabled:opacity-50 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/86"
           >
             Kirim jawaban
           </Button>
@@ -419,17 +419,17 @@ export function ImageUploadComposer({
   }
 
   return (
-    <div className="mt-spacing-3 overflow-hidden rounded-2xl border border-black/10 bg-[#fcfbf8] shadow-sm transition-colors duration-200 dark:border-surface-warm-white/10 dark:bg-[#1d1d1a]">
-      <div className="border-b border-black/8 bg-[#f7f4ed] px-spacing-5 py-spacing-4 dark:border-surface-warm-white/8 dark:bg-[#20201d]">
+    <div className="mt-spacing-3 overflow-hidden rounded-none border border-black/15 bg-[#faf9f5] shadow-xs transition-colors duration-200 dark:border-surface-warm-white/15 dark:bg-[#181816]">
+      <div className="border-b border-black/10 bg-[#f4f2eb] px-spacing-5 py-spacing-4 dark:border-surface-warm-white/10 dark:bg-[#1d1d1a]">
         <h2 className="max-w-3xl text-base font-semibold leading-6 text-[#1c1c1c] dark:text-surface-warm-white">
           {imageUpload.question}
         </h2>
         {imageUpload.hint ? (
-          <p className="mt-spacing-2 max-w-2xl text-xs leading-5 text-[#5f5f5d] dark:text-surface-warm-white/50">
+          <p className="mt-spacing-2 max-w-2xl text-xs leading-5 text-[#5f5f5d] dark:text-surface-warm-white/60">
             {imageUpload.hint}
           </p>
         ) : (
-          <p className="mt-spacing-2 max-w-2xl text-xs leading-5 text-[#5f5f5d] dark:text-surface-warm-white/50">
+          <p className="mt-spacing-2 max-w-2xl text-xs leading-5 text-[#5f5f5d] dark:text-surface-warm-white/60">
             {isMultiple
               ? "Unggah beberapa gambar (maksimal 6)."
               : "Unggah 1 gambar."}
@@ -453,7 +453,7 @@ export function ImageUploadComposer({
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={uploading || uploads.length >= max}
-          className="flex w-full items-center justify-center gap-spacing-2 rounded-[14px] border border-dashed border-black/20 bg-black/[0.02] px-spacing-4 py-spacing-6 text-sm text-[#5f5f5d] hover:bg-black/5 disabled:opacity-50 dark:border-surface-warm-white/20 dark:bg-[#181817] dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/[0.03]"
+          className="flex w-full items-center justify-center gap-spacing-2 rounded-none border border-dashed border-black/25 bg-black/[0.02] px-spacing-4 py-spacing-6 text-sm text-[#5f5f5d] hover:bg-black/5 disabled:opacity-50 dark:border-surface-warm-white/25 dark:bg-[#111110] dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/[0.04] cursor-pointer"
         >
           {uploading ? (
             <Loader2 aria-hidden className="size-4 animate-spin" />
@@ -478,7 +478,7 @@ export function ImageUploadComposer({
                 src={item.url}
                 alt="Gambar yang diunggah"
                 onRemove={() => removeUpload(item.assetId)}
-                className="size-20"
+                className="size-20 rounded-none"
               />
             ))}
           </div>
@@ -491,7 +491,7 @@ export function ImageUploadComposer({
           onClick={skip}
           disabled={isSubmitting}
           variant="outline"
-          className="rounded-full border-black/15 bg-transparent text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/12 dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white"
+          className="rounded-none border-black/15 bg-transparent text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/12 dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white"
         >
           Lewati
         </Button>
@@ -501,7 +501,7 @@ export function ImageUploadComposer({
               type="button"
               onClick={onClose}
               variant="outline"
-              className="rounded-full border-black/15 bg-transparent text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/12 dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white"
+              className="rounded-none border-black/15 bg-transparent text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/12 dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8 dark:hover:text-surface-warm-white"
             >
               Tulis bebas
             </Button>
@@ -510,7 +510,7 @@ export function ImageUploadComposer({
             type="button"
             disabled={!canSubmit}
             onClick={submitAnswer}
-            className="rounded-full bg-[#1c1c1c] text-white hover:bg-black disabled:opacity-50 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/86"
+            className="rounded-none bg-[#1c1c1c] text-white hover:bg-black disabled:opacity-50 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/86"
           >
             Kirim gambar
           </Button>

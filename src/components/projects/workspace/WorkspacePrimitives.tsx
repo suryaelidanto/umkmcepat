@@ -863,7 +863,7 @@ export function WorkspaceCardView({
 
   if (card.type === "build_recommendation") {
     return (
-      <div className="rounded-xl border border-black/10 bg-[#fcfbf8] p-4 shadow-sm transition-colors duration-200 dark:border-surface-warm-white/10 dark:bg-[#1b1b18] dark:shadow-none">
+      <div className="rounded-none border border-black/15 bg-[#faf9f5] p-4 shadow-xs transition-colors duration-200 dark:border-surface-warm-white/15 dark:bg-[#181816]">
         <div className="flex flex-col gap-3.5">
           <div className="min-w-0 flex-1">
             <h2 className="text-sm font-semibold leading-5 text-[#1c1c1c] dark:text-surface-warm-white">
@@ -880,7 +880,7 @@ export function WorkspaceCardView({
               ))}
             </ul>
             {!canBuild ? (
-              <p className="mt-2.5 rounded-lg border border-status-warning-border bg-status-warning-subtle px-3 py-2 text-xs leading-5 text-foreground">
+              <p className="mt-2.5 rounded-none border border-status-warning-border bg-status-warning-subtle px-3 py-2 text-xs leading-5 text-foreground">
                 Ada informasi yang masih perlu dilengkapi. Lanjutkan diskusi
                 dulu sebelum membuat website.
               </p>
@@ -891,7 +891,7 @@ export function WorkspaceCardView({
               type="button"
               disabled={!canBuild}
               onClick={onBuild}
-              className="h-9 flex-1 rounded-lg bg-[#1c1c1c] px-4 text-xs font-semibold text-white hover:bg-black disabled:opacity-50 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/86"
+              className="h-9 flex-1 rounded-none bg-[#1c1c1c] px-4 text-xs font-semibold text-white hover:bg-black disabled:opacity-50 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/86"
             >
               {buildComplete ? "Perbarui website" : "Mulai buat website"}
             </Button>
@@ -900,7 +900,7 @@ export function WorkspaceCardView({
                 type="button"
                 variant="outline"
                 onClick={onDiscuss}
-                className="h-9 rounded-lg border-black/15 bg-transparent px-4 text-xs font-medium text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/12 dark:text-surface-warm-white/78 dark:hover:bg-surface-warm-white/8"
+                className="h-9 rounded-none border-black/15 bg-transparent px-4 text-xs font-medium text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/12 dark:text-surface-warm-white/78 dark:hover:bg-surface-warm-white/8"
               >
                 Lanjut diskusi dulu
               </Button>
@@ -913,7 +913,7 @@ export function WorkspaceCardView({
 
   if (card.type === "build_retry") {
     return (
-      <div className="rounded-2xl border border-status-warning-border bg-[#fcfbf8] px-spacing-5 py-spacing-5 shadow-sm transition-colors duration-200 dark:border-status-warning-border dark:bg-[#1b1b18] dark:shadow-none">
+      <div className="rounded-none border border-status-warning-border bg-[#faf9f5] px-spacing-5 py-spacing-5 shadow-xs transition-colors duration-200 dark:border-status-warning-border dark:bg-[#181816]">
         <div className="grid items-start gap-spacing-5 md:grid-cols-[minmax(0,1fr)_auto]">
           <div className="min-w-0 flex-1">
             <h2 className="text-base font-semibold leading-6 text-[#1c1c1c] dark:text-surface-warm-white">
@@ -941,7 +941,7 @@ export function WorkspaceCardView({
               type="button"
               disabled={!canBuild}
               onClick={onBuild}
-              className="rounded-[12px] bg-[#1c1c1c] px-spacing-5 text-white hover:bg-black disabled:opacity-50 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/86"
+              className="rounded-none bg-[#1c1c1c] px-spacing-5 text-white hover:bg-black disabled:opacity-50 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/86"
             >
               Coba bangun lagi
             </Button>
@@ -950,7 +950,7 @@ export function WorkspaceCardView({
                 type="button"
                 variant="outline"
                 onClick={onDiscuss}
-                className="rounded-[12px] border-black/15 bg-transparent px-spacing-5 text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/12 dark:text-surface-warm-white/78 dark:hover:bg-surface-warm-white/8"
+                className="rounded-none border-black/15 bg-transparent px-spacing-5 text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:border-surface-warm-white/12 dark:text-surface-warm-white/78 dark:hover:bg-surface-warm-white/8"
               >
                 Perbaiki brief dulu
               </Button>
