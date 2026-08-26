@@ -2743,10 +2743,10 @@ export function WorkspaceShell({
                   createUploadedImageFilePart({
                     filename: "gambar-usaha.jpg",
                     mediaType: "image/jpeg",
-                    url: `/media/${asset.id}`,
+                    url: `/api/media/${asset.id}`,
                   }),
                 );
-                mediaPaths.push(`/media/${asset.id}`);
+                mediaPaths.push(`/api/media/${asset.id}`);
               }
             } else {
               fileParts.push(
