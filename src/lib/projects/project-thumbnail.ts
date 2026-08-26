@@ -14,6 +14,7 @@ import {
   S3_PREFIXES,
 } from "@/lib/storage/s3-client";
 import { getStorageProvider } from "@/lib/storage/storage-provider";
+import { serveMediaAsset } from "@/routes/api.media.$assetId";
 
 const S3_REF_PREFIX = "project-thumbnail:s3-private:";
 const MAX_BYTES = 1024 * 1024;
@@ -355,10 +356,37 @@ async function startArtifactServer(files: DistFile[]) {
   const byPath = new Map(
     files.map((file) => [normalizeUrlPath(file.path), file]),
   );
-  const server = createServer((request, response) => {
+  const server = createServer(async (request, response) => {
     const pathname = normalizeUrlPath(
       new URL(request.url || "/", "http://localhost").pathname,
     );
+
+    if (
+      pathname.startsWith("api/media/") ||
+      pathname.startsWith("media/") ||
+      pathname.startsWith("api/uploads/temp-images/")
+    ) {
+      const assetId = pathname
+        .replace(/^api\/uploads\/temp-images\//, "")
+        .replace(/^(api\/)?media\//, "");
+      try {
+        const mediaRes = await serveMediaAsset(assetId);
+        if (mediaRes.status === 200) {
+          const bytes = await mediaRes.arrayBuffer();
+          response.writeHead(200, {
+            "Content-Type":
+              mediaRes.headers.get("content-type") || "image/jpeg",
+            "Content-Length": String(bytes.byteLength),
+            "X-Content-Type-Options": "nosniff",
+          });
+          response.end(Buffer.from(bytes));
+          return;
+        }
+      } catch {
+        // fallback
+      }
+    }
+
     const file =
       byPath.get(pathname) ||
       (pathname.endsWith("/")

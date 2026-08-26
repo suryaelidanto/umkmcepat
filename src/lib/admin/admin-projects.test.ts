@@ -67,7 +67,7 @@ describe("listAdminProjects", () => {
             name: "New Owner",
           },
           status: "draft",
-          thumbnailUrl: "/api/projects/project-new/thumbnail",
+          thumbnailUrl: `/api/projects/project-new/thumbnail?v=${new Date("2026-07-30T10:30:00.000Z").getTime()}`,
           title: "Newest project",
           updatedAt: "2026-07-30T10:30:00.000Z",
         },

@@ -178,7 +178,7 @@ export async function listAdminProjects(
       owner: project.user,
       status: project.status,
       thumbnailUrl: project.thumbnailRef
-        ? `/api/projects/${project.id}/thumbnail`
+        ? `/api/projects/${project.id}/thumbnail?v=${project.updatedAt.getTime()}`
         : null,
       title: project.title,
       updatedAt: project.updatedAt.toISOString(),
