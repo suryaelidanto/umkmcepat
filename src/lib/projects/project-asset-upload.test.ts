@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { contentTypeFromRef } from "@/lib/projects/project-asset-upload";
+import {
+  MAX_PROJECT_ASSET_BYTES,
+  MAX_PROJECT_ASSETS,
+  MAX_TURN_IMAGES,
+  contentTypeFromRef,
+  isAllowedAssetPurpose,
+} from "@/lib/projects/project-asset-upload";
 
 describe("contentTypeFromRef", () => {
   it("derives from the byte-detected extension, ignoring client claims", () => {
@@ -26,5 +32,21 @@ describe("contentTypeFromRef", () => {
       "application/octet-stream",
     );
     expect(contentTypeFromRef("")).toBe("application/octet-stream");
+  });
+});
+
+describe("asset quotas and purpose validation", () => {
+  it("defines reasonable anti-abuse quota constants", () => {
+    expect(MAX_PROJECT_ASSETS).toBe(20);
+    expect(MAX_PROJECT_ASSET_BYTES).toBe(50 * 1024 * 1024);
+    expect(MAX_TURN_IMAGES).toBe(6);
+  });
+
+  it("allows only approved asset purposes", () => {
+    expect(isAllowedAssetPurpose("business-image")).toBe(true);
+    expect(isAllowedAssetPurpose("logo")).toBe(true);
+    expect(isAllowedAssetPurpose("reference")).toBe(true);
+    expect(isAllowedAssetPurpose("malicious")).toBe(false);
+    expect(isAllowedAssetPurpose("")).toBe(false);
   });
 });

@@ -2725,13 +2725,47 @@ export function WorkspaceShell({
 
       if (options.uploads?.length) {
         for (const item of options.uploads) {
-          fileParts.push(
-            createUploadedImageFilePart({
-              filename: "gambar-usaha.jpg",
-              mediaType: "image/jpeg",
-              url: item.url,
-            }),
-          );
+          try {
+            const form = new FormData();
+            form.append("purpose", "business-image");
+            form.append("assetId", item.assetId);
+            const res = await fetch(
+              `/api/projects/${projectId}/assets/upload`,
+              {
+                body: form,
+                method: "POST",
+              },
+            );
+            if (res.ok) {
+              const asset = (await res.json()) as { id?: string };
+              if (asset?.id) {
+                fileParts.push(
+                  createUploadedImageFilePart({
+                    filename: "gambar-usaha.jpg",
+                    mediaType: "image/jpeg",
+                    url: `/media/${asset.id}`,
+                  }),
+                );
+                mediaPaths.push(`/media/${asset.id}`);
+              }
+            } else {
+              fileParts.push(
+                createUploadedImageFilePart({
+                  filename: "gambar-usaha.jpg",
+                  mediaType: "image/jpeg",
+                  url: item.url,
+                }),
+              );
+            }
+          } catch {
+            fileParts.push(
+              createUploadedImageFilePart({
+                filename: "gambar-usaha.jpg",
+                mediaType: "image/jpeg",
+                url: item.url,
+              }),
+            );
+          }
         }
       }
 
