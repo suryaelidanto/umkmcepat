@@ -20,7 +20,7 @@ import {
 import { getDiscussModel, getVisionModel } from "@/lib/ai/ai-models";
 import { writeAiRequestLog } from "@/lib/ai/ai-request-log";
 import { getAiTimeoutMs } from "@/lib/ai/ai-timeouts";
-import { primeSettingCache } from "@/lib/config/app-settings";
+import { getSettingSync, primeSettingCache } from "@/lib/config/app-settings";
 import { devLog } from "@/lib/dev-log";
 import {
   chargeEnergyForAiUsage,
@@ -31,6 +31,11 @@ import { getSafeAiErrorLog } from "@/lib/projects/ai-error-log";
 import { enqueueAttemptJob } from "@/lib/projects/attempt-queue";
 import { parseProjectBrief, type WorkspaceCard } from "@/lib/projects/brief";
 import { normalizeWorkspaceTurn } from "@/lib/projects/brief-flow";
+import {
+  evaluateTieredBriefReadiness,
+  getNextTieredEnrichmentCard,
+  isExplicitBuildRequest,
+} from "@/lib/projects/brief-tiered-readiness";
 import { loadActiveHandoff } from "@/lib/projects/build-handoffs";
 import { prepareBuildHandoff } from "@/lib/projects/build-planner";
 import { evaluateBuildReadiness } from "@/lib/projects/build-readiness";
@@ -856,6 +861,19 @@ export async function runDiscussTurn({
         project.prompt,
       );
       const readiness = evaluateBuildReadiness(canonicalBrief);
+      const tieredReadiness = evaluateTieredBriefReadiness(canonicalBrief);
+      const isExplicitBuild = isExplicitBuildRequest(lastUserTextValue ?? "");
+      const photoUploadsActive = (() => {
+        try {
+          return getSettingSync(
+            "feature.composer_uploads_enabled",
+            true,
+          ) as boolean;
+        } catch {
+          return true;
+        }
+      })();
+
       if (readiness.state === "blocked") {
         if (workspaceTurn.workspaceCard.type === "build_recommendation") {
           workspaceTurn = {
@@ -888,6 +906,31 @@ export async function runDiscussTurn({
               blockers: readiness.blockers.map((blocker) => blocker.field),
             });
           }
+        }
+      } else if (
+        workspaceTurn.workspaceCard.type === "build_recommendation" &&
+        !isExplicitBuild &&
+        !tieredReadiness.tier2.satisfied
+      ) {
+        const nextEnrichment = getNextTieredEnrichmentCard(canonicalBrief, {
+          uploadsEnabled: photoUploadsActive,
+        });
+        if (nextEnrichment) {
+          workspaceTurn = {
+            ...workspaceTurn,
+            readyForBuild: false,
+            workspaceCard: nextEnrichment,
+          };
+          if (nextEnrichment.type === "question") {
+            chatText = nextEnrichment.question.question;
+          } else if (nextEnrichment.type === "image_upload") {
+            chatText = nextEnrichment.imageUpload.question;
+          }
+          devLog("discuss", "contract-tiered-enrichment-intercepted", {
+            projectId: project.id,
+            turnId,
+            missingTier2: tieredReadiness.tier2.missing,
+          });
         }
       }
     }

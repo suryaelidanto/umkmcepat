@@ -309,17 +309,15 @@ export function ProcessingControl({
       : fallbackDetail;
 
   return (
-    <div className="mt-spacing-3 overflow-hidden rounded-2xl border border-border bg-card shadow-xs">
-      <div className="flex items-center justify-between gap-spacing-4 px-spacing-5 py-spacing-4">
-        <div className="flex min-w-0 items-center gap-spacing-4">
-          <div className="grid size-10 shrink-0 place-items-center rounded-full border border-border bg-muted/60">
+    <div className="overflow-hidden rounded-2xl border border-black/10 bg-white p-3 shadow-sm transition-colors dark:border-white/15 dark:bg-[#282824] dark:shadow-[0_4px_20px_rgba(0,0,0,0.35)]">
+      <div className="flex items-center justify-between gap-spacing-4 px-1">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="grid size-9 shrink-0 place-items-center rounded-full border border-black/10 bg-black/5 dark:border-white/10 dark:bg-white/5">
             <span className="size-4 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
           </div>
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-spacing-2">
-              <p className="text-sm font-semibold text-foreground">{title}</p>
-            </div>
-            <p className="mt-spacing-1 text-xs leading-5 text-muted-foreground">
+            <p className="text-xs font-semibold text-foreground dark:text-surface-warm-white">{title}</p>
+            <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground dark:text-surface-warm-white/60">
               {detail}
             </p>
           </div>
@@ -327,8 +325,9 @@ export function ProcessingControl({
         <Button
           type="button"
           variant="outline"
+          size="sm"
           onClick={onStop}
-          className="h-9 shrink-0 rounded-lg border-border bg-transparent px-spacing-4 text-xs text-foreground hover:bg-muted cursor-pointer"
+          className="h-8 shrink-0 rounded-lg border-black/15 bg-white px-3 text-xs font-medium text-foreground hover:bg-black/5 hover:text-foreground dark:border-white/15 dark:bg-white/5 dark:hover:bg-white/10 cursor-pointer"
         >
           Hentikan
         </Button>

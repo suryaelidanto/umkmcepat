@@ -239,6 +239,7 @@ describe("MobileMenuContent", () => {
     annotationAvailable: false,
     directEditActive: false,
     directEditFlagEnabled: true,
+    hasPreview: true,
     onClose: vi.fn(),
   };
 

@@ -145,11 +145,14 @@ export function HomePromptForm({
     waitlistQuery.isSuccess &&
     waitlistQuery.data.status !== "approved";
 
+  const attachmentsRef = useRef(attachments);
+  attachmentsRef.current = attachments;
+
   useEffect(() => {
     return () => {
-      revokeAll(attachments);
+      revokeAll(attachmentsRef.current);
     };
-  }, [attachments]);
+  }, []);
 
   useEffect(() => {
     const draft = parseProjectDraft(

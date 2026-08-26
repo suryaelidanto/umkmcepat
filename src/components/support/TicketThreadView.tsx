@@ -11,6 +11,10 @@ import { ticketStatusDisplay } from "@/components/admin/status/admin-status";
 import { AdminStatusBadge } from "@/components/admin/status/AdminStatusBadge";
 import { SensitiveText } from "@/components/admin/streamer-mode/SensitiveText";
 import { Button } from "@/components/ui/button";
+import {
+  ImageLightbox,
+  type LightboxImage,
+} from "@/components/ui/image-lightbox";
 import { ImageUploadThumb } from "@/components/ui/image-upload-thumb";
 import { Link } from "@/components/ui/link";
 import { fetchJson } from "@/lib/query-client";
@@ -63,6 +67,9 @@ export function TicketThreadView({
   const [attachments, setAttachments] = useState<
     Array<{ id: string; url: string; file: File; uploading: boolean }>
   >([]);
+  const [lightboxImages, setLightboxImages] = useState<LightboxImage[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   const queryEndpoint = isAdmin
     ? `/api/admin/tickets/${ticketId}`
@@ -410,20 +417,28 @@ export function TicketThreadView({
                   <div
                     className={`${msg.body ? "mt-2.5" : ""} flex flex-wrap gap-2`}
                   >
-                    {msg.assetIds.map((assetId) => (
-                      <a
+                    {msg.assetIds.map((assetId, assetIdx) => (
+                      <button
                         key={assetId}
-                        href={`/api/support/assets/${assetId}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block overflow-hidden rounded-xl border border-black/10 bg-black/5 dark:border-surface-warm-white/10 shadow-2xs"
+                        type="button"
+                        onClick={() => {
+                          setLightboxImages(
+                            msg.assetIds.map((id, i) => ({
+                              src: `/api/support/assets/${id}`,
+                              alt: `Lampiran ${i + 1}`,
+                            })),
+                          );
+                          setLightboxIndex(assetIdx);
+                          setLightboxOpen(true);
+                        }}
+                        className="block overflow-hidden rounded-xl border border-black/10 bg-black/5 dark:border-surface-warm-white/10 shadow-2xs cursor-pointer text-left"
                       >
                         <img
                           src={`/api/support/assets/${assetId}`}
                           alt="Lampiran"
                           className="size-24 sm:size-28 object-cover transition hover:scale-105"
                         />
-                      </a>
+                      </button>
                     ))}
                   </div>
                 )}
@@ -465,11 +480,21 @@ export function TicketThreadView({
         >
           {attachments.length > 0 && (
             <div className="flex flex-wrap gap-2 pb-2">
-              {attachments.map((item) => (
+              {attachments.map((item, idx) => (
                 <ImageUploadThumb
                   alt="Attachment preview"
-                  className="size-14 rounded-xl overflow-hidden shadow-2xs"
+                  className="size-14 rounded-xl overflow-hidden shadow-2xs cursor-pointer"
                   key={item.id}
+                  onClick={() => {
+                    setLightboxImages(
+                      attachments.map((a, i) => ({
+                        src: a.url,
+                        alt: `Pratinjau ${i + 1}`,
+                      })),
+                    );
+                    setLightboxIndex(idx);
+                    setLightboxOpen(true);
+                  }}
                   onRemove={() => removeAttachment(item.id)}
                   src={item.url}
                   uploading={item.uploading}
@@ -531,6 +556,13 @@ export function TicketThreadView({
           Tiket ini telah selesai ditangani.
         </div>
       )}
+
+      <ImageLightbox
+        open={lightboxOpen}
+        onOpenChange={setLightboxOpen}
+        images={lightboxImages}
+        initialIndex={lightboxIndex}
+      />
     </div>
   );
 }
