@@ -2597,7 +2597,7 @@ export function WorkspaceShell({
       return;
     }
     const asset = (await claimRes.json()) as { id: string };
-    const mediaPath = `/media/${asset.id}`;
+    const mediaPath = `/api/media/${asset.id}`;
     const instruction = createImageReplaceEditInstruction({
       replaceWith: [{ alt: "Gambar baru", mediaPath }],
       target,

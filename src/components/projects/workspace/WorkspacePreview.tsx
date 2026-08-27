@@ -393,14 +393,16 @@ function PreviewAnnotationPopover({
             </p>
           ) : null}
           {target.target.tag === "img" && target.target.src ? (
-            <button
-              type="button"
-              onClick={onReplaceImage}
-              className="mt-spacing-2 inline-flex items-center gap-spacing-1 rounded-radius-md border border-surface-warm-white/15 px-spacing-2 py-spacing-1 text-xs text-surface-warm-white/80 hover:bg-surface-warm-white/8"
-            >
-              <ImagePlus className="size-3.5" />
-              Ganti gambar
-            </button>
+            <div className="mt-spacing-3 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onReplaceImage}
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-surface-warm-white px-3 text-xs font-semibold text-foreground-primary shadow-xs hover:bg-surface-warm-white/90 active:scale-95 transition-all cursor-pointer"
+              >
+                <ImagePlus className="size-3.5" />
+                <span>Upload Foto Pengganti</span>
+              </button>
+            </div>
           ) : null}
         </div>
         <button
