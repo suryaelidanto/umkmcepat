@@ -9,6 +9,7 @@ import {
   ArrowUp,
   Check,
   Globe2,
+  Loader2,
   Menu,
   MessageCircle,
   Pencil,
@@ -1314,8 +1315,7 @@ export function WorkspaceShell({
     isBuilding ||
     isEditingPreview ||
     isRetrying ||
-    isPreparingNextQuestion ||
-    isSubmittingTurn;
+    isPreparingNextQuestion;
 
   useEffect(() => {
     const toolCard = getWorkspaceCardFromMessages(allMessages);
@@ -3845,13 +3845,18 @@ export function WorkspaceShell({
                                 type="submit"
                                 size="icon"
                                 disabled={
+                                  isSubmittingTurn ||
                                   !message.trim() ||
                                   hasUploadingAttachments(pendingAttachments)
                                 }
                                 className="size-8.5 rounded-lg bg-[#1c1c1c] text-white shadow-2xs transition hover:bg-black active:scale-95 disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/30 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white dark:disabled:bg-white/10 dark:disabled:text-white/30 cursor-pointer"
                                 aria-label="Kirim pesan"
                               >
-                                <ArrowUp className="size-4" />
+                                {isSubmittingTurn ? (
+                                  <Loader2 className="size-4 animate-spin" />
+                                ) : (
+                                  <ArrowUp className="size-4" />
+                                )}
                               </Button>
                             </div>
                           </div>
@@ -4026,13 +4031,18 @@ export function WorkspaceShell({
                             type="submit"
                             size="icon"
                             disabled={
+                              isSubmittingTurn ||
                               !message.trim() ||
                               hasUploadingAttachments(pendingAttachments)
                             }
                             className="size-8.5 rounded-lg bg-[#1c1c1c] text-white shadow-2xs transition hover:bg-black active:scale-95 disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/30 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white dark:disabled:bg-white/10 dark:disabled:text-white/30 cursor-pointer"
                             aria-label="Kirim pesan"
                           >
-                            <ArrowUp className="size-4" />
+                            {isSubmittingTurn ? (
+                              <Loader2 className="size-4 animate-spin" />
+                            ) : (
+                              <ArrowUp className="size-4" />
+                            )}
                           </Button>
                         </div>
                       </div>
