@@ -774,9 +774,21 @@ export async function runAgenticGenerate(input: {
     }),
   };
 
+  const availableImagesSection =
+    schema.images && schema.images.length > 0
+      ? `\n\nAVAILABLE REAL STORE PHOTOS IN src/content/site.ts:\n` +
+        schema.images
+          .map(
+            (img, idx) =>
+              `- Photo #${idx + 1}: url="${img.url}", role="${img.purpose || "business-image"}", alt="${img.alt || schema.businessName}"`,
+          )
+          .join("\n") +
+        `\nYou MUST render these genuine store photos prominently in Hero, Gallery, or product highlights using <img src={site.images[...].url} ... />.`
+      : "";
+
   const systemPrompt = `You are the implementation agent for a portable static Vite + React + TanStack Router website.
 
-Your job is to turn the accepted business data into a credible, distinctive, editable customer-facing Indonesian UMKM website. You are not building a backend, SaaS dashboard, checkout, login, payment flow, persistence layer, or fake interactive demo.
+Your job is to turn the accepted business data into a credible, distinctive, editable customer-facing Indonesian UMKM website. You are not building a backend, SaaS dashboard, checkout, login, payment flow, persistence layer, or fake interactive demo.${availableImagesSection}
 
 CREATIVE AUTHORITY:
 - Read impeccable first. It owns visual direction, hierarchy, typography, spatial rhythm, and anti-slop rules.

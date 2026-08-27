@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import { prisma as defaultPrisma } from "@/lib/prisma";
 import {
   detectImageFormat,
   EXT_CONTENT_TYPE as FORMAT_CONTENT_TYPES,
@@ -277,4 +278,117 @@ function assertUlid(ulid: string): void {
 
 function isValidUlid(ulid: string): boolean {
   return /^[A-Za-z0-9]{1,64}$/.test(ulid);
+}
+
+export type ProjectAssetItem = {
+  id: string;
+  purpose: string;
+  contentType: string;
+  sizeBytes: number;
+  publicUrl: string | null;
+  mediaUrl: string;
+  createdAt: string;
+  isUsed: boolean;
+};
+
+export async function listProjectAssetsWithUsage(
+  projectId: string,
+  client = defaultPrisma,
+): Promise<{
+  assets: ProjectAssetItem[];
+  count: number;
+  maxBytes: number;
+  maxCount: number;
+  totalBytes: number;
+}> {
+  const assets = await client.projectAsset.findMany({
+    where: { projectId },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      purpose: true,
+      contentType: true,
+      sizeBytes: true,
+      publicUrl: true,
+      createdAt: true,
+      ref: true,
+    },
+  });
+
+  const latestSnapshot = await client.projectSnapshot.findFirst({
+    where: { projectId },
+    orderBy: { createdAt: "desc" },
+    select: { files: true },
+  });
+
+  let siteContent = "";
+  if (latestSnapshot?.files && Array.isArray(latestSnapshot.files)) {
+    const rawFiles = latestSnapshot.files as Array<{
+      path?: string;
+      content?: string;
+    }>;
+    siteContent = rawFiles
+      .filter((f) => f.path?.endsWith(".ts") || f.path?.endsWith(".tsx"))
+      .map((f) => f.content || "")
+      .join("\n");
+  }
+
+  const items: ProjectAssetItem[] = assets.map((asset) => {
+    const isUsed =
+      siteContent.includes(asset.id) ||
+      (asset.publicUrl ? siteContent.includes(asset.publicUrl) : false);
+
+    return {
+      id: asset.id,
+      purpose: asset.purpose,
+      contentType: asset.contentType,
+      sizeBytes: asset.sizeBytes,
+      publicUrl: asset.publicUrl,
+      mediaUrl: `/api/media/${asset.id}`,
+      createdAt: asset.createdAt.toISOString(),
+      isUsed,
+    };
+  });
+
+  const totalBytes = items.reduce((sum, item) => sum + item.sizeBytes, 0);
+
+  return {
+    assets: items,
+    count: items.length,
+    maxBytes: 50 * 1024 * 1024,
+    maxCount: 20,
+    totalBytes,
+  };
+}
+
+export async function deleteProjectAssetById(
+  {
+    assetId,
+    projectId,
+    userId,
+  }: {
+    assetId: string;
+    projectId: string;
+    userId: string;
+  },
+  client = defaultPrisma,
+): Promise<boolean> {
+  const asset = await client.projectAsset.findFirst({
+    where: { id: assetId, projectId, userId },
+    select: { id: true, ref: true },
+  });
+  if (!asset) {
+    return false;
+  }
+
+  try {
+    await deleteProjectAsset(asset.ref);
+  } catch {
+    // S3 object may already be deleted or missing
+  }
+
+  await client.projectAsset.delete({
+    where: { id: asset.id },
+  });
+  return true;
 }

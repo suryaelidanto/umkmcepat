@@ -45,6 +45,7 @@ import {
 } from "@/components/projects/chat/ComposerAttachments";
 import { settleDiscussAfterChatReady } from "@/components/projects/chat/discuss-chat-settle";
 import { CodeView } from "@/components/projects/workspace/CodeViewer";
+import { WorkspaceMediaGallery } from "@/components/projects/workspace/WorkspaceMediaGallery";
 import {
   BuildProgressPanel,
   EmptyPreviewState,
@@ -4187,6 +4188,21 @@ export function WorkspaceShell({
               isBuilding={isBuilding}
               onRetry={() => setSourceReloadKey((current) => current + 1)}
             />
+          </div>
+
+          <div
+            id="workspace-media-panel"
+            role="tabpanel"
+            aria-labelledby="workspace-media-tab"
+            hidden={activeTab !== "media"}
+            className="h-full min-h-0"
+          >
+            {activeTab === "media" ? (
+              <WorkspaceMediaGallery
+                projectId={projectId}
+                readOnly={readOnly}
+              />
+            ) : null}
           </div>
         </div>
       </div>
