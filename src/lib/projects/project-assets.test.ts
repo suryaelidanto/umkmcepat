@@ -3,7 +3,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createProjectAssetRef,
   deleteProjectAsset,
+  deleteProjectAssetById,
   detectImageFormat,
+  listProjectAssetsWithUsage,
   parseProjectAssetRef,
   readProjectAsset,
   writeProjectAsset,
@@ -299,6 +301,106 @@ describe("project assets", () => {
 
     it("re-exports detectImageFormat correctly", () => {
       expect(detectImageFormat(pngBytes())).toBe("png");
+    });
+  });
+
+  describe("listProjectAssetsWithUsage", () => {
+    it("lists assets and detects usage in snapshot files", async () => {
+      const fakeClient = {
+        projectAsset: {
+          findMany: vi.fn(async () => [
+            {
+              id: "asset-1",
+              purpose: "business-image",
+              contentType: "image/jpeg",
+              sizeBytes: 2000,
+              publicUrl: "https://media.test/asset-1.jpg",
+              createdAt: new Date("2026-08-25T10:00:00Z"),
+              ref: "project-asset:s3:p1/u1/business-image/asset-1.jpeg",
+            },
+            {
+              id: "asset-2",
+              purpose: "logo",
+              contentType: "image/png",
+              sizeBytes: 1000,
+              publicUrl: null,
+              createdAt: new Date("2026-08-25T11:00:00Z"),
+              ref: "project-asset:s3:p1/u1/logo/asset-2.png",
+            },
+          ]),
+        },
+        projectSnapshot: {
+          findFirst: vi.fn(async () => ({
+            files: [
+              {
+                path: "src/content/site.ts",
+                content: `export const site = { hero: { image: "/api/media/asset-1" } };`,
+              },
+            ],
+          })),
+        },
+      };
+
+      const result = await listProjectAssetsWithUsage(
+        "p1",
+        fakeClient as unknown as Parameters<
+          typeof listProjectAssetsWithUsage
+        >[1],
+      );
+
+      expect(result.count).toBe(2);
+      expect(result.totalBytes).toBe(3000);
+      expect(result.assets[0]).toEqual({
+        id: "asset-1",
+        purpose: "business-image",
+        contentType: "image/jpeg",
+        sizeBytes: 2000,
+        publicUrl: "https://media.test/asset-1.jpg",
+        mediaUrl: "/api/media/asset-1",
+        createdAt: "2026-08-25T10:00:00.000Z",
+        isUsed: true,
+      });
+      expect(result.assets[1].isUsed).toBe(false);
+    });
+  });
+
+  describe("deleteProjectAssetById", () => {
+    it("deletes S3 object and db record when asset exists", async () => {
+      const deleteRecordMock = vi.fn(async () => {});
+      const fakeClient = {
+        projectAsset: {
+          findFirst: vi.fn(async () => ({
+            id: "asset-1",
+            ref: "project-asset:s3:p1/u1/business-image/asset-1.jpeg",
+          })),
+          delete: deleteRecordMock,
+        },
+      };
+
+      const deleted = await deleteProjectAssetById(
+        { assetId: "asset-1", projectId: "p1", userId: "u1" },
+        fakeClient as unknown as Parameters<typeof deleteProjectAssetById>[1],
+      );
+
+      expect(deleted).toBe(true);
+      expect(deleteRecordMock).toHaveBeenCalledWith({
+        where: { id: "asset-1" },
+      });
+    });
+
+    it("returns false when asset does not exist", async () => {
+      const fakeClient = {
+        projectAsset: {
+          findFirst: vi.fn(async () => null),
+        },
+      };
+
+      const deleted = await deleteProjectAssetById(
+        { assetId: "missing", projectId: "p1", userId: "u1" },
+        fakeClient as unknown as Parameters<typeof deleteProjectAssetById>[1],
+      );
+
+      expect(deleted).toBe(false);
     });
   });
 });

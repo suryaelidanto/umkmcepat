@@ -37,8 +37,8 @@ describe("contentTypeFromRef", () => {
 
 describe("asset quotas and purpose validation", () => {
   it("defines reasonable anti-abuse quota constants", () => {
-    expect(MAX_PROJECT_ASSETS).toBe(20);
-    expect(MAX_PROJECT_ASSET_BYTES).toBe(50 * 1024 * 1024);
+    expect(MAX_PROJECT_ASSETS).toBe(10);
+    expect(MAX_PROJECT_ASSET_BYTES).toBe(8 * 1024 * 1024);
     expect(MAX_TURN_IMAGES).toBe(6);
   });
 

@@ -5,6 +5,7 @@ import {
   Code2,
   ExternalLink,
   Globe2,
+  Image as ImageIcon,
   Loader2,
   MessageSquare,
   MessageSquarePlus,
@@ -31,7 +32,7 @@ import { type WorkspaceCard } from "@/lib/projects/brief";
 import { type VisualAnnotationDraft } from "@/lib/projects/visual-annotations";
 import { cn } from "@/lib/utils";
 
-export type BuildTab = "preview" | "code";
+export type BuildTab = "preview" | "code" | "media";
 
 export {
   ImageUploadComposer,
@@ -169,12 +170,37 @@ export function WorkspaceTopBar({
                   (
                     event.currentTarget.previousElementSibling as HTMLElement
                   )?.focus();
+                } else if (event.key === "ArrowRight") {
+                  event.preventDefault();
+                  setActiveTab("media");
+                  (
+                    event.currentTarget.nextElementSibling as HTMLElement
+                  )?.focus();
                 }
               }}
               icon={<Code2 className="size-3" />}
               layoutId="workspace-active-tab"
             >
               Kode
+            </TabButton>
+            <TabButton
+              active={activeTab === "media"}
+              id="workspace-media-tab"
+              controls="workspace-media-panel"
+              onClick={() => setActiveTab("media")}
+              onKeyDown={(event) => {
+                if (event.key === "ArrowLeft") {
+                  event.preventDefault();
+                  setActiveTab("code");
+                  (
+                    event.currentTarget.previousElementSibling as HTMLElement
+                  )?.focus();
+                }
+              }}
+              icon={<ImageIcon className="size-3" />}
+              layoutId="workspace-active-tab"
+            >
+              Media
             </TabButton>
           </div>
 
