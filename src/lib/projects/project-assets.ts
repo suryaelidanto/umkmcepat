@@ -5,6 +5,7 @@ import {
   detectImageFormat,
   EXT_CONTENT_TYPE as FORMAT_CONTENT_TYPES,
 } from "@/lib/storage/images/format";
+import { optimizeImageToWebp } from "@/lib/storage/images/optimize";
 import {
   deleteS3Object,
   getS3Object,
@@ -146,15 +147,25 @@ export async function writeProjectAsset({
     throw new Error(`Project asset exceeds size limit (${MAX_BYTES} bytes).`);
   }
 
-  const format = detectImageFormat(bytes);
-  if (!format) {
+  const rawFormat = detectImageFormat(bytes);
+  if (!rawFormat) {
     throw new Error(
       "Invalid project asset: not a supported image (PNG/JPEG/WEBP).",
     );
   }
 
+  let finalBytes = bytes;
+  let finalFormat: string = rawFormat;
+  try {
+    const optimized = await optimizeImageToWebp(bytes);
+    finalBytes = optimized.bytes;
+    finalFormat = optimized.format;
+  } catch {
+    // fallback to original bytes on error
+  }
+
   const ulid = randomUUID().replace(/-/g, "");
-  const relativeKey = `${S3_PREFIXES.asset}/${projectId}/${userId}/${kind}/${ulid}.${format}`;
+  const relativeKey = `${S3_PREFIXES.asset}/${projectId}/${userId}/${kind}/${ulid}.${finalFormat}`;
 
   const provider = getStorageProvider();
   void provider; // single path now; kept for future local/cloud gating if needed
@@ -164,23 +175,25 @@ export async function writeProjectAsset({
     await putS3Object(
       "public",
       relativeKey,
-      bytes,
-      FORMAT_CONTENT_TYPES[format],
+      finalBytes,
+      FORMAT_CONTENT_TYPES[finalFormat as keyof typeof FORMAT_CONTENT_TYPES] ||
+        "image/webp",
     );
     return {
       publicUrl: publicUrlFor("public", relativeKey),
-      ref: `${S3_REF_PREFIX}${projectId}/${userId}/${kind}/${ulid}.${format}`,
+      ref: `${S3_REF_PREFIX}${projectId}/${userId}/${kind}/${ulid}.${finalFormat}`,
     };
   }
   await putS3Object(
     "private",
     relativeKey,
-    bytes,
-    FORMAT_CONTENT_TYPES[format],
+    finalBytes,
+    FORMAT_CONTENT_TYPES[finalFormat as keyof typeof FORMAT_CONTENT_TYPES] ||
+      "image/webp",
   );
   return {
     publicUrl: null,
-    ref: `${S3_PRIVATE_REF_PREFIX}${projectId}/${userId}/${kind}/${ulid}.${format}`,
+    ref: `${S3_PRIVATE_REF_PREFIX}${projectId}/${userId}/${kind}/${ulid}.${finalFormat}`,
   };
 }
 
