@@ -827,6 +827,12 @@ FACT AND SAFETY RULES:
 
 ANTI-SLOP & REFINED VISUAL STANDARDS:
 - REAL UPLOADED PHOTOS: If \`site.images\` is populated in \`src/content/site.ts\`, you MUST display these genuine store photos prominently (e.g. as Hero showcase visual, gallery cards, or menu highlight images) with rounded borders, responsive aspect ratio, and clean framing (\`<img src={site.images[0].url} alt={site.images[0].alt || site.businessName} className="w-full h-72 sm:h-96 lg:h-[420px] object-cover rounded-2xl shadow-xl" />\`).
+- ZERO DUPLICATE IMAGES (STRICT RULE): NEVER render the same photo URL more than once across the entire website. Each photo in \`site.images\` must appear at most ONCE. Do NOT loop or duplicate photos just to artificially fill out a grid or card count.
+- ADAPTIVE PHOTO LAYOUT: Adapt your section and gallery layouts to the EXACT number of real photos in \`site.images\`:
+  • 1 Photo: Render prominently in Hero only. Do not create an empty or repeated gallery section.
+  • 2 Photos: 1 in Hero + 1 in About or Featured section.
+  • 3 Photos: 1 in Hero + 2 in Gallery side-by-side (2-column split).
+  • 4+ Photos: Clean grid displaying each unique photo exactly once.
 - NEVER CREATE "NO PHOTO / TIDAK ADA FOTO" PLACEHOLDERS: If photos are missing or \`site.images\` is empty, NEVER render boxes saying "Tidak ada foto", gray placeholder squares, or camera icons. Instead, design a purely typographic, content-led layout (H1, headline, USP grid, pricing badges, address and hours info).
 - NO FAKE/SIMULATED PRODUCT SHAPES: If the user did not upload photos, NEVER draw fake CSS/SVG t-shirt silhouettes, coffee cup wireframes, or mockup graphics. Instead, present clean, elegant editorial typographic cards with bold titles, price tags, specification bullets, and WhatsApp action buttons.
 - NO PILL / BADGE OVERLOAD (STRICT BAN): NEVER place floating badge/pill chips, uppercase eyebrow tags, or category capsules above section headings (e.g. absolutely no "[• Profil Kedai]", no "[• Tentang Kami]", no "[• Menu Pilihan]", no "[• Kenapa Memilih Kami]"). Max 1 subtle badge in the entire Hero only if strictly relevant. In all other sections, let clean, bold H2 typography and brief descriptive subheadings carry the hierarchy directly without any badge clutter.

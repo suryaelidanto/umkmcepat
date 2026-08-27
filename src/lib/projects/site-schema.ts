@@ -284,11 +284,18 @@ export function createProjectSiteSchemaFromBrief(
     deliveryArea: brief.deliveryArea?.trim() || undefined,
     images:
       brief.businessImages && brief.businessImages.length > 0
-        ? brief.businessImages.map((img) => ({
-            url: `/api/media/${img.id}`,
-            purpose: img.purpose || "business-image",
-            alt: businessName,
-          }))
+        ? Array.from(
+            new Map(
+              brief.businessImages.map((img) => [
+                img.id,
+                {
+                  url: `/api/media/${img.id}`,
+                  purpose: img.purpose || "business-image",
+                  alt: businessName,
+                },
+              ]),
+            ).values(),
+          )
         : undefined,
     primaryCtaTarget:
       brief.contact?.channel === "whatsapp" && brief.contact?.value

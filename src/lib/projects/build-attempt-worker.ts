@@ -79,6 +79,7 @@ import { projectSiteGenerationSystemPrompt } from "@/lib/projects/site-generatio
 import {
   createProjectSiteSchemaFromBrief,
   createProjectSiteSchemaFromGeneratedContract,
+  type ProjectSiteSchema,
 } from "@/lib/projects/site-schema";
 
 const GENERATED_SNAPSHOT_SOURCE_TYPE =
@@ -710,11 +711,19 @@ export async function runBuildAttempt({
       : [];
 
     if (currentProjectAssets.length > 0) {
-      finalSchema.images = currentProjectAssets.map((asset) => ({
-        url: `/api/media/${asset.id}`,
-        purpose: asset.purpose || "business-image",
-        alt: finalSchema.businessName,
-      }));
+      const seenIds = new Set<string>();
+      const uniqueImages: NonNullable<ProjectSiteSchema["images"]> = [];
+      for (const asset of currentProjectAssets) {
+        if (!seenIds.has(asset.id)) {
+          seenIds.add(asset.id);
+          uniqueImages.push({
+            url: `/api/media/${asset.id}`,
+            purpose: asset.purpose || "business-image",
+            alt: finalSchema.businessName,
+          });
+        }
+      }
+      finalSchema.images = uniqueImages;
     } else {
       finalSchema.images = [];
     }
