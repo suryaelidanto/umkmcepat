@@ -1,21 +1,23 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Check,
-  Copy,
-  ImagePlus,
-  Loader2,
-  Trash2,
-  UploadCloud,
-  ZoomIn,
-} from "lucide-react";
+import { ImagePlus, Loader2, Trash2, UploadCloud, ZoomIn } from "lucide-react";
 import { useRef, useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ImageLightbox } from "@/components/ui/image-lightbox";
 import { type ProjectAssetItem } from "@/lib/projects/project-assets";
 import { fetchJson } from "@/lib/query-client";
 import { cn } from "@/lib/utils";
+
+const MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024; // 2 MB
 
 type MediaAssetsResponse = {
   assets: ProjectAssetItem[];
@@ -34,8 +36,10 @@ export function WorkspaceMediaGallery({
 }) {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [assetToDelete, setAssetToDelete] = useState<ProjectAssetItem | null>(
+    null,
+  );
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -50,9 +54,7 @@ export function WorkspaceMediaGallery({
     mutationFn: async (assetId: string) => {
       const res = await fetch(
         `/api/projects/${projectId}/assets?assetId=${assetId}`,
-        {
-          method: "DELETE",
-        },
+        { method: "DELETE" },
       );
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -61,37 +63,60 @@ export function WorkspaceMediaGallery({
       return res.json();
     },
     onSuccess: () => {
+      setAssetToDelete(null);
       queryClient.invalidateQueries({
         queryKey: ["projects", projectId, "assets"],
       });
     },
   });
 
-  async function handleFileUpload(file: File) {
+  async function handleUploadFiles(files: FileList | File[]) {
     setUploadError(null);
-    if (!file.type.startsWith("image/")) {
-      setUploadError("Hanya file gambar (JPG, PNG, WEBP) yang didukung.");
+    const validFiles: File[] = [];
+
+    for (const file of Array.from(files)) {
+      if (!file.type.startsWith("image/")) {
+        setUploadError(
+          `File "${file.name}" bukan gambar (hanya JPG, PNG, WEBP).`,
+        );
+        return;
+      }
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        setUploadError(`Ukuran file "${file.name}" melebihi 2 MB.`);
+        return;
+      }
+      validFiles.push(file);
+    }
+
+    if (validFiles.length === 0) {
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setUploadError("Ukuran gambar maksimal 5 MB per file.");
+
+    const currentCount = data?.count ?? 0;
+    const maxCount = data?.maxCount ?? 10;
+    if (currentCount + validFiles.length > maxCount) {
+      setUploadError(
+        `Maksimal ${maxCount} foto per proyek. Sisa slot: ${Math.max(0, maxCount - currentCount)}.`,
+      );
       return;
     }
 
     setIsUploading(true);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("purpose", "business-image");
+      for (const file of validFiles) {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("purpose", "business-image");
 
-      const res = await fetch(`/api/projects/${projectId}/assets/upload`, {
-        method: "POST",
-        body: formData,
-      });
+        const res = await fetch(`/api/projects/${projectId}/assets/upload`, {
+          method: "POST",
+          body: formData,
+        });
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || "Gagal mengunggah foto.");
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.message || `Gagal mengunggah ${file.name}.`);
+        }
       }
 
       await queryClient.invalidateQueries({
@@ -108,28 +133,20 @@ export function WorkspaceMediaGallery({
   }
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (file) {
-      handleFileUpload(file);
+    if (e.target.files && e.target.files.length > 0) {
+      handleUploadFiles(e.target.files);
     }
   }
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     setIsDragOver(false);
-    if (readOnly) {
+    if (readOnly || isUploading) {
       return;
     }
-    const file = e.dataTransfer.files?.[0];
-    if (file) {
-      handleFileUpload(file);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleUploadFiles(e.dataTransfer.files);
     }
-  }
-
-  function handleCopy(id: string, text: string) {
-    navigator.clipboard.writeText(text).catch(() => {});
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
   }
 
   function formatBytes(bytes: number) {
@@ -144,13 +161,13 @@ export function WorkspaceMediaGallery({
 
   const assets = data?.assets ?? [];
   const count = data?.count ?? 0;
-  const maxCount = data?.maxCount ?? 20;
+  const maxCount = data?.maxCount ?? 10;
   const totalBytes = data?.totalBytes ?? 0;
-  const maxBytes = data?.maxBytes ?? 50 * 1024 * 1024;
+  const maxBytes = data?.maxBytes ?? 8 * 1024 * 1024;
   const percentUsed = Math.min(100, Math.round((totalBytes / maxBytes) * 100));
 
   const lightboxImages = assets.map((a) => ({
-    src: a.publicUrl || a.mediaUrl,
+    src: a.mediaUrl,
     alt: `Foto Usaha ${a.id}`,
   }));
 
@@ -173,6 +190,7 @@ export function WorkspaceMediaGallery({
             <input
               ref={fileInputRef}
               type="file"
+              multiple
               accept="image/png,image/jpeg,image/webp"
               onChange={handleFileSelect}
               className="hidden"
@@ -188,7 +206,7 @@ export function WorkspaceMediaGallery({
               ) : (
                 <ImagePlus className="size-4" />
               )}
-              Upload Foto Baru
+              Upload Foto
             </button>
           </div>
         ) : null}
@@ -308,9 +326,6 @@ export function WorkspaceMediaGallery({
           )}
         >
           {assets.map((asset, index) => {
-            const isDeleting =
-              deleteMutation.isPending && deleteMutation.variables === asset.id;
-
             return (
               <div
                 key={asset.id}
@@ -351,65 +366,82 @@ export function WorkspaceMediaGallery({
                 </div>
 
                 {/* Card Meta & Actions */}
-                <div className="flex flex-col gap-2.5 p-3.5">
-                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                <div className="flex items-center justify-between p-3">
+                  <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                     <span className="font-mono">
                       {formatBytes(asset.sizeBytes)}
                     </span>
+                    <span>•</span>
                     <span>
                       {new Date(asset.createdAt).toLocaleDateString("id-ID")}
                     </span>
                   </div>
 
-                  {/* Action Buttons */}
-                  <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/60">
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => handleCopy(asset.id, asset.mediaUrl)}
-                        className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
-                        title="Salin URL Aset"
-                      >
-                        {copiedId === asset.id ? (
-                          <>
-                            <Check className="size-3 text-emerald-600" />
-                            <span className="text-emerald-600">Tersalin</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="size-3" />
-                            <span>Salin URL</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-
-                    {!readOnly ? (
-                      <button
-                        type="button"
-                        disabled={isDeleting}
-                        onClick={() => {
-                          if (confirm("Hapus foto ini dari proyek?")) {
-                            deleteMutation.mutate(asset.id);
-                          }
-                        }}
-                        className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors cursor-pointer disabled:opacity-50"
-                        title="Hapus Foto"
-                      >
-                        {isDeleting ? (
-                          <Loader2 className="size-3.5 animate-spin" />
-                        ) : (
-                          <Trash2 className="size-3.5" />
-                        )}
-                      </button>
-                    ) : null}
-                  </div>
+                  {!readOnly ? (
+                    <button
+                      type="button"
+                      onClick={() => setAssetToDelete(asset)}
+                      className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors cursor-pointer"
+                      title="Hapus Foto"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  ) : null}
                 </div>
               </div>
             );
           })}
         </div>
       ) : null}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={Boolean(assetToDelete)}
+        onOpenChange={(open) => {
+          if (!open && !deleteMutation.isPending) {
+            setAssetToDelete(null);
+          }
+        }}
+      >
+        <DialogContent showCloseButton={!deleteMutation.isPending}>
+          <DialogHeader>
+            <DialogTitle>Hapus foto ini?</DialogTitle>
+            <DialogDescription>
+              Foto ini akan dihapus permanen dari proyek dan tidak bisa
+              dikembalikan.
+            </DialogDescription>
+          </DialogHeader>
+
+          {assetToDelete?.isUsed ? (
+            <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-600 dark:text-amber-400">
+              Perhatian: Foto ini sedang aktif digunakan di tampilan website.
+            </div>
+          ) : null}
+
+          <div className="flex justify-end gap-spacing-3 mt-4">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={deleteMutation.isPending}
+              onClick={() => setAssetToDelete(null)}
+            >
+              Batal
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={() => {
+                if (assetToDelete) {
+                  deleteMutation.mutate(assetToDelete.id);
+                }
+              }}
+            >
+              {deleteMutation.isPending ? "Menghapus..." : "Hapus Foto"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Lightbox Component */}
       {lightboxIndex !== null ? (

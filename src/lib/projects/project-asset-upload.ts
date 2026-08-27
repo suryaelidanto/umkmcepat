@@ -6,8 +6,8 @@ import {
   writeProjectAsset,
 } from "@/lib/projects/project-assets";
 
-export const MAX_PROJECT_ASSETS = 20;
-export const MAX_PROJECT_ASSET_BYTES = 50 * 1024 * 1024; // 50 MB
+export const MAX_PROJECT_ASSETS = 10;
+export const MAX_PROJECT_ASSET_BYTES = 8 * 1024 * 1024; // 8 MB
 export const MAX_TURN_IMAGES = 6;
 
 const PURPOSE_TO_KIND: Record<string, ProjectAssetKind> = {

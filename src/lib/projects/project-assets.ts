@@ -40,7 +40,7 @@ function assetS3Key(parsed: ParsedProjectAssetRef): string {
   return `${S3_PREFIXES.asset}/${parsed.projectId}/${parsed.userId}/${parsed.kind}/${parsed.ulid}${parsed.ext ? `.${parsed.ext}` : ""}`;
 }
 
-const MAX_BYTES = 5 * 1024 * 1024;
+const MAX_BYTES = 2 * 1024 * 1024;
 
 export type ParsedProjectAssetRef = {
   ext: string | null;
@@ -355,8 +355,8 @@ export async function listProjectAssetsWithUsage(
   return {
     assets: items,
     count: items.length,
-    maxBytes: 50 * 1024 * 1024,
-    maxCount: 20,
+    maxBytes: 8 * 1024 * 1024,
+    maxCount: 10,
     totalBytes,
   };
 }

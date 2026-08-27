@@ -15,7 +15,7 @@ import { claimTempImage } from "@/lib/storage/uploads/temp-image-storage";
 import { mapToUserFacingError } from "@/lib/user-facing-error";
 import { verifyProjectOwnership } from "@/middleware/ownership";
 
-const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
 
 export const Route = createFileRoute("/api/projects/$id/assets/upload")({
   server: {

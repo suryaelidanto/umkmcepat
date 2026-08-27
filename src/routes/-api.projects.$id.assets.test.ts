@@ -77,8 +77,8 @@ describe("/api/projects/$id/assets", () => {
           },
         ],
         count: 1,
-        maxBytes: 52428800,
-        maxCount: 20,
+        maxBytes: 8388608,
+        maxCount: 10,
         totalBytes: 1024,
       });
 
