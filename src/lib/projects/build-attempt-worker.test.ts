@@ -43,6 +43,9 @@ const {
     projectBuildHandoff: {
       findFirst: vi.fn(),
     },
+    projectAsset: {
+      findMany: vi.fn(async () => []),
+    },
     projectEditAttempt: {
       findFirst: vi.fn(async () => ({
         id: "attempt-1",

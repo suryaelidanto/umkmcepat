@@ -686,6 +686,24 @@ export async function runBuildAttempt({
       finalSchema = implementationSpecToSiteSchema(implementationSpec);
     }
 
+    const currentProjectAssets = prisma.projectAsset?.findMany
+      ? await prisma.projectAsset.findMany({
+          where: { projectId },
+          orderBy: { createdAt: "desc" },
+          select: { id: true, purpose: true },
+        })
+      : [];
+
+    if (currentProjectAssets.length > 0) {
+      finalSchema.images = currentProjectAssets.map((asset) => ({
+        url: `/api/media/${asset.id}`,
+        purpose: asset.purpose || "business-image",
+        alt: finalSchema.businessName,
+      }));
+    } else {
+      finalSchema.images = [];
+    }
+
     const specLeaseRenewed = await renewProjectOperation({
       projectId,
       token: operationToken,
