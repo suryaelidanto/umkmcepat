@@ -356,5 +356,7 @@ describe("runAgenticGenerate", () => {
     expect(capturedPrompt).toContain(
       "MANDATORY UPDATE SEQUENCE (SURGICAL & FAST",
     );
+    expect(capturedPrompt).toContain("PRE-LOADED TARGET FILES");
+    expect(capturedPrompt).toContain("SURGICAL INTENT");
   });
 });

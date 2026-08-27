@@ -9,6 +9,7 @@ import {
   ArrowUp,
   Check,
   Globe2,
+  Loader2,
   Menu,
   MessageCircle,
   Pencil,
@@ -81,7 +82,6 @@ import { signOut, useSession } from "@/lib/auth/auth-client";
 import { useFeatureFlag } from "@/lib/config/use-feature-flag";
 import { type ProjectBrief, type WorkspaceCard } from "@/lib/projects/brief";
 import { evaluateTieredBriefReadiness } from "@/lib/projects/brief-tiered-readiness";
-import { buildHandoffLine } from "@/lib/projects/build-handoff";
 import {
   appendBuildProgressStep,
   completeBuildProgressSteps,
@@ -356,6 +356,7 @@ export function WorkspaceShell({
   );
   const [hasMoreChat, setHasMoreChat] = useState(initialChatHasMore);
   const [isLoadingOlderChat, setIsLoadingOlderChat] = useState(false);
+  const [isSubmittingTurn, setIsSubmittingTurn] = useState(false);
   const prompt = (initialPrompt ?? "").trim();
   const buildRecommendationStorageKey = `umkmcepat:build-recommendation-hold:${projectId}`;
   const buildRecommendationConsumedKey = `umkmcepat:build-recommendation-consumed:${projectId}`;
@@ -1156,13 +1157,18 @@ export function WorkspaceShell({
       }
     }
 
-    if (handoffBrief) {
+    if (handoffBrief && !buildComplete && messages.length <= 2) {
       setMessages((current) => [
         ...current,
         {
           id: `handoff-${Date.now()}`,
           metadata: undefined,
-          parts: [{ text: buildHandoffLine(handoffBrief), type: "text" }],
+          parts: [
+            {
+              text: `Siap, website ${handoffBrief?.businessName || "usahamu"} mulai aku buat sekarang ya!`,
+              type: "text",
+            },
+          ],
           role: "assistant",
         },
       ]);
@@ -2719,6 +2725,10 @@ export function WorkspaceShell({
         return;
       }
 
+      // Lock the channel immediately and enter processing state so user gets instant upload feedback
+      submitInFlightRef.current = true;
+      setIsSubmittingTurn(true);
+
       // Upload attached images to R2 (commit-on-send; nothing left the browser
       const fileParts: FileUIPart[] = [];
       const mediaPaths: string[] = [];
@@ -2812,10 +2822,10 @@ export function WorkspaceShell({
               createUploadedImageFilePart({
                 filename: item.file.name,
                 mediaType: item.file.type,
-                url: `/media/${asset.id}`,
+                url: `/api/media/${asset.id}`,
               }),
             );
-            mediaPaths.push(`/media/${asset.id}`);
+            mediaPaths.push(`/api/media/${asset.id}`);
           } catch (error) {
             uploadErrors.push({
               name: item.file.name,
@@ -2840,6 +2850,8 @@ export function WorkspaceShell({
             "Gagal mengunggah semua file. Periksa ukuran/format dan coba lagi.",
           );
           setPendingAttachments([]);
+          submitInFlightRef.current = false;
+          setIsSubmittingTurn(false);
           return;
         }
       }
@@ -2878,6 +2890,7 @@ export function WorkspaceShell({
         revokeAll(pendingAttachments);
         setPendingAttachments([]);
       }
+      setIsSubmittingTurn(false);
     },
     [
       authStatus,
@@ -3836,13 +3849,18 @@ export function WorkspaceShell({
                                 type="submit"
                                 size="icon"
                                 disabled={
+                                  isSubmittingTurn ||
                                   !message.trim() ||
                                   hasUploadingAttachments(pendingAttachments)
                                 }
                                 className="size-8.5 rounded-lg bg-[#1c1c1c] text-white shadow-2xs transition hover:bg-black active:scale-95 disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/30 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white dark:disabled:bg-white/10 dark:disabled:text-white/30 cursor-pointer"
                                 aria-label="Kirim pesan"
                               >
-                                <ArrowUp className="size-4" />
+                                {isSubmittingTurn ? (
+                                  <Loader2 className="size-4 animate-spin" />
+                                ) : (
+                                  <ArrowUp className="size-4" />
+                                )}
                               </Button>
                             </div>
                           </div>
@@ -4017,13 +4035,18 @@ export function WorkspaceShell({
                             type="submit"
                             size="icon"
                             disabled={
+                              isSubmittingTurn ||
                               !message.trim() ||
                               hasUploadingAttachments(pendingAttachments)
                             }
                             className="size-8.5 rounded-lg bg-[#1c1c1c] text-white shadow-2xs transition hover:bg-black active:scale-95 disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/30 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white dark:disabled:bg-white/10 dark:disabled:text-white/30 cursor-pointer"
                             aria-label="Kirim pesan"
                           >
-                            <ArrowUp className="size-4" />
+                            {isSubmittingTurn ? (
+                              <Loader2 className="size-4 animate-spin" />
+                            ) : (
+                              <ArrowUp className="size-4" />
+                            )}
                           </Button>
                         </div>
                       </div>

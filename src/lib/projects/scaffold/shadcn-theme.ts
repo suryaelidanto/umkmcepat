@@ -72,6 +72,7 @@ export function compileShadcnTheme(
   ];
 
   const css = `@import "tailwindcss";
+@source "../src";
 
 @theme inline {
   --color-background: var(--background);

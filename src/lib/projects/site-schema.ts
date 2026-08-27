@@ -758,7 +758,7 @@ function detectBusinessDomain(brief: ProjectBrief): BusinessDomain {
     brief.offer,
     brief.targetCustomer,
     brief.stylePreference,
-    ...brief.notes,
+    ...(brief.notes || []),
   ]);
 
   if (text.includes("angkringan")) {

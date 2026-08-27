@@ -59,10 +59,15 @@ export function ChatMessages({ messages }: { messages: UIMessage[] }) {
             return null;
           }
 
-          const messageImages: LightboxImage[] = fileParts.map((file, idx) => ({
-            src: file.url,
-            alt: `Gambar ${idx + 1}`,
-          }));
+          const messageImages: LightboxImage[] = fileParts.map((file, idx) => {
+            const normalizedUrl = file.url.startsWith("/media/")
+              ? file.url.replace(/^\/media\//, "/api/media/")
+              : file.url;
+            return {
+              src: normalizedUrl,
+              alt: `Gambar ${idx + 1}`,
+            };
+          });
 
           return (
             <div
@@ -75,15 +80,20 @@ export function ChatMessages({ messages }: { messages: UIMessage[] }) {
                   <div
                     className={`flex flex-wrap gap-2 ${textParts.length > 0 ? "mb-2.5" : ""}`}
                   >
-                    {fileParts.map((file, fileIdx) => (
-                      <ImageUploadThumb
-                        key={`${file.url}-${fileIdx}`}
-                        src={file.url}
-                        alt={`Gambar ${fileIdx + 1}`}
-                        onClick={() => openLightbox(messageImages, fileIdx)}
-                        className="size-20 rounded-xl cursor-pointer"
-                      />
-                    ))}
+                    {fileParts.map((file, fileIdx) => {
+                      const normalizedUrl = file.url.startsWith("/media/")
+                        ? file.url.replace(/^\/media\//, "/api/media/")
+                        : file.url;
+                      return (
+                        <ImageUploadThumb
+                          key={`${file.url}-${fileIdx}`}
+                          src={normalizedUrl}
+                          alt={`Gambar ${fileIdx + 1}`}
+                          onClick={() => openLightbox(messageImages, fileIdx)}
+                          className="size-20 rounded-xl cursor-pointer"
+                        />
+                      );
+                    })}
                   </div>
                 ) : null}
 

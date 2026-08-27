@@ -141,6 +141,7 @@ export function compileOutcomeDesignSystem(
     OUTCOME_FONT_STACKS["system-humanist"];
 
   const css = `@import "tailwindcss";
+@source "../src";
 
 @theme inline {
   --color-background: var(--background);

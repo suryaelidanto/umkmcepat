@@ -41,6 +41,7 @@ import { selectGeneratedSiteRecipe } from "@/lib/projects/generated-site-recipes
 import {
   buildGeneratedProject,
   createGeneratedSourceSnapshotMetadata,
+  createGeneratedViteTanStackStarterFiles,
 } from "@/lib/projects/generated-source";
 import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
 import {
@@ -273,7 +274,27 @@ export async function runBuildAttempt({
         detail: "Menyiapkan pembuatan ulang dari bagian yang sudah ada.",
       });
 
+      const [retryBriefRow] = await prisma.$queryRaw<[{ brief: unknown }]>`
+      SELECT "brief" FROM "Project" WHERE id = ${projectId} AND "userId" = ${userId}
+    `;
+      const retryBrief = parseProjectBrief(retryBriefRow?.brief, projectPrompt);
+      const retrySchema = createProjectSiteSchemaFromBrief(retryBrief);
+
       let sourceFiles = persistedSourceFiles;
+      if (!sourceFiles.some((f) => f.path === "package.json")) {
+        const starter = createGeneratedViteTanStackStarterFiles(
+          projectId,
+          retrySchema,
+        );
+        const map = new Map<string, GeneratedProjectFile>();
+        for (const f of starter) {
+          map.set(f.path, f);
+        }
+        for (const f of sourceFiles) {
+          map.set(f.path, f);
+        }
+        sourceFiles = Array.from(map.values());
+      }
 
       send("progress", {
         label: "Memeriksa website tersimpan",
@@ -282,12 +303,6 @@ export async function runBuildAttempt({
 
       // Deterministic heal: rewrite unregistered <Link to="/x"> to hash
       sourceFiles = ensureRegisteredRouteLinks(sourceFiles);
-
-      const [retryBriefRow] = await prisma.$queryRaw<[{ brief: unknown }]>`
-      SELECT "brief" FROM "Project" WHERE id = ${projectId} AND "userId" = ${userId}
-    `;
-      const retryBrief = parseProjectBrief(retryBriefRow?.brief, projectPrompt);
-      const retrySchema = createProjectSiteSchemaFromBrief(retryBrief);
 
       const snapshot = await prisma.projectSnapshot.create({
         data: {
@@ -686,6 +701,24 @@ export async function runBuildAttempt({
       finalSchema = implementationSpecToSiteSchema(implementationSpec);
     }
 
+    const currentProjectAssets = prisma.projectAsset?.findMany
+      ? await prisma.projectAsset.findMany({
+          where: { projectId },
+          orderBy: { createdAt: "desc" },
+          select: { id: true, purpose: true },
+        })
+      : [];
+
+    if (currentProjectAssets.length > 0) {
+      finalSchema.images = currentProjectAssets.map((asset) => ({
+        url: `/api/media/${asset.id}`,
+        purpose: asset.purpose || "business-image",
+        alt: finalSchema.businessName,
+      }));
+    } else {
+      finalSchema.images = [];
+    }
+
     const specLeaseRenewed = await renewProjectOperation({
       projectId,
       token: operationToken,
@@ -714,30 +747,40 @@ export async function runBuildAttempt({
       onFilesChanged([...batchedStageFiles.values()]);
     };
 
-    const outcomeDirection = acceptedHandoff
-      ? await runOutcomeCreativeDirection({
-          abortSignal,
-          contract: compileOutcomeDirectedSiteContract({
-            briefHash: acceptedHandoff.briefHash,
-            briefRevision: acceptedHandoff.briefRevision,
-            briefSnapshot: acceptedHandoff.briefSnapshot,
-            contract: acceptedHandoff.contract,
-            contractHash: acceptedHandoff.contractHash,
-            contractRevision: acceptedHandoff.contractRevision,
-            id: acceptedHandoff.id,
-            plan: acceptedHandoff.plan,
-            planHash: acceptedHandoff.planHash,
-            planRevision: acceptedHandoff.planRevision,
-          }),
-          projectId,
-          userId,
-        })
-      : null;
+    const existingSourceFiles = await loadPersistedProjectSourceFiles({
+      projectId,
+      userId,
+    }).catch(() => []);
+
+    const isRevision = existingSourceFiles.length > 0;
+
+    const outcomeDirection =
+      acceptedHandoff && !isRevision
+        ? await runOutcomeCreativeDirection({
+            abortSignal,
+            contract: compileOutcomeDirectedSiteContract({
+              briefHash: acceptedHandoff.briefHash,
+              briefRevision: acceptedHandoff.briefRevision,
+              briefSnapshot: acceptedHandoff.briefSnapshot,
+              contract: acceptedHandoff.contract,
+              contractHash: acceptedHandoff.contractHash,
+              contractRevision: acceptedHandoff.contractRevision,
+              id: acceptedHandoff.id,
+              plan: acceptedHandoff.plan,
+              planHash: acceptedHandoff.planHash,
+              planRevision: acceptedHandoff.planRevision,
+            }),
+            projectId,
+            userId,
+          })
+        : null;
 
     const agentStartedAt = Date.now();
     send("progress", {
       label: "Menyiapkan pembuatan website",
-      detail: "AI sedang merancang arsitektur dan komponen website.",
+      detail: isRevision
+        ? "AI sedang memperbarui komponen website."
+        : "AI sedang merancang arsitektur dan komponen website.",
     });
 
     const agenticResult = await runAgenticGenerate({
@@ -748,6 +791,8 @@ export async function runBuildAttempt({
       creativeDirection: outcomeDirection
         ? JSON.stringify(outcomeDirection)
         : (acceptedHandoff?.creativeDirection ?? null),
+      initialFiles:
+        existingSourceFiles.length > 0 ? existingSourceFiles : undefined,
       onEvent: (type, data) => send(type, data),
       onFileStaged: persistBatchedStage,
       operationToken,
