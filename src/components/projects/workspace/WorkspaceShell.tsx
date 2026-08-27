@@ -2970,11 +2970,46 @@ export function WorkspaceShell({
     }
 
     if (buildComplete) {
-      if (message.trim()) {
+      // 1. If user already typed text or attached files, submit the edit turn
+      if (message.trim() || pendingAttachments.length > 0) {
         submitChatText(message);
         return;
       }
-      await handleStartBuild();
+
+      // 2. If there is an unbuilt build recommendation ready to apply, build it
+      if (
+        workspaceCard.type === "build_recommendation" &&
+        canStartBuild(workspaceCard)
+      ) {
+        await handleStartBuild();
+        return;
+      }
+
+      // 3. Otherwise (no pending changes), guide user intentionally instead of blind building
+      if (chatCollapsed) {
+        openChatPanel();
+      }
+      setMessages((current) => [
+        ...current,
+        {
+          id: `guide-${Date.now()}`,
+          metadata: undefined,
+          parts: [
+            {
+              text: "Bagian apa yang ingin kamu perbarui? Tulis kebutuhanmu di bawah ya (contoh: ganti warna tema, tambah foto baru, atau ubah nomor WhatsApp & harga).",
+              type: "text",
+            },
+          ],
+          role: "assistant",
+        },
+      ]);
+      shouldStickToBottomRef.current = true;
+      requestAnimationFrame(() => {
+        const textarea = document.querySelector<HTMLTextAreaElement>(
+          "textarea#workspace-message",
+        );
+        textarea?.focus();
+      });
       return;
     }
 
@@ -2988,11 +3023,15 @@ export function WorkspaceShell({
   }, [
     briefReadiness,
     buildComplete,
+    chatCollapsed,
     handleStartBuild,
     isBuilding,
     message,
+    openChatPanel,
+    pendingAttachments.length,
     readOnly,
     submitChatText,
+    workspaceCard,
   ]);
 
   function handleMessageKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
