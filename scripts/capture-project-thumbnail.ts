@@ -36,7 +36,10 @@ let context: BrowserContext | undefined;
     if (
       requestUrl.origin === sourceUrl.origin ||
       requestUrl.protocol === "data:" ||
-      requestUrl.protocol === "blob:"
+      requestUrl.protocol === "blob:" ||
+      route.request().resourceType() === "image" ||
+      requestUrl.pathname.includes("/media/") ||
+      requestUrl.port === "9000"
     ) {
       await route.continue();
     } else {
@@ -44,12 +47,25 @@ let context: BrowserContext | undefined;
     }
   });
   await page.goto(url, { waitUntil: "domcontentloaded" });
-  await page.evaluate(() =>
-    Promise.race([
+  await page.evaluate(async () => {
+    await Promise.race([
       document.fonts.ready,
-      new Promise((resolve) => setTimeout(resolve, 1000)),
-    ]),
-  );
+      new Promise((resolve) => setTimeout(resolve, 1500)),
+    ]);
+    const images = Array.from(document.querySelectorAll("img"));
+    await Promise.all(
+      images.map((img) => {
+        if (img.complete) {
+          return Promise.resolve();
+        }
+        return new Promise((resolve) => {
+          img.addEventListener("load", resolve, { once: true });
+          img.addEventListener("error", resolve, { once: true });
+          setTimeout(resolve, 3000);
+        });
+      }),
+    );
+  });
   await page.addStyleTag({
     content:
       "*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}",
