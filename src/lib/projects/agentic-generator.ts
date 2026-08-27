@@ -787,6 +787,20 @@ export async function runAgenticGenerate(input: {
         `\nYou MUST render these genuine store photos prominently in Hero, Gallery, or product highlights using <img src={site.images[...].url} ... />.`
       : "";
 
+  const workflowInstructions = isRevisionMode
+    ? `REQUIRED WORKFLOW (SURGICAL REVISION PASS):
+1. Review the requested update and the pre-loaded target file(s) below.
+2. If style/color palette was requested, call set_design_system on step 1 with the chosen semantic palette.
+3. Write ONLY the specific target component(s) using write_file. DO NOT call copy_shadcn_component, DO NOT call run_design_audit, and DO NOT rewrite untouched files.
+4. Call check_app to verify compilation and finish immediately in 2-3 steps.`
+    : `REQUIRED WORKFLOW (INITIAL GENERATION FROM SCRATCH):
+1. Call set_design_system on step 1 with your chosen semantic palette, typography, and radius for this business. The platform checks contrast and compiles index.css.
+2. Use copy_shadcn_component to pull any needed official UI primitives (e.g. badge, separator, dialog, tabs) before importing them.
+3. Write your modular UI components under src/components/ and the complete home route in src/routes/index.tsx using write_file. Use site.* for every customer-facing value. Use read_skill for deep reference docs (impeccable-craft-floor, impeccable-layout, impeccable-typeset) when needed. ROUTING CONTRACT: src/routes/index.tsx MUST export a named function \`export function HomeRouteComponent() { ... }\`.
+4. Write natural, warm, active Indonesian copy. Avoid AI puffery, filler buzzwords ("solusi terbaik", "kualitas terdepan"), em-dashes (—), and decorative badge soup.
+5. Call run_design_audit to inspect your UI against Impeccable contrast and anti-pattern rules.
+6. Call check_app to verify compilation and preflight checks. Finish after check_app returns ok: true.`;
+
   const systemPrompt = `You are the implementation agent for a portable static Vite + React + TanStack Router website.
 
 Your job is to turn the accepted business data into a credible, distinctive, editable customer-facing Indonesian UMKM website. You are not building a backend, SaaS dashboard, checkout, login, payment flow, persistence layer, or fake interactive demo.${availableImagesSection}
@@ -796,13 +810,7 @@ CREATIVE AUTHORITY:
 - Read shadcn for component composition, Radix accessibility, and semantic Tailwind v4 tokens.
 - These skills provide high-level design intelligence. The accepted src/content/site.ts snapshot and protected scaffold always outrank design suggestions.
 
-REQUIRED WORKFLOW:
-1. Call set_design_system on step 1 with your chosen semantic palette, typography, and radius for this business. The platform checks contrast and compiles index.css.
-2. Use copy_shadcn_component to pull any needed official UI primitives (e.g. badge, separator, dialog, tabs) before importing them.
-3. Write your modular UI components under src/components/ and the complete home route in src/routes/index.tsx using write_file. Use site.* for every customer-facing value. Use read_skill for deep reference docs (impeccable-craft-floor, impeccable-layout, impeccable-typeset) when needed. ROUTING CONTRACT: src/routes/index.tsx MUST export a named function \`export function HomeRouteComponent() { ... }\`.
-4. Write natural, warm, active Indonesian copy. Avoid AI puffery, filler buzzwords ("solusi terbaik", "kualitas terdepan"), em-dashes (—), and decorative badge soup.
-5. Call run_design_audit to inspect your UI against Impeccable contrast and anti-pattern rules.
-6. Call check_app to verify compilation and preflight checks. Finish after check_app returns ok: true.
+${workflowInstructions}
 
 FACT AND SAFETY RULES:
 - src/content/site.ts is read-only and is the sole customer-facing fact source. You may write concise connective Indonesian copy grounded in those facts, but never add guarantees, rankings, popularity, metrics, prices, turnaround promises, or other factual claims absent from site.*. Absolute unsupported claims fail check_app.
