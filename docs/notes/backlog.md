@@ -22,6 +22,8 @@ kanban-plugin: board
 
 ## Ready for Review
 
+- [ ] 🎯 **[#33] Build Checkpoint State & Intentional Update Guiding Flow**: Track last built message turn checkpoint so clicking Perbarui Website when no pending edits exist guides user with clarifying prompt instead of executing redundant blind builds #workspace #chat #ux #engine
+
 - [ ] ⚡ **[#32] Smart Surgical Update Engine & Pre-Injected Intent Router**: Classify user edit turns into targeted intent categories (media replace, style palette, copy update, full restructure), pre-inject existing component code into prompt context to eliminate read_file overhead, and enforce dynamic 2-3 step execution without rewriting untouched layout files #engine #generator #ai #perf
 
 - [ ] ⚡ **[#31] Server-Side WebP Image Optimization Pipeline on Permanent Asset Claim**: Integrate Sharp pipeline to auto-orient, clean EXIF metadata, scale to max 1920px Full HD, and compress all permanent project uploads to high-efficiency WebP format #media #upload #engine #perf
