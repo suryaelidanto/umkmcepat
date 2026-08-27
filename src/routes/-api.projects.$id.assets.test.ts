@@ -23,7 +23,7 @@ vi.mock("@/lib/projects/project-assets", () => ({
 
 import { getHandler } from "../../tests/support/route-handler";
 
-import { Route } from "@/routes/api.projects.$id.assets";
+import { Route } from "@/routes/api.projects.$id.assets.index";
 
 const GET = getHandler(Route, "GET");
 const DELETE = getHandler(Route, "DELETE");
