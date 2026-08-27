@@ -463,8 +463,15 @@ const PREVIEW_ANNOTATION_BRIDGE = String.raw`
   function pickElement(element) {
     if (isBridgeUi(element)) return null;
 
+    if (element.tagName === 'IMG' || element.tagName === 'PICTURE') return element;
+
     const interactive = closestElement(element, 'button,a,input,select,textarea,[role="button"],[onclick]');
     if (interactive) return interactive;
+
+    const childMedia = element.querySelector ? element.querySelector('img,picture,video,svg') : null;
+    if (childMedia && !isIgnorableDecoration(childMedia) && !element.matches('section,main,article')) {
+      return childMedia;
+    }
 
     const media = closestElement(element, 'img,picture,video,svg');
     if (media && !isIgnorableDecoration(media)) return media;

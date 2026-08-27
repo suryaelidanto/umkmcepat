@@ -6,10 +6,6 @@ kanban-plugin: board
 
 ## Backlog
 
-- [ ] 🖱️ **[#29] Visual Edit Iframe Selector & Smart Target Detection**: Overhaul runtime proxy click listeners and bounding box calculation to accurately resolve target elements, prioritizing semantic tags and image containers without getting blocked by transparent overlays #workspace #preview #ux #engine
-
-- [ ] ⚡ **[#30] Direct Click-to-Replace Image Popover & Fast Slot Swap**: Connect visual edit image targets to an instant swap popover allowing users to upload or pick replacement assets directly, surgically updating site.ts slot references with immediate preview reload #workspace #media #preview #ux
-
 
 
 ## In Progress
@@ -21,6 +17,10 @@ kanban-plugin: board
 
 
 ## Ready for Review
+
+- [ ] 🖱️ **[#29] Visual Edit Iframe Selector & Smart Target Detection**: Overhaul runtime proxy click listeners and bounding box calculation to accurately resolve target elements, prioritizing semantic tags and image containers without getting blocked by transparent overlays #workspace #preview #ux #engine
+
+- [ ] ⚡ **[#30] Direct Click-to-Replace Image Popover & Fast Slot Swap**: Connect visual edit image targets to an instant swap popover allowing users to upload or pick replacement assets directly, surgically updating site.ts slot references with immediate preview reload #workspace #media #preview #ux
 
 - [ ] 🎯 **[#33] Build Checkpoint State & Intentional Update Guiding Flow**: Track last built message turn checkpoint so clicking Perbarui Website when no pending edits exist guides user with clarifying prompt instead of executing redundant blind builds #workspace #chat #ux #engine
 
