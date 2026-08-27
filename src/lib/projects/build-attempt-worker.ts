@@ -758,6 +758,11 @@ export async function runBuildAttempt({
       detail: "AI sedang merancang arsitektur dan komponen website.",
     });
 
+    const existingSourceFiles = await loadPersistedProjectSourceFiles({
+      projectId,
+      userId,
+    }).catch(() => []);
+
     const agenticResult = await runAgenticGenerate({
       abortSignal,
       attemptId,
@@ -766,6 +771,8 @@ export async function runBuildAttempt({
       creativeDirection: outcomeDirection
         ? JSON.stringify(outcomeDirection)
         : (acceptedHandoff?.creativeDirection ?? null),
+      initialFiles:
+        existingSourceFiles.length > 0 ? existingSourceFiles : undefined,
       onEvent: (type, data) => send(type, data),
       onFileStaged: persistBatchedStage,
       operationToken,
