@@ -356,6 +356,7 @@ export function WorkspaceShell({
   );
   const [hasMoreChat, setHasMoreChat] = useState(initialChatHasMore);
   const [isLoadingOlderChat, setIsLoadingOlderChat] = useState(false);
+  const [isSubmittingTurn, setIsSubmittingTurn] = useState(false);
   const prompt = (initialPrompt ?? "").trim();
   const buildRecommendationStorageKey = `umkmcepat:build-recommendation-hold:${projectId}`;
   const buildRecommendationConsumedKey = `umkmcepat:build-recommendation-consumed:${projectId}`;
@@ -1313,7 +1314,8 @@ export function WorkspaceShell({
     isBuilding ||
     isEditingPreview ||
     isRetrying ||
-    isPreparingNextQuestion;
+    isPreparingNextQuestion ||
+    isSubmittingTurn;
 
   useEffect(() => {
     const toolCard = getWorkspaceCardFromMessages(allMessages);
@@ -2719,6 +2721,10 @@ export function WorkspaceShell({
         return;
       }
 
+      // Lock the channel immediately and enter processing state so user gets instant upload feedback
+      submitInFlightRef.current = true;
+      setIsSubmittingTurn(true);
+
       // Upload attached images to R2 (commit-on-send; nothing left the browser
       const fileParts: FileUIPart[] = [];
       const mediaPaths: string[] = [];
@@ -2812,10 +2818,10 @@ export function WorkspaceShell({
               createUploadedImageFilePart({
                 filename: item.file.name,
                 mediaType: item.file.type,
-                url: `/media/${asset.id}`,
+                url: `/api/media/${asset.id}`,
               }),
             );
-            mediaPaths.push(`/media/${asset.id}`);
+            mediaPaths.push(`/api/media/${asset.id}`);
           } catch (error) {
             uploadErrors.push({
               name: item.file.name,
@@ -2840,6 +2846,8 @@ export function WorkspaceShell({
             "Gagal mengunggah semua file. Periksa ukuran/format dan coba lagi.",
           );
           setPendingAttachments([]);
+          submitInFlightRef.current = false;
+          setIsSubmittingTurn(false);
           return;
         }
       }
@@ -2878,6 +2886,7 @@ export function WorkspaceShell({
         revokeAll(pendingAttachments);
         setPendingAttachments([]);
       }
+      setIsSubmittingTurn(false);
     },
     [
       authStatus,

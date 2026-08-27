@@ -16,6 +16,7 @@ import { getGenerationModel } from "@/lib/ai/ai-models";
 import { devLog } from "@/lib/dev-log";
 import { classifyBuildFailure } from "@/lib/projects/build-logs";
 import { generateDiff, type DiffLine } from "@/lib/projects/diff";
+import { classifyEditIntent } from "@/lib/projects/edit-intent";
 import {
   buildGeneratedProject,
   createGeneratedViteTanStackStarterFiles,
@@ -873,6 +874,38 @@ The website owner is a non-technical Indonesian business owner (UMKM). They watc
     ),
   );
 
+  const editIntent = isRevisionMode
+    ? classifyEditIntent({
+        existingFiles: Array.from(fileMap.keys()),
+        hasUploadedImages: Boolean(schema.images && schema.images.length > 0),
+        instruction:
+          input.brief.prompt ||
+          (typeof input.revisionBrief === "string" ? input.revisionBrief : ""),
+      })
+    : null;
+
+  let targetFilesPreload = "";
+  if (isRevisionMode && editIntent) {
+    const preloadedBlocks: string[] = [];
+    for (const targetPath of editIntent.targetFiles) {
+      const content = fileMap.get(targetPath);
+      if (
+        content &&
+        targetPath !== "src/content/site.ts" &&
+        targetPath !== "src/index.css"
+      ) {
+        preloadedBlocks.push(
+          `=== CURRENT CODE: ${targetPath} ===\n${content}\n=== END OF ${targetPath} ===`,
+        );
+      }
+    }
+    if (preloadedBlocks.length > 0) {
+      targetFilesPreload =
+        `\n\nPRE-LOADED TARGET FILES (DO NOT CALL read_file — CODE IS ALREADY PROVIDED BELOW):\n` +
+        preloadedBlocks.join("\n\n");
+    }
+  }
+
   const existingFileList =
     input.initialFiles
       ?.filter(
@@ -886,12 +919,15 @@ The website owner is a non-technical Indonesian business owner (UMKM). They watc
 
   const executionSequence = hasExistingComponents
     ? `EXISTING SITE FILES:
-${existingFileList}
+${existingFileList}${targetFilesPreload}
 
-MANDATORY UPDATE SEQUENCE (SURGICAL & FAST — 2-3 STEPS TOTAL):
-1. If the user requested a color/palette change or visual style adjustment, call set_design_system on step 1 with your chosen semantic palette.
-2. Edit ONLY the 1-2 specific files requested by the user. DO NOT re-read or rewrite untouched components.
-3. Call check_app to verify and finish immediately in 2-3 steps.`
+SURGICAL INTENT: ${editIntent ? editIntent.category.toUpperCase() : "SURGICAL_EDIT"} (Target Steps: <= ${editIntent?.suggestedMaxSteps || 3})
+${editIntent?.guidelines ? editIntent.guidelines.map((g) => `- ${g}`).join("\n") : ""}
+
+MANDATORY UPDATE SEQUENCE (SURGICAL & FAST):
+1. If style/palette was requested, call set_design_system on step 1 with the new semantic palette.
+2. Edit ONLY the designated target component(s) using write_file. DO NOT rewrite untouched layout files.
+3. Call check_app to verify compilation and finish immediately.`
     : `MANDATORY EXECUTION SEQUENCE (STRICT SPEED & COMPLETION):
 1. Call set_design_system on step 1 with your chosen semantic palette and typography suited for this business.
 2. Call copy_shadcn_component to vendor needed components (e.g. badge, separator).
