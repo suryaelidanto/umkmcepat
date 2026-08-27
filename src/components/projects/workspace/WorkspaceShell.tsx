@@ -82,7 +82,6 @@ import { signOut, useSession } from "@/lib/auth/auth-client";
 import { useFeatureFlag } from "@/lib/config/use-feature-flag";
 import { type ProjectBrief, type WorkspaceCard } from "@/lib/projects/brief";
 import { evaluateTieredBriefReadiness } from "@/lib/projects/brief-tiered-readiness";
-import { buildHandoffLine } from "@/lib/projects/build-handoff";
 import {
   appendBuildProgressStep,
   completeBuildProgressSteps,
@@ -1158,13 +1157,18 @@ export function WorkspaceShell({
       }
     }
 
-    if (handoffBrief) {
+    if (handoffBrief && !buildComplete && messages.length <= 2) {
       setMessages((current) => [
         ...current,
         {
           id: `handoff-${Date.now()}`,
           metadata: undefined,
-          parts: [{ text: buildHandoffLine(handoffBrief), type: "text" }],
+          parts: [
+            {
+              text: `Siap, website ${handoffBrief?.businessName || "usahamu"} mulai aku buat sekarang ya!`,
+              type: "text",
+            },
+          ],
           role: "assistant",
         },
       ]);

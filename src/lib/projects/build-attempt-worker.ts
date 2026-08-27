@@ -747,36 +747,41 @@ export async function runBuildAttempt({
       onFilesChanged([...batchedStageFiles.values()]);
     };
 
-    const outcomeDirection = acceptedHandoff
-      ? await runOutcomeCreativeDirection({
-          abortSignal,
-          contract: compileOutcomeDirectedSiteContract({
-            briefHash: acceptedHandoff.briefHash,
-            briefRevision: acceptedHandoff.briefRevision,
-            briefSnapshot: acceptedHandoff.briefSnapshot,
-            contract: acceptedHandoff.contract,
-            contractHash: acceptedHandoff.contractHash,
-            contractRevision: acceptedHandoff.contractRevision,
-            id: acceptedHandoff.id,
-            plan: acceptedHandoff.plan,
-            planHash: acceptedHandoff.planHash,
-            planRevision: acceptedHandoff.planRevision,
-          }),
-          projectId,
-          userId,
-        })
-      : null;
-
-    const agentStartedAt = Date.now();
-    send("progress", {
-      label: "Menyiapkan pembuatan website",
-      detail: "AI sedang merancang arsitektur dan komponen website.",
-    });
-
     const existingSourceFiles = await loadPersistedProjectSourceFiles({
       projectId,
       userId,
     }).catch(() => []);
+
+    const isRevision = existingSourceFiles.length > 0;
+
+    const outcomeDirection =
+      acceptedHandoff && !isRevision
+        ? await runOutcomeCreativeDirection({
+            abortSignal,
+            contract: compileOutcomeDirectedSiteContract({
+              briefHash: acceptedHandoff.briefHash,
+              briefRevision: acceptedHandoff.briefRevision,
+              briefSnapshot: acceptedHandoff.briefSnapshot,
+              contract: acceptedHandoff.contract,
+              contractHash: acceptedHandoff.contractHash,
+              contractRevision: acceptedHandoff.contractRevision,
+              id: acceptedHandoff.id,
+              plan: acceptedHandoff.plan,
+              planHash: acceptedHandoff.planHash,
+              planRevision: acceptedHandoff.planRevision,
+            }),
+            projectId,
+            userId,
+          })
+        : null;
+
+    const agentStartedAt = Date.now();
+    send("progress", {
+      label: "Menyiapkan pembuatan website",
+      detail: isRevision
+        ? "AI sedang memperbarui komponen website."
+        : "AI sedang merancang arsitektur dan komponen website.",
+    });
 
     const agenticResult = await runAgenticGenerate({
       abortSignal,
