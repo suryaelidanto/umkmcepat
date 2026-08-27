@@ -154,6 +154,17 @@ async function resolveBuildIdentity(
   const cookie = configuredCookie
     ? normalizeAuthCookie(configuredCookie)
     : await createLocalAuthCookie(project.userId);
+
+  if (!valueFrom(env, "BUILD_MODE")) {
+    const existingBuild = await prisma.projectBuild.findFirst({
+      where: { projectId: config.projectId, status: "succeeded" },
+      select: { id: true },
+    });
+    if (existingBuild) {
+      config.mode = "retry_build";
+    }
+  }
+
   return { cookie, handoffId, localDatabase: true, reviewHash };
 }
 

@@ -41,6 +41,7 @@ import { selectGeneratedSiteRecipe } from "@/lib/projects/generated-site-recipes
 import {
   buildGeneratedProject,
   createGeneratedSourceSnapshotMetadata,
+  createGeneratedViteTanStackStarterFiles,
 } from "@/lib/projects/generated-source";
 import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
 import {
@@ -273,7 +274,27 @@ export async function runBuildAttempt({
         detail: "Menyiapkan pembuatan ulang dari bagian yang sudah ada.",
       });
 
+      const [retryBriefRow] = await prisma.$queryRaw<[{ brief: unknown }]>`
+      SELECT "brief" FROM "Project" WHERE id = ${projectId} AND "userId" = ${userId}
+    `;
+      const retryBrief = parseProjectBrief(retryBriefRow?.brief, projectPrompt);
+      const retrySchema = createProjectSiteSchemaFromBrief(retryBrief);
+
       let sourceFiles = persistedSourceFiles;
+      if (!sourceFiles.some((f) => f.path === "package.json")) {
+        const starter = createGeneratedViteTanStackStarterFiles(
+          projectId,
+          retrySchema,
+        );
+        const map = new Map<string, GeneratedProjectFile>();
+        for (const f of starter) {
+          map.set(f.path, f);
+        }
+        for (const f of sourceFiles) {
+          map.set(f.path, f);
+        }
+        sourceFiles = Array.from(map.values());
+      }
 
       send("progress", {
         label: "Memeriksa website tersimpan",
@@ -282,12 +303,6 @@ export async function runBuildAttempt({
 
       // Deterministic heal: rewrite unregistered <Link to="/x"> to hash
       sourceFiles = ensureRegisteredRouteLinks(sourceFiles);
-
-      const [retryBriefRow] = await prisma.$queryRaw<[{ brief: unknown }]>`
-      SELECT "brief" FROM "Project" WHERE id = ${projectId} AND "userId" = ${userId}
-    `;
-      const retryBrief = parseProjectBrief(retryBriefRow?.brief, projectPrompt);
-      const retrySchema = createProjectSiteSchemaFromBrief(retryBrief);
 
       const snapshot = await prisma.projectSnapshot.create({
         data: {
