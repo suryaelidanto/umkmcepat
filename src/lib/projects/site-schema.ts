@@ -843,13 +843,7 @@ function detectBusinessDomain(brief: ProjectBrief): BusinessDomain {
 }
 
 function deriveBusinessName(brief: ProjectBrief, domain: BusinessDomain) {
-  const promptText = normalizeSearchText([brief.prompt, brief.businessType]);
-
-  if (domain.key === "angkringan" && promptText.includes("angkringan")) {
-    return "Angkringan Hangat";
-  }
-
-  return domain.defaultBusinessName;
+  return brief.businessName?.trim() || domain.defaultBusinessName;
 }
 
 function themeForBrief(
@@ -929,47 +923,25 @@ function primaryCtaFor(contactOrCta: string) {
 }
 
 function headlineForBrief(
-  domainKey: BusinessDomain["key"],
+  _domainKey: BusinessDomain["key"],
   offer: string,
   targetCustomer: string,
 ) {
-  const shortTarget = lowerFirstPhrase(clipPhrase(targetCustomer, 58));
-
-  if (domainKey === "angkringan") {
-    return `Angkringan hangat untuk ${shortTarget}`;
+  if (offer && targetCustomer) {
+    return `${clipPhrase(offer, 54)} untuk ${lowerFirstPhrase(clipPhrase(targetCustomer, 50))}`;
   }
-
-  if (domainKey === "laundry") {
-    return `Laundry rapi untuk ${shortTarget}`;
-  }
-
-  if (domainKey === "automotive") {
-    return `Servis motor rapi tanpa tebak-tebakan untuk ${shortTarget}`;
-  }
-
-  if (domainKey === "food") {
-    return `${clipPhrase(offer, 46)} yang mudah dipesan`;
-  }
-
-  return `${clipPhrase(offer, 54)} untuk ${shortTarget}`;
+  return clipPhrase(offer || "Layanan Berkualitas & Terpercaya", 110);
 }
 
 function subheadlineForBrief(
-  domainKey: BusinessDomain["key"],
+  _domainKey: BusinessDomain["key"],
   contactOrCta: string,
   stylePreference: string,
 ) {
-  if (domainKey === "angkringan") {
-    const stylePhrase = lowerFirstPhrase(stylePreference);
-
-    return `Tampilkan menu, suasana warung, dan akses pesan lewat ${clipPhrase(contactOrCta, 64)}. Nuansa ${clipPhrase(stylePhrase, 92)} membantu pelanggan merasa dekat sebelum datang atau pesan.`;
-  }
-
-  if (domainKey === "automotive") {
-    return `Tampilkan layanan bengkel, estimasi langkah servis, dan jalur ${clipPhrase(contactOrCta, 72)} supaya pelanggan datang dengan keluhan yang jelas.`;
-  }
-
-  return `Website menonjolkan penawaran utama, alasan pelanggan percaya, dan langkah berikutnya lewat ${clipPhrase(contactOrCta, 72)}.`;
+  const stylePhrase = stylePreference ? lowerFirstPhrase(stylePreference) : "";
+  return stylePhrase
+    ? `Menghadirkan pelayanan ${clipPhrase(stylePhrase, 50)} dengan kemudahan pemesanan via ${clipPhrase(contactOrCta, 64)}.`
+    : `Menghadirkan pelayanan profesional dengan kemudahan pemesanan via ${clipPhrase(contactOrCta, 64)}.`;
 }
 
 function buildTrustPoints(
@@ -989,7 +961,7 @@ function buildTrustPoints(
 function buildBriefSections({
   contactOrCta,
   contactDetail,
-  domainLabel,
+  domainLabel: _domainLabel,
   offer,
   stylePreference,
   styleDetail,
@@ -1016,27 +988,6 @@ function buildBriefSections({
     ? `${sentenceCase(stripTrailingPunctuation(styleDetail))}. `
     : "";
 
-  if (domainLabel === "bengkel") {
-    return [
-      {
-        title: "Layanan servis",
-        body: `${offerSentence}. Tiap layanan dibuat mudah dipahami agar pelanggan tahu apakah perlu datang untuk cek ringan, kelistrikan, ban, atau komponen lain.`,
-      },
-      {
-        title: "Untuk pengendara",
-        body: `Konten diarahkan untuk ${targetContext}. Halaman membantu mereka menjelaskan keluhan motor sebelum datang ke bengkel.`,
-      },
-      {
-        title: "Booking dan konsultasi",
-        body: `${contactContext} Pelanggan bisa tanya estimasi awal, jam ramai, atau kesiapan spare part tanpa bolak-balik.`,
-      },
-      {
-        title: "Kesan bengkel",
-        body: `Tampilan dibuat ${lowerFirstPhrase(stylePreference)}. ${styleContext}Kesan ini membangun rasa rapi, teknis, dan dapat dipercaya.`,
-      },
-    ];
-  }
-
   return [
     {
       title: "Penawaran utama",
@@ -1044,7 +995,7 @@ function buildBriefSections({
     },
     {
       title: "Untuk pembeli",
-      body: `Konten diarahkan untuk ${targetContext}. Halaman menonjolkan menu, suasana, dan cara pesan yang mudah dipahami.`,
+      body: `Konten diarahkan untuk ${targetContext}. Halaman menonjolkan pilihan produk, keunggulan, dan cara pesan yang mudah dipahami.`,
     },
     {
       title: "Pesan atau datang",
@@ -1052,7 +1003,7 @@ function buildBriefSections({
     },
     {
       title: "Kesan visual",
-      body: `Tampilan dibuat ${lowerFirstPhrase(stylePreference)}. ${styleContext}Kesan ini menjaga karakter ${domainLabel} yang akrab.`,
+      body: `Tampilan dibuat ${lowerFirstPhrase(stylePreference || "rapi")}. ${styleContext}Memberikan kesan profesional dan terpercaya.`,
     },
   ];
 }

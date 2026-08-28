@@ -132,6 +132,22 @@ export function QuestionComposer({
     ]);
   }
 
+  function skip() {
+    if (isSubmitting || submitLockRef.current) {
+      return;
+    }
+    submitLockRef.current = true;
+    setIsSubmitting(true);
+    onSubmit(`${question.question}\nJawaban: Lewati.`, [
+      {
+        answer: "Lewati.",
+        question: question.question,
+        questionId: question.id,
+        source: "custom",
+      },
+    ]);
+  }
+
   return (
     <div className="overflow-hidden rounded-2xl border border-black/10 bg-white p-3.5 shadow-sm transition-colors duration-200 dark:border-white/15 dark:bg-[#282824] dark:shadow-[0_4px_20px_rgba(0,0,0,0.35)]">
       <div>
@@ -291,7 +307,17 @@ export function QuestionComposer({
         ) : null}
       </div>
 
-      <div className="mt-3 flex items-center justify-end">
+      <div className="mt-3 flex items-center justify-end gap-2">
+        {!question.required ? (
+          <button
+            type="button"
+            disabled={isSubmitting}
+            onClick={skip}
+            className="inline-flex h-8 items-center justify-center rounded-lg border border-black/15 bg-transparent px-3 text-xs font-medium text-muted-foreground transition hover:bg-black/5 hover:text-foreground active:scale-95 disabled:pointer-events-none disabled:opacity-50 dark:border-white/15 dark:hover:bg-white/10 dark:hover:text-surface-warm-white cursor-pointer"
+          >
+            Lewati
+          </button>
+        ) : null}
         <Button
           type="button"
           disabled={!canSubmit || isSubmitting}

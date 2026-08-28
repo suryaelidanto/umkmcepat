@@ -39,7 +39,24 @@ describe("ensureQuestionCardRichness", () => {
     }
   });
 
-  it("leaves choice and non-question cards untouched", () => {
+  it("preserves valid choice questions untouched", () => {
+    const choice: WorkspaceCard = {
+      type: "question",
+      question: {
+        id: "targetCustomer",
+        question: "Siapa pelanggan utama yang paling ingin kamu tarik?",
+        answerMode: "choice",
+        options: [
+          { label: "Pekerja Kantoran", description: "Mencari kopi cepat" },
+          { label: "Mahasiswa", description: "Tempat nugas" },
+        ],
+      },
+    };
+    const out = ensureQuestionCardRichness(choice);
+    expect(out).toEqual(choice);
+  });
+
+  it("leaves non-question cards untouched", () => {
     const choice: WorkspaceCard = {
       type: "question",
       question: {

@@ -18,22 +18,15 @@ kanban-plugin: board
 
 ## Ready for Review
 
-- [ ] 🎨 **[#35] Taste-Skill Engine Integration & Creative Variance System**: Vendor official taste-skill suite into dynamic engine dropzone, wire Three Dials configuration (variance, motion, density) and anti-default directives to replace rigid generator templates with brave human-crafted layouts #engine #design #generator #skills
+- [ ] 💬 **[#36] WhatsApp-First Fact Gathering & Conditional Skip Controls**: Enforce direct WhatsApp number gathering for primary contact without channel picker distractions, mandate 3-4 structured options on target audience and USP cards, and add conditional skip buttons for non-required enrichment tiers #discuss #brief #ux #conversion
 
 - [ ] 🖼️ **[#34] Asset Deduplication & Adaptive Unique Gallery Layout Engine**: Enforce strict asset URL deduplication in site.ts and generator prompt directives preventing duplicate image rendering, with adaptive gallery layouts tailored to exact real photo counts #media #engine #generator #ux
-
 - [ ] 🖱️ **[#29] Visual Edit Iframe Selector & Smart Target Detection**: Overhaul runtime proxy click listeners and bounding box calculation to accurately resolve target elements, prioritizing semantic tags and image containers without getting blocked by transparent overlays #workspace #preview #ux #engine
-
 - [ ] ⚡ **[#30] Direct Click-to-Replace Image Popover & Fast Slot Swap**: Connect visual edit image targets to an instant swap popover allowing users to upload or pick replacement assets directly, surgically updating site.ts slot references with immediate preview reload #workspace #media #preview #ux
-
 - [ ] 🎯 **[#33] Build Checkpoint State & Intentional Update Guiding Flow**: Track last built message turn checkpoint so clicking Perbarui Website when no pending edits exist guides user with clarifying prompt instead of executing redundant blind builds #workspace #chat #ux #engine
-
 - [ ] ⚡ **[#32] Smart Surgical Update Engine & Pre-Injected Intent Router**: Classify user edit turns into targeted intent categories (media replace, style palette, copy update, full restructure), pre-inject existing component code into prompt context to eliminate read_file overhead, and enforce dynamic 2-3 step execution without rewriting untouched layout files #engine #generator #ai #perf
-
 - [ ] ⚡ **[#31] Server-Side WebP Image Optimization Pipeline on Permanent Asset Claim**: Integrate Sharp pipeline to auto-orient, clean EXIF metadata, scale to max 1920px Full HD, and compress all permanent project uploads to high-efficiency WebP format #media #upload #engine #perf
-
 - [ ] 🖼️ **[#28] Workspace Media Management Tab & AI Asset Context**: Add dedicated workspace media gallery tab (Tampilan / Kode / Media) with live asset cards, active site usage badges, direct image upload/replace/delete, and inject active media manifest into generator prompts so AI accurately updates image slots without guessing #workspace #media #ui #ux #engine
-
 - [ ] 🔄 **[#27] Instant Snapshot History Checkout & Automatic Preview Reload**: Fix 409 plan mismatch blocker in snapshot restore route so selecting previous versions activates immediately and automatically reloads the live preview iframe without requiring manual user refreshes #workspace #history #preview #engine
 - [ ] 💬 **[#23] Relentless Multi-Tier Fact Gathering & Anti-Premature Build Guard**: Enforce rigorous sequential probing across Tier 1, Tier 2 (pricing, photos via image_upload, location, USP), and Tier 3 (testimonials, certifications, promo) in discuss prompts and intercept premature build_recommendation cards unless Tier 2 is fully probed or user explicitly triggers manual build #engine #discuss #brief
 - [ ] 🎨 **[#22] Workspace Composer Visual Polish & Card Switcher**: Provide bidirectional switcher between card options and free typing separated above the card, distinct input affordance across light/dark mode, and harmonic rounded corners across all chat timeline elements #ui #ux #workspace
@@ -51,6 +44,7 @@ kanban-plugin: board
 
 ## Done
 
+- [ ] 🎨 **[#35] Taste-Skill Engine Integration & Creative Variance System**: Vendor official taste-skill suite into dynamic engine dropzone, wire Three Dials configuration (variance, motion, density) and anti-default directives to replace rigid generator templates with brave human-crafted layouts #engine #design #generator #skills
 - [ ] 📜 **[#26] Backlog Card Formatting, Contextual Icon, and Skill Standardization**: Standardize task cards with single contextual icon and clean spacing across Obsidian Kanban board, updating triage-ideas, add-backlog, and add-do-backlog skills #skills #backlog #ux
 - [ ] 📸 **[#24] Permanent Asset Claiming on Send & Global Upload Anti-Abuse Quotas**: Automatically claim and move temporary image uploads to permanent ProjectAsset storage upon send, ensure inlineChatAssetFileParts resolves both temp and permanent buffers as valid data URIs for AI vision turns without relative URL crashes, and enforce strict anti-abuse upload quotas #media #upload #security #engine
 - [ ] 🧪 **[#25] TDD Standard Reinforcement & Comprehensive High-Signal Test Audit**: Merge writing-good-tests directly into test-driven-development SKILL.md while preserving Obra Superpowers core structure, codify The Unbreakable Bar and Iron Law of deterministic mechanical testing across AGENTS.md and DEV.md, and audit the 267 test files across the codebase to prune shallow formality assertions and reinforce high-signal boundary contracts #engine #testing #principles #architecture
@@ -67,6 +61,7 @@ kanban-plugin: board
 
 
 ## Future / Icebox
+
 
 
 

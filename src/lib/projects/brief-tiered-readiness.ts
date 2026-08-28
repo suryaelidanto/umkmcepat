@@ -49,90 +49,8 @@ export function isExplicitBuildRequest(text: string): boolean {
 }
 
 export function fallbackUspOptions(
-  context: string,
+  _context?: string,
 ): Array<{ label: string; description: string }> {
-  const lower = context.toLowerCase();
-  if (
-    lower.includes("bengkel") ||
-    lower.includes("motor") ||
-    lower.includes("mobil") ||
-    lower.includes("servis") ||
-    lower.includes("otomotif")
-  ) {
-    return [
-      {
-        label: "Mekanik Berpengalaman & Teliti",
-        description: "Pengerjaan rapi dan diagnosis akurat",
-      },
-      {
-        label: "Suku Cadang Asli & Bergaransi",
-        description: "Kualitas terjamin tanpa rasa was-was",
-      },
-      {
-        label: "Biaya Servis Transparan",
-        description: "Estimasi jelas di awal tanpa biaya siluman",
-      },
-      {
-        label: "Pengerjaan Cepat & Bisa Ditunggu",
-        description: "Efisien waktu tanpa antre lama",
-      },
-    ];
-  }
-  if (
-    lower.includes("makan") ||
-    lower.includes("kuliner") ||
-    lower.includes("kopi") ||
-    lower.includes("cafe") ||
-    lower.includes("resto") ||
-    lower.includes("warung") ||
-    lower.includes("sate") ||
-    lower.includes("catering")
-  ) {
-    return [
-      {
-        label: "Bahan Fresh & Higienis",
-        description: "Dimasak segar setiap hari dengan bumbu pilihan",
-      },
-      {
-        label: "Porsi Pas & Mengenyangkan",
-        description: "Cocok untuk makan sendiri atau bersama keluarga",
-      },
-      {
-        label: "Harga Ramah di Kantong",
-        description: "Rasa istimewa dengan harga terjangkau",
-      },
-      {
-        label: "Bisa Pesan Antar / Catering",
-        description: "Siap kirim cepat untuk acara & kantor",
-      },
-    ];
-  }
-  if (
-    lower.includes("laundry") ||
-    lower.includes("barber") ||
-    lower.includes("salon") ||
-    lower.includes("cuci") ||
-    lower.includes("jahit")
-  ) {
-    return [
-      {
-        label: "Hasil Rapi & Bersih Maksimal",
-        description: "Dikerjakan teliti oleh tenaga berpengalaman",
-      },
-      {
-        label: "Pengerjaan Tepat Waktu",
-        description: "Bisa selesai kilat sesuai janji",
-      },
-      {
-        label: "Peralatan Bersih & Terawat",
-        description: "Standar kebersihan dan higienitas terjaga",
-      },
-      {
-        label: "Harga Jujur & Bersahabat",
-        description: "Tarif jelas tanpa biaya tambahan tersembunyi",
-      },
-    ];
-  }
   return [
     {
       label: "Kualitas Terjamin & Bergaransi",
@@ -147,8 +65,8 @@ export function fallbackUspOptions(
       description: "Konsultasi ramah dan cepat tanggap",
     },
     {
-      label: "Berpengalaman & Terpercaya",
-      description: "Sudah melayani banyak pelanggan setia",
+      label: "Pengerjaan Rapi & Teliti",
+      description: "Dikerjakan profesional dengan standar tinggi",
     },
   ];
 }

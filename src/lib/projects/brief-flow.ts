@@ -265,22 +265,7 @@ function withHandoffReadiness(brief: ProjectBrief): ProjectBrief {
   // Auto-derive businessType when missing so the 5-field gate is sufficient
   let businessType = brief.businessType;
   if (!businessType || !businessType.trim()) {
-    const offer = brief.offer?.toLowerCase() ?? "";
-    const prompt = brief.prompt?.toLowerCase() ?? "";
-    if (offer.includes("sate") || prompt.includes("sate")) {
-      businessType = "Kuliner Sate";
-    } else if (
-      offer.includes("kopi") ||
-      prompt.includes("kopi") ||
-      offer.includes("kuliner") ||
-      prompt.includes("kuliner")
-    ) {
-      businessType = "Kuliner";
-    } else if (brief.businessName) {
-      businessType = "UMKM";
-    } else {
-      businessType = "UMKM";
-    }
+    businessType = brief.offer?.trim() || brief.businessName?.trim() || "UMKM";
   }
   return {
     ...brief,
