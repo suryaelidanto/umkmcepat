@@ -9,7 +9,25 @@ import {
 import { getSetting } from "@/lib/config/app-settings";
 
 export function getEnv(name: string, fallback = ""): string {
-  return process.env[name] || fallback;
+  if (typeof process !== "undefined" && process.env?.[name]) {
+    return process.env[name];
+  }
+  if (typeof window !== "undefined") {
+    const win = window as unknown as {
+      __PUBLIC_CONFIG__?: Record<string, string>;
+      ENV?: Record<string, string>;
+    };
+    if (win.__PUBLIC_CONFIG__?.[name]) {
+      return win.__PUBLIC_CONFIG__[name];
+    }
+    if (win.ENV?.[name]) {
+      return win.ENV[name];
+    }
+  }
+  if (typeof import.meta !== "undefined" && import.meta.env?.[name]) {
+    return (import.meta.env[name] as string) || fallback;
+  }
+  return fallback;
 }
 
 export function isGeneratedBuildExecutionEnabled() {
