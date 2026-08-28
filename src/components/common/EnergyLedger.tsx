@@ -190,6 +190,33 @@ function getReasonInfo(reason: string, index = 0): ReasonDetail {
     };
   }
 
+  if (reason.startsWith("Top-up:") || reason.startsWith("Top Up:")) {
+    const pack = reason.replace(/^Top-?up:\s*/i, "");
+    return {
+      label: `Top Up Energi (${pack})`,
+      description: "Penambahan kuota energi dari pembelian paket booster.",
+    };
+  }
+
+  if (reason.startsWith("Admin:")) {
+    const note = reason.slice("Admin:".length).trim();
+    return {
+      label: "Bonus Energi Admin",
+      description: note || "Penambahan kuota energi oleh tim UMKM Cepat.",
+    };
+  }
+
+  if (
+    reason === "signup_grant" ||
+    reason === "pilot_grant" ||
+    reason === "welcome_grant"
+  ) {
+    return {
+      label: "Bonus Energi Pendaftaran",
+      description: "Hadiah kuota energi awal untuk membangun website tokomu.",
+    };
+  }
+
   return {
     label: reason,
     description: "Operasi AI sistem.",
@@ -322,10 +349,18 @@ export function EnergyLedger({
                   </span>
                 </div>
 
-                {/* Energy amount debit */}
+                {/* Energy amount */}
                 <div className="flex shrink-0 flex-col items-end pl-2">
-                  <span className="font-mono text-xs font-bold text-foreground/90 dark:text-surface-warm-white">
-                    {formatNumber(entry.amount)}
+                  <span
+                    className={`font-mono text-xs font-bold ${
+                      entry.amount > 0
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-foreground/90 dark:text-surface-warm-white"
+                    }`}
+                  >
+                    {entry.amount > 0
+                      ? `+${formatNumber(entry.amount)}`
+                      : formatNumber(entry.amount)}
                   </span>
                   <span className="text-[10px] font-medium text-muted-foreground">
                     Energi

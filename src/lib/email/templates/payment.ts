@@ -39,8 +39,8 @@ export async function sendPaymentReceipt(
 
   const { html, text } = wrapEmail(bodyHtml, {
     cta: {
-      text: "Lihat Transaksi",
-      url: `${APP_URL}/profile/transactions`,
+      text: "Mulai Bangun Website",
+      url: `${APP_URL}`,
     },
   });
 
