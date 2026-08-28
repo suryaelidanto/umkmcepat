@@ -22,7 +22,7 @@ export function Header({
   void session;
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-black/10 bg-[#eceae4]/90 text-[#1c1c1c] backdrop-blur-md transition-colors duration-200 dark:border-white/[0.07] dark:bg-[#151515] dark:text-surface-warm-white">
+    <header className="sticky top-0 z-50 w-full border-b border-black/10 bg-[#eceae4]/90 text-[#1c1c1c] backdrop-blur-md dark:border-white/[0.07] dark:bg-[#151515] dark:text-surface-warm-white">
       {showDevBanner ? (
         <div className="border-b border-accent-orange-border bg-accent-orange-subtle px-spacing-4 py-1 text-accent-orange">
           <div className="mx-auto flex max-w-7xl items-center justify-center gap-spacing-3 text-[10px]">

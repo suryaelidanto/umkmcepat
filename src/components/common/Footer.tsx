@@ -5,7 +5,7 @@ import { Link } from "@/components/ui/link";
 
 export function Footer() {
   return (
-    <footer className="border-t border-black/10 bg-[#eceae4] text-[#1c1c1c] transition-colors duration-200 dark:border-white/[0.07] dark:bg-[#151515] dark:text-surface-warm-white">
+    <footer className="border-t border-black/10 bg-[#eceae4] text-[#1c1c1c] dark:border-white/[0.07] dark:bg-[#151515] dark:text-surface-warm-white">
       <div className="mx-auto flex max-w-7xl flex-col items-center gap-spacing-7 px-4 py-spacing-9 text-center sm:px-6 sm:text-left lg:px-spacing-10">
         <div className="flex w-full flex-col items-center gap-spacing-9 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-col items-center md:items-start">

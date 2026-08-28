@@ -116,7 +116,7 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
 
   return (
     <div
-      className={`relative flex min-h-screen flex-col bg-[#eceae4] text-[#1c1c1c] transition-colors duration-200 dark:bg-[#151515] dark:text-[#fcfbf8] ${
+      className={`relative flex min-h-screen flex-col bg-[#eceae4] text-[#1c1c1c] dark:bg-[#151515] dark:text-[#fcfbf8] ${
         isTicketDetail ? "h-dvh overflow-hidden" : ""
       }`}
     >
