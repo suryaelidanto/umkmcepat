@@ -6,6 +6,10 @@ ingress:
     service: http://app:3000
   - hostname: www.umkmcepat.com
     service: http://app:3000
+  - hostname: sites.umkmcepat.com
+    service: http://app:3000
+    originRequest:
+      httpHostHeader: sites.umkmcepat.com
   - hostname: ai.umkmcepat.com
     service: http://9router:20128
   - hostname: analytics.umkmcepat.com
