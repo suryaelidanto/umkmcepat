@@ -721,19 +721,39 @@ const EDIT_MODE_BRIDGE = String.raw`(() => {
   }
 
   function pickElement(element) {
+    if (!element || element === document.body || element === document.documentElement) return null;
+
+    // 1. Direct Image or Picture (highest priority leaf)
     if (element.tagName === 'IMG' || element.tagName === 'PICTURE') return element;
+
+    // 2. Interactive Controls (Button, Anchor, Input)
     const interactive = closestElement(element, 'button,a,input,select,textarea,[role="button"],[onclick]');
     if (interactive) return interactive;
+
+    // 3. Child media within small container (e.g. div wrapping an img)
     const childMedia = element.querySelector ? element.querySelector('img,picture,video,svg') : null;
-    if (childMedia && !isIgnorableDecoration(childMedia) && !element.matches('section,main,article')) {
-      return childMedia;
+    if (childMedia && !isIgnorableDecoration(childMedia) && !element.matches('section,main,article,body')) {
+      const imgRect = childMedia.getBoundingClientRect();
+      if (imgRect.width > 20 && imgRect.height > 20) {
+        return childMedia;
+      }
     }
-    const media = closestElement(element, 'img,picture,video,svg');
-    if (media && !isIgnorableDecoration(media)) return media;
+
+    // 4. Specific Typography Leaf Nodes
     const text = closestElement(element, 'h1,h2,h3,h4,h5,h6,p,label,li,blockquote,figcaption,caption,span,strong,em,b,i,small,code,pre');
-    if (text && !isIgnorableDecoration(text) && clean(text.innerText || text.textContent || '')) return text;
+    if (text && !isIgnorableDecoration(text) && clean(text.innerText || text.textContent || '')) {
+      return text;
+    }
+
+    // 5. Atomic Card or Feature Tile (Nearest Container, NOT Section)
+    const atomicCard = closestAtomicBlock(element);
+    if (atomicCard) return atomicCard;
+
+    // 6. Direct Element with Text
     if (!isIgnorableDecoration(element) && hasDirectText(element)) return element;
-    return closestElement(element, 'article,section,nav,header,footer,main,aside,[aria-label],[data-umkm-annotatable]') || element;
+
+    // 7. Structural Section / Fallback Container
+    return closestElement(element, 'article,header,footer,nav,section,[aria-label],[data-umkm-annotatable]') || element;
   }
 
   function structuralElement(element) {
@@ -987,6 +1007,22 @@ const EDIT_MODE_BRIDGE = String.raw`(() => {
     }
   });
 
+  function handleDblClick(event) {
+    if (!active) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const element = deepElementFromPoint(event.clientX, event.clientY);
+    const picked = element ? pickElement(element) : null;
+    if (!picked) return;
+    const target = targetData(picked);
+    if (picked.tagName === 'IMG' || picked.tagName === 'PICTURE') {
+      post('umkmcepat-edit-double-click-image', target);
+    } else {
+      post('umkmcepat-edit-target', target);
+    }
+  }
+
   document.addEventListener('mousemove', handleMove);
   document.addEventListener('click', handleClick, true);
+  document.addEventListener('dblclick', handleDblClick, true);
 })();`;

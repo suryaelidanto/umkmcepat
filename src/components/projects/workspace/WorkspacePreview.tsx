@@ -116,7 +116,10 @@ export function GeneratedPreviewFrame({
         return;
       }
 
-      if (event.data?.type === "umkmcepat-edit-target") {
+      if (
+        event.data?.type === "umkmcepat-edit-target" ||
+        event.data?.type === "umkmcepat-edit-double-click-image"
+      ) {
         setSelectedTarget(event.data.payload ?? null);
         onAnnotationTarget?.(event.data.payload);
         return;
