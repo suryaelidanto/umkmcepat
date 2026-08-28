@@ -177,20 +177,17 @@ async function handlePreviewPost(request: Request) {
     );
   }
 
-  const [chatRow] = await prisma.$queryRaw<
-    [
-      {
-        brief: unknown;
-        chatMessages: unknown;
-        chatSummary: unknown;
-        lastCompactedMessageCount: unknown;
-        memoryFacts: unknown;
-        workspaceCard: unknown;
-      },
-    ]
-  >`
-    SELECT "chatMessages", "chatSummary", "memoryFacts", "lastCompactedMessageCount", "brief", "workspaceCard" FROM "Project" WHERE id = ${project.id} AND "userId" = ${userId}
-  `;
+  const chatRow = await prisma.project.findFirst({
+    where: { id: project.id, userId },
+    select: {
+      brief: true,
+      chatMessages: true,
+      chatSummary: true,
+      lastCompactedMessageCount: true,
+      memoryFacts: true,
+      workspaceCard: true,
+    },
+  });
   const storedMessages = parseProjectChatMessages(chatRow?.chatMessages);
   const parsedChatSummary = parseProjectChatSummary(chatRow?.chatSummary);
   const chatSummary = {
