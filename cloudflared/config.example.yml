@@ -1,0 +1,15 @@
+tunnel: YOUR_TUNNEL_UUID
+credentials-file: /etc/cloudflared/YOUR_TUNNEL_UUID.json
+
+ingress:
+  - hostname: umkmcepat.com
+    service: http://app:3000
+  - hostname: www.umkmcepat.com
+    service: http://app:3000
+  - hostname: ai.umkmcepat.com
+    service: http://9router:20128
+  - hostname: analytics.umkmcepat.com
+    service: http://umami:3000
+  - hostname: status.umkmcepat.com
+    service: http://uptime-kuma:3001
+  - service: http_status:404
