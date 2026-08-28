@@ -2994,20 +2994,34 @@ export function WorkspaceShell({
       if (chatCollapsed) {
         openChatPanel();
       }
-      setMessages((current) => [
-        ...current,
-        {
-          id: `guide-${Date.now()}`,
-          metadata: undefined,
-          parts: [
-            {
-              text: "Bagian apa yang ingin kamu perbarui? Tulis kebutuhanmu di bawah ya (contoh: ganti warna tema, tambah foto baru, atau ubah nomor WhatsApp & harga).",
-              type: "text",
-            },
-          ],
-          role: "assistant",
-        },
-      ]);
+      setMessages((current) => {
+        const guideText =
+          "Bagian apa yang ingin kamu perbarui? Tulis kebutuhanmu di bawah ya (contoh: ganti warna tema, tambah foto baru, atau ubah nomor WhatsApp & harga).";
+        const last = current[current.length - 1];
+        if (
+          last &&
+          last.role === "assistant" &&
+          last.parts?.some(
+            (p) => p.type === "text" && p.text.trim() === guideText.trim(),
+          )
+        ) {
+          return current;
+        }
+        return [
+          ...current,
+          {
+            id: `guide-${Date.now()}`,
+            metadata: undefined,
+            parts: [
+              {
+                text: guideText,
+                type: "text",
+              },
+            ],
+            role: "assistant",
+          },
+        ];
+      });
       shouldStickToBottomRef.current = true;
       requestAnimationFrame(() => {
         const textarea = document.querySelector<HTMLTextAreaElement>(
@@ -3897,13 +3911,13 @@ export function WorkspaceShell({
                                   !message.trim() ||
                                   hasUploadingAttachments(pendingAttachments)
                                 }
-                                className="size-8.5 rounded-lg bg-[#1c1c1c] text-white shadow-2xs transition hover:bg-black active:scale-95 disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/30 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white dark:disabled:bg-white/10 dark:disabled:text-white/30 cursor-pointer"
+                                className="size-8.5 rounded-lg bg-[#1c1c1c] text-white shadow-2xs transition hover:bg-black active:scale-95 disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/30 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white dark:disabled:bg-white/10 dark:disabled:text-white/30 cursor-pointer flex items-center justify-center shrink-0"
                                 aria-label="Kirim pesan"
                               >
                                 {isSubmittingTurn ? (
-                                  <Loader2 className="size-4 animate-spin" />
+                                  <Loader2 className="size-4 animate-spin shrink-0" />
                                 ) : (
-                                  <ArrowUp className="size-4" />
+                                  <ArrowUp className="size-4 shrink-0" />
                                 )}
                               </Button>
                             </div>
@@ -4083,13 +4097,13 @@ export function WorkspaceShell({
                               !message.trim() ||
                               hasUploadingAttachments(pendingAttachments)
                             }
-                            className="size-8.5 rounded-lg bg-[#1c1c1c] text-white shadow-2xs transition hover:bg-black active:scale-95 disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/30 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white dark:disabled:bg-white/10 dark:disabled:text-white/30 cursor-pointer"
+                            className="size-8.5 rounded-lg bg-[#1c1c1c] text-white shadow-2xs transition hover:bg-black active:scale-95 disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/30 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white dark:disabled:bg-white/10 dark:disabled:text-white/30 cursor-pointer flex items-center justify-center shrink-0"
                             aria-label="Kirim pesan"
                           >
                             {isSubmittingTurn ? (
-                              <Loader2 className="size-4 animate-spin" />
+                              <Loader2 className="size-4 animate-spin shrink-0" />
                             ) : (
-                              <ArrowUp className="size-4" />
+                              <ArrowUp className="size-4 shrink-0" />
                             )}
                           </Button>
                         </div>

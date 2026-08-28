@@ -354,7 +354,7 @@ describe("runAgenticGenerate", () => {
     expect(capturedPrompt).toContain("EXISTING SITE FILES");
     expect(capturedPrompt).toContain("src/components/site/Hero.tsx");
     expect(capturedPrompt).toContain(
-      "MANDATORY UPDATE SEQUENCE (SURGICAL & FAST",
+      "MANDATORY UPDATE SEQUENCE (SURGICAL, NON-DESTRUCTIVE & FAST):",
     );
     expect(capturedPrompt).toContain("PRE-LOADED TARGET FILES");
     expect(capturedPrompt).toContain("SURGICAL INTENT");

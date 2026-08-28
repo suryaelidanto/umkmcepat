@@ -19,8 +19,20 @@ export function addAttachments(
   files: File[],
 ): { next: PendingAttachment[]; rejected: File[] } {
   const room = MAX_COMPOSER_IMAGES - current.length;
-  const accepted = files.slice(0, Math.max(0, room));
-  const rejected = files.slice(Math.max(0, room));
+  const uniqueNewFiles = files.filter(
+    (file) =>
+      !current.some(
+        (c) =>
+          c.file.name === file.name &&
+          c.file.size === file.size &&
+          c.file.lastModified === file.lastModified,
+      ),
+  );
+  const accepted = uniqueNewFiles.slice(0, Math.max(0, room));
+  const rejected = [
+    ...files.filter((f) => !uniqueNewFiles.includes(f)),
+    ...uniqueNewFiles.slice(Math.max(0, room)),
+  ];
   const additions: PendingAttachment[] = accepted.map((file) => ({
     blobUrl: URL.createObjectURL(file),
     file,

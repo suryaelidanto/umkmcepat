@@ -943,10 +943,11 @@ ${existingFileList}${targetFilesPreload}
 SURGICAL INTENT: ${editIntent ? editIntent.category.toUpperCase() : "SURGICAL_EDIT"} (Target Steps: <= ${editIntent?.suggestedMaxSteps || 3})
 ${editIntent?.guidelines ? editIntent.guidelines.map((g) => `- ${g}`).join("\n") : ""}
 
-MANDATORY UPDATE SEQUENCE (SURGICAL & FAST):
-1. If style/palette was requested, call set_design_system on step 1 with the new semantic palette.
-2. Edit ONLY the designated target component(s) using write_file. DO NOT rewrite untouched layout files.
-3. Call check_app to verify compilation and finish immediately.`
+MANDATORY UPDATE SEQUENCE (SURGICAL, NON-DESTRUCTIVE & FAST):
+1. PRESERVE EXISTING SITE STRUCTURE: You MUST keep the existing layout, section arrangement, component names, and typography untouched. DO NOT rewrite unrelated components or change the look of the site drastically.
+2. SURGICAL MODIFICATION ONLY: Modify ONLY the 1 designated target component or data file (e.g. swap image slot in Hero/Gallery or update text in site.ts).
+3. If style/palette was requested, call set_design_system on step 1 with the new semantic palette.
+4. Call check_app immediately to verify compilation and finish in <= 3 steps.`
     : `MANDATORY EXECUTION SEQUENCE (STRICT SPEED & COMPLETION):
 1. Call set_design_system on step 1 with your chosen semantic palette and typography suited for this business.
 2. Call copy_shadcn_component to vendor needed components (e.g. badge, separator).

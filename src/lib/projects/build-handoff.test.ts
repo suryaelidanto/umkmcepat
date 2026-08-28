@@ -60,11 +60,12 @@ describe("buildHandoffLine", () => {
     expect(line).not.toContain("08123456789");
   });
 
-  it("always ends with the same trailing promise", () => {
+  it("formats confident professional handoff message", () => {
     const line = buildHandoffLine(
       makeBrief({ productOrService: [{ name: "Kopi", isPrimary: true }] }),
     );
-    expect(line).toContain("sisanya bisa lo tambahin nanti");
+    expect(line).toContain("Siap, langsung aku buatkan website");
+    expect(line).not.toContain("sisanya bisa lo");
   });
 
   it("uses the primary product when productOrService has multiple", () => {
