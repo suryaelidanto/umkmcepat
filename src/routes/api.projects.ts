@@ -11,6 +11,7 @@ import {
 import { apiError } from "@/lib/api-errors";
 import { auth } from "@/lib/auth/auth";
 import { getSetting } from "@/lib/config/app-settings";
+import { checkMaintenanceGate } from "@/lib/config/maintenance-mode";
 import {
   assertUnderProjectLimit,
   chargeEnergyForAiUsage,
@@ -142,6 +143,11 @@ export const Route = createFileRoute("/api/projects")({
         }
 
         const userId = session.user.id;
+        const maintenance = await checkMaintenanceGate(session.user.email);
+        if (!maintenance.allowed) {
+          return maintenance.response;
+        }
+
         const rateLimitResponse = await checkRateLimit(
           request,
           "ai",

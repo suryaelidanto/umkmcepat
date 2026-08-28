@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 
 import { Footer } from "@/components/common/Footer";
 import { Header } from "@/components/common/Header";
+import { usePublicConfig } from "@/components/providers/AppProviders";
 import { useSession } from "@/lib/auth/auth-client";
 import {
   useIsRoutePending,
@@ -30,6 +31,7 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
   const isRoutePending = useIsRoutePending();
   const router = useRouter();
   const { status: sessionStatus } = useSession();
+  const { maintenanceMode, maintenanceMessage } = usePublicConfig();
 
   const isWorkspace =
     pathname.startsWith("/projects/") && pathname !== "/projects/new";
@@ -95,6 +97,15 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
         isTicketDetail ? "h-dvh overflow-hidden" : ""
       }`}
     >
+      {maintenanceMode ? (
+        <div className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-center text-xs font-medium text-amber-800 dark:text-amber-300">
+          <span>
+            ⚠️{" "}
+            {maintenanceMessage ||
+              "Sistem sedang dalam pemeliharaan berkala. Pembuatan dan pembaruan website ditunda sementara."}
+          </span>
+        </div>
+      ) : null}
       <Header />
       <main
         className={`flex-1 ${isTicketDetail ? "min-h-0 overflow-hidden flex flex-col" : ""}`}
