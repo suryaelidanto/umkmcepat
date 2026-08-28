@@ -9,12 +9,15 @@ services:
         condition: service_completed_successfully
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
       9router:
         condition: service_started
     env_file:
       - .env
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-umkmcepat}?schema=public
+      REDIS_URL: redis://redis:6379
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
       NINE_ROUTER_BASE_URL: ${NINE_ROUTER_BASE_URL:-http://9router:20128/v1}
@@ -95,6 +98,14 @@ services:
     environment:
       HEADROOM_TELEMETRY: off
 
+  redis:
+    image: docker.io/redis:7-alpine
+    container_name: umkmcepat-redis
+    restart: unless-stopped
+    dns: ["1.1.1.1", "8.8.8.8"]
+    volumes:
+      - redis_data:/data
+
   postgres:
     image: docker.io/postgres:16-alpine
     container_name: umkmcepat-postgres
@@ -122,7 +133,7 @@ services:
   umami:
     image: ghcr.io/umami-software/umami:postgresql-latest
     environment:
-      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/umami
+      DATABASE_URL: postgresql://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/umami
       APP_SECRET: ${UMAMI_APP_SECRET:?UMAMI_APP_SECRET is required}
     depends_on:
       postgres:
@@ -159,6 +170,7 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:
   nine_router_data:
   project_artifacts:
   project_thumbnails:
