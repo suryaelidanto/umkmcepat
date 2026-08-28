@@ -33,13 +33,10 @@ export function getEnv(name: string, fallback = ""): string {
 export function isGeneratedBuildExecutionEnabled() {
   const raw =
     process.env.GENERATED_BUILD_EXECUTION_ENABLED?.trim().toLowerCase();
-  if (raw === "true") {
-    return true;
-  }
   if (raw === "false") {
     return false;
   }
-  return process.env.NODE_ENV !== "production";
+  return true;
 }
 
 export function isGeneratedPublicExecutionEnabled() {

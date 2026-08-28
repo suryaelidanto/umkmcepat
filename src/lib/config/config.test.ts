@@ -11,13 +11,20 @@ describe("generated capability config", () => {
     vi.unstubAllEnvs();
   });
 
-  it("fails closed for generated execution in production", () => {
+  it("enables generated build execution by default across environments unless disabled", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("GENERATED_BUILD_EXECUTION_ENABLED", "");
     vi.stubEnv("GENERATED_PUBLIC_EXECUTION_ENABLED", "");
 
-    expect(isGeneratedBuildExecutionEnabled()).toBe(false);
+    expect(isGeneratedBuildExecutionEnabled()).toBe(true);
     expect(isGeneratedPublicExecutionEnabled()).toBe(false);
+  });
+
+  it("respects explicit false to disable build execution", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("GENERATED_BUILD_EXECUTION_ENABLED", "false");
+
+    expect(isGeneratedBuildExecutionEnabled()).toBe(false);
   });
 
   it("keeps local and test execution available unless explicitly disabled", () => {
