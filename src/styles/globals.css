@@ -412,26 +412,19 @@ html {
 
   @keyframes hero-word-in {
     from {
-      filter: blur(6px);
-      transform: translateY(14px);
+      opacity: 0.9;
     }
     to {
-      filter: blur(0);
-      transform: translateY(0);
+      opacity: 1;
     }
   }
 
   .hero-word {
     display: inline-block;
-    will-change: transform, filter;
-    animation: hero-word-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
-    animation-delay: var(--word-delay, 0s);
   }
 
   .hero-block-in {
-    will-change: transform, filter;
-    animation: hero-word-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
-    animation-delay: var(--block-delay, 0s);
+    display: block;
   }
 
   .hero-underline {
