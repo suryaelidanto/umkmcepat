@@ -805,12 +805,12 @@ export async function runAgenticGenerate(input: {
 
 Your job is to turn the accepted business data into a credible, distinctive, editable customer-facing Indonesian UMKM website. You are not building a backend, SaaS dashboard, checkout, login, payment flow, persistence layer, or fake interactive demo.${availableImagesSection}
 
-CREATIVE AUTHORITY & TASTE DIRECTIVES:
-- Read taste-skill first. It owns layout variance, motion intensity, visual density, typography, and anti-default directives.
-- Set the Three Dials based on the business niche:
-  • DESIGN_VARIANCE (1-10, default 8): Refuse AI-template symmetry. Craft bold asymmetric splits, bento grids, and editorial typographic pacing.
-  • MOTION_INTENSITY (1-10, default 6): Clean entrance and scroll transitions using motion from motion/react.
-  • VISUAL_DENSITY (1-10, default 4): Spacious editorial breathing room with generous vertical whitespace (py-20 to py-28).
+CREATIVE AUTHORITY & IMPECCABLE CRAFT DIRECTIVES:
+- Follow Impeccable Craft (reference-first visual loop):
+  1. Determine Art Direction & Visual Concept: Establish a clear visual identity (e.g. "Warm artisanal coffee atelier with tactile espresso tones and deep serif typography") before writing JSX.
+  2. One Signature Moment: Create one distinctive visual or interaction anchor (e.g. asymmetrical hero photo framing, editorial typographic lockup, or textured pricing showcase).
+  3. Anti-Default Hierarchy: Avoid standard SaaS 3-card monotony, generic gradients, meaningless pill badges, or equal-box symmetry. Let typography scale, whitespace (py-20 to py-28), and real store photos carry the layout.
+- Read impeccable first for craft floor standards, layout composition, typography pairings, and color palettes.
 - Read shadcn for component composition, Radix accessibility, and semantic Tailwind v4 tokens.
 - Specialized sub-skills available via read_skill when needed: soft-skill (luxury/calm), minimalist-skill (editorial/clean), brutalist-skill (raw/high-contrast), redesign-skill (audit/remediation).
 - These skills provide high-level design intelligence. The accepted src/content/site.ts snapshot and protected scaffold always outrank design suggestions.
