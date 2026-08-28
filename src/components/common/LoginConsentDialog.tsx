@@ -4,6 +4,7 @@ import { useTheme } from "next-themes";
 import { useEffect, useRef, useState } from "react";
 
 import { LegalDocumentContent } from "@/components/legal/LegalDocumentContent";
+import { usePublicConfig } from "@/components/providers/AppProviders";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,6 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { signIn } from "@/lib/auth/auth-client";
+import { getTurnstileSiteKey } from "@/lib/auth/turnstile";
 
 declare global {
   interface Window {
@@ -37,15 +39,12 @@ declare global {
   }
 }
 
-const defaultTurnstileSiteKey =
-  import.meta.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
-
 export function LoginConsentDialog({
   description,
   onOpenChange,
   open,
   title = "Masuk ke UMKM Cepat",
-  turnstileSiteKey = defaultTurnstileSiteKey,
+  turnstileSiteKey: explicitSiteKey,
 }: {
   description?: string;
   onOpenChange: (open: boolean) => void;
@@ -53,6 +52,9 @@ export function LoginConsentDialog({
   title?: string;
   turnstileSiteKey?: string;
 }) {
+  const { turnstileSiteKey: contextSiteKey } = usePublicConfig();
+  const turnstileSiteKey =
+    explicitSiteKey || contextSiteKey || getTurnstileSiteKey();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme !== "light";
   const [activeLegalDocument, setActiveLegalDocument] = useState<

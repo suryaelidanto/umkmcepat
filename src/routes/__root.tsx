@@ -22,7 +22,10 @@ const loadRootConfig = createServerFn({ method: "GET" }).handler(async () => {
   const defaultTheme = await getSetting("feature.default_theme", "dark").catch(
     () => "dark",
   );
-  return { defaultTheme: String(defaultTheme) };
+  return {
+    defaultTheme: String(defaultTheme),
+    turnstileSiteKey: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "",
+  };
 });
 
 const siteUrl = "https://umkmcepat.com";
@@ -201,9 +204,14 @@ function RootComponent() {
   const nonce = router.options.ssr?.nonce;
   const loaderData = Route.useLoaderData();
   const defaultTheme = loaderData?.defaultTheme || "dark";
+  const turnstileSiteKey = loaderData?.turnstileSiteKey || "";
 
   return (
-    <RootDocument defaultTheme={defaultTheme} nonce={nonce}>
+    <RootDocument
+      defaultTheme={defaultTheme}
+      nonce={nonce}
+      turnstileSiteKey={turnstileSiteKey}
+    >
       <Outlet />
     </RootDocument>
   );
@@ -213,10 +221,12 @@ function RootDocument({
   children,
   defaultTheme,
   nonce,
+  turnstileSiteKey = "",
 }: Readonly<{
   children: ReactNode;
   defaultTheme: string;
   nonce?: string;
+  turnstileSiteKey?: string;
 }>) {
   return (
     <html lang="id" suppressHydrationWarning>
@@ -224,7 +234,7 @@ function RootDocument({
         <script
           nonce={nonce}
           dangerouslySetInnerHTML={{
-            __html: `!function(){try{var d=document.documentElement,c=d.classList;c.remove('dark','light');var e=localStorage.getItem('theme');var t=e||${JSON.stringify(defaultTheme)};if(t==='system'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}c.add(t);d.style.colorScheme=t}catch(e){}}();`,
+            __html: `!function(){try{var d=document.documentElement,c=d.classList;c.remove('dark','light');var e=localStorage.getItem('theme');var t=e||${JSON.stringify(defaultTheme)};if(t==='system'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}c.add(t);d.style.colorScheme=t;window.__PUBLIC_CONFIG__={NEXT_PUBLIC_TURNSTILE_SITE_KEY:${JSON.stringify(turnstileSiteKey)},turnstileSiteKey:${JSON.stringify(turnstileSiteKey)}};}catch(e){}}();`,
           }}
         />
         <HeadContent />
@@ -249,7 +259,12 @@ function RootDocument({
             data-website-id={process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID}
           />
         ) : null}
-        <AppProviders initialTheme={defaultTheme}>{children}</AppProviders>
+        <AppProviders
+          initialTheme={defaultTheme}
+          turnstileSiteKey={turnstileSiteKey}
+        >
+          {children}
+        </AppProviders>
         <Toaster richColors position="bottom-right" />
         <Scripts />
       </body>
