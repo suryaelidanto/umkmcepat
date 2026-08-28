@@ -97,6 +97,7 @@ auth.env
 __captures__/
 .firecrawl/
 cloudflared/*.json
+cloudflared/config.yml
 
 .playwright-mcp/
 tmp/
