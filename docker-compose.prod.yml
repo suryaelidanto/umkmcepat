@@ -83,6 +83,7 @@ services:
       PORT: 20128
       HOSTNAME: 0.0.0.0
       NEXT_PUBLIC_BASE_URL: ${NINE_ROUTER_PUBLIC_URL:-http://localhost:20129}
+      INITIAL_PASSWORD: ${NINE_ROUTER_INITIAL_PASSWORD:?NINE_ROUTER_INITIAL_PASSWORD is required}
     ports:
       - "127.0.0.1:20129:20128"
     volumes:
