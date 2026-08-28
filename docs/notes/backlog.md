@@ -14,19 +14,11 @@ kanban-plugin: board
 
 ## Needs Revision / Check Again
 
-- [ ] ⚡ **[#31] Server-Side WebP Image Optimization Pipeline on Permanent Asset Claim**: Integrate Sharp pipeline to auto-orient, clean EXIF metadata, scale to max 1920px Full HD, and compress all permanent project uploads to high-efficiency WebP format #media #upload #engine #perf
-- [ ] 🖱️ **[#29] Visual Edit Iframe Selector & Smart Target Detection**: Overhaul runtime proxy click listeners and bounding box calculation to accurately resolve target elements, prioritizing semantic tags and image containers without getting blocked by transparent overlays #workspace #preview #ux #engine
 
 
 ## Ready for Review
 
-- [ ] 💬 **[#37] Separate Chat Message Bubbles & Prompt Deduplication**: Split distinct action guiding prompts into standalone chat bubbles with unique keys instead of merging repeated text into a single assistant bubble #workspace #chat #ui #ux
-
-- [ ] 🧹 **[#38] Purge Casual Build Handoff Slop**: Remove informal slang string `sisanya bisa lo tambahin nanti` from build handoff generator and replace with professional Indonesian acknowledgement #copy #engine #unslop
-
-- [ ] ⚡ **[#39] Surgical Update Site Preservation & Non-Destructive Generator Policy**: Enforce strict preservation of built components, layouts, and typography during subsequent updates, restricting generator steps to targeted component modifications without full-site regeneration #engine #generator #ai
-
-- [ ] 🎨 **[#40] Symmetrical Upload Loading Spinner & Attachment Deduplication**: Center the upload/send loading spinner symmetrically within the action button and prevent duplicate attachment rendering in composer previews and chat turns #ui #ux #media
+- [ ] 🖱️ **[#29] Visual Edit Iframe Selector & Smart Target Detection**: Overhaul runtime proxy click listeners and bounding box calculation to accurately resolve target elements, prioritizing semantic tags and image containers without getting blocked by transparent overlays #workspace #preview #ux #engine
 
 - [ ] 📜 **[#10] High-Signal Snapshot History UX**: Upgrade snapshot changelog summaries to 1-2 sentence AI-generated commit notes, replace static "Pembuatan Awal" with descriptive action titles, and display file modification counts instead of total project files #ux #workspace #history
 - [ ] 🧩 **[#02] Modular Contributor SKILL.md Dropzone**: Decouple and organize engine skill dropzone for plug-and-play community skills #engine #architecture
@@ -35,6 +27,12 @@ kanban-plugin: board
 
 ## Done
 
+- [ ] 🖼️ **[#41] Media Tab Reference Selection to Chat Prompt**: Allow users to click or drag assets from workspace media gallery directly into chat composer as referenced inputs #workspace #media #ux #future
+- [ ] 🎨 **[#40] Symmetrical Upload Loading Spinner & Attachment Deduplication**: Center the upload/send loading spinner symmetrically within the action button and prevent duplicate attachment rendering in composer previews and chat turns #ui #ux #media
+- [ ] ⚡ **[#39] Surgical Update Site Preservation & Non-Destructive Generator Policy**: Enforce strict preservation of built components, layouts, and typography during subsequent updates, restricting generator steps to targeted component modifications without full-site regeneration #engine #generator #ai
+- [ ] 🧹 **[#38] Purge Casual Build Handoff Slop**: Remove informal slang string `sisanya bisa lo tambahin nanti` from build handoff generator and replace with professional Indonesian acknowledgement #copy #engine #unslop
+- [ ] 💬 **[#37] Separate Chat Message Bubbles & Prompt Deduplication**: Split distinct action guiding prompts into standalone chat bubbles with unique keys instead of merging repeated text into a single assistant bubble #workspace #chat #ui #ux
+- [ ] ⚡ **[#31] Server-Side WebP Image Optimization Pipeline on Permanent Asset Claim**: Integrate Sharp pipeline to auto-orient, clean EXIF metadata, scale to max 1920px Full HD, and compress all permanent project uploads to high-efficiency WebP format #media #upload #engine #perf
 - [ ] ⚡ **[#32] Smart Surgical Update Engine & Pre-Injected Intent Router**: Classify user edit turns into targeted intent categories (media replace, style palette, copy update, full restructure), pre-inject existing component code into prompt context to eliminate read_file overhead, and enforce dynamic 2-3 step execution without rewriting untouched layout files #engine #generator #ai #perf
 - [ ] 🖼️ **[#28] Workspace Media Management Tab & AI Asset Context**: Add dedicated workspace media gallery tab (Tampilan / Kode / Media) with live asset cards, active site usage badges, direct image upload/replace/delete, and inject active media manifest into generator prompts so AI accurately updates image slots without guessing #workspace #media #ui #ux #engine
 - [ ] 🔄 **[#27] Instant Snapshot History Checkout & Automatic Preview Reload**: Fix 409 plan mismatch blocker in snapshot restore route so selecting previous versions activates immediately and automatically reloads the live preview iframe without requiring manual user refreshes #workspace #history #preview #engine
@@ -69,10 +67,7 @@ kanban-plugin: board
 
 ## Future / Icebox
 
-- [ ] 🖼️ **[#41] Media Tab Reference Selection to Chat Prompt**: Allow users to click or drag assets from workspace media gallery directly into chat composer as referenced inputs #workspace #media #ux #future
-
 - [ ] 🛡️ **[#42] Advanced Prompt Injection & UMKM Domain Scope Detector**: Deep adversarial jailbreak detection and heuristic domain relevance classification for non-business prompts #security #engine #future
-
 
 
 

@@ -664,6 +664,12 @@ const EDIT_MODE_BRIDGE = String.raw`(() => {
   const PARENT_ORIGIN = bridgeScript ? bridgeScript.getAttribute('data-umkm-origin') || '*' : '*';
 
   let active = false;
+  let hoverBox = null;
+  let selectedBox = null;
+
+  const style = document.createElement('style');
+  style.textContent = '.umkm-edit-hover{position:absolute;z-index:2147483646;pointer-events:none;border:2px solid #0d9488;border-radius:8px;background:rgba(13,148,136,0.12);box-shadow:0 0 0 1px rgba(255,255,255,0.2) inset;transition:all 0.05s ease-out;}.umkm-edit-selected{position:absolute;z-index:2147483647;pointer-events:none;border:2.5px solid #0d9488;border-radius:8px;box-shadow:0 0 0 4px rgba(13,148,136,0.22);}.umkm-edit-active *{cursor:crosshair!important}';
+  document.head.appendChild(style);
 
   function clean(value) {
     return String(value || '').replace(/\s+/g, ' ').trim();
@@ -881,12 +887,35 @@ const EDIT_MODE_BRIDGE = String.raw`(() => {
     if (hoverBox) hoverBox.hidden = true;
   }
 
+  function ensureSelectedBox() {
+    if (selectedBox) return selectedBox;
+    selectedBox = document.createElement('div');
+    selectedBox.className = 'umkm-edit-selected';
+    selectedBox.hidden = true;
+    document.body.appendChild(selectedBox);
+    return selectedBox;
+  }
+
+  function setSelectedBox(rect) {
+    const box = ensureSelectedBox();
+    box.hidden = false;
+    box.style.left = String(rect.left + window.scrollX) + 'px';
+    box.style.top = String(rect.top + window.scrollY) + 'px';
+    box.style.width = String(rect.width) + 'px';
+    box.style.height = String(rect.height) + 'px';
+  }
+
+  function hideSelectedBox() {
+    if (selectedBox) selectedBox.hidden = true;
+  }
+
   function handleMove(event) {
     if (!active) return;
     const target = targetAt(event.clientX, event.clientY);
     if (target) setHoverBox(target.target.boundingBox);
     else hideHoverBox();
     post('umkmcepat-edit-hover', target);
+    post('umkmcepat-annotation-hover', target);
   }
 
   function handleClick(event) {
@@ -895,11 +924,16 @@ const EDIT_MODE_BRIDGE = String.raw`(() => {
     event.stopPropagation();
     const element = deepElementFromPoint(event.clientX, event.clientY);
     const picked = element ? pickElement(element) : null;
+    if (picked) {
+      setSelectedBox(picked.getBoundingClientRect());
+    }
     const structural = picked ? structuralElement(picked) : null;
     if (structural && !structural.hasAttribute('data-umkm-id')) structural.setAttribute('data-umkm-id', makeId());
     scan();
     selectedId = structural?.getAttribute('data-umkm-id') || null;
-    post('umkmcepat-edit-target', picked ? targetData(picked) : null);
+    const target = picked ? targetData(picked) : null;
+    post('umkmcepat-edit-target', target);
+    post('umkmcepat-annotation-target', target);
   }
 
   function moveSelected(direction) {
@@ -929,15 +963,19 @@ const EDIT_MODE_BRIDGE = String.raw`(() => {
   window.addEventListener('message', (event) => {
     const data = event.data;
     if (!data || typeof data !== 'object') return;
-    if (data.type === 'umkmcepat-edit-mode') {
+    if (data.type === 'umkmcepat-edit-mode' || data.type === 'umkmcepat-annotation-mode') {
       active = Boolean(data.active);
       if (active) {
         ensureIds();
         scan();
         post('umkmcepat-edit-ready', layout());
       }
+      document.documentElement.classList.toggle('umkm-edit-active', active);
       document.documentElement.style.cursor = active ? 'crosshair' : '';
-      if (!active) hideHoverBox();
+      if (!active) {
+        hideHoverBox();
+        hideSelectedBox();
+      }
     }
     if (data.type === 'umkmcepat-edit-hit-test' && typeof data.x === 'number' && typeof data.y === 'number') {
       post(data.intent === 'hover' ? 'umkmcepat-edit-hover' : 'umkmcepat-edit-target', targetAt(data.x, data.y));
