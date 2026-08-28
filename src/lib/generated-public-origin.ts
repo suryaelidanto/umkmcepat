@@ -30,7 +30,13 @@ export function resolveGeneratedPublicRequest(
     return { action: "serve" };
   }
 
-  if (new URL(request.url).origin === origin) {
+  const requestUrl = new URL(request.url);
+  const publicUrl = new URL(origin);
+
+  if (
+    requestUrl.hostname === publicUrl.hostname &&
+    requestUrl.port === publicUrl.port
+  ) {
     return { action: "serve" };
   }
 

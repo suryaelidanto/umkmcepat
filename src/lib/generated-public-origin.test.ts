@@ -58,6 +58,13 @@ describe("generated public origin", () => {
         ["assets", "app.js"],
       ),
     ).toEqual({ action: "serve" });
+    expect(
+      resolveGeneratedPublicRequest(
+        new Request("http://sites.example.net/p/warung/assets/app.js"),
+        "warung",
+        ["assets", "app.js"],
+      ),
+    ).toEqual({ action: "serve" });
   });
 
   it("keeps disabled public execution fail closed", () => {
