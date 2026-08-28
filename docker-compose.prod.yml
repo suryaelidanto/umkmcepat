@@ -153,12 +153,9 @@ services:
     image: docker.io/cloudflare/cloudflared:latest
     container_name: umkmcepat-cloudflared
     restart: unless-stopped
-    command: tunnel --no-autoupdate run
-    environment:
-      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?CLOUDFLARE_TUNNEL_TOKEN is required}
-    depends_on:
-      app:
-        condition: service_healthy
+    command: tunnel --config /etc/cloudflared/config.yml run
+    volumes:
+      - ./cloudflared:/etc/cloudflared:ro
 
 volumes:
   postgres_data:

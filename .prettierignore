@@ -28,6 +28,7 @@ src/lib/projects/scaffold/shadcn-registry/
 .claude/
 
 .playwright-mcp/
+cloudflared/
 .firecrawl/
 **/.obsidian/
 docs/notes/ideas.md

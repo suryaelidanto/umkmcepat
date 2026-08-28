@@ -96,6 +96,9 @@ auth.env
 .omc
 __captures__/
 .firecrawl/
+cloudflared/*.json
 
 .playwright-mcp/
 tmp/
+
+.mcp.json
