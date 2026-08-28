@@ -111,11 +111,13 @@ export async function handleGeneratePost(request: Request, routeId: string) {
   const project = await prisma.project.findFirst({
     where: { id, userId },
     select: {
+      brief: true,
       buildStatus: true,
       id: true,
       prompt: true,
       status: true,
       generationEngine: true,
+      workspaceCard: true,
     },
   });
 
@@ -158,6 +160,21 @@ export async function handleGeneratePost(request: Request, routeId: string) {
     project.generationEngine === "contract" ||
     project.generationEngine === "contract-v1";
   if (isContractEngine) {
+    if (!contractHandoffId || !contractReviewHash) {
+      const dbCard = project.workspaceCard as {
+        type?: string;
+        handoffId?: string;
+        reviewHash?: string;
+      } | null;
+      if (
+        dbCard?.type === "build_recommendation" &&
+        dbCard.handoffId &&
+        dbCard.reviewHash
+      ) {
+        contractHandoffId = dbCard.handoffId;
+        contractReviewHash = dbCard.reviewHash;
+      }
+    }
     if (!contractHandoffId || !contractReviewHash) {
       return Response.json(
         {
