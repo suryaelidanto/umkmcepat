@@ -118,6 +118,7 @@ export function GeneratedPreviewFrame({
 
       if (event.data?.type === "umkmcepat-edit-target") {
         setSelectedTarget(event.data.payload ?? null);
+        onAnnotationTarget?.(event.data.payload);
         return;
       }
 

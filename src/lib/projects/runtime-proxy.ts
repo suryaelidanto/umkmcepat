@@ -715,8 +715,13 @@ const EDIT_MODE_BRIDGE = String.raw`(() => {
   }
 
   function pickElement(element) {
+    if (element.tagName === 'IMG' || element.tagName === 'PICTURE') return element;
     const interactive = closestElement(element, 'button,a,input,select,textarea,[role="button"],[onclick]');
     if (interactive) return interactive;
+    const childMedia = element.querySelector ? element.querySelector('img,picture,video,svg') : null;
+    if (childMedia && !isIgnorableDecoration(childMedia) && !element.matches('section,main,article')) {
+      return childMedia;
+    }
     const media = closestElement(element, 'img,picture,video,svg');
     if (media && !isIgnorableDecoration(media)) return media;
     const text = closestElement(element, 'h1,h2,h3,h4,h5,h6,p,label,li,blockquote,figcaption,caption,span,strong,em,b,i,small,code,pre');
