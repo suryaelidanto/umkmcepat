@@ -25,7 +25,7 @@ export function HeroAuroraBackground() {
     <div
       ref={ref}
       aria-hidden="true"
-      className="hero-aurora-orbs absolute inset-0 -z-10 overflow-hidden transition-colors duration-200"
+      className="hero-aurora-orbs absolute inset-0 -z-10 overflow-hidden"
     >
       <div className="hero-aurora-orb hero-aurora-orb-1" />
       <div className="hero-aurora-orb hero-aurora-orb-2" />

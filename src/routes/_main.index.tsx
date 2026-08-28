@@ -188,7 +188,7 @@ function HeroSubline() {
 function CaraKerjaSection() {
   return (
     <section
-      className="border-t-0 bg-[#eceae4] px-4 py-20 text-[#1c1c1c] transition-colors duration-200 dark:border-t dark:border-white/[0.07] dark:bg-[#151515] dark:text-surface-warm-white sm:px-spacing-9 lg:px-spacing-10"
+      className="border-t-0 bg-[#eceae4] px-4 py-20 text-[#1c1c1c] dark:border-t dark:border-white/[0.07] dark:bg-[#151515] dark:text-surface-warm-white sm:px-spacing-9 lg:px-spacing-10"
       id="cara-kerja"
     >
       <div className="mx-auto max-w-5xl">
@@ -318,7 +318,7 @@ function HomePage() {
   }
 
   return (
-    <div className="cursor-default bg-[#eceae4] text-[#1c1c1c] transition-colors duration-200 dark:bg-[#151515] dark:text-surface-warm-white">
+    <div className="cursor-default bg-[#eceae4] text-[#1c1c1c] dark:bg-[#151515] dark:text-surface-warm-white">
       <ResetCursorOnMount />
       <section className="relative isolate flex min-h-[calc(100dvh-3.5rem)] flex-col justify-center overflow-hidden px-4 sm:px-spacing-9 lg:px-spacing-10">
         <HeroAuroraBackground />
@@ -385,7 +385,7 @@ function HomePage() {
       ) : null}
 
       {hasUser && !waitlisted ? (
-        <section className="bg-[#eceae4] px-4 pb-spacing-15 pt-spacing-12 text-[#1c1c1c] transition-colors duration-200 dark:bg-[#151515] dark:text-surface-warm-white sm:px-spacing-9 lg:px-spacing-10">
+        <section className="bg-[#eceae4] px-4 pb-spacing-15 pt-spacing-12 text-[#1c1c1c] dark:bg-[#151515] dark:text-surface-warm-white sm:px-spacing-9 lg:px-spacing-10">
           <ScrollReveal>
             <div className="mx-auto max-w-6xl text-center sm:text-left">
               <div className="mx-auto max-w-2xl sm:mx-0">
