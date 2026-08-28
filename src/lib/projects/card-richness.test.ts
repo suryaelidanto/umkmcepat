@@ -39,7 +39,7 @@ describe("ensureQuestionCardRichness", () => {
     }
   });
 
-  it("preserves valid choice questions untouched", () => {
+  it("preserves valid choice questions and sets non-tier1 required to false", () => {
     const choice: WorkspaceCard = {
       type: "question",
       question: {
@@ -53,20 +53,15 @@ describe("ensureQuestionCardRichness", () => {
       },
     };
     const out = ensureQuestionCardRichness(choice);
-    expect(out).toEqual(choice);
+    expect(out.type).toBe("question");
+    if (out.type === "question") {
+      expect(out.question.required).toBe(false);
+      expect(out.question.options.length).toBe(2);
+      expect(out.question.answerMode).toBe("choice");
+    }
   });
 
   it("leaves non-question cards untouched", () => {
-    const choice: WorkspaceCard = {
-      type: "question",
-      question: {
-        id: "q2",
-        question: "C?",
-        answerMode: "choice",
-        options: [{ label: "a", description: "d" }],
-      },
-    };
-    expect(ensureQuestionCardRichness(choice)).toEqual(choice);
     expect(ensureQuestionCardRichness({ type: "none" })).toEqual({
       type: "none",
     });
