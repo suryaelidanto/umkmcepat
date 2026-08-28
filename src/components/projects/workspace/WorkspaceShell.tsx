@@ -1011,7 +1011,15 @@ export function WorkspaceShell({
     try {
       // Mode follows real persisted source only — failed status alone must not
       const generateMode = "first_generate" as const;
-      const activeCard = workspaceCardRef.current;
+      const messageCard = getWorkspaceCardFromMessages(
+        allMessagesRef.current,
+      )?.workspaceCard;
+      const activeCard =
+        workspaceCardRef.current.type === "build_recommendation"
+          ? workspaceCardRef.current
+          : messageCard?.type === "build_recommendation"
+            ? messageCard
+            : null;
       const cardProof =
         activeCard?.type === "build_recommendation"
           ? {
