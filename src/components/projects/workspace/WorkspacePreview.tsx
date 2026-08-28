@@ -116,6 +116,13 @@ export function GeneratedPreviewFrame({
         return;
       }
 
+      if (event.data?.type === "umkmcepat-edit-scroll") {
+        if (event.data.payload) {
+          setSelectedTarget(event.data.payload);
+        }
+        return;
+      }
+
       if (
         event.data?.type === "umkmcepat-edit-target" ||
         event.data?.type === "umkmcepat-edit-double-click-image"
@@ -261,27 +268,21 @@ export function GeneratedPreviewFrame({
 }
 
 export function PreviewEditOverlay({
-  hoverTarget,
   intents,
-  onComment,
-  onDirectEditAction,
   selectedTarget,
 }: {
-  hoverTarget: PreviewEditTarget | null;
+  hoverTarget?: PreviewEditTarget | null;
   intents: Array<{
     action: "remove" | "move-up" | "move-down";
     target: { selectorPath: string };
   }>;
-  onComment: (target: PreviewEditTarget) => void;
+  onComment?: (target: PreviewEditTarget) => void;
   onDirectEditAction?: (
     action: "remove" | "move-up" | "move-down",
     target: PreviewEditTarget,
   ) => void;
   selectedTarget: PreviewEditTarget | null;
 }) {
-  const visibleTarget = selectedTarget ?? hoverTarget;
-  const rect = visibleTarget?.target.boundingBox;
-  const chipTop = Math.max(8, (rect?.y ?? 0) - 44);
   const selectedIntentCount = selectedTarget
     ? intents.filter(
         (intent) =>
@@ -291,58 +292,15 @@ export function PreviewEditOverlay({
 
   return (
     <div className="pointer-events-none absolute inset-0 z-30">
-      {rect ? (
-        <div
-          className="absolute rounded-radius-lg border-2 border-[#0d9488] bg-[#0d9488]/10"
-          style={{
-            height: rect.height,
-            left: rect.x,
-            top: rect.y,
-            width: rect.width,
-          }}
-        />
-      ) : null}
-      {selectedTarget && rect ? (
-        <div
-          className="pointer-events-auto absolute flex max-w-[calc(100%-16px)] flex-wrap items-center gap-spacing-1 rounded-radius-lg bg-[#0d9488] p-spacing-1 text-xs font-semibold text-white shadow-[0_12px_36px_rgba(0,0,0,0.28)]"
-          style={{ left: Math.max(8, rect.x), top: chipTop }}
-        >
-          <button
-            type="button"
-            onClick={() => onComment(selectedTarget)}
-            className="rounded-radius-md px-spacing-2 py-spacing-1 hover:bg-white/18"
-          >
-            Komentar
-          </button>
-          <button
-            type="button"
-            onClick={() => onDirectEditAction?.("move-up", selectedTarget)}
-            className="rounded-radius-md px-spacing-2 py-spacing-1 hover:bg-white/18"
-          >
-            Naik
-          </button>
-          <button
-            type="button"
-            onClick={() => onDirectEditAction?.("move-down", selectedTarget)}
-            className="rounded-radius-md px-spacing-2 py-spacing-1 hover:bg-white/18"
-          >
-            Turun
-          </button>
-          <button
-            type="button"
-            onClick={() => onDirectEditAction?.("remove", selectedTarget)}
-            className="rounded-radius-md px-spacing-2 py-spacing-1 hover:bg-white/18"
-          >
-            Hapus
-          </button>
-        </div>
-      ) : null}
       {selectedTarget && selectedIntentCount ? (
         <div
           className="absolute rounded-radius-md border border-[#0d9488]/70 bg-[#0d9488] px-spacing-2 py-spacing-1 text-[11px] font-semibold text-white shadow-[0_8px_24px_rgba(0,0,0,0.24)]"
           style={{
-            left: Math.max(8, rect?.x ?? 8),
-            top: (rect?.y ?? 0) + (rect?.height ?? 0) + 8,
+            left: Math.max(8, selectedTarget.target.boundingBox.x),
+            top:
+              selectedTarget.target.boundingBox.y +
+              selectedTarget.target.boundingBox.height +
+              8,
           }}
         >
           {selectedIntentCount} perubahan siap disimpan
@@ -351,7 +309,7 @@ export function PreviewEditOverlay({
       <div className="absolute bottom-spacing-4 left-1/2 w-[min(32rem,calc(100%-24px))] -translate-x-1/2 rounded-radius-xl border border-white/16 bg-[#171715]/92 px-spacing-4 py-spacing-3 text-center text-xs font-semibold leading-5 text-white shadow-[0_18px_60px_rgba(0,0,0,0.34)]">
         {intents.length
           ? `${intents.length} perubahan siap disimpan. Klik Simpan untuk menerapkan.`
-          : "Arahkan kursor untuk memilih bagian. Klik untuk mengunci pilihan, lalu beri komentar atau tandai perubahan."}
+          : "Arahkan kursor untuk memilih bagian. Klik untuk mengunci pilihan dan lakukan perubahan."}
       </div>
     </div>
   );
@@ -395,6 +353,10 @@ function PreviewAnnotationPopover({
             <p className="mt-spacing-1 line-clamp-2 text-xs leading-5 text-surface-warm-white/50">
               Teks dipilih: {target.selectedText}
             </p>
+          ) : target.target.text ? (
+            <p className="mt-spacing-1 line-clamp-2 text-xs leading-5 text-surface-warm-white/50">
+              Teks saat ini: &ldquo;{target.target.text}&rdquo;
+            </p>
           ) : null}
           {target.target.tag === "img" && target.target.src ? (
             <div className="mt-spacing-3 flex items-center gap-2">
@@ -435,7 +397,11 @@ function PreviewAnnotationPopover({
             onSave();
           }
         }}
-        placeholder="Apa yang ingin kamu ubah di bagian ini?"
+        placeholder={
+          target.target.tag === "img"
+            ? "Instruksi khusus untuk gambar ini (opsional)..."
+            : "Tulis teks baru atau instruksi perubahan..."
+        }
         className="mt-spacing-3 w-full resize-none rounded-[14px] border border-surface-warm-white/10 bg-[#111110] px-spacing-4 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none placeholder:text-surface-warm-white/38 focus:border-surface-warm-white/30"
       />
       <div className="mt-spacing-3 flex items-center justify-between gap-spacing-4">
@@ -448,7 +414,7 @@ function PreviewAnnotationPopover({
           onClick={onSave}
           className="h-9 rounded-[12px] bg-surface-warm-white px-spacing-4 text-xs text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-45"
         >
-          Tambah komentar
+          Terapkan Perubahan
         </Button>
       </div>
     </div>
