@@ -19,11 +19,20 @@ import { cn } from "@/lib/utils";
 import "@/styles/globals.css";
 
 const loadRootConfig = createServerFn({ method: "GET" }).handler(async () => {
-  const defaultTheme = await getSetting("feature.default_theme", "dark").catch(
-    () => "dark",
+  const [defaultTheme, maintenanceMode, maintenanceMessage] = await Promise.all(
+    [
+      getSetting("feature.default_theme", "dark").catch(() => "dark"),
+      getSetting("feature.maintenance_mode", false).catch(() => false),
+      getSetting(
+        "feature.maintenance_message",
+        "Sistem sedang dalam pemeliharaan berkala untuk peningkatan server. Semua data website Anda tetap aman.",
+      ).catch(() => "Sistem sedang dalam pemeliharaan berkala."),
+    ],
   );
   return {
     defaultTheme: String(defaultTheme),
+    maintenanceMode: Boolean(maintenanceMode),
+    maintenanceMessage: String(maintenanceMessage),
     turnstileSiteKey: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "",
   };
 });
@@ -203,11 +212,15 @@ function RootComponent() {
   const nonce = router.options.ssr?.nonce;
   const loaderData = Route.useLoaderData();
   const defaultTheme = loaderData?.defaultTheme || "dark";
+  const maintenanceMode = loaderData?.maintenanceMode || false;
+  const maintenanceMessage = loaderData?.maintenanceMessage || "";
   const turnstileSiteKey = loaderData?.turnstileSiteKey || "";
 
   return (
     <RootDocument
       defaultTheme={defaultTheme}
+      maintenanceMode={maintenanceMode}
+      maintenanceMessage={maintenanceMessage}
       nonce={nonce}
       turnstileSiteKey={turnstileSiteKey}
     >
@@ -219,11 +232,15 @@ function RootComponent() {
 function RootDocument({
   children,
   defaultTheme,
+  maintenanceMode = false,
+  maintenanceMessage = "",
   nonce,
   turnstileSiteKey = "",
 }: Readonly<{
   children: ReactNode;
   defaultTheme: string;
+  maintenanceMode?: boolean;
+  maintenanceMessage?: string;
   nonce?: string;
   turnstileSiteKey?: string;
 }>) {
@@ -260,6 +277,8 @@ function RootDocument({
         ) : null}
         <AppProviders
           initialTheme={defaultTheme}
+          maintenanceMode={maintenanceMode}
+          maintenanceMessage={maintenanceMessage}
           turnstileSiteKey={turnstileSiteKey}
         >
           {children}

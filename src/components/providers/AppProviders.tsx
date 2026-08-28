@@ -10,10 +10,14 @@ import { createAppQueryClient } from "@/lib/query-client";
 
 interface PublicConfig {
   turnstileSiteKey: string;
+  maintenanceMode?: boolean;
+  maintenanceMessage?: string;
 }
 
 const PublicConfigContext = createContext<PublicConfig>({
   turnstileSiteKey: "",
+  maintenanceMode: false,
+  maintenanceMessage: "",
 });
 
 export function usePublicConfig() {
@@ -45,15 +49,19 @@ export function AppProviders({
   children,
   initialTheme,
   turnstileSiteKey = "",
+  maintenanceMode = false,
+  maintenanceMessage = "",
 }: {
   children: React.ReactNode;
   initialTheme?: string;
   turnstileSiteKey?: string;
+  maintenanceMode?: boolean;
+  maintenanceMessage?: string;
 }) {
   const [queryClient] = useState(() => createAppQueryClient());
   const publicConfig = useMemo(
-    () => ({ turnstileSiteKey }),
-    [turnstileSiteKey],
+    () => ({ turnstileSiteKey, maintenanceMode, maintenanceMessage }),
+    [turnstileSiteKey, maintenanceMode, maintenanceMessage],
   );
 
   return (

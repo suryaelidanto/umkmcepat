@@ -55,6 +55,24 @@ export type ConfigEntry = {
 export const APP_SETTINGS: ConfigEntry[] = [
   // feature_flag
   {
+    key: "feature.maintenance_mode",
+    category: "feature_flag",
+    tier: "basic",
+    type: "boolean",
+    label: "Mode Pemeliharaan (Maintenance Mode)",
+    fallback: false,
+    env: "MAINTENANCE_MODE",
+  },
+  {
+    key: "feature.maintenance_message",
+    category: "feature_flag",
+    tier: "basic",
+    type: "string",
+    label: "Pesan Pemeliharaan Sistem",
+    fallback:
+      "Sistem sedang dalam pemeliharaan berkala untuk peningkatan server. Semua data website Anda tetap aman.",
+  },
+  {
     key: "feature.waitlist_enabled",
     category: "feature_flag",
     tier: "basic",

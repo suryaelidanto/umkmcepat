@@ -4,6 +4,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { auth } from "@/lib/auth/auth";
 import { isGeneratedBuildExecutionEnabled } from "@/lib/config/config";
+import { checkMaintenanceGate } from "@/lib/config/maintenance-mode";
 import { devLog } from "@/lib/dev-log";
 import { checkEnergy, getEnergyConfig } from "@/lib/payment/user-credits";
 import { prisma } from "@/lib/prisma";
@@ -87,6 +88,11 @@ export async function handleGeneratePost(request: Request, routeId: string) {
 
   if (rateLimitResponse) {
     return rateLimitResponse;
+  }
+
+  const maintenance = await checkMaintenanceGate(session.user.email);
+  if (!maintenance.allowed) {
+    return maintenance.response;
   }
 
   if (!isGeneratedBuildExecutionEnabled()) {

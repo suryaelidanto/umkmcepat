@@ -1139,45 +1139,6 @@ export function WorkspaceShell({
     sourceFiles.length,
   ]);
 
-  // Append a one-liner to the chat so the user sees what fields the AI is
-  const handleStartBuild = useCallback(async () => {
-    if (readOnly || !canStartBuild(workspaceCard)) {
-      return;
-    }
-
-    let handoffBrief = latestBrief;
-    if (!handoffBrief) {
-      try {
-        const state = await loadWorkspaceState({ preserveCard: true });
-        if (state?.brief) {
-          handoffBrief = state.brief;
-        }
-      } catch {
-        // Continue to startBuild even if brief fetch fails
-      }
-    }
-
-    if (handoffBrief && !buildComplete && messages.length <= 2) {
-      setMessages((current) => [
-        ...current,
-        {
-          id: `handoff-${Date.now()}`,
-          metadata: undefined,
-          parts: [
-            {
-              text: `Siap, website ${handoffBrief?.businessName || "usahamu"} mulai aku buat sekarang ya!`,
-              type: "text",
-            },
-          ],
-          role: "assistant",
-        },
-      ]);
-      shouldStickToBottomRef.current = true;
-    }
-
-    await startBuild();
-  }, [latestBrief, loadWorkspaceState, readOnly, startBuild, workspaceCard]);
-
   useEffect(() => {
     // Never auto-start if a job is already running on the server (refresh case).
     if (
@@ -2968,6 +2929,59 @@ export function WorkspaceShell({
     () => evaluateTieredBriefReadiness(latestBrief),
     [latestBrief],
   );
+
+  // Append a one-liner to the chat so the user sees what fields the AI is
+  const handleStartBuild = useCallback(async () => {
+    if (readOnly) {
+      return;
+    }
+    const hasCardProof = canStartBuild(workspaceCard);
+    const hasReadyBrief = briefReadiness.tier1.satisfied;
+    if (!hasCardProof && !hasReadyBrief) {
+      return;
+    }
+
+    let handoffBrief = latestBrief;
+    if (!handoffBrief) {
+      try {
+        const state = await loadWorkspaceState({ preserveCard: true });
+        if (state?.brief) {
+          handoffBrief = state.brief;
+        }
+      } catch {
+        // Continue to startBuild even if brief fetch fails
+      }
+    }
+
+    if (handoffBrief && !buildComplete && messages.length <= 2) {
+      setMessages((current) => [
+        ...current,
+        {
+          id: `handoff-${Date.now()}`,
+          metadata: undefined,
+          parts: [
+            {
+              text: `Siap, website ${handoffBrief?.businessName || "usahamu"} mulai aku buat sekarang ya!`,
+              type: "text",
+            },
+          ],
+          role: "assistant",
+        },
+      ]);
+      shouldStickToBottomRef.current = true;
+    }
+
+    await startBuild();
+  }, [
+    briefReadiness.tier1.satisfied,
+    buildComplete,
+    latestBrief,
+    loadWorkspaceState,
+    messages.length,
+    readOnly,
+    startBuild,
+    workspaceCard,
+  ]);
 
   const handlePrimaryComposerAction = useCallback(async () => {
     if (readOnly || isBuilding) {

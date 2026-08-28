@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { auth, requireNotBanned } from "@/lib/auth/auth";
+import { checkMaintenanceGate } from "@/lib/config/maintenance-mode";
 import {
   createMayarPayment,
   getBoosterPack,
@@ -29,6 +30,18 @@ export const Route = createFileRoute("/api/payment/create")({
         }
 
         await requireNotBanned(session);
+
+        const maintenance = await checkMaintenanceGate(session.user.email);
+        if (!maintenance.allowed) {
+          return Response.json(
+            {
+              code: "maintenance_mode",
+              message:
+                "Pembelian paket booster ditunda sementara karena sedang ada pemeliharaan sistem. Silakan coba lagi nanti.",
+            },
+            { status: 503, headers: { "Retry-After": "60" } },
+          );
+        }
 
         const body = (await request.json().catch(() => ({}))) as {
           packageId?: string;
