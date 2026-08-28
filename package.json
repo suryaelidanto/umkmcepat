@@ -58,7 +58,8 @@
     "js-yaml": "4.3.0",
     "postcss": "8.5.25",
     "tmp": "0.2.3",
-    "uuid": "11.1.1"
+    "uuid": "11.1.1",
+    "deepmerge-ts": "8.0.0"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.16",
@@ -77,6 +78,7 @@
     "bullmq": "^6.0.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "deepmerge-ts": "8.0.0",
     "ioredis": "^5.11.1",
     "lucide-react": "^0.503.0",
     "monaco-editor": "^0.55.1",
