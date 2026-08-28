@@ -9,6 +9,28 @@ export type OptimizedImageResult = {
 export async function optimizeImageToWebp(
   inputBytes: Buffer,
 ): Promise<OptimizedImageResult> {
+  const BunImage = (
+    globalThis as unknown as {
+      Bun?: {
+        Image?: new (data: Buffer) => { webp: () => Promise<Uint8Array> };
+      };
+    }
+  ).Bun?.Image;
+
+  if (typeof BunImage === "function") {
+    try {
+      const img = new BunImage(inputBytes);
+      const output = await img.webp();
+      return {
+        bytes: Buffer.from(output),
+        contentType: "image/webp",
+        format: "webp",
+      };
+    } catch {
+      // Fall through to sharp fallback on edge cases
+    }
+  }
+
   const optimized = await sharp(inputBytes)
     .rotate()
     .resize({

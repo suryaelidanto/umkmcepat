@@ -2735,31 +2735,41 @@ export function WorkspaceShell({
       const uploadErrors: { name: string; message: string }[] = [];
 
       if (options.uploads?.length) {
-        for (const item of options.uploads) {
-          try {
-            const form = new FormData();
-            form.append("purpose", "business-image");
-            form.append("assetId", item.assetId);
-            const res = await fetch(
-              `/api/projects/${projectId}/assets/upload`,
-              {
-                body: form,
-                method: "POST",
-              },
-            );
-            if (res.ok) {
-              const asset = (await res.json()) as { id?: string };
-              if (asset?.id) {
-                fileParts.push(
-                  createUploadedImageFilePart({
-                    filename: "gambar-usaha.jpg",
-                    mediaType: "image/jpeg",
-                    url: `/api/media/${asset.id}`,
-                  }),
-                );
-                mediaPaths.push(`/api/media/${asset.id}`);
+        await Promise.all(
+          options.uploads.map(async (item) => {
+            try {
+              const form = new FormData();
+              form.append("purpose", "business-image");
+              form.append("assetId", item.assetId);
+              const res = await fetch(
+                `/api/projects/${projectId}/assets/upload`,
+                {
+                  body: form,
+                  method: "POST",
+                },
+              );
+              if (res.ok) {
+                const asset = (await res.json()) as { id?: string };
+                if (asset?.id) {
+                  fileParts.push(
+                    createUploadedImageFilePart({
+                      filename: "gambar-usaha.jpg",
+                      mediaType: "image/jpeg",
+                      url: `/api/media/${asset.id}`,
+                    }),
+                  );
+                  mediaPaths.push(`/api/media/${asset.id}`);
+                  return;
+                }
               }
-            } else {
+              fileParts.push(
+                createUploadedImageFilePart({
+                  filename: "gambar-usaha.jpg",
+                  mediaType: "image/jpeg",
+                  url: item.url,
+                }),
+              );
+            } catch {
               fileParts.push(
                 createUploadedImageFilePart({
                   filename: "gambar-usaha.jpg",
@@ -2768,74 +2778,69 @@ export function WorkspaceShell({
                 }),
               );
             }
-          } catch {
-            fileParts.push(
-              createUploadedImageFilePart({
-                filename: "gambar-usaha.jpg",
-                mediaType: "image/jpeg",
-                url: item.url,
-              }),
-            );
-          }
-        }
+          }),
+        );
       }
 
       if (pendingAttachments.length) {
-        for (const item of toUploadPlan(pendingAttachments)) {
-          try {
-            const form = new FormData();
-            form.append("purpose", "business-image");
-            if (item.assetId) {
-              form.append("assetId", item.assetId);
-            } else {
-              form.append("file", item.file);
-            }
-            const res = await fetch(
-              `/api/projects/${projectId}/assets/upload`,
-              {
-                body: form,
-                method: "POST",
-              },
-            );
-            if (!res.ok) {
-              throw new Error(
-                (await res.json().catch(() => null))?.message ||
-                  `Gagal mengunggah ${item.file.name}`,
+        const uploadPlan = toUploadPlan(pendingAttachments);
+        await Promise.all(
+          uploadPlan.map(async (item) => {
+            try {
+              const form = new FormData();
+              form.append("purpose", "business-image");
+              if (item.assetId) {
+                form.append("assetId", item.assetId);
+              } else {
+                form.append("file", item.file);
+              }
+              const res = await fetch(
+                `/api/projects/${projectId}/assets/upload`,
+                {
+                  body: form,
+                  method: "POST",
+                },
               );
-            }
-            const contentType = res.headers.get("content-type") ?? "";
-            if (!contentType.toLowerCase().includes("application/json")) {
-              throw new Error(
-                `Respons tidak valid saat mengunggah ${item.file.name}.`,
+              if (!res.ok) {
+                throw new Error(
+                  (await res.json().catch(() => null))?.message ||
+                    `Gagal mengunggah ${item.file.name}`,
+                );
+              }
+              const contentType = res.headers.get("content-type") ?? "";
+              if (!contentType.toLowerCase().includes("application/json")) {
+                throw new Error(
+                  `Respons tidak valid saat mengunggah ${item.file.name}.`,
+                );
+              }
+              const asset = (await res.json()) as {
+                id?: string;
+                publicUrl?: string | null;
+              };
+              if (!asset?.id) {
+                throw new Error(
+                  `Gambar belum tersedia (${item.file.name}). Coba lagi.`,
+                );
+              }
+              fileParts.push(
+                createUploadedImageFilePart({
+                  filename: item.file.name,
+                  mediaType: item.file.type,
+                  url: `/api/media/${asset.id}`,
+                }),
               );
+              mediaPaths.push(`/api/media/${asset.id}`);
+            } catch (error) {
+              uploadErrors.push({
+                name: item.file.name,
+                message:
+                  error instanceof Error
+                    ? error.message
+                    : "Error tidak diketahui",
+              });
             }
-            const asset = (await res.json()) as {
-              id?: string;
-              publicUrl?: string | null;
-            };
-            if (!asset?.id) {
-              throw new Error(
-                `Gambar belum tersedia (${item.file.name}). Coba lagi.`,
-              );
-            }
-            fileParts.push(
-              createUploadedImageFilePart({
-                filename: item.file.name,
-                mediaType: item.file.type,
-                url: `/api/media/${asset.id}`,
-              }),
-            );
-            mediaPaths.push(`/api/media/${asset.id}`);
-          } catch (error) {
-            uploadErrors.push({
-              name: item.file.name,
-              message:
-                error instanceof Error
-                  ? error.message
-                  : "Error tidak diketahui",
-            });
-          }
-        }
+          }),
+        );
 
         if (uploadErrors.length > 0) {
           const lines = uploadErrors.map((e) => `• ${e.name}: ${e.message}`);
@@ -2989,20 +2994,34 @@ export function WorkspaceShell({
       if (chatCollapsed) {
         openChatPanel();
       }
-      setMessages((current) => [
-        ...current,
-        {
-          id: `guide-${Date.now()}`,
-          metadata: undefined,
-          parts: [
-            {
-              text: "Bagian apa yang ingin kamu perbarui? Tulis kebutuhanmu di bawah ya (contoh: ganti warna tema, tambah foto baru, atau ubah nomor WhatsApp & harga).",
-              type: "text",
-            },
-          ],
-          role: "assistant",
-        },
-      ]);
+      setMessages((current) => {
+        const guideText =
+          "Bagian apa yang ingin kamu perbarui? Tulis kebutuhanmu di bawah ya (contoh: ganti warna tema, tambah foto baru, atau ubah nomor WhatsApp & harga).";
+        const last = current[current.length - 1];
+        if (
+          last &&
+          last.role === "assistant" &&
+          last.parts?.some(
+            (p) => p.type === "text" && p.text.trim() === guideText.trim(),
+          )
+        ) {
+          return current;
+        }
+        return [
+          ...current,
+          {
+            id: `guide-${Date.now()}`,
+            metadata: undefined,
+            parts: [
+              {
+                text: guideText,
+                type: "text",
+              },
+            ],
+            role: "assistant",
+          },
+        ];
+      });
       shouldStickToBottomRef.current = true;
       requestAnimationFrame(() => {
         const textarea = document.querySelector<HTMLTextAreaElement>(
@@ -3892,13 +3911,13 @@ export function WorkspaceShell({
                                   !message.trim() ||
                                   hasUploadingAttachments(pendingAttachments)
                                 }
-                                className="size-8.5 rounded-lg bg-[#1c1c1c] text-white shadow-2xs transition hover:bg-black active:scale-95 disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/30 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white dark:disabled:bg-white/10 dark:disabled:text-white/30 cursor-pointer"
+                                className="size-8.5 rounded-lg bg-[#1c1c1c] text-white shadow-2xs transition hover:bg-black active:scale-95 disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/30 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white dark:disabled:bg-white/10 dark:disabled:text-white/30 cursor-pointer flex items-center justify-center shrink-0"
                                 aria-label="Kirim pesan"
                               >
                                 {isSubmittingTurn ? (
-                                  <Loader2 className="size-4 animate-spin" />
+                                  <Loader2 className="size-4 animate-spin shrink-0" />
                                 ) : (
-                                  <ArrowUp className="size-4" />
+                                  <ArrowUp className="size-4 shrink-0" />
                                 )}
                               </Button>
                             </div>
@@ -4078,13 +4097,13 @@ export function WorkspaceShell({
                               !message.trim() ||
                               hasUploadingAttachments(pendingAttachments)
                             }
-                            className="size-8.5 rounded-lg bg-[#1c1c1c] text-white shadow-2xs transition hover:bg-black active:scale-95 disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/30 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white dark:disabled:bg-white/10 dark:disabled:text-white/30 cursor-pointer"
+                            className="size-8.5 rounded-lg bg-[#1c1c1c] text-white shadow-2xs transition hover:bg-black active:scale-95 disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/30 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-white dark:disabled:bg-white/10 dark:disabled:text-white/30 cursor-pointer flex items-center justify-center shrink-0"
                             aria-label="Kirim pesan"
                           >
                             {isSubmittingTurn ? (
-                              <Loader2 className="size-4 animate-spin" />
+                              <Loader2 className="size-4 animate-spin shrink-0" />
                             ) : (
-                              <ArrowUp className="size-4" />
+                              <ArrowUp className="size-4 shrink-0" />
                             )}
                           </Button>
                         </div>

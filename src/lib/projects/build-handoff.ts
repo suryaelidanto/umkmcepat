@@ -1,8 +1,6 @@
 // src/lib/projects/build-handoff.ts
 import type { ProjectBrief } from "@/lib/projects/brief";
 
-const TRAILING = " — sisanya bisa lo tambahin nanti.";
-
 function primaryName(brief: ProjectBrief): string | null {
   if (!brief.productOrService || brief.productOrService.length === 0) {
     return null;
@@ -30,17 +28,20 @@ function contactLabel(brief: ProjectBrief): string | null {
 }
 
 export function buildHandoffLine(brief: ProjectBrief): string {
-  const parts: string[] = ["oke, gw bangun dengan"];
+  const details: string[] = [];
   if (brief.businessName) {
-    parts.push(brief.businessName);
+    details.push(brief.businessName);
   }
   const product = primaryName(brief);
   if (product) {
-    parts.push(product);
+    details.push(product);
   }
   const contact = contactLabel(brief);
   if (contact) {
-    parts.push(contact);
+    details.push(contact);
   }
-  return `${parts.join(", ")}${TRAILING}`;
+  if (!details.length) {
+    return "Siap, websitemu sedang dibuat sekarang.";
+  }
+  return `Siap, langsung aku buatkan website untuk ${details.join(", ")}.`;
 }

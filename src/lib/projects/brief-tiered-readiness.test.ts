@@ -194,12 +194,14 @@ describe("getNextTieredEnrichmentCard", () => {
 });
 
 describe("fallbackUspOptions", () => {
-  it("produces automotive-relevant options for workshop/bengkel context", () => {
-    const options = fallbackUspOptions("Bengkel Ayah Motor");
+  it("produces universal structured options", () => {
+    const options = fallbackUspOptions("Usaha Lokal");
     expect(options.length).toBeGreaterThanOrEqual(3);
-    const hasMekanik = options.some((o) =>
-      o.label.toLowerCase().includes("mekanik"),
+    const hasQuality = options.some(
+      (o) =>
+        o.label.toLowerCase().includes("kualitas") ||
+        o.label.toLowerCase().includes("harga"),
     );
-    expect(hasMekanik).toBe(true);
+    expect(hasQuality).toBe(true);
   });
 });

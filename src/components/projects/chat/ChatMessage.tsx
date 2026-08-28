@@ -37,7 +37,7 @@ export function ChatMessages({ messages }: { messages: UIMessage[] }) {
     <>
       <div className="space-y-spacing-8">
         {messages.map((message, messageIndex) => {
-          const textParts = message.parts.filter(
+          const rawTextParts = message.parts.filter(
             (
               part,
             ): part is Extract<
@@ -45,6 +45,14 @@ export function ChatMessages({ messages }: { messages: UIMessage[] }) {
               { type: "text" }
             > => part.type === "text" && Boolean(part.text.trim()),
           );
+
+          // Deduplicate consecutive identical text parts within the same message
+          const textParts = rawTextParts.filter((part, idx) => {
+            if (idx === 0) {
+              return true;
+            }
+            return part.text.trim() !== rawTextParts[idx - 1]?.text.trim();
+          });
 
           const fileParts = message.parts.filter(
             (

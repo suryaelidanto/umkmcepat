@@ -3,17 +3,17 @@
 # Fully-qualified registry prefix (docker.io/) so the base image resolves under
 # podman as well as Docker (podman with no registries.conf won't resolve bare
 # short names like `oven/bun`).
-FROM docker.io/oven/bun:1.3.9-alpine AS deps
+FROM docker.io/oven/bun:1.4.0-alpine AS deps
 WORKDIR /app
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile --ignore-scripts
 
-FROM docker.io/oven/bun:1.3.9-alpine AS prod-deps
+FROM docker.io/oven/bun:1.4.0-alpine AS prod-deps
 WORKDIR /app
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile --ignore-scripts --production
 
-FROM docker.io/oven/bun:1.3.9-alpine AS builder
+FROM docker.io/oven/bun:1.4.0-alpine AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
@@ -21,7 +21,7 @@ COPY . .
 RUN bunx prisma generate
 RUN bun run build
 
-FROM docker.io/oven/bun:1.3.9-alpine AS runner
+FROM docker.io/oven/bun:1.4.0-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1

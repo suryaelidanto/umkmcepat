@@ -664,6 +664,13 @@ const EDIT_MODE_BRIDGE = String.raw`(() => {
   const PARENT_ORIGIN = bridgeScript ? bridgeScript.getAttribute('data-umkm-origin') || '*' : '*';
 
   let active = false;
+  let hoverBox = null;
+  let selectedBox = null;
+  let currentSelectedElement = null;
+
+  const style = document.createElement('style');
+  style.textContent = '.umkm-edit-hover{position:absolute;z-index:2147483646;pointer-events:none;border:2px solid #0d9488;border-radius:8px;background:rgba(13,148,136,0.12);box-shadow:0 0 0 1px rgba(255,255,255,0.2) inset;transition:all 0.05s ease-out;}.umkm-edit-selected{position:absolute;z-index:2147483647;pointer-events:none;border:2.5px solid #0d9488;border-radius:8px;box-shadow:0 0 0 4px rgba(13,148,136,0.22);}.umkm-edit-active *{cursor:crosshair!important}';
+  document.head.appendChild(style);
 
   function clean(value) {
     return String(value || '').replace(/\s+/g, ' ').trim();
@@ -715,14 +722,39 @@ const EDIT_MODE_BRIDGE = String.raw`(() => {
   }
 
   function pickElement(element) {
+    if (!element || element === document.body || element === document.documentElement) return null;
+
+    // 1. Direct Image or Picture (highest priority leaf)
+    if (element.tagName === 'IMG' || element.tagName === 'PICTURE') return element;
+
+    // 2. Interactive Controls (Button, Anchor, Input)
     const interactive = closestElement(element, 'button,a,input,select,textarea,[role="button"],[onclick]');
     if (interactive) return interactive;
-    const media = closestElement(element, 'img,picture,video,svg');
-    if (media && !isIgnorableDecoration(media)) return media;
+
+    // 3. Child media within small container (e.g. div wrapping an img)
+    const childMedia = element.querySelector ? element.querySelector('img,picture,video,svg') : null;
+    if (childMedia && !isIgnorableDecoration(childMedia) && !element.matches('section,main,article,body')) {
+      const imgRect = childMedia.getBoundingClientRect();
+      if (imgRect.width > 20 && imgRect.height > 20) {
+        return childMedia;
+      }
+    }
+
+    // 4. Specific Typography Leaf Nodes
     const text = closestElement(element, 'h1,h2,h3,h4,h5,h6,p,label,li,blockquote,figcaption,caption,span,strong,em,b,i,small,code,pre');
-    if (text && !isIgnorableDecoration(text) && clean(text.innerText || text.textContent || '')) return text;
+    if (text && !isIgnorableDecoration(text) && clean(text.innerText || text.textContent || '')) {
+      return text;
+    }
+
+    // 5. Atomic Card or Feature Tile (Nearest Container, NOT Section)
+    const atomicCard = closestAtomicBlock(element);
+    if (atomicCard) return atomicCard;
+
+    // 6. Direct Element with Text
     if (!isIgnorableDecoration(element) && hasDirectText(element)) return element;
-    return closestElement(element, 'article,section,nav,header,footer,main,aside,[aria-label],[data-umkm-annotatable]') || element;
+
+    // 7. Structural Section / Fallback Container
+    return closestElement(element, 'article,header,footer,nav,section,[aria-label],[data-umkm-annotatable]') || element;
   }
 
   function structuralElement(element) {
@@ -876,12 +908,45 @@ const EDIT_MODE_BRIDGE = String.raw`(() => {
     if (hoverBox) hoverBox.hidden = true;
   }
 
+  function ensureSelectedBox() {
+    if (selectedBox) return selectedBox;
+    selectedBox = document.createElement('div');
+    selectedBox.className = 'umkm-edit-selected';
+    selectedBox.hidden = true;
+    document.body.appendChild(selectedBox);
+    return selectedBox;
+  }
+
+  function updateSelectedBoxPosition() {
+    if (!currentSelectedElement || !selectedBox || selectedBox.hidden) return;
+    const rect = currentSelectedElement.getBoundingClientRect();
+    selectedBox.style.left = String(rect.left + window.scrollX) + 'px';
+    selectedBox.style.top = String(rect.top + window.scrollY) + 'px';
+    selectedBox.style.width = String(rect.width) + 'px';
+    selectedBox.style.height = String(rect.height) + 'px';
+  }
+
+  function setSelectedBox(rect) {
+    const box = ensureSelectedBox();
+    box.hidden = false;
+    box.style.left = String(rect.left + window.scrollX) + 'px';
+    box.style.top = String(rect.top + window.scrollY) + 'px';
+    box.style.width = String(rect.width) + 'px';
+    box.style.height = String(rect.height) + 'px';
+  }
+
+  function hideSelectedBox() {
+    currentSelectedElement = null;
+    if (selectedBox) selectedBox.hidden = true;
+  }
+
   function handleMove(event) {
     if (!active) return;
     const target = targetAt(event.clientX, event.clientY);
     if (target) setHoverBox(target.target.boundingBox);
     else hideHoverBox();
     post('umkmcepat-edit-hover', target);
+    post('umkmcepat-annotation-hover', target);
   }
 
   function handleClick(event) {
@@ -890,11 +955,19 @@ const EDIT_MODE_BRIDGE = String.raw`(() => {
     event.stopPropagation();
     const element = deepElementFromPoint(event.clientX, event.clientY);
     const picked = element ? pickElement(element) : null;
+    currentSelectedElement = picked;
+    if (picked) {
+      setSelectedBox(picked.getBoundingClientRect());
+    } else {
+      hideSelectedBox();
+    }
     const structural = picked ? structuralElement(picked) : null;
     if (structural && !structural.hasAttribute('data-umkm-id')) structural.setAttribute('data-umkm-id', makeId());
     scan();
     selectedId = structural?.getAttribute('data-umkm-id') || null;
-    post('umkmcepat-edit-target', picked ? targetData(picked) : null);
+    const target = picked ? targetData(picked) : null;
+    post('umkmcepat-edit-target', target);
+    post('umkmcepat-annotation-target', target);
   }
 
   function moveSelected(direction) {
@@ -924,15 +997,19 @@ const EDIT_MODE_BRIDGE = String.raw`(() => {
   window.addEventListener('message', (event) => {
     const data = event.data;
     if (!data || typeof data !== 'object') return;
-    if (data.type === 'umkmcepat-edit-mode') {
+    if (data.type === 'umkmcepat-edit-mode' || data.type === 'umkmcepat-annotation-mode') {
       active = Boolean(data.active);
       if (active) {
         ensureIds();
         scan();
         post('umkmcepat-edit-ready', layout());
       }
+      document.documentElement.classList.toggle('umkm-edit-active', active);
       document.documentElement.style.cursor = active ? 'crosshair' : '';
-      if (!active) hideHoverBox();
+      if (!active) {
+        hideHoverBox();
+        hideSelectedBox();
+      }
     }
     if (data.type === 'umkmcepat-edit-hit-test' && typeof data.x === 'number' && typeof data.y === 'number') {
       post(data.intent === 'hover' ? 'umkmcepat-edit-hover' : 'umkmcepat-edit-target', targetAt(data.x, data.y));
@@ -944,6 +1021,38 @@ const EDIT_MODE_BRIDGE = String.raw`(() => {
     }
   });
 
+  function handleDblClick(event) {
+    if (!active) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const element = deepElementFromPoint(event.clientX, event.clientY);
+    const picked = element ? pickElement(element) : null;
+    if (!picked) return;
+    const target = targetData(picked);
+    if (picked.tagName === 'IMG' || picked.tagName === 'PICTURE') {
+      post('umkmcepat-edit-double-click-image', target);
+    } else {
+      post('umkmcepat-edit-target', target);
+    }
+  }
+
   document.addEventListener('mousemove', handleMove);
   document.addEventListener('click', handleClick, true);
+  document.addEventListener('dblclick', handleDblClick, true);
+
+  window.addEventListener('scroll', () => {
+    updateSelectedBoxPosition();
+    if (active && currentSelectedElement) {
+      post('umkmcepat-edit-scroll', targetData(currentSelectedElement));
+    }
+  }, { passive: true });
+
+  window.addEventListener('resize', updateSelectedBoxPosition, { passive: true });
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && active) {
+      hideSelectedBox();
+      post('umkmcepat-edit-target', null);
+    }
+  });
 })();`;

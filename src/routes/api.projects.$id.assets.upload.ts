@@ -72,7 +72,7 @@ export const Route = createFileRoute("/api/projects/$id/assets/upload")({
               const moderation = await moderateProjectRequest(
                 "",
                 [{ bytes: claimed.body, mediaType: claimed.contentType }],
-                undefined,
+                2500,
                 { projectId: id },
               );
               if (!moderation.allowed) {

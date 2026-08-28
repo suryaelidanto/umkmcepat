@@ -35,6 +35,16 @@ describe("composer attachments", () => {
     expect(overflow.rejected).toHaveLength(1);
   });
 
+  it("deduplicates identical files added multiple times", () => {
+    const f1 = file("banner.png");
+    const first = addAttachments([], [f1]);
+    expect(first.next).toHaveLength(1);
+
+    const duplicateAdd = addAttachments(first.next, [f1]);
+    expect(duplicateAdd.next).toHaveLength(1);
+    expect(duplicateAdd.rejected).toHaveLength(1);
+  });
+
   it("removeAttachment drops one and revokes its blob URL", () => {
     const base: PendingAttachment[] = [
       { blobUrl: "blob:1", file: file("a.png"), id: "1", status: "uploaded" },

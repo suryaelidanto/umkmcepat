@@ -158,7 +158,9 @@ class DynamicSkillEngine {
     }
 
     try {
-      const module = await import(pathToFileURL(scriptPath).href);
+      const module = await import(
+        /* @vite-ignore */ pathToFileURL(scriptPath).href
+      );
       const runner =
         module.run || module.default || module.execute || module.detectCli;
 

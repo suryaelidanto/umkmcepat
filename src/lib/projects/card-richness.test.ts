@@ -39,17 +39,29 @@ describe("ensureQuestionCardRichness", () => {
     }
   });
 
-  it("leaves choice and non-question cards untouched", () => {
+  it("preserves valid choice questions and sets non-tier1 required to false", () => {
     const choice: WorkspaceCard = {
       type: "question",
       question: {
-        id: "q2",
-        question: "C?",
+        id: "targetCustomer",
+        question: "Siapa pelanggan utama yang paling ingin kamu tarik?",
         answerMode: "choice",
-        options: [{ label: "a", description: "d" }],
+        options: [
+          { label: "Pekerja Kantoran", description: "Mencari kopi cepat" },
+          { label: "Mahasiswa", description: "Tempat nugas" },
+        ],
       },
     };
-    expect(ensureQuestionCardRichness(choice)).toEqual(choice);
+    const out = ensureQuestionCardRichness(choice);
+    expect(out.type).toBe("question");
+    if (out.type === "question") {
+      expect(out.question.required).toBe(false);
+      expect(out.question.options.length).toBe(2);
+      expect(out.question.answerMode).toBe("choice");
+    }
+  });
+
+  it("leaves non-question cards untouched", () => {
     expect(ensureQuestionCardRichness({ type: "none" })).toEqual({
       type: "none",
     });
