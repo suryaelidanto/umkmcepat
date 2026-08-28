@@ -16,7 +16,7 @@ import { Link } from "@/components/ui/link";
 import { Toaster } from "@/components/ui/sonner";
 import { getSetting } from "@/lib/config/app-settings";
 import { cn } from "@/lib/utils";
-import globalCss from "@/styles/globals.css?url";
+import "@/styles/globals.css";
 
 const loadRootConfig = createServerFn({ method: "GET" }).handler(async () => {
   const defaultTheme = await getSetting("feature.default_theme", "dark").catch(
@@ -88,7 +88,6 @@ export const Route = createRootRoute({
       { property: "og:type", content: "website" },
     ],
     links: [
-      { rel: "stylesheet", href: globalCss },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       {
         rel: "preconnect",
