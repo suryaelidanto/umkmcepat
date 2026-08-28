@@ -9,15 +9,18 @@ import {
 
 describe("DynamicSkillEngine", () => {
   it("auto-discovers root skills dynamically without hardcoding", () => {
-    expect(PROJECT_CORE_SKILL_NAMES).toContain("impeccable");
+    expect(PROJECT_CORE_SKILL_NAMES).toContain("taste-skill");
     expect(PROJECT_CORE_SKILL_NAMES).toContain("shadcn");
   });
 
   it("indexes all nested markdown documents with clean slug access", () => {
     expect(PROJECT_SKILL_NAMES.length).toBeGreaterThan(30);
 
-    const layout = readProjectSkill("impeccable-layout");
-    expect(layout.content.length).toBeGreaterThan(100);
+    const taste = readProjectSkill("taste-skill");
+    expect(taste.content.length).toBeGreaterThan(100);
+
+    const soft = readProjectSkill("soft-skill");
+    expect(soft.content.length).toBeGreaterThan(100);
 
     const rules = readProjectSkill("shadcn-styling");
     expect(rules.content.length).toBeGreaterThan(50);

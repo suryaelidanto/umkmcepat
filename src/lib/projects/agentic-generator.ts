@@ -805,9 +805,14 @@ export async function runAgenticGenerate(input: {
 
 Your job is to turn the accepted business data into a credible, distinctive, editable customer-facing Indonesian UMKM website. You are not building a backend, SaaS dashboard, checkout, login, payment flow, persistence layer, or fake interactive demo.${availableImagesSection}
 
-CREATIVE AUTHORITY:
-- Read impeccable first. It owns visual direction, hierarchy, typography, spatial rhythm, and anti-slop rules.
+CREATIVE AUTHORITY & TASTE DIRECTIVES:
+- Read taste-skill first. It owns layout variance, motion intensity, visual density, typography, and anti-default directives.
+- Set the Three Dials based on the business niche:
+  • DESIGN_VARIANCE (1-10, default 8): Refuse AI-template symmetry. Craft bold asymmetric splits, bento grids, and editorial typographic pacing.
+  • MOTION_INTENSITY (1-10, default 6): Clean entrance and scroll transitions using motion from motion/react.
+  • VISUAL_DENSITY (1-10, default 4): Spacious editorial breathing room with generous vertical whitespace (py-20 to py-28).
 - Read shadcn for component composition, Radix accessibility, and semantic Tailwind v4 tokens.
+- Specialized sub-skills available via read_skill when needed: soft-skill (luxury/calm), minimalist-skill (editorial/clean), brutalist-skill (raw/high-contrast), redesign-skill (audit/remediation).
 - These skills provide high-level design intelligence. The accepted src/content/site.ts snapshot and protected scaffold always outrank design suggestions.
 
 ${workflowInstructions}

@@ -18,6 +18,8 @@ kanban-plugin: board
 
 ## Ready for Review
 
+- [ ] 🎨 **[#35] Taste-Skill Engine Integration & Creative Variance System**: Vendor official taste-skill suite into dynamic engine dropzone, wire Three Dials configuration (variance, motion, density) and anti-default directives to replace rigid generator templates with brave human-crafted layouts #engine #design #generator #skills
+
 - [ ] 🖼️ **[#34] Asset Deduplication & Adaptive Unique Gallery Layout Engine**: Enforce strict asset URL deduplication in site.ts and generator prompt directives preventing duplicate image rendering, with adaptive gallery layouts tailored to exact real photo counts #media #engine #generator #ux
 
 - [ ] 🖱️ **[#29] Visual Edit Iframe Selector & Smart Target Detection**: Overhaul runtime proxy click listeners and bounding box calculation to accurately resolve target elements, prioritizing semantic tags and image containers without getting blocked by transparent overlays #workspace #preview #ux #engine
