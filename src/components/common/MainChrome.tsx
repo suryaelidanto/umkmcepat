@@ -1,8 +1,7 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
-import { toast } from "sonner";
 
 import { Footer } from "@/components/common/Footer";
 import { Header } from "@/components/common/Header";
@@ -14,7 +13,6 @@ import {
   useTargetPathname,
 } from "@/lib/navigation";
 import {
-  fetchJson,
   fetchWaitlistStatus,
   GATE_QUERY_OPTIONS,
   queryKeys,
@@ -31,7 +29,6 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
   const targetPathname = useTargetPathname();
   const isRoutePending = useIsRoutePending();
   const router = useRouter();
-  const queryClient = useQueryClient();
   const { status: sessionStatus } = useSession();
 
   const isWorkspace =
@@ -83,28 +80,6 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
     waitlistQuery.isSuccess,
   ]);
 
-  // Dev tools: admin reset-waitlist button (dev mode only)
-  const devResetMutation = useMutation({
-    mutationFn: async () =>
-      fetchJson("/api/dev/reset-waitlist", {
-        method: "POST",
-      }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.waitlistStatus,
-      });
-      toast.success("Approval di-reset (dev mode). Refresh halaman.");
-    },
-    onError: (error) => {
-      toast.error(
-        error instanceof Error ? error.message : "Gagal reset approval.",
-      );
-    },
-  });
-
-  const isDevModeBannerVisible =
-    waitlistQuery.isSuccess && waitlistQuery.data.canUseDevTools;
-
   if (isWaitlistPage) {
     return <>{children}</>;
   }
@@ -120,12 +95,7 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
         isTicketDetail ? "h-dvh overflow-hidden" : ""
       }`}
     >
-      <Header
-        devResetPending={devResetMutation.isPending}
-        onDevReset={() => devResetMutation.mutate()}
-        showDevBanner={isDevModeBannerVisible}
-        showResetButton={Boolean(waitlistQuery.data?.own)}
-      />
+      <Header />
       <main
         className={`flex-1 ${isTicketDetail ? "min-h-0 overflow-hidden flex flex-col" : ""}`}
       >

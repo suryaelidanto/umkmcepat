@@ -7,39 +7,12 @@ import { Image } from "@/components/ui/image";
 import { Link } from "@/components/ui/link";
 import { useSession } from "@/lib/auth/auth-client";
 
-export function Header({
-  devResetPending = false,
-  onDevReset,
-  showDevBanner = false,
-  showResetButton = false,
-}: {
-  devResetPending?: boolean;
-  onDevReset?: () => void;
-  showDevBanner?: boolean;
-  showResetButton?: boolean;
-} = {}) {
+export function Header() {
   const { data: session } = useSession();
   void session;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-black/10 bg-[#eceae4]/90 text-[#1c1c1c] backdrop-blur-md dark:border-white/[0.07] dark:bg-[#151515] dark:text-surface-warm-white">
-      {showDevBanner ? (
-        <div className="border-b border-accent-orange-border bg-accent-orange-subtle px-spacing-4 py-1 text-accent-orange">
-          <div className="mx-auto flex max-w-7xl items-center justify-center gap-spacing-3 text-[10px]">
-            <span>DEV: Mode Pengembang</span>
-            {showResetButton ? (
-              <button
-                className="rounded-radius-sm border border-accent-orange-border px-1.5 py-px text-[9px] font-semibold transition hover:bg-accent-orange-subtle disabled:opacity-50"
-                disabled={devResetPending}
-                onClick={onDevReset}
-                type="button"
-              >
-                {devResetPending ? "Mereset..." : "Reset Antrian"}
-              </button>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-2 px-3 sm:px-6 lg:px-8">
         <Link
           href="/"

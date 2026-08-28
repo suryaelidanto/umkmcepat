@@ -1,8 +1,4 @@
-import {
-  getEnv,
-  isGeneratedBuildExecutionEnabled,
-  isGeneratedPublicExecutionEnabled,
-} from "@/lib/config/config";
+import { getEnv, isGeneratedPublicExecutionEnabled } from "@/lib/config/config";
 import { getGeneratedPublicUrl } from "@/lib/generated-public-origin";
 
 export function assertProductionConfigReady() {
@@ -22,12 +18,6 @@ export function assertProductionConfigReady() {
   assertStrongSecret("NEXTAUTH_SECRET");
   assertRequiredSecret("TURNSTILE_SECRET_KEY");
   assertDatabaseUrl();
-
-  if (isGeneratedBuildExecutionEnabled()) {
-    throw new Error(
-      "Generated build execution cannot be enabled until an isolated production executor is configured.",
-    );
-  }
 
   if (isGeneratedPublicExecutionEnabled()) {
     getGeneratedPublicUrl("production-preflight");
