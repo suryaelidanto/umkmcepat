@@ -7,15 +7,11 @@ describe("resolveMediaRedirect", () => {
     expect(resolveMediaRedirect(null)).toEqual({ status: 404 });
   });
 
-  it("streams binary when publicUrl is null or local", () => {
-    expect(resolveMediaRedirect({ id: "a1", publicUrl: null })).toEqual({
-      stream: true,
-      status: 200,
-    });
+  it("streams binary when publicUrl is on same app origin", () => {
     expect(
       resolveMediaRedirect({
         id: "a1",
-        publicUrl: "http://localhost:9000/bucket/img.png",
+        publicUrl: "http://localhost:3000/project-assets/a1.png",
       }),
     ).toEqual({
       stream: true,

@@ -19,10 +19,22 @@ export function resolveMediaRedirect(
   if (!asset) {
     return { status: 404 };
   }
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  let isSameOrigin = false;
+  try {
+    if (asset.publicUrl) {
+      const parsed = new URL(asset.publicUrl);
+      const appParsed = new URL(appUrl);
+      isSameOrigin = parsed.host === appParsed.host;
+    }
+  } catch {
+    isSameOrigin = true;
+  }
   if (
     asset.publicUrl &&
     asset.publicUrl.startsWith("https://") &&
-    !asset.publicUrl.includes("localhost")
+    !asset.publicUrl.includes("localhost") &&
+    !isSameOrigin
   ) {
     return { location: asset.publicUrl, status: 302 };
   }
