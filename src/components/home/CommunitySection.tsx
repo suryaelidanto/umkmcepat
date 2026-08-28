@@ -265,7 +265,7 @@ export function CommunitySection() {
   const isLoaded = contributors.length > 0;
 
   return (
-    <section className="bg-[#eceae4] px-4 py-spacing-14 text-[#1c1c1c] transition-colors duration-200 dark:bg-[#151515] dark:text-surface-warm-white sm:px-spacing-9 lg:px-spacing-10">
+    <section className="bg-[#eceae4] px-4 py-spacing-14 text-[#1c1c1c] dark:bg-[#151515] dark:text-surface-warm-white sm:px-spacing-9 lg:px-spacing-10">
       <div className="mx-auto max-w-6xl space-y-spacing-14">
         <ScrollReveal>
           <div>

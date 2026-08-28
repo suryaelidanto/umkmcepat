@@ -75,7 +75,7 @@ export function WhatsAppCommunityInvite({
   return (
     <section
       aria-label="Grup diskusi UMKM"
-      className="bg-[#eceae4] px-4 pb-spacing-14 transition-colors duration-200 dark:bg-[#151515] sm:px-spacing-9 lg:px-spacing-10"
+      className="bg-[#eceae4] px-4 pb-spacing-14 dark:bg-[#151515] sm:px-spacing-9 lg:px-spacing-10"
     >
       {invitationContent}
     </section>
