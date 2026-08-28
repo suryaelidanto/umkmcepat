@@ -46,6 +46,7 @@ COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/clie
 COPY --from=builder /app/.output ./.output
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/src/lib/projects ./src/lib/projects
 COPY --from=builder /app/scripts/capture-project-thumbnail.ts ./scripts/capture-project-thumbnail.ts
 
 RUN mkdir -p .data/uploads .data/project-artifacts .data/project-thumbnails \
