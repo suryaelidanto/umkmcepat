@@ -81,7 +81,6 @@ import { track } from "@/lib/analytics";
 import { signOut, useSession } from "@/lib/auth/auth-client";
 import { useFeatureFlag } from "@/lib/config/use-feature-flag";
 import { type ProjectBrief, type WorkspaceCard } from "@/lib/projects/brief";
-import { evaluateTieredBriefReadiness } from "@/lib/projects/brief-tiered-readiness";
 import {
   appendBuildProgressStep,
   completeBuildProgressSteps,
@@ -2933,19 +2932,9 @@ export function WorkspaceShell({
     submitChatText(message);
   }
 
-  const briefReadiness = useMemo(
-    () => evaluateTieredBriefReadiness(latestBrief),
-    [latestBrief],
-  );
-
   // Append a one-liner to the chat so the user sees what fields the AI is
   const handleStartBuild = useCallback(async () => {
     if (readOnly) {
-      return;
-    }
-    const hasCardProof = canStartBuild(workspaceCard);
-    const hasReadyBrief = briefReadiness.tier1.satisfied;
-    if (!hasCardProof && !hasReadyBrief) {
       return;
     }
 
@@ -2955,6 +2944,7 @@ export function WorkspaceShell({
         const state = await loadWorkspaceState({ preserveCard: true });
         if (state?.brief) {
           handoffBrief = state.brief;
+          setLatestBrief(state.brief);
         }
       } catch {
         // Continue to startBuild even if brief fetch fails
@@ -2981,14 +2971,12 @@ export function WorkspaceShell({
 
     await startBuild();
   }, [
-    briefReadiness.tier1.satisfied,
     buildComplete,
     latestBrief,
     loadWorkspaceState,
     messages.length,
     readOnly,
     startBuild,
-    workspaceCard,
   ]);
 
   const handlePrimaryComposerAction = useCallback(async () => {
@@ -3054,15 +3042,8 @@ export function WorkspaceShell({
       return;
     }
 
-    if (!briefReadiness.tier1.satisfied) {
-      const missingText = briefReadiness.tier1.missingLabels.join(", ");
-      toast.info(`Mohon lengkapi ${missingText} terlebih dahulu.`);
-      return;
-    }
-
     await handleStartBuild();
   }, [
-    briefReadiness,
     buildComplete,
     chatCollapsed,
     handleStartBuild,
