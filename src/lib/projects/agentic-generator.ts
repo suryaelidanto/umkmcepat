@@ -448,6 +448,7 @@ export async function runAgenticGenerate(input: {
           return result;
         }
         fileMap.set("src/index.css", result.css);
+        touched.add("src/index.css");
         designSystemAccepted = true;
         const operation = {
           detail:
@@ -1073,7 +1074,11 @@ ${executionSequence}`;
       `Agent did not read required skills before finishing: ${missing.join(", ")}.`,
     );
   }
-  if (!touched.size) {
+  const customFilesWritten = isRevisionMode
+    ? touched.size > 0
+    : Array.from(touched).some((p) => p !== "src/index.css");
+
+  if (!customFilesWritten) {
     throw new Error("Agent did not write a custom source file.");
   }
   if (!checkAppCalls) {

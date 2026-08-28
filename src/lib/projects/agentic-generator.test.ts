@@ -298,6 +298,45 @@ describe("runAgenticGenerate", () => {
     });
   });
 
+  it("allows theme/palette revisions via set_design_system without separate write_file", async () => {
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      const tools = getTools(args);
+      await readCoreSkills(tools);
+      await tools.set_design_system.execute({
+        accent: "#1c1c1c",
+        accentForeground: "#ffffff",
+        background: "#ffffff",
+        bodyFontStackId: "system-grotesk",
+        border: "#e5e7eb",
+        card: "#ffffff",
+        cardForeground: "#1c1c1c",
+        displayFontStackId: "system-editorial",
+        foreground: "#1c1c1c",
+        muted: "#f3f4f6",
+        mutedForeground: "#6b7280",
+        primary: "#1c1c1c",
+        primaryForeground: "#ffffff",
+        radiusScale: "sharp",
+        ring: "#1c1c1c",
+      });
+      await tools.check_app.execute({
+        detail: "Checking build",
+        label: "Check",
+      });
+      return { text: "Done", steps: [] };
+    });
+
+    const result = await runAgenticGenerate(
+      createInput({
+        initialFiles: [
+          { path: "src/components/site/Hero.tsx", content: "// hero" },
+          { path: "src/routes/index.tsx", content: "// index" },
+        ],
+      }),
+    );
+    expect(result).toMatchObject({ generationMode: "agentic" });
+  });
+
   it("builds a fact-grounded system and user prompt", async () => {
     let captured: { prompt?: string; system?: string } | undefined;
     generateTextMock.mockImplementationOnce(async (args: unknown) => {
