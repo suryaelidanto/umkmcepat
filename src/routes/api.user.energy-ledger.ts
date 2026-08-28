@@ -36,7 +36,6 @@ export const Route = createFileRoute("/api/user/energy-ledger")({
         const rows = await prisma.userCredit.findMany({
           where: {
             userId: session.user.id,
-            amount: { lt: 0 },
             ...(projectId ? { projectId } : {}),
           },
           orderBy: { createdAt: "desc" },
