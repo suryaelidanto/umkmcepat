@@ -184,8 +184,7 @@ export const skillEngine = new DynamicSkillEngine();
 
 export const PROJECT_SKILL_NAMES = skillEngine.getAllMarkdownTopics();
 
-export const PROJECT_CORE_SKILL_NAMES =
-  skillEngine.getRootSkillNames() as readonly string[];
+export const PROJECT_CORE_SKILL_NAMES = ["taste-skill", "shadcn"] as const;
 
 export type ProjectSkillName = string;
 
