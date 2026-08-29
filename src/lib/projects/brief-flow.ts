@@ -68,7 +68,7 @@ export function applyBriefPatch(
     return brief;
   }
 
-  const next = { ...brief, notes: [...brief.notes] };
+  const next = { ...brief, notes: [...(brief.notes ?? [])] };
   for (const field of BRIEF_PATCH_FIELDS) {
     const value = cleanText(patch[field], 160);
 
@@ -144,6 +144,28 @@ export function applyBriefPatch(
   }
   if (patch.visuals !== undefined && patch.visuals !== null) {
     next.visuals = patch.visuals === true;
+    if (patch.visuals === false) {
+      next.fieldState = {
+        ...(next.fieldState ?? {}),
+        visuals: "declined",
+      };
+      next.decisions = mergeBriefDecisions(next.decisions ?? [], [
+        { id: "business_photos", question: "Foto usaha", answer: "Lewati." },
+        { id: "visuals", question: "Foto usaha", answer: "Lewati." },
+      ]);
+      next.facts = mergeBriefFacts(next.facts ?? [], [
+        {
+          key: "business_photos",
+          label: "Foto usaha",
+          value: "Tidak ada foto (dilewati)",
+        },
+        {
+          key: "visuals",
+          label: "Foto usaha",
+          value: "Tidak ada foto (dilewati)",
+        },
+      ]);
+    }
   }
   if (Array.isArray(patch.hours)) {
     next.hours = patch.hours.length ? patch.hours : null;
@@ -348,29 +370,52 @@ export function normalizeWorkspaceTurn(
       isBuildConfirmCard(options.previousWorkspaceCard);
 
     const isDuplicateStall = (() => {
-      if (
-        workspaceCard.type !== "question" ||
-        options.previousWorkspaceCard?.type !== "question"
-      ) {
+      const currentId =
+        workspaceCard.type === "question"
+          ? workspaceCard.question.id
+          : workspaceCard.type === "image_upload"
+            ? workspaceCard.imageUpload.id
+            : null;
+      const prevId =
+        options.previousWorkspaceCard?.type === "question"
+          ? options.previousWorkspaceCard.question.id
+          : options.previousWorkspaceCard?.type === "image_upload"
+            ? options.previousWorkspaceCard.imageUpload.id
+            : null;
+
+      if (!currentId || !prevId || currentId !== prevId) {
         return false;
       }
-      if (
-        workspaceCard.question.id !== options.previousWorkspaceCard.question.id
-      ) {
-        return false;
-      }
-      const dupId = workspaceCard.question.id.toLowerCase();
+      const dupId = currentId.toLowerCase();
       const normalizedDupId = dupId.replace(/-/g, "_");
       // If this id was already answered (fact/decision exists), it's a repeat.
       const hasAnsweredFact =
-        (brief.facts ?? []).some((f) => f.key === normalizedDupId) ||
-        (brief.facts ?? []).some((f) => f.key === dupId) ||
-        (brief.decisions ?? []).some((d) => d.id === normalizedDupId) ||
-        (brief.decisions ?? []).some((d) => d.id === dupId);
+        (brief.facts ?? []).some(
+          (f) => f.key === normalizedDupId || f.key === dupId,
+        ) ||
+        (brief.decisions ?? []).some(
+          (d) => d.id === normalizedDupId || d.id === dupId,
+        );
       if (hasAnsweredFact) {
-        // For any already-answered id, treat as stall. Promotion to build
         return true;
       }
+
+      if (
+        dupId.includes("photo") ||
+        dupId.includes("image") ||
+        dupId.includes("visual")
+      ) {
+        if (brief.visuals !== null && brief.visuals !== undefined) {
+          return true;
+        }
+        if (
+          Array.isArray(brief.businessImages) &&
+          brief.businessImages.length > 0
+        ) {
+          return true;
+        }
+      }
+
       // Fallback: check typed brief field for MIN_BRIEF + soft fields.
       const fieldMap: Record<string, keyof ProjectBrief> = {
         business_name: "businessName",
@@ -434,10 +479,43 @@ export function normalizeWorkspaceTurn(
     })();
 
     const isQuestionAlreadyAnswered = (() => {
+      if (workspaceCard.type === "image_upload") {
+        const imgId = workspaceCard.imageUpload.id
+          .toLowerCase()
+          .replace(/-/g, "_");
+        const hasFact =
+          (brief.facts ?? []).some(
+            (f) => f.key === imgId || f.key === "visuals",
+          ) ||
+          (brief.decisions ?? []).some(
+            (d) => d.id === imgId || d.id === "visuals",
+          );
+        if (hasFact) {
+          return true;
+        }
+        if (brief.visuals !== null && brief.visuals !== undefined) {
+          return true;
+        }
+        if (
+          Array.isArray(brief.businessImages) &&
+          brief.businessImages.length > 0
+        ) {
+          return true;
+        }
+        return false;
+      }
+
       if (workspaceCard.type !== "question") {
         return false;
       }
       const qId = workspaceCard.question.id.toLowerCase().replace(/-/g, "_");
+      const hasFact =
+        (brief.facts ?? []).some((f) => f.key === qId) ||
+        (brief.decisions ?? []).some((d) => d.id === qId);
+      if (hasFact) {
+        return true;
+      }
+
       const fieldMap: Record<string, keyof ProjectBrief> = {
         business_name: "businessName",
         businessname: "businessName",
@@ -456,6 +534,10 @@ export function normalizeWorkspaceTurn(
         visual_direction: "stylePreference",
         visual: "stylePreference",
         audience: "targetCustomer",
+        price_range: "priceRange",
+        delivery_area: "deliveryArea",
+        address: "address",
+        hours: "hours",
       };
       let field: keyof ProjectBrief | undefined = fieldMap[qId];
       if (!field) {
@@ -469,6 +551,10 @@ export function normalizeWorkspaceTurn(
           field = "offer";
         } else if (qId.includes("style") || qId.includes("visual")) {
           field = "stylePreference";
+        } else if (qId.includes("delivery") || qId.includes("area")) {
+          field = "deliveryArea";
+        } else if (qId.includes("price") || qId.includes("harga")) {
+          field = "priceRange";
         }
       }
       if (!field) {
@@ -486,10 +572,18 @@ export function normalizeWorkspaceTurn(
       typeof options.lastUserText === "string" &&
       USER_AFFIRM_BUILD_RE.test(options.lastUserText.trim());
 
+    const isUserSkippingOptionalQuestion =
+      briefIsReady &&
+      typeof options.lastUserText === "string" &&
+      /^(lewati|skip|gak ada|tidak ada|ga ada|belum ada)/i.test(
+        options.lastUserText.trim(),
+      );
+
     if (
       promoteBuildConfirmQuestion ||
       promoteAfterAffirm ||
       isExplicitBuildAffirmation ||
+      isUserSkippingOptionalQuestion ||
       (isDuplicateStall && briefIsReady) ||
       (briefIsReady && isQuestionAlreadyAnswered)
     ) {
