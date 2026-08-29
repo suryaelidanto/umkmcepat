@@ -198,7 +198,21 @@ export function getNextTieredEnrichmentCard(
     };
   }
 
-  if (brief.assets.length === 0 && options?.uploadsEnabled !== false) {
+  const fieldState = brief.fieldState as Record<string, string> | undefined;
+  const photosResolved =
+    brief.assets.length > 0 ||
+    fieldState?.visuals === "declined" ||
+    fieldState?.visuals === "answered" ||
+    fieldState?.business_photos === "declined" ||
+    fieldState?.business_photos === "answered" ||
+    brief.provenance.facts.some(
+      (f) => f.key === "visuals" || f.key === "business_photos",
+    ) ||
+    brief.provenance.decisions.some(
+      (d) => d.id === "visuals" || d.id === "business_photos",
+    );
+
+  if (!photosResolved && options?.uploadsEnabled !== false) {
     return {
       type: "image_upload",
       imageUpload: {
@@ -249,7 +263,21 @@ export function evaluateTieredBriefReadiness(
   if (!hasPricing) {
     missingTier2.push("pricing");
   }
-  if (brief.assets.length === 0) {
+  const evalFieldState = brief.fieldState as Record<string, string> | undefined;
+  const evalPhotosResolved =
+    brief.assets.length > 0 ||
+    evalFieldState?.visuals === "declined" ||
+    evalFieldState?.visuals === "answered" ||
+    evalFieldState?.business_photos === "declined" ||
+    evalFieldState?.business_photos === "answered" ||
+    brief.provenance.facts.some(
+      (f) => f.key === "visuals" || f.key === "business_photos",
+    ) ||
+    brief.provenance.decisions.some(
+      (d) => d.id === "visuals" || d.id === "business_photos",
+    );
+
+  if (!evalPhotosResolved) {
     missingTier2.push("photos");
   }
 

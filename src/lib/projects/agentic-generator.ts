@@ -62,6 +62,80 @@ const MAX_PROMPT_VALUE_LENGTH = 12_000;
 const ARBITRARY_TAILWIND_COLOR_PATTERN =
   /\b(?:bg|text|border|ring|fill|stroke|from|to|via|shadow|outline|divide)-(?:\[#[0-9a-fA-F]{3,8}\]|(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3}(?:\/\d+)?)/;
 
+function autoAssembleHomeRouteIfNeeded(
+  fileMap: Map<string, string>,
+  touched: Set<string>,
+): void {
+  const homeContent = fileMap.get("src/routes/index.tsx") ?? "";
+  if (
+    !homeContent.trim() ||
+    homeContent.includes("data-generated-site-starter")
+  ) {
+    const componentFiles = Array.from(fileMap.keys()).filter(
+      (p) =>
+        p.startsWith("src/components/") &&
+        !p.startsWith("src/components/ui/") &&
+        (p.endsWith(".tsx") || p.endsWith(".jsx")),
+    );
+    if (componentFiles.length > 0) {
+      const sorted = componentFiles.sort((a, b) => {
+        const getPriority = (path: string) => {
+          const lower = path.toLowerCase();
+          if (lower.includes("header") || lower.includes("navbar")) {
+            return 1;
+          }
+          if (lower.includes("hero") || lower.includes("banner")) {
+            return 2;
+          }
+          if (lower.includes("footer")) {
+            return 99;
+          }
+          if (
+            lower.includes("contact") ||
+            lower.includes("location") ||
+            lower.includes("lokasi")
+          ) {
+            return 98;
+          }
+          return 50;
+        };
+        return getPriority(a) - getPriority(b);
+      });
+
+      const imports: string[] = [];
+      const tags: string[] = [];
+      for (const compPath of sorted) {
+        const compName =
+          compPath
+            .split("/")
+            .pop()
+            ?.replace(/\.tsx?$/, "") || "";
+        if (compName) {
+          const importPath = `@/${compPath.replace(/^src\//, "").replace(/\.tsx?$/, "")}`;
+          imports.push(`import { ${compName} } from "${importPath}";`);
+          tags.push(`        <${compName} />`);
+        }
+      }
+
+      const generatedHome = `import React from "react";
+${imports.join("\n")}
+
+export function HomeRouteComponent() {
+  return (
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
+      <main className="flex-1">
+${tags.join("\n")}
+      </main>
+    </div>
+  );
+}
+`;
+      fileMap.set("src/routes/index.tsx", generatedHome);
+      touched.add("src/routes/index.tsx");
+    }
+  }
+}
+
 function formatPromptValue(value: unknown): string {
   if (value == null) {
     return "NOT PROVIDED";
@@ -134,12 +208,18 @@ export async function runAgenticGenerate(input: {
 
   devLog("generate", "agentic-start", { projectId });
 
-  const starterFiles =
-    input.initialFiles ??
-    createGeneratedViteTanStackStarterFiles(projectId, schema);
+  const baseStarterFiles = createGeneratedViteTanStackStarterFiles(
+    projectId,
+    schema,
+  );
   const fileMap = new Map<string, string>();
-  for (const f of starterFiles) {
+  for (const f of baseStarterFiles) {
     fileMap.set(f.path, f.content);
+  }
+  if (input.initialFiles && input.initialFiles.length > 0) {
+    for (const f of input.initialFiles) {
+      fileMap.set(f.path, f.content);
+    }
   }
 
   // Pre-seed site.ts
@@ -157,6 +237,7 @@ export async function runAgenticGenerate(input: {
   const skillsRead = new Set<ProjectSkillName>();
   let checkAppCalls = 0;
   let lastCheckOk: boolean | null = null;
+  let lastCheckLog: string | null = null;
   let designSystemAccepted = isRevisionMode;
   let opSeq = 0;
 
@@ -617,12 +698,6 @@ export async function runAgenticGenerate(input: {
             ok: false,
           };
         }
-        const currentFiles: GeneratedProjectFile[] = Array.from(
-          fileMap.entries(),
-        ).map(([path, content]) => ({
-          path,
-          content,
-        }));
         checkAppCalls += 1;
         opSeq++;
         const dummyPlaceholders = [
@@ -657,6 +732,7 @@ export async function runAgenticGenerate(input: {
           };
         }
 
+        autoAssembleHomeRouteIfNeeded(fileMap, touched);
         const homeRouteContent = fileMap.get("src/routes/index.tsx") ?? "";
         if (
           !homeRouteContent.trim() ||
@@ -671,10 +747,18 @@ export async function runAgenticGenerate(input: {
           };
         }
 
+        const currentFiles: GeneratedProjectFile[] = Array.from(
+          fileMap.entries(),
+        ).map(([path, content]) => ({
+          path,
+          content,
+        }));
+
         const buildResult = await buildGeneratedProject(currentFiles, {
           workspaceKey: `${projectId}-agentic-check`,
         });
         lastCheckOk = buildResult.ok;
+        lastCheckLog = buildResult.log ?? null;
         const op = {
           id: `op-${opSeq}`,
           type: "check_app",
@@ -1058,14 +1142,21 @@ ${executionSequence}`;
     }),
   });
 
+  autoAssembleHomeRouteIfNeeded(fileMap, touched);
+
   if (!checkAppCalls || lastCheckOk !== true) {
-    await tools.check_app.execute(
+    const finalCheckRes = (await tools.check_app.execute(
       {
         detail: "Verifikasi deterministik setelah respons AI selesai.",
         label: "Memeriksa build akhir",
       },
       { context: {}, messages: [], toolCallId: "final-check" },
-    );
+    )) as { errors?: string[]; ok?: boolean };
+    if (!finalCheckRes.ok) {
+      throw new Error(
+        `Agent did not finish with a passing check_app: ${finalCheckRes.errors?.join("; ") || "Build failed"}`,
+      );
+    }
   }
 
   const missing = missingCoreSkills();
@@ -1085,7 +1176,9 @@ ${executionSequence}`;
     throw new Error("Agent did not call check_app before finishing.");
   }
   if (lastCheckOk !== true) {
-    throw new Error("Agent did not finish with a passing check_app.");
+    throw new Error(
+      `Agent did not finish with a passing check_app: ${typeof lastCheckLog === "string" ? lastCheckLog.slice(0, 1000) : "Unknown build failure"}`,
+    );
   }
 
   const finalFiles: GeneratedProjectFile[] = Array.from(fileMap.entries()).map(

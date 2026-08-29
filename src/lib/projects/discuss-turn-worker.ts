@@ -20,7 +20,7 @@ import {
 import { getDiscussModel, getVisionModel } from "@/lib/ai/ai-models";
 import { writeAiRequestLog } from "@/lib/ai/ai-request-log";
 import { getAiTimeoutMs } from "@/lib/ai/ai-timeouts";
-import { getSettingSync, primeSettingCache } from "@/lib/config/app-settings";
+import { getSettingSync } from "@/lib/config/app-settings";
 import { devLog } from "@/lib/dev-log";
 import {
   chargeEnergyForAiUsage,
@@ -70,6 +70,7 @@ import {
 } from "@/lib/projects/discuss-turn-shared";
 import { inlineChatAssetFileParts } from "@/lib/projects/inline-chat-asset-file-parts";
 import { stripTransportDiagnosticMessages } from "@/lib/projects/strip-transport-diagnostic-messages";
+import { TextDeltaCoalescer } from "@/lib/projects/text-delta-coalescer";
 
 export async function runDiscussTurn({
   turnId,
@@ -222,8 +223,6 @@ export async function runDiscussTurn({
       briefConfidence: effectiveBrief.confidence,
     });
 
-    await primeSettingCache({ force: true });
-
     publishProgress(turnId, { type: "activity", phase: "responding" });
 
     const discussStartedAt = Date.now();
@@ -306,12 +305,21 @@ export async function runDiscussTurn({
     });
     publishProgress(turnId, { type: "text-start", id: textPartId });
 
+    const textCoalescer = new TextDeltaCoalescer((coalescedDelta) => {
+      publishProgress(turnId, {
+        type: "text-delta",
+        id: textPartId,
+        delta: coalescedDelta,
+      });
+    });
+
     let fullText = "";
     let hadError = false;
     let toolInput: unknown = null;
     let streamToolCallId: string | null = null;
     let toolInputJson = "";
     let streamedToolAssistantText = "";
+    let lastCardParseTime = 0;
     let discussModelId = modelName;
     const primaryResponsePromise = Promise.resolve(primary.response).catch(
       () => null,
@@ -342,11 +350,7 @@ export async function runDiscussTurn({
             continue;
           }
           fullText += delta;
-          publishProgress(turnId, {
-            type: "text-delta",
-            id: textPartId,
-            delta,
-          });
+          textCoalescer.push(delta);
           continue;
         }
 
@@ -379,19 +383,19 @@ export async function runDiscussTurn({
           if (next.delta) {
             streamedToolAssistantText = next.seenText;
             fullText = next.seenText;
-            publishProgress(turnId, {
-              type: "text-delta",
-              id: textPartId,
-              delta: next.delta,
-            });
+            textCoalescer.push(next.delta);
           }
-          const partialCard =
-            await nextPartialWorkspaceCardFromToolJson(toolInputJson);
-          if (partialCard) {
-            publishProgress(turnId, {
-              type: "workspace-card-delta",
-              workspaceCard: partialCard,
-            });
+
+          if (Date.now() - lastCardParseTime >= 60) {
+            lastCardParseTime = Date.now();
+            const partialCard =
+              await nextPartialWorkspaceCardFromToolJson(toolInputJson);
+            if (partialCard) {
+              publishProgress(turnId, {
+                type: "workspace-card-delta",
+                workspaceCard: partialCard,
+              });
+            }
           }
           continue;
         }
@@ -451,13 +455,10 @@ export async function runDiscussTurn({
       ) {
         const tail = finalToolText.slice(streamedToolAssistantText.length);
         fullText = finalToolText;
-        publishProgress(turnId, {
-          type: "text-delta",
-          id: textPartId,
-          delta: tail,
-        });
+        textCoalescer.push(tail);
       }
     }
+    textCoalescer.flush();
     let chatText = fullText.trim();
     publishProgress(turnId, { type: "text-end", id: textPartId });
 
