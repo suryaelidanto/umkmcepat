@@ -25,6 +25,7 @@ import {
   buildDesignMarkdown,
   buildProductMarkdown,
   DESIGN_DOC_PATH,
+  designDirectionSchema,
   type DesignDirectionInput,
   PRODUCT_DOC_PATH,
 } from "@/lib/projects/generated-design-docs";
@@ -643,20 +644,16 @@ export default site;
     set_design_direction: tool({
       description:
         "Commit the visual direction and first-viewport thesis before writing the landing page.",
-      inputSchema: z.object({
-        thesis: z.string().trim().min(12).max(320),
-        ownWorld: z.string().trim().min(12).max(320),
-        story: z.string().trim().min(12).max(320),
-        firstViewport: z.string().trim().min(12).max(420),
-        form: z.string().trim().min(4).max(160),
-        seedKey: z.string().trim().min(2).max(80),
-        motionThesis: z.string().trim().min(8).max(240),
-      }),
+      inputSchema: designDirectionSchema,
       execute: async (direction: {
         thesis: string;
+        conversionThesis: string;
         ownWorld: string;
         story: string;
+        contentArchitecture: string;
         firstViewport: string;
+        responsiveIntent: string;
+        sparseDataStrategy: string;
         form: string;
         seedKey: string;
         motionThesis: string;
@@ -1238,7 +1235,7 @@ The accepted build contract and plan are authoritative. Use their facts, approve
 
 Use the tools to read skills, inspect or write source, and run check_app before finishing. Do not stop with a conversational response. The platform owns protected scaffold files and validates source, claims, imports, and compilation.
 
-For a new site, read the Unslop skill and every listed Impeccable reference, run the concept-seed entrypoint with args { scope: "direction", mode: "persuade" } and the palette entrypoint, call set_design_direction with a specific visual thesis, then call set_design_system before writing. Sparse facts constrain claims, not craft: avoid generic SaaS cards, default gradients, stock imagery, and filler copy. Use the business facts to make a deliberate visual world without inventing benefits, proof, prices, places, or capabilities. Use Unslop rules on every customer-facing string and progress label.
+For a new site, read the Unslop skill and every listed Impeccable reference, run the concept-seed entrypoint with args { scope: "direction", mode: "persuade" } and the palette entrypoint, then call set_design_direction with a specific thesis, conversion thesis, own-world concept, content architecture, first-viewport intent, responsive intent, sparse-data strategy, and motion intent. Call set_design_system before writing. Sparse facts constrain claims, not craft: avoid generic SaaS cards, default gradients, stock imagery, and filler copy. Use typography, composition, hierarchy, CSS texture, and deliberate responsive form to make a distinctive world when owner evidence is sparse. Use the business facts to make the world specific without inventing benefits, proof, prices, places, or capabilities. Use Unslop rules on every customer-facing string and progress label.
 
 ${workflowInstructions}${acceptedFactsSection}${ledgerSection}${discussionSection}${availableImagesSection}
 

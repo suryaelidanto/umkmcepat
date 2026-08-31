@@ -130,11 +130,19 @@ async function readCoreSkills(tools: Record<string, AgentTool>) {
     ring: "#0369a1",
   });
   await tools.set_design_direction.execute({
+    contentArchitecture:
+      "Offer, proof, and contact follow a clear reading path.",
+    conversionThesis:
+      "One visible action should move a ready visitor to contact.",
     firstViewport: "Offer and action lead.",
+    responsiveIntent:
+      "Stack the offer and action before secondary detail on small screens.",
     form: "Editorial ledger",
     motionThesis: "One measured reveal.",
     ownWorld: "Ink and paper with a single accent.",
     seedKey: "seed-test",
+    sparseDataStrategy:
+      "Use typography, rhythm, and empty space when owner evidence is absent.",
     story: "Understand the offer and contact the owner.",
     thesis: "The offer leads instead of a generic hero.",
   });
@@ -364,11 +372,19 @@ describe("runAgenticGenerate", () => {
         skill: "impeccable",
       });
       await tools.set_design_direction.execute({
+        contentArchitecture:
+          "Offer, proof, and contact follow a clear reading path.",
+        conversionThesis:
+          "One visible action should move a ready visitor to contact.",
         firstViewport: "Offer and action lead.",
+        responsiveIntent:
+          "Stack the offer and action before secondary detail on small screens.",
         form: "Editorial ledger",
         motionThesis: "One measured reveal.",
         ownWorld: "Ink and paper with a single accent.",
         seedKey: "seed-test",
+        sparseDataStrategy:
+          "Use typography, rhythm, and empty space when owner evidence is absent.",
         story: "Understand the offer and contact the owner.",
         thesis: "The offer leads instead of a generic hero.",
       });
@@ -452,11 +468,19 @@ describe("runAgenticGenerate", () => {
         await tools.read_skill.execute({ name });
       }
       await tools.set_design_direction.execute({
+        contentArchitecture:
+          "Offer, proof, and contact follow a clear reading path.",
+        conversionThesis:
+          "One visible action should move a ready visitor to contact.",
         firstViewport: "Offer and action lead.",
+        responsiveIntent:
+          "Stack the offer and action before secondary detail on small screens.",
         form: "Editorial ledger",
         motionThesis: "One measured reveal.",
         ownWorld: "Ink and paper with a single accent.",
         seedKey: "seed-test",
+        sparseDataStrategy:
+          "Use typography, rhythm, and empty space when owner evidence is absent.",
         story: "Understand the offer and contact the owner.",
         thesis: "The offer leads instead of a generic hero.",
       });

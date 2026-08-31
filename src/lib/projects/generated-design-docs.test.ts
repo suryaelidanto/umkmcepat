@@ -5,6 +5,7 @@ import {
   buildDesignAnchorContext,
   buildDesignMarkdown,
   buildProductMarkdown,
+  designDirectionSchema,
   DESIGN_DOC_PATH,
   PRODUCT_DOC_PATH,
 } from "./generated-design-docs";
@@ -34,9 +35,16 @@ const schema: ProjectSiteSchema = {
 };
 
 const direction = {
+  contentArchitecture: "Offer, proof, and contact follow a clear reading path.",
+  conversionThesis:
+    "One visible action should move a ready visitor to contact.",
   firstViewport: "Offer and action lead.",
+  responsiveIntent:
+    "Stack the offer and action before secondary detail on small screens.",
   form: "Editorial ledger",
   motionThesis: "One measured reveal.",
+  sparseDataStrategy:
+    "Use typography, rhythm, and empty space when owner evidence is absent.",
   ownWorld: "Ink and paper with a single accent.",
   seedKey: "seed-test",
   story: "Understand the offer and contact the owner.",
@@ -44,6 +52,22 @@ const direction = {
 };
 
 describe("generated design docs", () => {
+  it.each([
+    "thesis",
+    "conversionThesis",
+    "ownWorld",
+    "contentArchitecture",
+    "firstViewport",
+    "responsiveIntent",
+    "sparseDataStrategy",
+    "motionThesis",
+  ] as const)("rejects a direction without %s", (field) => {
+    const candidate: Record<string, unknown> = { ...direction };
+    delete candidate[field];
+
+    expect(designDirectionSchema.safeParse(candidate).success).toBe(false);
+  });
+
   it("emits product facts and claim boundaries from the schema", () => {
     const md = buildProductMarkdown(schema);
     expect(md).toContain("# PRODUCT");
@@ -53,7 +77,7 @@ describe("generated design docs", () => {
     expect(md).toContain("Batasan klaim");
   });
 
-  it("emits all five design block headers after direction and system", () => {
+  it("emits every design contract block after direction and system", () => {
     const md = buildDesignMarkdown({
       direction,
       system: {

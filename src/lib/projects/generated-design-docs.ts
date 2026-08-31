@@ -1,21 +1,33 @@
+import { z } from "zod";
+
 import type { GeneratedDesignSystemProposalV1 } from "./generated-design-system";
 import type { ProjectSiteSchema } from "./site-schema";
 
-export type DesignDirectionInput = {
-  thesis: string;
-  ownWorld: string;
-  story: string;
-  firstViewport: string;
-  form: string;
-  seedKey: string;
-  motionThesis: string;
-};
+export const designDirectionSchema = z.object({
+  thesis: z.string().trim().min(12).max(320),
+  conversionThesis: z.string().trim().min(12).max(320),
+  ownWorld: z.string().trim().min(12).max(320),
+  story: z.string().trim().min(12).max(320),
+  contentArchitecture: z.string().trim().min(12).max(420),
+  firstViewport: z.string().trim().min(12).max(420),
+  responsiveIntent: z.string().trim().min(12).max(320),
+  sparseDataStrategy: z.string().trim().min(12).max(320),
+  form: z.string().trim().min(4).max(160),
+  seedKey: z.string().trim().min(2).max(80),
+  motionThesis: z.string().trim().min(8).max(240),
+});
+
+export type DesignDirectionInput = z.infer<typeof designDirectionSchema>;
 
 export const DESIGN_DOC_HEADERS = [
   "## THESIS",
+  "## CONVERSION THESIS",
   "## OWN-WORLD",
   "## STORY",
+  "## CONTENT ARCHITECTURE",
   "## FIRST VIEWPORT",
+  "## RESPONSIVE INTENT",
+  "## SPARSE-DATA STRATEGY",
   "## MOTION",
 ] as const;
 
@@ -123,14 +135,26 @@ perubahan sistem secara eksplisit.
 ## THESIS
 ${direction?.thesis ?? notSet}
 
+## CONVERSION THESIS
+${direction?.conversionThesis ?? notSet}
+
 ## OWN-WORLD
 ${direction?.ownWorld ?? notSet}
 
 ## STORY
 ${direction?.story ?? notSet}
 
+## CONTENT ARCHITECTURE
+${direction?.contentArchitecture ?? notSet}
+
 ## FIRST VIEWPORT
 ${direction?.firstViewport ?? notSet}
+
+## RESPONSIVE INTENT
+${direction?.responsiveIntent ?? notSet}
+
+## SPARSE-DATA STRATEGY
+${direction?.sparseDataStrategy ?? notSet}
 
 ## MOTION
 ${motion}
