@@ -5,6 +5,7 @@ import { promisify } from "node:util";
 
 import {
   getAllowlistedFlags,
+  kebabFlag,
   MAX_SCRIPT_OUTPUT_BYTES,
   SCRIPT_OUTPUT_TRUNCATION_MARKER,
   SCRIPT_SPAWN_MAX_BUFFER_BYTES,
@@ -212,7 +213,8 @@ class DynamicSkillEngine {
         : [];
     if (
       argKeys.length > 0 &&
-      (flags === null || argKeys.some((key) => !flags.has(key)))
+      (flags === null ||
+        argKeys.some((key) => !flags.has(kebabFlag(key)) && !flags.has(key)))
     ) {
       return {
         ok: false,

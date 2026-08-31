@@ -215,3 +215,12 @@ describe("sandboxed script spawning", () => {
     }
   });
 });
+
+it("accepts camelCase aliases of allowlisted flags", async () => {
+  const result = await executeSkillScript("impeccable", "concept-seed", {
+    scope: "direction",
+    mode: "persuade",
+    candidateCount: 6,
+  });
+  expect(result.ok).toBe(true);
+});

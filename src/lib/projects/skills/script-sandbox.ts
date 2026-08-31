@@ -5,12 +5,27 @@ export const SCRIPT_OUTPUT_TRUNCATION_MARKER =
   "\n[umkm:skill-output-truncated]\n";
 
 const FLAG_ALLOWLIST: Record<string, ReadonlySet<string>> = {
-  palette: new Set(["id"]),
-  "concept-seed": new Set(["scope", "mode", "register", "reroll", "from"]),
-  context: new Set(["target"]),
+  palette: new Set(["id", "from"]),
+  "concept-seed": new Set([
+    "scope",
+    "mode",
+    "grain",
+    "platform",
+    "reroll",
+    "from",
+    "register",
+    "candidate-count",
+    "chosen",
+    "kind",
+  ]),
+  context: new Set(["target", "json"]),
   "context-signals": new Set([]),
-  detect: new Set(["json", "scope"]),
+  detect: new Set(["json", "scope", "target"]),
 };
+
+export function kebabFlag(key: string): string {
+  return key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
+}
 
 export function getAllowlistedFlags(
   entrypointId: string,
