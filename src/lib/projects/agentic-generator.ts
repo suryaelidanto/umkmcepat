@@ -44,6 +44,10 @@ import {
   MOTION_MISSING_REASON,
   resolveMotionIntensity,
 } from "@/lib/projects/motion-policy";
+import {
+  buildHueDiversityPromptLine,
+  readRecentHueFamilies,
+} from "@/lib/projects/palette-diversity";
 import { renewProjectOperation } from "@/lib/projects/project-operation";
 import { MOTION_PRESET_CSS } from "@/lib/projects/scaffold/motion-preset";
 import { isProtectedScaffoldPath } from "@/lib/projects/scaffold/protected-paths";
@@ -1220,6 +1224,10 @@ export default site;
     ? "Read the supplied project files, make the requested change, preserve unrelated work, and finish with check_app."
     : "Read every required skill, run the applicable design workflow, commit a direction, write the required source, and finish with check_app.";
 
+  const hueDiversityLine = buildHueDiversityPromptLine(
+    await readRecentHueFamilies(input.userId).catch(() => [] as string[]),
+  );
+
   const systemPrompt = `You implement a standalone static Vite + React + TanStack Router website for an Indonesian UMKM.
 
 The accepted build contract and plan are authoritative. Use their facts, approved assets, actions, omissions, and routes. Do not invent business information or capabilities. Use your own design judgment and the available Impeccable and shadcn skills.
@@ -1237,7 +1245,7 @@ Keep customer-facing copy grounded in site data. Omit unknown facts. Use approve
 ${buildMotionPromptLine(
   resolveMotionIntensity(input.buildContract?.preferences.motion ?? null),
   input.motionOptOut ?? false,
-)}
+)}${hueDiversityLine}
 
 Progress labels and details must be plain Indonesian. Do not expose file names, compiler terms, implementation jargon, or raw errors.`;
 

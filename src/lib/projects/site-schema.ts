@@ -89,7 +89,7 @@ const defaultTheme = {
   background: "#f6f7f4",
   foreground: "#111312",
   muted: "#6b706d",
-  accent: "#f05a28",
+  accent: "#1c1c1c",
 };
 
 function cleanText(value: unknown, fallback: string, maxLength = MAX_TEXT) {
