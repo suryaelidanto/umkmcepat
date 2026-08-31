@@ -273,6 +273,10 @@ export async function runAgenticGenerate(input: {
   ) => void;
   onFileStaged?: (file: GeneratedProjectFile) => void;
   operationToken?: string;
+  repairContext?: {
+    failingFiles: string[];
+    logExcerpt: string;
+  } | null;
   projectId: string;
   schema: ProjectSiteSchema;
   stepCharger?: StepCharger;
@@ -1332,8 +1336,11 @@ Progress labels and details must be plain Indonesian. Do not expose file names, 
     isRevisionMode && !input.fullRebuild
       ? buildDesignAnchorContext(input.initialFiles ?? [])
       : "";
+  const repairContextSection = input.repairContext
+    ? `\n\nREPAIR CONTEXT: the previous build failed. Fix the reported problems first.\nBuild log excerpt:\n${input.repairContext.logExcerpt}\nFailing files: ${input.repairContext.failingFiles.join(", ") || "see log"}.`
+    : "";
   const userPrompt = input.revisionBrief
-    ? `Update the existing static website for this user request:\n${formatPromptValue(input.revisionBrief)}\n\n${executionContext}${designAnchorContext}`
+    ? `Update the existing static website for this user request:\n${formatPromptValue(input.revisionBrief)}\n\n${executionContext}${designAnchorContext}${repairContextSection}`
     : `Build the static website for an Indonesian UMKM from the accepted data below.
 
 ${routesInstruction}

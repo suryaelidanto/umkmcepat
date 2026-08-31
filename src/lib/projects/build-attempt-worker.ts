@@ -51,6 +51,23 @@ const GENERATED_SNAPSHOT_SOURCE_TYPE =
   "generated" satisfies ProjectSnapshotSourceType;
 const PREVIEW_DEPLOYMENT_KIND = "preview" satisfies ProjectDeploymentKind;
 
+export const MAX_GENERATION_ROUNDS = 3;
+export const MAX_CLEAN_REBUILDS = 1;
+const MAX_TRANSIENT_RETRIES = 2;
+
+function isTransientGenerationError(error: unknown): boolean {
+  return /fetch failed|econn|socket|network|timed out|timeout|rate limit|429/i.test(
+    error instanceof Error ? error.message : String(error),
+  );
+}
+
+function extractFailingFiles(log: string): string[] {
+  const matches = [
+    ...log.matchAll(/([A-Za-z0-9_.\-/]+\.(?:tsx|ts|css))[:\s]/g),
+  ].map((match) => match[1] ?? "");
+  return [...new Set(matches)].slice(0, 8);
+}
+
 type BuildAttemptContext = {
   abortSignal: AbortSignal;
   attemptId: string;
@@ -487,33 +504,106 @@ export async function runBuildAttempt({
         : "AI sedang merancang arsitektur dan komponen website.",
     });
 
-    const agenticResult = await runAgenticGenerate({
-      abortSignal,
-      attemptId,
-      brief: {
-        ...brief,
-        factLedger: acceptedHandoff?.briefSnapshot.factLedger,
-        discussionContext: acceptedHandoff?.briefSnapshot.discussionContext,
-      },
-      buildContract: acceptedHandoff?.contract,
-      buildId: runtimeBuildId,
-      buildPlan: acceptedHandoff?.plan,
-      initialFiles:
-        existingSourceFiles.length > 0 ? existingSourceFiles : undefined,
-      onEvent: (type, data) => send(type, data),
-      onFileStaged: persistBatchedStage,
-      operationToken,
-      projectId,
-      schema: finalSchema,
-      stepCharger: sourceStepCharger,
-      userId,
-    });
+    let repairContext: {
+      failingFiles: string[];
+      logExcerpt: string;
+    } | null = null;
+    let repairRounds = 0;
+    let transientRetries = 0;
+    let agenticResult: Awaited<ReturnType<typeof runAgenticGenerate>> | null =
+      null;
+    let buildResult = {
+      distFiles: [] as Awaited<
+        ReturnType<typeof buildGeneratedProject>
+      >["distFiles"],
+      log: "",
+      ok: false,
+    };
+
+    for (let round = 1; round <= MAX_GENERATION_ROUNDS; round += 1) {
+      let roundResult: Awaited<ReturnType<typeof runAgenticGenerate>>;
+      try {
+        roundResult = await runAgenticGenerate({
+          abortSignal,
+          attemptId,
+          brief: {
+            ...brief,
+            factLedger: acceptedHandoff?.briefSnapshot.factLedger,
+            discussionContext: acceptedHandoff?.briefSnapshot.discussionContext,
+          },
+          buildContract: acceptedHandoff?.contract,
+          buildId: runtimeBuildId,
+          buildPlan: acceptedHandoff?.plan,
+          initialFiles:
+            existingSourceFiles.length > 0 ? existingSourceFiles : undefined,
+          onEvent: (type, data) => send(type, data),
+          onFileStaged: persistBatchedStage,
+          operationToken,
+          projectId,
+          repairContext,
+          schema: finalSchema,
+          stepCharger: sourceStepCharger,
+          userId,
+        });
+      } catch (error) {
+        if (
+          transientRetries < MAX_TRANSIENT_RETRIES &&
+          isTransientGenerationError(error)
+        ) {
+          transientRetries += 1;
+          round -= 1;
+          continue;
+        }
+        throw error;
+      }
+      agenticResult = roundResult;
+      repairRounds = round;
+      buildResult = await buildGeneratedProject(agenticResult.files, {
+        workspaceKey: projectId,
+      });
+      if (
+        (buildResult.ok && buildResult.distFiles.length > 0) ||
+        sourceStepCharger.isExhausted()
+      ) {
+        break;
+      }
+      if (round < MAX_GENERATION_ROUNDS) {
+        send("progress", {
+          label: "Merapikan website",
+          detail: "Ada bagian yang belum kompilasi. AI sedang memperbaikinya.",
+        });
+        repairContext = {
+          failingFiles: extractFailingFiles(buildResult.log ?? ""),
+          logExcerpt: (buildResult.log ?? "").slice(-4_000),
+        };
+      }
+    }
+
+    if (
+      (!buildResult.ok || buildResult.distFiles.length === 0) &&
+      agenticResult &&
+      !sourceStepCharger.isExhausted()
+    ) {
+      for (let clean = 0; clean < MAX_CLEAN_REBUILDS; clean += 1) {
+        buildResult = await buildGeneratedProject(agenticResult.files, {
+          workspaceKey: projectId,
+        });
+        if (buildResult.ok && buildResult.distFiles.length > 0) {
+          break;
+        }
+      }
+    }
+
+    if (!agenticResult) {
+      throw new Error("Agent did not produce any generation round.");
+    }
 
     const generationOutput = {
       energyExhausted: sourceStepCharger.isExhausted(),
       files: agenticResult.files,
       generationMode: "agentic" as const,
       operationTrace: agenticResult.operationTrace,
+      repairRounds,
       summary: agenticResult.summary,
       touchedFiles: agenticResult.touchedFiles,
     };
@@ -616,13 +706,11 @@ export async function runBuildAttempt({
         type: "build.started",
       }),
     });
-    const viteStartedAt = Date.now();
-    const buildResult = await buildGeneratedProject(sourceFiles, {
-      workspaceKey: projectId,
-    });
-    viteMs = Date.now() - viteStartedAt;
+    viteMs = Date.now() - agentStartedAt;
     devLog("generate", "build.finished", {
       ok: buildResult.ok,
+      repairRounds,
+      transientRetries,
       projectId: projectId,
     });
 
