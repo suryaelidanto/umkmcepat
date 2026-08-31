@@ -294,7 +294,7 @@ describe("normalizeWorkspaceTurn", () => {
             id: "business_name",
             answerMode: "text",
             question: "Nama restorannya apa?",
-            placeholder: "Contoh: Dapur Sari Laut",
+            placeholder: "Dapur Sari Laut",
           },
         },
       },
@@ -305,9 +305,7 @@ describe("normalizeWorkspaceTurn", () => {
     if (turn.workspaceCard.type === "question") {
       expect(turn.workspaceCard.question.answerMode).toBe("text");
       expect(turn.workspaceCard.question.options).toEqual([]);
-      expect(turn.workspaceCard.question.placeholder).toBe(
-        "Contoh: Dapur Sari Laut",
-      );
+      expect(turn.workspaceCard.question.placeholder).toBe("Dapur Sari Laut");
     }
   });
 
@@ -322,7 +320,7 @@ describe("normalizeWorkspaceTurn", () => {
             answerMode: "text",
             text: "Nama laundry kamu apa?",
             hint: "Nama ini akan jadi judul utama website.",
-            placeholder: "Misal: Laundry Bekasi Fresh",
+            placeholder: "Laundry Bekasi Fresh",
           },
         },
       },

@@ -5,6 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   applyPreviewSandboxHeaders,
   buildImageFallbackScript,
+  getPreviewDocumentMetadata,
+  getPublishedDocumentMetadata,
   injectPreviewAnnotationBridge,
   injectPublishedHead,
   pickPreviewAnnotationCandidateIndex,
@@ -17,6 +19,24 @@ import {
 let server: Server | null = null;
 
 describe("runtime proxy", () => {
+  it("derives stable metadata for a private generated preview", () => {
+    expect(getPreviewDocumentMetadata("Beras GG")).toEqual({
+      description: "Website usaha Beras GG.",
+      title: "Beras GG",
+      viewport: "width=device-width, initial-scale=1",
+    });
+    expect(getPreviewDocumentMetadata(null).title).toBe("UMKM Cepat");
+  });
+
+  it("derives stable metadata for a published generated site", () => {
+    expect(getPublishedDocumentMetadata("Beras GG")).toEqual({
+      description: "Website usaha Beras GG. Dibuat dengan UMKM Cepat.",
+      name: "Beras GG",
+      title: "Beras GG — Website UMKM Cepat",
+      viewport: "width=device-width, initial-scale=1",
+    });
+  });
+
   it("injects the private preview annotation bridge once", () => {
     const html = injectPreviewAnnotationBridge(
       "<html><body><main></main></body></html>",

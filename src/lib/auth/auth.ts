@@ -162,13 +162,17 @@ async function resolveAuthState(): Promise<AuthState> {
       select: { bannedAt: true },
     });
 
-    return { session, banned: Boolean(user?.bannedAt) };
+    if (!user) {
+      return { session: null, banned: false };
+    }
+
+    return { session, banned: Boolean(user.bannedAt) };
   } catch (error) {
     console.warn(
-      "[auth] banned check failed - continuing as not banned until DB is up:",
+      "[auth] banned check failed - refusing the session until DB is up:",
       error instanceof Error ? error.message : error,
     );
-    return { session, banned: false };
+    return { session: null, banned: false };
   }
 }
 
@@ -182,7 +186,10 @@ export async function requireNotBanned(session: Session | null) {
       where: { id: session.user.id },
       select: { bannedAt: true },
     });
-    if (user?.bannedAt) {
+    if (!user) {
+      throw new Error("Account status could not be verified.");
+    }
+    if (user.bannedAt) {
       throw redirect({ to: "/blocked" });
     }
   } catch (error) {
@@ -190,8 +197,9 @@ export async function requireNotBanned(session: Session | null) {
       throw error;
     }
     console.warn(
-      "[auth] requireNotBanned check failed - allowing request until DB is up:",
+      "[auth] account status check failed - refusing the request until DB is up:",
       error instanceof Error ? error.message : error,
     );
+    throw new Error("Account status could not be verified.");
   }
 }

@@ -13,14 +13,20 @@ import { prisma } from "@/lib/prisma";
 import { enqueueAttemptJob } from "@/lib/projects/attempt-queue";
 import { createReadStreamFromChannel } from "@/lib/projects/build-attempt-pubsub";
 import { parseProjectChatMessages } from "@/lib/projects/chat-memory";
-import { selectActivePreviewDeployment } from "@/lib/projects/deployment-resolution";
+import {
+  isProjectDeploymentForProject,
+  selectActivePreviewDeployment,
+} from "@/lib/projects/deployment-resolution";
 import { classifyEditStructure } from "@/lib/projects/edit-structure";
 import { parseGeneratedProjectFiles } from "@/lib/projects/generated-source";
 import {
   claimProjectOperation,
   finalizeProjectOperation,
 } from "@/lib/projects/project-operation";
-import { readProjectSourceArtifact } from "@/lib/projects/runtime-artifacts";
+import {
+  isProjectArtifactRefFor,
+  readProjectSourceArtifact,
+} from "@/lib/projects/runtime-artifacts";
 import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
 import { sanitizeVisualAnnotations } from "@/lib/projects/visual-annotations";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -195,6 +201,8 @@ export async function handleVisualEditPost(request: Request, routeId: string) {
           artifactRef: true,
           createdAt: true,
           id: true,
+          projectId: true,
+          snapshot: { select: { id: true, projectId: true } },
           snapshotId: true,
           status: true,
           updatedAt: true,
@@ -204,10 +212,12 @@ export async function handleVisualEditPost(request: Request, routeId: string) {
       createdAt: true,
       id: true,
       kind: true,
+      projectId: true,
       snapshot: {
         select: {
           files: true,
           id: true,
+          projectId: true,
           sourceRef: true,
         },
       },
@@ -216,7 +226,11 @@ export async function handleVisualEditPost(request: Request, routeId: string) {
       updatedAt: true,
     },
   });
-  const activeDeployment = selectActivePreviewDeployment(deployments);
+  const activeDeployment = selectActivePreviewDeployment(
+    deployments.filter((candidate) =>
+      isProjectDeploymentForProject(candidate, project.id),
+    ),
+  );
   const activeSnapshot = activeDeployment?.snapshot;
 
   if (!activeSnapshot) {
@@ -226,8 +240,13 @@ export async function handleVisualEditPost(request: Request, routeId: string) {
     );
   }
 
-  const artifactFiles = activeSnapshot.sourceRef
-    ? await readProjectSourceArtifact(activeSnapshot.sourceRef).catch(() => [])
+  const activeSourceRef = activeSnapshot.sourceRef;
+  const artifactFiles = isProjectArtifactRefFor(
+    activeSourceRef,
+    "source",
+    activeSnapshot.id,
+  )
+    ? await readProjectSourceArtifact(activeSourceRef).catch(() => [])
     : [];
   const baseFiles = artifactFiles.length
     ? artifactFiles

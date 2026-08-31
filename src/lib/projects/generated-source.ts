@@ -29,7 +29,10 @@ import {
   assertGeneratedResourceBudget,
   getGeneratedResourceBudget,
 } from "@/lib/projects/generated-resource-budget";
-import { readProjectAsset } from "@/lib/projects/project-assets";
+import {
+  parseProjectAssetRef,
+  readProjectAsset,
+} from "@/lib/projects/project-assets";
 import {
   ensureSharedNodeModules,
   linkSharedNodeModules,
@@ -626,12 +629,22 @@ export function createDependencySignature(
 ) {
   const packageFile = files.find((file) => file.path === "package.json");
   const packageJson = packageFile ? parseStableJson(packageFile.content) : null;
+  const dependencyIdentity =
+    packageJson &&
+    typeof packageJson === "object" &&
+    !Array.isArray(packageJson)
+      ? Object.fromEntries(
+          Object.entries(packageJson as Record<string, unknown>).filter(
+            ([key]) => key !== "name",
+          ),
+        )
+      : packageJson;
 
   return createHash("sha256")
     .update(
       JSON.stringify({
         bunVersion: process.versions.bun || "unknown",
-        packageJson,
+        packageJson: dependencyIdentity,
         packageManager: manifest.packageManager,
         runtimeProfile: manifest.runtimeProfile,
         templateId: manifest.templateId,
@@ -852,6 +865,34 @@ function getContentType(filePath: string) {
   return "text/plain; charset=utf-8";
 }
 
+export function isPublicProjectAssetForGeneratedSite(
+  asset: {
+    projectId: string;
+    purpose: string;
+    publicUrl: string | null;
+    ref: string;
+    userId: string;
+  },
+  projectId: string,
+): boolean {
+  if (
+    asset.projectId !== projectId ||
+    !asset.publicUrl ||
+    (asset.purpose !== "business-image" && asset.purpose !== "logo")
+  ) {
+    return false;
+  }
+
+  const parsed = parseProjectAssetRef(asset.ref);
+  return Boolean(
+    parsed &&
+    !asset.ref.startsWith("project-asset:s3-private:") &&
+    parsed.projectId === asset.projectId &&
+    parsed.userId === asset.userId &&
+    parsed.kind === asset.purpose,
+  );
+}
+
 async function materializeProjectAssetsToWorkspace(
   workspace: string,
   projectId: string,
@@ -866,8 +907,19 @@ async function materializeProjectAssetsToWorkspace(
   }
   try {
     const assets = await prisma.projectAsset.findMany({
-      where: { projectId },
-      select: { id: true, ref: true },
+      where: {
+        projectId,
+        purpose: { in: ["business-image", "logo"] },
+        publicUrl: { not: null },
+      },
+      select: {
+        id: true,
+        projectId: true,
+        publicUrl: true,
+        purpose: true,
+        ref: true,
+        userId: true,
+      },
     });
     if (!assets.length) {
       return;
@@ -876,6 +928,9 @@ async function materializeProjectAssetsToWorkspace(
     await mkdir(imagesDir, { recursive: true });
 
     for (const asset of assets) {
+      if (!isPublicProjectAssetForGeneratedSite(asset, projectId)) {
+        continue;
+      }
       try {
         const { body } = await readProjectAsset(asset.ref);
         const formatMatch = asset.ref.match(/\.([a-z0-9]+)$/i);

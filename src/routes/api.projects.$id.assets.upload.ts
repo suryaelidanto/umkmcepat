@@ -11,7 +11,10 @@ import {
   contentTypeFromExt,
   detectImageFormat,
 } from "@/lib/storage/images/format";
-import { claimTempImage } from "@/lib/storage/uploads/temp-image-storage";
+import {
+  claimTempImage,
+  readTempImage,
+} from "@/lib/storage/uploads/temp-image-storage";
 import { mapToUserFacingError } from "@/lib/user-facing-error";
 import { verifyProjectOwnership } from "@/middleware/ownership";
 
@@ -64,14 +67,14 @@ export const Route = createFileRoute("/api/projects/$id/assets/upload")({
         const rawAssetId = String(form.get("assetId") ?? "").trim();
         const file = form.get("file");
 
-        // Pre-uploaded temp assetId: claim, moderate, persist as project asset.
+        // Moderate before claiming: claims delete the temp object on failure.
         if (rawAssetId) {
           try {
-            const claimed = await claimTempImage(session.user.id, rawAssetId);
+            const temp = await readTempImage(session.user.id, rawAssetId);
             try {
               const moderation = await moderateProjectRequest(
                 "",
-                [{ bytes: claimed.body, mediaType: claimed.contentType }],
+                [{ bytes: temp.body, mediaType: temp.contentType }],
                 2500,
                 { projectId: id },
               );
@@ -87,11 +90,13 @@ export const Route = createFileRoute("/api/projects/$id/assets/upload")({
                 );
               }
             } catch (modError) {
-              console.warn(
-                "[moderation] image moderation check bypassed due to model error",
+              console.error(
+                "[moderation] image moderation unavailable",
                 modError,
               );
+              return moderationUnavailableResponse();
             }
+            const claimed = await claimTempImage(session.user.id, rawAssetId);
             const asset = await uploadProjectAsset({
               bytes: claimed.body,
               projectId: id,
@@ -157,10 +162,11 @@ export const Route = createFileRoute("/api/projects/$id/assets/upload")({
               );
             }
           } catch (modError) {
-            console.warn(
-              "[moderation] direct file image moderation check bypassed due to model error",
+            console.error(
+              "[moderation] direct file image moderation unavailable",
               modError,
             );
+            return moderationUnavailableResponse();
           }
           const asset = await uploadProjectAsset({
             bytes,
@@ -182,3 +188,13 @@ export const Route = createFileRoute("/api/projects/$id/assets/upload")({
     },
   },
 });
+
+function moderationUnavailableResponse() {
+  return Response.json(
+    {
+      code: "moderation_unavailable",
+      message: "Pemeriksaan keamanan belum berhasil. Coba lagi sebentar.",
+    },
+    { status: 503, headers: { "Retry-After": "3" } },
+  );
+}

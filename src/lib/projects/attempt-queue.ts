@@ -29,6 +29,7 @@ export type GenerateAttemptJob = {
   projectId: string;
   projectPrompt: string;
   projectStatus: string;
+  generationEngine: string;
   userId: string;
 };
 
@@ -349,6 +350,7 @@ export function startAttemptQueueWorker(): void {
                 id: data.projectId,
                 prompt: data.projectPrompt,
                 status: data.projectStatus,
+                generationEngine: data.generationEngine,
               },
               userId: data.userId,
             });

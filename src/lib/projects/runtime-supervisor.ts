@@ -4,6 +4,10 @@ import path from "node:path";
 
 import { getSettingSync } from "@/lib/config/app-settings";
 import { prisma as defaultPrisma } from "@/lib/prisma";
+import {
+  isProjectDeploymentForProject,
+  isSuccessfulBuildWithArtifact,
+} from "@/lib/projects/deployment-resolution";
 import { materializeProjectDistArtifact } from "@/lib/projects/runtime-artifacts";
 import { createRuntimeEventData } from "@/lib/projects/runtime-events";
 import { fetchRuntime } from "@/lib/projects/runtime-network";
@@ -22,12 +26,23 @@ export type RuntimeSupervisor = {
 };
 
 type RuntimeDeploymentRecord = {
-  build: { artifactRef: string | null } | null;
+  build: {
+    artifactRef: string | null;
+    id: string;
+    projectId: string;
+    snapshot: { id: string; projectId: string } | null;
+    snapshotId: string;
+    status: string;
+  } | null;
+  buildId: string | null;
   containerName: string | null;
   id: string;
   internalUrl: string | null;
+  kind: string;
   projectId: string;
   runtimeNodeId: string | null;
+  snapshot: { id: string; projectId: string } | null;
+  snapshotId: string | null;
   status: string;
 };
 
@@ -171,7 +186,12 @@ export function createLocalProcessRuntimeSupervisor(
   async function startDeploymentOnce(deploymentId: string) {
     const deployment = await findDeployment(runtimePrisma, deploymentId);
 
-    if (!deployment?.build?.artifactRef) {
+    if (
+      !deployment ||
+      !deployment.build ||
+      typeof deployment.build.artifactRef !== "string" ||
+      !isSuccessfulBuildWithArtifact(deployment.build)
+    ) {
       if (deployment) {
         await markDeploymentFailed(
           runtimePrisma,
@@ -330,18 +350,42 @@ async function findDeployment(
   runtimePrisma: RuntimeSupervisorPrisma,
   deploymentId: string,
 ) {
-  return await runtimePrisma.projectDeployment.findUnique({
+  const deployment = await runtimePrisma.projectDeployment.findUnique({
     select: {
-      build: { select: { artifactRef: true } },
+      build: {
+        select: {
+          artifactRef: true,
+          id: true,
+          projectId: true,
+          snapshot: { select: { id: true, projectId: true } },
+          snapshotId: true,
+          status: true,
+        },
+      },
+      buildId: true,
       containerName: true,
       id: true,
       internalUrl: true,
+      kind: true,
       projectId: true,
+      snapshot: { select: { id: true, projectId: true } },
+      snapshotId: true,
       runtimeNodeId: true,
       status: true,
     },
     where: { id: deploymentId },
   });
+
+  if (
+    !deployment ||
+    (deployment.kind !== "preview" && deployment.kind !== "published") ||
+    !isProjectDeploymentForProject(deployment, deployment.projectId) ||
+    !isSuccessfulBuildWithArtifact(deployment.build)
+  ) {
+    return null;
+  }
+
+  return deployment;
 }
 
 async function markDeploymentStopped(

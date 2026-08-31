@@ -7,11 +7,11 @@ import {
 import { shadcnThemeCss } from "./shadcn-theme";
 
 import { PLATFORM_VITE_CONFIG } from "@/lib/projects/generated-build-policy";
-import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
 import {
   compileGeneratedSiteRouter,
   generatedRouteBinding,
-} from "@/lib/projects/professional-site-router";
+} from "@/lib/projects/generated-site-router";
+import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
 import { type ProjectSiteSchema } from "@/lib/projects/site-schema";
 
 export function createViteTanStackShadcnStarterFiles(
@@ -28,7 +28,7 @@ export function createViteTanStackShadcnStarterFiles(
     .filter((route) => route.path !== "/")
     .map((route) => ({
       path: route.filePath,
-      content: `import { usePreviewReady } from "@/lib/preview-ready";\n\nexport function ${route.exportName}() {\n  usePreviewReady();\n\n  return <main data-route-placeholder />;\n}\n`,
+      content: `import { usePreviewReady } from "@/lib/preview-ready";\n\nexport function ${route.exportName}() {\n  usePreviewReady();\n\n  return <main data-route-placeholder />;\n}\n\nexport default ${route.exportName};\n`,
     }));
 
   return [
@@ -222,12 +222,14 @@ export function HomeRouteComponent() {
 
   return <main data-generated-site-starter />;
 }
+
+export default HomeRouteComponent;
 `,
     },
     ...additionalRouteFiles,
     {
       path: "src/routes/not-found.tsx",
-      content: `import { Button } from "@/components/ui/button";\n\nexport function NotFoundRouteComponent() {\n  return (\n    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col items-center justify-center gap-6 px-6 py-16 text-center">\n      <p className="text-sm font-medium text-muted-foreground">404</p>\n      <h1 className="text-3xl font-semibold tracking-tight text-foreground">\n        Halaman tidak ditemukan\n      </h1>\n      <p className="text-base text-muted-foreground">\n        Halaman yang kamu cari tidak tersedia atau sudah dipindahkan.\n      </p>\n      <Button render={<a href="#/" />}>Kembali ke beranda</Button>\n    </main>\n  );\n}\n`,
+      content: `import { Button } from "@/components/ui/button";\n\nexport function NotFoundRouteComponent() {\n  return (\n    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col items-center justify-center gap-6 px-6 py-16 text-center">\n      <p className="text-sm font-medium text-muted-foreground">404</p>\n      <h1 className="text-3xl font-semibold tracking-tight text-foreground">\n        Halaman tidak ditemukan\n      </h1>\n      <p className="text-base text-muted-foreground">\n        Halaman yang kamu cari tidak tersedia atau sudah dipindahkan.\n      </p>\n      <Button render={<a href="#/" />}>Kembali ke beranda</Button>\n    </main>\n  );\n}\n\nexport default NotFoundRouteComponent;\n`,
     },
     {
       path: "src/content/site.ts",
@@ -251,19 +253,25 @@ export function toPackageName(value: string) {
 }
 
 export function normalizeSiteSchemaForEmit(schema: ProjectSiteSchema): object {
-  const normalized = structuredClone(schema);
+  const normalized = structuredClone(schema) as Record<string, unknown>;
   if (Array.isArray(normalized.paymentMethods)) {
     normalized.paymentMethods = normalized.paymentMethods.map((entry) => ({
-      method: entry.method,
-      detail: entry.detail ?? "",
+      method: (entry as { method: string }).method,
+      detail: (entry as { detail?: string }).detail ?? "",
     }));
   }
   if (Array.isArray(normalized.products)) {
     normalized.products = normalized.products.map((entry) => ({
-      name: entry.name,
-      description: entry.description ?? "",
-      priceRange: entry.priceRange ?? "",
+      name: (entry as { name: string }).name,
+      description: (entry as { description?: string }).description ?? "",
+      priceRange: (entry as { priceRange?: string }).priceRange ?? "",
     }));
+  }
+  if (!Array.isArray(normalized.images)) {
+    normalized.images = [];
+  }
+  if (!Array.isArray(normalized.media)) {
+    normalized.media = normalized.images;
   }
   return normalized;
 }

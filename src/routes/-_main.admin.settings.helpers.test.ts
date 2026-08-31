@@ -113,7 +113,7 @@ describe("percentage display values", () => {
     display: "percentage",
     effectiveValue: 0.1,
     fallback: 0.1,
-    key: "quality.generated_site_critic_sample_rate",
+    key: "ai.test_percentage",
     max: 1,
     min: 0,
     tier: "advanced",

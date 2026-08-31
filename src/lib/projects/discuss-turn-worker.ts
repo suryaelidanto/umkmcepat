@@ -17,7 +17,12 @@ import {
   recordAiCall,
   startAiCallTimer,
 } from "@/lib/ai/ai-call-record";
-import { getDiscussModel, getVisionModel } from "@/lib/ai/ai-models";
+import {
+  getDiscussModel,
+  getModerationModel,
+  getVisionModel,
+} from "@/lib/ai/ai-models";
+import { moderateProjectRequest } from "@/lib/ai/ai-moderation";
 import { writeAiRequestLog } from "@/lib/ai/ai-request-log";
 import { getAiTimeoutMs } from "@/lib/ai/ai-timeouts";
 import { getSettingSync } from "@/lib/config/app-settings";
@@ -40,8 +45,11 @@ import { loadActiveHandoff } from "@/lib/projects/build-handoffs";
 import { prepareBuildHandoff } from "@/lib/projects/build-planner";
 import { evaluateBuildReadiness } from "@/lib/projects/build-readiness";
 import { describeBuildRecommendation } from "@/lib/projects/build-recommendation-summary";
-import { parseCanonicalBrief } from "@/lib/projects/canonical-brief";
-import { hashCanonicalBrief } from "@/lib/projects/canonical-brief-hash";
+import {
+  createDiscussionContextSnapshot,
+  parseCanonicalBrief,
+} from "@/lib/projects/canonical-brief";
+import { hashCanonicalBriefContent } from "@/lib/projects/canonical-brief-hash";
 import { ensureQuestionCardRichness } from "@/lib/projects/card-richness";
 import {
   buildProjectChatContext,
@@ -50,6 +58,10 @@ import {
   parseProjectChatSummary,
   parseProjectMemoryFacts,
 } from "@/lib/projects/chat-memory";
+import {
+  prepareDiscussTurnAssets,
+  rewriteTempImageParts,
+} from "@/lib/projects/discuss-asset-phase";
 import {
   alignAssistantTextWithCard,
   buildCardSystemPrompt,
@@ -68,9 +80,12 @@ import {
   repairToolCallInTurn,
   scrubBriefForStorage,
 } from "@/lib/projects/discuss-turn-shared";
+import { isImageUploadBoilerplateText } from "@/lib/projects/image-upload-copy";
 import { inlineChatAssetFileParts } from "@/lib/projects/inline-chat-asset-file-parts";
+import { filterOwnedBusinessAssetIds } from "@/lib/projects/project-assets";
 import { stripTransportDiagnosticMessages } from "@/lib/projects/strip-transport-diagnostic-messages";
 import { TextDeltaCoalescer } from "@/lib/projects/text-delta-coalescer";
+import { unslopUserFacingText } from "@/lib/projects/unslop-policy";
 
 export async function runDiscussTurn({
   turnId,
@@ -78,7 +93,7 @@ export async function runDiscussTurn({
   chatContext,
   effectiveBrief,
   memoryFacts: _memoryFacts,
-  messages,
+  messages: incomingMessages,
   previousWorkspaceCard,
   summary: _summary,
   userId,
@@ -104,6 +119,8 @@ export async function runDiscussTurn({
   modelOverride?: LanguageModel;
   abortSignal?: AbortSignal;
 }): Promise<void> {
+  // Downstream steps read the asset phase's rewritten message list.
+  let messages = incomingMessages;
   try {
     if (abortSignal?.aborted) {
       await finalizeDiscussTurn({
@@ -133,8 +150,38 @@ export async function runDiscussTurn({
       });
       return;
     }
+    // Moderation + asset persistence run here so the sent message persists first.
+    publishProgress(turnId, { type: "activity", phase: "moderating" });
+
+    const assetPhase = await prepareDiscussTurnAssets({
+      messages,
+      projectId: project.id,
+      turnId,
+      userId,
+    });
+    if (assetPhase.status !== "ok") {
+      await finalizeDiscussTurn({
+        turnId,
+        status: "failed",
+        errorMessage: assetPhase.message,
+      });
+      publishProgress(turnId, {
+        type: "error",
+        errorText: assetPhase.message,
+      });
+      return;
+    }
+    messages = assetPhase.messages;
+    const effectiveChatContext: ReturnType<typeof buildProjectChatContext> = {
+      ...chatContext,
+      messages: rewriteTempImageParts(
+        chatContext.messages,
+        assetPhase.urlRewrites,
+      ),
+    };
+
     // Extract any user-attached media assets from messages and sync into brief
-    const uploadedAssetIds: string[] = [];
+    const submittedAssetIds: string[] = [];
     for (const msg of messages) {
       if (msg.role === "user" && Array.isArray(msg.parts)) {
         for (const part of msg.parts) {
@@ -147,13 +194,19 @@ export async function runDiscussTurn({
             const assetId = part.url.startsWith("/api/media/")
               ? part.url.slice("/api/media/".length)
               : part.url.slice("/media/".length);
-            if (assetId && !uploadedAssetIds.includes(assetId)) {
-              uploadedAssetIds.push(assetId);
+            if (assetId && !submittedAssetIds.includes(assetId)) {
+              submittedAssetIds.push(assetId);
             }
           }
         }
       }
     }
+
+    const uploadedAssetIds = await filterOwnedBusinessAssetIds(
+      submittedAssetIds,
+      project.id,
+      userId,
+    );
 
     if (uploadedAssetIds.length > 0) {
       const existing = (effectiveBrief.businessImages ?? []).map(
@@ -186,7 +239,7 @@ export async function runDiscussTurn({
     const activeHandoff = hasBuiltSite
       ? await loadActiveHandoff(project.id).catch(() => null)
       : null;
-    const currentBriefHash = hashCanonicalBrief(
+    const currentBriefHash = hashCanonicalBriefContent(
       parseCanonicalBrief(effectiveBrief, project.prompt),
     );
     const hasPendingChanges =
@@ -197,15 +250,27 @@ export async function runDiscussTurn({
     const handoffNormalizeOptions = {
       hasBuiltSite,
       lastUserText: lastUserTextValue,
+      ownerTexts: messages
+        .filter((message) => message.role === "user")
+        .map(getTextFromUIMessage),
       previousWorkspaceCard,
+      sourceTurnId: turnId,
     };
     const chatContextWithInlineAssets = {
       ...chatContext,
-      messages: await inlineChatAssetFileParts(chatContext.messages),
+      messages: await inlineChatAssetFileParts(effectiveChatContext.messages, {
+        projectId: project.id,
+        userId,
+      }),
     };
+    const discussionContext = createDiscussionContextSnapshot({
+      messages,
+      summary: _summary,
+      memoryFacts: _memoryFacts,
+    });
     const systemPrompt = buildOneCallSystemPrompt({
       brief: effectiveBrief,
-      context: chatContext.systemContext,
+      context: `${chatContext.systemContext}\n\nFact ledger:\n${JSON.stringify(effectiveBrief.factLedger)}\n\nRaw discussion context:\n${JSON.stringify(discussionContext)}`,
       hasBuiltSite,
       hasPendingChanges,
     });
@@ -213,6 +278,59 @@ export async function runDiscussTurn({
     const modelMessages = await convertToModelMessages(
       chatContextWithInlineAssets.messages,
     );
+
+    // Fail closed: blocked or unverifiable text never reaches the model.
+    if (lastUserTextValue && !isImageUploadBoilerplateText(lastUserTextValue)) {
+      let moderation: Awaited<
+        ReturnType<typeof moderateProjectRequest>
+      > | null = null;
+      try {
+        moderation = await moderateProjectRequest(
+          lastUserTextValue,
+          [],
+          undefined,
+          { projectId: project.id, turnId },
+        );
+      } catch (error) {
+        console.error("[discuss] text moderation unavailable", {
+          projectId: project.id,
+          turnId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+      if (!moderation) {
+        const errorMessage =
+          "Pemeriksaan keamanan belum berhasil. Coba lagi sebentar.";
+        await finalizeDiscussTurn({
+          turnId,
+          status: "failed",
+          errorMessage,
+        });
+        publishProgress(turnId, { type: "error", errorText: errorMessage });
+        return;
+      }
+      if (moderation.usage) {
+        await chargeEnergyForAiUsage({
+          userId,
+          modelId: moderation.modelId || getModerationModel(),
+          inputTokens: moderation.usage.inputTokens,
+          outputTokens: moderation.usage.outputTokens,
+          reason: "moderation",
+        });
+      }
+      if (!moderation.allowed) {
+        await finalizeDiscussTurn({
+          turnId,
+          status: "failed",
+          errorMessage: moderation.message,
+        });
+        publishProgress(turnId, {
+          type: "error",
+          errorText: moderation.message,
+        });
+        return;
+      }
+    }
 
     await writeAiRequestLog({
       event: "discuss:start",
@@ -459,7 +577,7 @@ export async function runDiscussTurn({
       }
     }
     textCoalescer.flush();
-    let chatText = fullText.trim();
+    let chatText = unslopUserFacingText(fullText.trim());
     publishProgress(turnId, { type: "text-end", id: textPartId });
 
     let totalInputTokens = 0;
@@ -588,7 +706,9 @@ export async function runDiscussTurn({
     if (!chatText) {
       // Post-build: none is a legal card. Do not repair for interview cards
       if (hasBuiltSite) {
-        const fallbackText = "Siap, perubahannya sudah aku catat.";
+        const fallbackText = unslopUserFacingText(
+          "Siap, perubahannya sudah aku catat.",
+        );
         publishProgress(turnId, {
           type: "text-delta",
           id: textPartId,
@@ -660,7 +780,9 @@ export async function runDiscussTurn({
         chatText: "",
         hasBuiltSite,
         lastUserText: lastUserTextValue,
+        ownerTexts: handoffNormalizeOptions.ownerTexts,
         previousWorkspaceCard,
+        sourceTurnId: turnId,
         model,
         modelMessages,
         modelName,
@@ -810,7 +932,9 @@ export async function runDiscussTurn({
         chatText,
         hasBuiltSite,
         lastUserText: lastUserTextValue,
+        ownerTexts: handoffNormalizeOptions.ownerTexts,
         previousWorkspaceCard,
+        sourceTurnId: turnId,
         model,
         modelMessages,
         modelName,
@@ -945,8 +1069,8 @@ export async function runDiscussTurn({
         userId,
         engine: "contract",
         brief: workspaceTurn.brief,
+        discussionContext,
         turnId,
-        messages,
       });
       if (prepared.state === "ready") {
         const base = workspaceTurn.workspaceCard as {
@@ -1029,9 +1153,13 @@ export async function runDiscussTurn({
     });
 
     if (!chatText.trim()) {
-      chatText = hasBuiltSite
-        ? "Siap, perubahannya sudah aku catat. Klik Perbarui Website untuk menerapkan ke websitemu."
-        : "Ada yang bisa aku bantu lagi?";
+      chatText = unslopUserFacingText(
+        hasBuiltSite
+          ? "Siap, perubahannya sudah aku catat. Klik Perbarui Website untuk menerapkan ke websitemu."
+          : "Ada yang bisa aku bantu lagi?",
+      );
+    } else {
+      chatText = unslopUserFacingText(chatText);
     }
 
     // Last word on coherence: the owner answers the card, so a message that

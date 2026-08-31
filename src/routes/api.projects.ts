@@ -42,7 +42,10 @@ import {
   contentTypeFromExt,
   detectImageFormat,
 } from "@/lib/storage/images/format";
-import { claimTempImage } from "@/lib/storage/uploads/temp-image-storage";
+import {
+  claimTempImage,
+  readTempImage,
+} from "@/lib/storage/uploads/temp-image-storage";
 const CREATE_PROJECT_IDEMPOTENCY_ACTION = "project.create";
 const IDEMPOTENCY_KEY_MAX_LENGTH = 120;
 
@@ -258,6 +261,21 @@ export const Route = createFileRoute("/api/projects")({
             id: existingProject.id,
             path: `/projects/${existingProject.id}`,
           });
+        }
+
+        for (const tempAssetId of tempAssetIds) {
+          try {
+            const tempImage = await readTempImage(userId, tempAssetId);
+            imageParts.push({
+              bytes: tempImage.body,
+              mediaType: tempImage.contentType,
+            });
+          } catch {
+            return Response.json(
+              { code: "invalid_image", message: "Gambar tidak valid." },
+              { status: 400 },
+            );
+          }
         }
 
         try {

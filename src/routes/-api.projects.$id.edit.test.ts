@@ -270,9 +270,11 @@ describe("project edit route", () => {
       },
       {
         build: {
-          artifactRef: "project-artifact:local:dist:build_success",
+          artifactRef: "project-artifact:s3:dist:build_success",
           createdAt: older,
           id: "build_success",
+          projectId: "project_1",
+          snapshot: { id: "snapshot_success", projectId: "project_1" },
           snapshotId: "snapshot_success",
           status: "succeeded",
           updatedAt: older,
@@ -281,9 +283,11 @@ describe("project edit route", () => {
         createdAt: older,
         id: "deployment_success",
         kind: "preview",
+        projectId: "project_1",
         snapshot: {
           files: baseFiles,
           id: "snapshot_success",
+          projectId: "project_1",
           sourceRef: null,
         },
         snapshotId: "snapshot_success",

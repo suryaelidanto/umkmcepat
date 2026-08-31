@@ -3,6 +3,13 @@
 import { Check, ImagePlus, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import {
+  clearImageUploadDraft,
+  imageUploadDraftKey,
+  readImageUploadDraft,
+  writeImageUploadDraft,
+  type ImageUploadDraftItem,
+} from "@/components/projects/chat/image-upload-draft";
 import { Button } from "@/components/ui/button";
 import { ImageLightbox } from "@/components/ui/image-lightbox";
 import { ImageUploadThumb } from "@/components/ui/image-upload-thumb";
@@ -10,6 +17,7 @@ import {
   type BriefQuestion,
   type ImageUploadQuestion,
 } from "@/lib/projects/brief";
+import { imageUploadAnswerText } from "@/lib/projects/image-upload-copy";
 import { uploadTempImageFile } from "@/lib/storage/uploads/temp-image-client";
 
 export type WorkspaceAnswerPayload = {
@@ -345,16 +353,21 @@ type PendingImageUpload = {
 
 export function ImageUploadComposer({
   imageUpload,
+  projectId,
   onSubmit,
 }: {
   imageUpload: ImageUploadQuestion;
+  projectId: string;
   onSubmit: (
     answer: string,
     workspaceAnswers?: WorkspaceAnswerPayload[],
     uploads?: PendingImageUpload[],
   ) => void;
 }) {
-  const [uploads, setUploads] = useState<PendingImageUpload[]>([]);
+  const draftKey = imageUploadDraftKey(projectId, imageUpload.id);
+  const [uploads, setUploads] = useState<ImageUploadDraftItem[]>(() =>
+    readImageUploadDraft(window.localStorage, draftKey),
+  );
   const [uploading, setUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -370,6 +383,11 @@ export function ImageUploadComposer({
     setIsSubmitting(false);
     submitLockRef.current = false;
   }, [imageUpload.id]);
+
+  useEffect(() => {
+    // Picked-but-unsent images survive a refresh within the temp-upload TTL.
+    writeImageUploadDraft(window.localStorage, draftKey, uploads);
+  }, [draftKey, uploads]);
 
   async function handleFiles(files: FileList | File[] | null) {
     if (!files) {
@@ -461,20 +479,21 @@ export function ImageUploadComposer({
     }
     submitLockRef.current = true;
     setIsSubmitting(true);
+    const submitted = [...uploads];
+    clearImageUploadDraft(window.localStorage, draftKey);
+    setUploads([]);
     onSubmit(
-      uploads.length === 1
-        ? "1 gambar diunggah."
-        : `${uploads.length} gambar diunggah.`,
+      imageUploadAnswerText(submitted.length),
       [
         {
-          answer: `${uploads.length} gambar diunggah.`,
+          answer: imageUploadAnswerText(submitted.length),
           question: imageUpload.question,
           questionId: imageUpload.id,
           source: "custom",
-          assetIds: uploads.map((item) => item.assetId),
+          assetIds: submitted.map((item) => item.assetId),
         },
       ],
-      uploads,
+      submitted,
     );
   }
 
@@ -484,6 +503,8 @@ export function ImageUploadComposer({
     }
     submitLockRef.current = true;
     setIsSubmitting(true);
+    clearImageUploadDraft(window.localStorage, draftKey);
+    setUploads([]);
     onSubmit("Lewati.", [
       {
         answer: "Lewati.",

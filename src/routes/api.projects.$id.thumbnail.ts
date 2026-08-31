@@ -2,7 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
-import { readProjectThumbnail } from "@/lib/projects/project-thumbnail";
+import {
+  parseProjectThumbnailRef,
+  readProjectThumbnail,
+} from "@/lib/projects/project-thumbnail";
 import { isAdminEmail } from "@/lib/waitlist/waitlist";
 
 export const Route = createFileRoute("/api/projects/$id/thumbnail")({
@@ -27,7 +30,10 @@ export const Route = createFileRoute("/api/projects/$id/thumbnail")({
           },
           select: { thumbnailRef: true },
         });
-        if (!project?.thumbnailRef) {
+        if (
+          !project?.thumbnailRef ||
+          parseProjectThumbnailRef(project.thumbnailRef) !== id
+        ) {
           return Response.json(
             { message: "Thumbnail tidak ditemukan." },
             { status: 404 },

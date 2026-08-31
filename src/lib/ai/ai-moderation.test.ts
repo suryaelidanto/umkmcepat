@@ -56,17 +56,15 @@ describe("moderateProjectRequest", () => {
     });
   });
 
-  it("defaults to ALLOW for empty/unexpected model responses", async () => {
+  it("fails closed for empty or unexpected model responses", async () => {
     generateTextMock.mockResolvedValueOnce({
       text: "",
       usage: { inputTokens: 5, outputTokens: 0 },
     } as never);
 
-    await expect(moderateProjectRequest("jual teh kosong")).resolves.toEqual({
-      allowed: true,
-      modelId: "default-combo",
-      usage: { inputTokens: 5, outputTokens: 0 },
-    });
+    await expect(moderateProjectRequest("jual teh kosong")).rejects.toThrow(
+      "AI moderation returned an invalid response",
+    );
   });
 
   it("retries once on error and succeeds", async () => {

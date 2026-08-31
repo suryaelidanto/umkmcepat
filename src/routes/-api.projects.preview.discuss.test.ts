@@ -225,39 +225,22 @@ describe("POST /api/projects/preview (discuss) — server-side turn flow", () =>
     expect(text).not.toContain('"type":"activity"');
   });
 
-  it("finishes moderation before claiming and enqueueing a discuss turn", async () => {
+  it("submits first: persists, claims, and enqueues without moderating in the route", async () => {
     const order: string[] = [];
-    moderateProjectRequestMock.mockImplementation(async () => {
-      order.push("moderation");
-      return {
-        allowed: true,
-        modelId: "default-combo",
-        usage: { inputTokens: 0, outputTokens: 0 },
-      };
-    });
     claimDiscussTurnMock.mockImplementation(async () => {
       order.push("claim");
-      return { claimed: true, turnId: "ct_moderated" };
+      return { claimed: true, turnId: "ct_submit_first" };
     });
-
-    await callDiscussPost();
-
-    expect(order).toEqual(["moderation", "claim"]);
-  });
-
-  it("does not claim or enqueue when concurrent moderation denies the request", async () => {
-    moderateProjectRequestMock.mockResolvedValue({
-      allowed: false,
-      message: "Permintaan belum bisa diproses.",
-      modelId: "default-combo",
-      usage: { inputTokens: 0, outputTokens: 0 },
+    enqueueAttemptJobMock.mockImplementation(async () => {
+      order.push("enqueue");
     });
 
     const response = await callDiscussPost();
 
-    expect(response.status).toBe(400);
-    expect(claimDiscussTurnMock).not.toHaveBeenCalled();
-    expect(enqueueAttemptJobMock).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    // The discuss worker owns moderation; the route never calls it.
+    expect(moderateProjectRequestMock).not.toHaveBeenCalled();
+    expect(order).toEqual(["claim", "enqueue"]);
   });
 
   it("returns 409 project_chat_in_progress when a turn is already running", async () => {

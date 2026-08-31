@@ -16,6 +16,11 @@ const {
   getSettingSyncMock,
   primeSettingCacheMock,
   prepareBuildHandoffMock,
+  moderateProjectRequestMock,
+  readTempImageMock,
+  claimTempImageMock,
+  uploadProjectAssetMock,
+  filterOwnedBusinessAssetIdsMock,
 } = vi.hoisted(() => ({
   streamTextMock: vi.fn(),
   convertToModelMessagesMock: vi.fn(async () => []),
@@ -33,6 +38,33 @@ const {
   }),
   primeSettingCacheMock: vi.fn(async () => undefined),
   prepareBuildHandoffMock: vi.fn(),
+  moderateProjectRequestMock: vi.fn<
+    (
+      prompt: string,
+      images?: unknown[],
+      timeoutMs?: number,
+      correlation?: unknown,
+    ) => Promise<{
+      allowed: boolean;
+      message?: string;
+      modelId?: string;
+      usage?: { inputTokens: number; outputTokens: number };
+    }>
+  >(async () => ({
+    allowed: true,
+    modelId: "mod-model",
+    usage: { inputTokens: 0, outputTokens: 0 },
+  })),
+  readTempImageMock: vi.fn(),
+  claimTempImageMock: vi.fn(),
+  uploadProjectAssetMock: vi.fn(),
+  filterOwnedBusinessAssetIdsMock: vi.fn<
+    (
+      assetIds: string[],
+      projectId?: string,
+      userId?: string,
+    ) => Promise<string[]>
+  >(async () => []),
   normalizeWorkspaceTurnMock: vi.fn(() => ({
     brief: { prompt: "p", confidence: 0 },
     projectTitle: "t",
@@ -69,6 +101,7 @@ vi.mock("@/lib/ai/ai-models", () => ({
   getDiscussModel: vi.fn(() => "test/model"),
   getModerationModel: vi.fn(() => "test/model"),
   getGenerationModel: vi.fn(() => "test/model"),
+  getVisionModel: vi.fn(() => "test/model"),
 }));
 
 vi.mock("@/lib/config/app-settings", () => ({
@@ -138,6 +171,24 @@ vi.mock("@/lib/projects/strip-transport-diagnostic-messages", () => ({
 vi.mock("@/lib/projects/ai-error-log", () => ({
   getSafeAiErrorLog: (e: unknown) =>
     e instanceof Error ? e.message : String(e),
+}));
+
+vi.mock("@/lib/ai/ai-moderation", () => ({
+  getModerationTimeoutMs: () => 2500,
+  moderateProjectRequest: moderateProjectRequestMock,
+}));
+
+vi.mock("@/lib/storage/uploads/temp-image-storage", () => ({
+  readTempImage: readTempImageMock,
+  claimTempImage: claimTempImageMock,
+}));
+
+vi.mock("@/lib/projects/project-assets", () => ({
+  filterOwnedBusinessAssetIds: filterOwnedBusinessAssetIdsMock,
+}));
+
+vi.mock("@/lib/projects/project-asset-upload", () => ({
+  uploadProjectAsset: uploadProjectAssetMock,
 }));
 
 vi.mock("@/lib/projects/brief-rich-fields", async (importOriginal) => ({
@@ -1004,6 +1055,263 @@ describe("runDiscussTurn worker", () => {
     expect(cardEvent.handoffId).toBe("h-ready");
     expect(finalizeDiscussTurnMock).toHaveBeenCalledWith(
       expect.objectContaining({ turnId: "ct_gate_eager", status: "succeeded" }),
+    );
+  });
+});
+
+const TEMP_URL = (assetId: string) =>
+  `/api/uploads/temp-images/${encodeURIComponent(assetId)}`;
+
+function imageMessage(text: string): UIMessage[] {
+  return [
+    {
+      id: "m_img",
+      parts: [
+        {
+          filename: "gambar.jpg",
+          mediaType: "image/jpeg",
+          type: "file",
+          url: TEMP_URL("tok_1"),
+        },
+        { text, type: "text" },
+      ],
+      role: "user",
+    } as never as UIMessage,
+  ];
+}
+
+describe("runDiscussTurn asset + moderation phase", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+    filterOwnedBusinessAssetIdsMock.mockResolvedValue([]);
+  });
+
+  function mockAllowedModeration() {
+    moderateProjectRequestMock.mockResolvedValue({
+      allowed: true,
+      modelId: "vision-model",
+      usage: { inputTokens: 10, outputTokens: 1 },
+    });
+  }
+
+  function mockReadableTempImage() {
+    readTempImageMock.mockResolvedValue({
+      body: Buffer.from("image-bytes"),
+      contentType: "image/jpeg",
+    });
+    claimTempImageMock.mockResolvedValue({
+      body: Buffer.from("image-bytes"),
+      contentType: "image/jpeg",
+      sizeBytes: 11,
+    });
+    uploadProjectAssetMock.mockResolvedValue({ id: "asset_saved" });
+  }
+
+  function mockSuccessfulCardTurn() {
+    normalizeWorkspaceTurnMock.mockReturnValue({
+      brief: baseBrief,
+      projectTitle: "T",
+      workspaceCard: {
+        type: "question",
+        question: {
+          id: "q1",
+          question: "Pilih?",
+          answerMode: "text",
+          options: [],
+        },
+      },
+      readyForBuild: false,
+    } as never);
+    streamTextMock.mockReturnValue(
+      makeStreamResult([
+        { type: "text-delta", text: "Halo" },
+        {
+          type: "tool-call",
+          toolCallId: "tc1",
+          toolName: "presentWorkspaceCard",
+          input: { workspaceCard: { type: "question" } },
+        },
+      ]),
+    );
+  }
+
+  it("moderates + claims attached images before the model call and persists permanent media URLs", async () => {
+    mockSuccessfulCardTurn();
+    mockAllowedModeration();
+    mockReadableTempImage();
+    filterOwnedBusinessAssetIdsMock.mockResolvedValue(["asset_saved"]);
+    const messages = imageMessage("1 gambar diunggah.");
+
+    await runDiscussTurn({
+      turnId: "ct_img_ok",
+      project: baseProject,
+      chatContext: { messages, systemContext: "" },
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages,
+      summary: baseSummary,
+      userId: "u1",
+    });
+
+    const order = moderateProjectRequestMock.mock.invocationCallOrder[0]!;
+    const claimOrder = claimTempImageMock.mock.invocationCallOrder[0]!;
+    const modelOrder = streamTextMock.mock.invocationCallOrder[0]!;
+    expect(order).toBeLessThan(claimOrder);
+    expect(claimOrder).toBeLessThan(modelOrder);
+    expect(moderateProjectRequestMock).toHaveBeenCalledTimes(1);
+    expect(moderateProjectRequestMock).toHaveBeenCalledWith(
+      "",
+      [expect.objectContaining({ mediaType: "image/jpeg" })],
+      expect.any(Number),
+      { projectId: "p1", turnId: "ct_img_ok" },
+    );
+    expect(uploadProjectAssetMock).toHaveBeenCalledWith(
+      expect.objectContaining({ purpose: "business-image" }),
+    );
+    expect(filterOwnedBusinessAssetIdsMock).toHaveBeenCalledWith(
+      ["asset_saved"],
+      "p1",
+      "u1",
+    );
+    const persistedValues = prismaExecuteRawMock.mock.calls
+      .flatMap((call) => call.slice(1))
+      .join("\n");
+    expect(persistedValues).toContain("/api/media/asset_saved");
+    expect(persistedValues).not.toContain("temp-images");
+    expect(finalizeDiscussTurnMock).toHaveBeenCalledWith(
+      expect.objectContaining({ turnId: "ct_img_ok", status: "succeeded" }),
+    );
+  });
+
+  it("fails the turn without calling the model when an attached image is blocked", async () => {
+    mockSuccessfulCardTurn();
+    moderateProjectRequestMock.mockResolvedValue({
+      allowed: false,
+      message: "Gambar tidak memenuhi syarat.",
+      modelId: "vision-model",
+      usage: { inputTokens: 10, outputTokens: 1 },
+    });
+    mockReadableTempImage();
+    const messages = imageMessage("1 gambar diunggah.");
+
+    await runDiscussTurn({
+      turnId: "ct_img_blocked",
+      project: baseProject,
+      chatContext: { messages, systemContext: "" },
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages,
+      summary: baseSummary,
+      userId: "u1",
+    });
+
+    expect(finalizeDiscussTurnMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "failed",
+        errorMessage: "Gambar tidak memenuhi syarat.",
+        turnId: "ct_img_blocked",
+      }),
+    );
+    expect(publishProgressMock).toHaveBeenCalledWith(
+      "ct_img_blocked",
+      expect.objectContaining({
+        errorText: "Gambar tidak memenuhi syarat.",
+        type: "error",
+      }),
+    );
+    expect(streamTextMock).not.toHaveBeenCalled();
+    expect(claimTempImageMock).not.toHaveBeenCalled();
+    expect(uploadProjectAssetMock).not.toHaveBeenCalled();
+    expect(prismaExecuteRawMock).not.toHaveBeenCalled();
+  });
+
+  it("fails the turn and keeps the temp upload when image moderation is unavailable", async () => {
+    mockSuccessfulCardTurn();
+    moderateProjectRequestMock.mockRejectedValue(new Error("provider down"));
+    mockReadableTempImage();
+    const messages = imageMessage("1 gambar diunggah.");
+
+    await runDiscussTurn({
+      turnId: "ct_img_down",
+      project: baseProject,
+      chatContext: { messages, systemContext: "" },
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages,
+      summary: baseSummary,
+      userId: "u1",
+    });
+
+    expect(finalizeDiscussTurnMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        errorMessage:
+          "Pemeriksaan keamanan belum berhasil. Coba lagi sebentar.",
+        status: "failed",
+      }),
+    );
+    expect(streamTextMock).not.toHaveBeenCalled();
+    expect(claimTempImageMock).not.toHaveBeenCalled();
+  });
+
+  it("fails the turn when non-boilerplate text is blocked by moderation", async () => {
+    mockSuccessfulCardTurn();
+    moderateProjectRequestMock.mockResolvedValue({
+      allowed: false,
+      message: "Maaf, AI tidak bisa membantu membuat website untuk topik ini.",
+      modelId: "mod-model",
+      usage: { inputTokens: 10, outputTokens: 1 },
+    });
+
+    await runDiscussTurn({
+      turnId: "ct_text_blocked",
+      project: baseProject,
+      chatContext: baseChatContext,
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages: baseMessages,
+      summary: baseSummary,
+      userId: "u1",
+    });
+
+    expect(moderateProjectRequestMock).toHaveBeenCalledWith(
+      "hai",
+      [],
+      undefined,
+      { projectId: "p1", turnId: "ct_text_blocked" },
+    );
+    expect(finalizeDiscussTurnMock).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "failed", turnId: "ct_text_blocked" }),
+    );
+    expect(streamTextMock).not.toHaveBeenCalled();
+    expect(prismaExecuteRawMock).not.toHaveBeenCalled();
+  });
+
+  it("skips text moderation for image-upload boilerplate answers with no attachments", async () => {
+    mockSuccessfulCardTurn();
+    mockAllowedModeration();
+    const messages: UIMessage[] = [
+      {
+        id: "m_boiler",
+        parts: [{ text: "1 gambar diunggah.", type: "text" }],
+        role: "user",
+      } as never as UIMessage,
+    ];
+
+    await runDiscussTurn({
+      turnId: "ct_boiler",
+      project: baseProject,
+      chatContext: { messages, systemContext: "" },
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages,
+      summary: baseSummary,
+      userId: "u1",
+    });
+
+    expect(moderateProjectRequestMock).not.toHaveBeenCalled();
+    expect(streamTextMock).toHaveBeenCalled();
+    expect(finalizeDiscussTurnMock).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "succeeded", turnId: "ct_boiler" }),
     );
   });
 });

@@ -37,23 +37,6 @@ describe("validateSettingValue", () => {
     ).toMatch(/must be a boolean/);
   });
 
-  it("accepts critic sampling in AI category", () => {
-    expect(
-      validateSettingValue(
-        "quality.generated_site_critic_sample_rate",
-        0.25,
-        "ai",
-      ),
-    ).toBeNull();
-    expect(
-      validateSettingValue(
-        "quality.generated_site_critic_sample_rate",
-        0.25,
-        "feature_flag",
-      ),
-    ).toMatch(/Invalid key/);
-  });
-
   it("rejects settled implementation controls", () => {
     for (const key of [
       "feature.builder_photo_enabled",

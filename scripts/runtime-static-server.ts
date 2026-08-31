@@ -12,6 +12,7 @@ for (let index = 2; index < process.argv.length; index += 2) {
 const root = path.resolve(args.get("--root") || ".");
 const port = Number(args.get("--port") || 0);
 const host = args.get("--host") || "127.0.0.1";
+const STATIC_ASSET_ROOTS = new Set(["assets", "images"]);
 
 if (!port) {
   throw new Error("runtime-static-server requires --port.");
@@ -58,7 +59,12 @@ function shutdown() {
 }
 
 async function resolveRequestPath(pathname) {
-  const decoded = decodeURIComponent(pathname);
+  let decoded;
+  try {
+    decoded = decodeURIComponent(pathname);
+  } catch {
+    return null;
+  }
   const relativePath = decoded.replace(/^\/+/, "") || "index.html";
 
   if (isUnsafeRelativePath(relativePath)) {
@@ -69,6 +75,10 @@ async function resolveRequestPath(pathname) {
 
   if (requestedPath) {
     return requestedPath;
+  }
+
+  if (STATIC_ASSET_ROOTS.has(relativePath.split("/")[0] ?? "")) {
+    return null;
   }
 
   return await resolveFile("index.html");

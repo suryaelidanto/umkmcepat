@@ -13,6 +13,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import {
   applySecurityHeaders,
   isCrossSiteMutation,
+  isMalformedPathEncoding,
 } from "@/lib/security-headers";
 
 function isGeneratedOrigin(requestOrigin: string) {
@@ -38,6 +39,16 @@ const securityMiddleware = createMiddleware().server(async ({ next }) => {
   const pathname = url.pathname;
   const generatedOrigin = isGeneratedOrigin(url.origin);
   const isApi = pathname.startsWith("/api/");
+
+  if (isMalformedPathEncoding(pathname)) {
+    const malformedPathResponse = new Response("Not Found", { status: 404 });
+    applySecurityHeaders(malformedPathResponse.headers, {
+      generatedOrigin,
+      pathname,
+      nonce,
+    });
+    return malformedPathResponse;
+  }
 
   const forwardedProto = request.headers.get("x-forwarded-proto");
   const proto =

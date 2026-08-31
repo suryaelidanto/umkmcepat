@@ -643,7 +643,7 @@ describe("messagesEqualForRender", () => {
   });
 });
 
-// Regression: when the preview runtime cannot serve (e.g. PROJECT_RUNTIME_SUPERVISOR=noop
+// Regression: when the preview runtime cannot serve.
 describe("previewReadyState", () => {
   it("stays loading before the silent-recovery budget is exhausted", () => {
     for (

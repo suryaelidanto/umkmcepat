@@ -59,9 +59,13 @@ export function parseProjectArtifactRef(
     return null;
   }
 
-  const [rawKind, artifactId] = ref
-    .slice(S3_PROJECT_ARTIFACT_REF_PREFIX.length)
-    .split(":");
+  const segments = ref.slice(S3_PROJECT_ARTIFACT_REF_PREFIX.length).split(":");
+
+  if (segments.length !== 2) {
+    return null;
+  }
+
+  const [rawKind, artifactId] = segments;
 
   if ((rawKind !== "dist" && rawKind !== "source") || !artifactId) {
     return null;
@@ -69,6 +73,25 @@ export function parseProjectArtifactRef(
 
   assertSafeArtifactId(artifactId);
   return { artifactId, kind: rawKind };
+}
+
+export function isProjectArtifactRefFor(
+  ref: string | null | undefined,
+  expectedKind: ProjectArtifactKind,
+  expectedArtifactId: string,
+): ref is string {
+  if (!ref) {
+    return false;
+  }
+
+  try {
+    const parsed = parseProjectArtifactRef(ref);
+    return (
+      parsed?.kind === expectedKind && parsed.artifactId === expectedArtifactId
+    );
+  } catch {
+    return false;
+  }
 }
 
 export async function writeProjectSourceArtifact(

@@ -29,18 +29,10 @@ export function deriveReviewItems(
 ): ReviewItemV1[] {
   const usedFactIds = new Set<string>();
   const usedCtaIds = new Set<string>();
-  const usedAssetIds = new Set<string>();
+  const usedAssetIds = new Set(contract.assets.map((asset) => asset.assetId));
   for (const page of plan.pages) {
     for (const factId of page.requiredFactIds) {
       usedFactIds.add(factId);
-    }
-    for (const section of page.sections) {
-      for (const factId of section.requiredFactIds) {
-        usedFactIds.add(factId);
-      }
-      for (const assetId of section.requiredAssetIds) {
-        usedAssetIds.add(assetId);
-      }
     }
   }
   for (const cta of contract.ctaIntents) {

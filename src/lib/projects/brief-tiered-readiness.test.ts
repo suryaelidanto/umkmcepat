@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   evaluateTieredBriefReadiness,
-  fallbackUspOptions,
   getNextTieredEnrichmentCard,
   isExplicitBuildRequest,
 } from "./brief-tiered-readiness";
@@ -143,7 +142,7 @@ describe("getNextTieredEnrichmentCard", () => {
     }
   });
 
-  it("returns usp choice card when pricing is filled but usp is empty", () => {
+  it("returns usp text card when pricing is filled but usp is empty", () => {
     const brief = parseCanonicalBrief({
       businessName: "Bengkel Ayah",
       productOrService: [
@@ -157,8 +156,8 @@ describe("getNextTieredEnrichmentCard", () => {
     expect(card?.type).toBe("question");
     if (card?.type === "question") {
       expect(card.question.id).toBe("usp");
-      expect(card.question.answerMode).toBe("choice");
-      expect(card.question.options.length).toBeGreaterThan(1);
+      expect(card.question.answerMode).toBe("text");
+      expect(card.question.options).toEqual([]);
     }
   });
 
@@ -190,18 +189,5 @@ describe("getNextTieredEnrichmentCard", () => {
     });
     const card = getNextTieredEnrichmentCard(brief);
     expect(card).toBeNull();
-  });
-});
-
-describe("fallbackUspOptions", () => {
-  it("produces universal structured options", () => {
-    const options = fallbackUspOptions("Usaha Lokal");
-    expect(options.length).toBeGreaterThanOrEqual(3);
-    const hasQuality = options.some(
-      (o) =>
-        o.label.toLowerCase().includes("kualitas") ||
-        o.label.toLowerCase().includes("harga"),
-    );
-    expect(hasQuality).toBe(true);
   });
 });

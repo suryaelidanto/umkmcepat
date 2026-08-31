@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Link } from "@/components/ui/link";
 import { Toaster } from "@/components/ui/sonner";
 import { getSetting } from "@/lib/config/app-settings";
+import { resolveNonce } from "@/lib/csp-nonce";
 import { cn } from "@/lib/utils";
 import "@/styles/globals.css";
 
@@ -209,7 +210,7 @@ function RootError({ error, reset }: { error: Error; reset: () => void }) {
 
 function RootComponent() {
   const router = useRouter();
-  const nonce = router.options.ssr?.nonce;
+  const nonce = resolveNonce(router.options.ssr?.nonce);
   const loaderData = Route.useLoaderData();
   const defaultTheme = loaderData?.defaultTheme || "dark";
   const maintenanceMode = loaderData?.maintenanceMode || false;
@@ -249,6 +250,7 @@ function RootDocument({
       <head>
         <script
           nonce={nonce}
+          suppressHydrationWarning
           dangerouslySetInnerHTML={{
             __html: `!function(){try{var d=document.documentElement,c=d.classList;c.remove('dark','light');var e=localStorage.getItem('theme');var t=e||${JSON.stringify(defaultTheme)};if(t==='system'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}c.add(t);d.style.colorScheme=t;window.__PUBLIC_CONFIG__={NEXT_PUBLIC_TURNSTILE_SITE_KEY:${JSON.stringify(turnstileSiteKey)},turnstileSiteKey:${JSON.stringify(turnstileSiteKey)}};}catch(e){}}();`,
           }}
@@ -280,6 +282,7 @@ function RootDocument({
           maintenanceMode={maintenanceMode}
           maintenanceMessage={maintenanceMessage}
           turnstileSiteKey={turnstileSiteKey}
+          nonce={nonce}
         >
           {children}
         </AppProviders>

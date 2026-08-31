@@ -1,16 +1,6 @@
 // src/lib/projects/build-plan.ts
 import type { BuildContractV1 } from "./build-contract";
 
-export type SectionSurfaceIntent = "full_bleed" | "contained" | "prose";
-
-export type PlanSection = {
-  id: string;
-  purpose: string;
-  surfaceIntent: SectionSurfaceIntent;
-  requiredFactIds: string[];
-  requiredAssetIds: string[];
-};
-
 export type PlanPage = {
   id: string;
   path: string;
@@ -19,7 +9,6 @@ export type PlanPage = {
   visitorJobIds: string[];
   requiredFactIds: string[];
   representativePath?: string;
-  sections: PlanSection[];
 };
 
 export type PlanCapability =
@@ -36,16 +25,9 @@ export type BuildPlanV1 = {
   contractHash: string;
   contentHash: string;
   appKind: "landing" | "marketing_site" | "interactive_app";
-  archetype: string;
   pages: PlanPage[];
   navigation: Array<{ fromPageId: string; toPageId: string; label: string }>;
   capabilities: PlanCapability[];
-  artDirection: {
-    businessSpecificReference: string;
-    antiReferences: string[];
-    imageStrategy: "owner_assets" | "graphic" | "typographic";
-    fontStrategy: "platform_registry" | "system_stack";
-  };
 };
 
 export type PlanParseResult =
@@ -130,7 +112,6 @@ export function validatePlanAgainstContract(
   }
 
   const factIds = new Set(contract.facts.map((f) => f.id));
-  const assetIds = new Set(contract.assets.map((a) => a.assetId));
   const jobIds = new Set(contract.visitorJobs.map((j) => j.id));
 
   const primaryJobs = new Set(
@@ -155,24 +136,6 @@ export function validatePlanAgainstContract(
       }
       if (primaryJobs.has(jobId)) {
         coveredJobs.add(jobId);
-      }
-    }
-    for (const section of page.sections) {
-      for (const factId of section.requiredFactIds) {
-        if (!factIds.has(factId)) {
-          return {
-            ok: false,
-            reason: `section references unknown fact: ${factId}`,
-          };
-        }
-      }
-      for (const assetId of section.requiredAssetIds) {
-        if (!assetIds.has(assetId)) {
-          return {
-            ok: false,
-            reason: `section references unknown asset: ${assetId}`,
-          };
-        }
       }
     }
   }

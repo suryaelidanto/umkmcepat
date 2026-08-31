@@ -5,7 +5,10 @@ import {
   createInitialCanonicalBrief,
   parseCanonicalBrief,
 } from "./canonical-brief";
-import { hashCanonicalBrief } from "./canonical-brief-hash";
+import {
+  hashCanonicalBrief,
+  hashCanonicalBriefContent,
+} from "./canonical-brief-hash";
 
 describe("parseCanonicalBrief", () => {
   it("parses assets from brief containing assetId objects", () => {
@@ -225,6 +228,71 @@ describe("parseCanonicalBrief", () => {
 
     expect(hashCanonicalBrief(a)).toMatch(/^[a-f0-9]{64}$/);
     expect(hashCanonicalBrief(a)).toBe(hashCanonicalBrief(b));
+  });
+
+  it("ignores provenance metadata in the content hash", () => {
+    const base = {
+      version: 2,
+      business: { name: "Toko", type: "Retail", category: "retail" },
+      offers: [{ name: "Produk", isPrimary: true }],
+    } as const;
+    const one = parseCanonicalBrief({
+      ...base,
+      factLedger: {
+        version: 1,
+        entries: [
+          {
+            id: "offers-primary",
+            field: "offers",
+            label: "Produk",
+            value: "Produk",
+            state: "owner_confirmed",
+            source: "owner",
+            sourceTurnId: "turn-a",
+          },
+        ],
+      },
+      discussionContext: {
+        version: 1,
+        messages: [],
+        summary: { text: "", compactedMessageCount: 0 },
+        memoryFacts: { facts: [], decisions: [], preferences: [] },
+        capturedAt: "2026-08-29T00:00:00.000Z",
+      },
+    });
+    const two = parseCanonicalBrief({
+      ...base,
+      factLedger: {
+        version: 1,
+        entries: [
+          {
+            id: "offers-primary",
+            field: "offers",
+            label: "Produk",
+            value: "Produk",
+            state: "owner_confirmed",
+            source: "owner",
+            sourceTurnId: "turn-b",
+          },
+        ],
+      },
+      discussionContext: {
+        version: 1,
+        messages: [
+          { id: "message-1", role: "user", parts: [{ text: "Halo" }] },
+        ],
+        summary: { text: "Ringkasan", compactedMessageCount: 1 },
+        memoryFacts: {
+          facts: ["Produk"],
+          decisions: [],
+          preferences: [],
+        },
+        capturedAt: "2026-08-30T00:00:00.000Z",
+      },
+    });
+
+    expect(hashCanonicalBrief(one)).not.toBe(hashCanonicalBrief(two));
+    expect(hashCanonicalBriefContent(one)).toBe(hashCanonicalBriefContent(two));
   });
 
   it("includes visitor jobs in the canonical hash", () => {

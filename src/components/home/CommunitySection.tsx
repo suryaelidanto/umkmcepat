@@ -80,7 +80,7 @@ function SponsorModal() {
         <div className="space-y-spacing-4 text-xs text-[#5f5f5d] dark:text-surface-warm-white/70">
           <div className="rounded-lg border border-black/10 bg-black/[0.02] p-spacing-4 dark:border-white/10 dark:bg-white/[0.02]">
             <p className="font-semibold text-[#1c1c1c] dark:text-surface-warm-white">
-              Contoh Format Email:
+              Format Email:
             </p>
             <pre className="mt-spacing-2 whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-[#5f5f5d] dark:text-surface-warm-white/80">
               {`- Nama / Perusahaan:

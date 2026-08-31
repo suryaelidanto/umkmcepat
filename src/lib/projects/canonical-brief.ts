@@ -10,6 +10,13 @@ import {
   type UmkmType,
 } from "./brief-rich-fields";
 import {
+  createEmptyFactLedger,
+  createFactLedgerEntriesFromPatch,
+  mergeFactLedger,
+  normalizeFactLedger,
+  type FactLedger,
+} from "./fact-ledger";
+import {
   normalizeVisitorJobs,
   parseVisitorJobs,
   type VisitorJob,
@@ -25,6 +32,24 @@ export type CanonicalPrimaryAction = {
   kind: CanonicalPrimaryActionKind;
   label: string;
   target: string | null;
+};
+
+export type DiscussionContextMessage = {
+  id: string;
+  role: "user" | "assistant" | "system";
+  parts: unknown[];
+};
+
+export type DiscussionContextSnapshot = {
+  version: 1;
+  messages: DiscussionContextMessage[];
+  summary: { text: string; compactedMessageCount: number };
+  memoryFacts: {
+    facts: string[];
+    decisions: string[];
+    preferences: string[];
+  };
+  capturedAt: string;
 };
 
 export type ProjectBriefV2 = {
@@ -61,6 +86,8 @@ export type ProjectBriefV2 = {
     facts: ProjectFact[];
     decisions: ProjectDecision[];
   };
+  factLedger?: FactLedger;
+  discussionContext?: DiscussionContextSnapshot;
 };
 
 const UMKM_TYPES: ReadonlySet<string> = new Set([
@@ -122,7 +149,31 @@ export function createInitialCanonicalBrief(prompt = ""): ProjectBriefV2 {
     },
     assets: [],
     provenance: { facts: [], decisions: [] },
+    factLedger: createEmptyFactLedger(),
   };
+}
+
+export function createDiscussionContextSnapshot(input: {
+  messages: unknown[];
+  summary?: unknown;
+  memoryFacts?: unknown;
+  capturedAt?: string;
+}): DiscussionContextSnapshot {
+  return (
+    parseDiscussionContext({
+      version: 1,
+      messages: input.messages,
+      summary: input.summary,
+      memoryFacts: input.memoryFacts,
+      capturedAt: input.capturedAt ?? new Date().toISOString(),
+    }) ?? {
+      version: 1,
+      messages: [],
+      summary: { text: "", compactedMessageCount: 0 },
+      memoryFacts: { facts: [], decisions: [], preferences: [] },
+      capturedAt: input.capturedAt ?? new Date().toISOString(),
+    }
+  );
 }
 
 export function parseCanonicalBrief(
@@ -176,6 +227,8 @@ export function migrateLegacyBrief(
       facts: parseFacts(source.facts),
       decisions: parseDecisions(source.decisions),
     },
+    factLedger: normalizeFactLedger(source.factLedger),
+    discussionContext: parseDiscussionContext(source.discussionContext),
   };
 }
 
@@ -217,6 +270,8 @@ export function applyAiBriefPatch(
       facts: [...brief.provenance.facts],
       decisions: [...brief.provenance.decisions],
     },
+    factLedger: normalizeFactLedger(brief.factLedger),
+    discussionContext: brief.discussionContext,
   };
 
   const businessPatch = asRecord(input.business);
@@ -414,6 +469,29 @@ export function applyAiBriefPatch(
     }
     next.provenance.decisions = [...byId.values()].slice(-40);
   }
+  if (hasKey("factLedger")) {
+    const rawLedger = asRecord(input.factLedger);
+    const incomingEntries = Array.isArray(rawLedger?.entries)
+      ? rawLedger.entries
+      : [];
+    next.factLedger = mergeFactLedger(
+      next.factLedger ?? createEmptyFactLedger(),
+      incomingEntries,
+      { ownerTexts: [] },
+    );
+  }
+  const patchEntries = createFactLedgerEntriesFromPatch(input);
+  if (patchEntries.length > 0) {
+    next.factLedger = mergeFactLedger(
+      next.factLedger ?? createEmptyFactLedger(),
+      patchEntries,
+      { ownerTexts: [] },
+    );
+  }
+
+  if (hasKey("discussionContext")) {
+    next.discussionContext = parseDiscussionContext(input.discussionContext);
+  }
   if (hasKey("prompt")) {
     const value = cleanText(input.prompt);
     if (value) {
@@ -476,6 +554,8 @@ function parseV2(
       facts: parseFacts(provenance.facts),
       decisions: parseDecisions(provenance.decisions),
     },
+    factLedger: normalizeFactLedger(source.factLedger),
+    discussionContext: parseDiscussionContext(source.discussionContext),
   };
 }
 
@@ -624,6 +704,62 @@ function parseFacts(value: unknown): ProjectFact[] {
     }
   }
   return result.slice(-40);
+}
+
+function parseDiscussionContext(
+  value: unknown,
+): DiscussionContextSnapshot | undefined {
+  const source = asRecord(value);
+  if (!source || source.version !== 1 || !Array.isArray(source.messages)) {
+    return undefined;
+  }
+  const messages: DiscussionContextMessage[] = [];
+  for (const candidate of source.messages.slice(-200)) {
+    const item = asRecord(candidate);
+    const id = cleanText(item?.id).slice(0, 120);
+    const role = item?.role;
+    const parts = item?.parts;
+    if (
+      !id ||
+      (role !== "user" && role !== "assistant" && role !== "system") ||
+      !Array.isArray(parts)
+    ) {
+      continue;
+    }
+    messages.push({ id, role, parts });
+  }
+  const summary = asRecord(source.summary);
+  const memoryFacts = asRecord(source.memoryFacts);
+  return {
+    version: 1,
+    messages,
+    summary: {
+      text: cleanText(summary?.text).slice(0, 4000),
+      compactedMessageCount: finiteCount(summary?.compactedMessageCount),
+    },
+    memoryFacts: {
+      facts: parseStringList(memoryFacts?.facts, 24),
+      decisions: parseStringList(memoryFacts?.decisions, 24),
+      preferences: parseStringList(memoryFacts?.preferences, 24),
+    },
+    capturedAt: cleanText(source.capturedAt).slice(0, 80),
+  };
+}
+
+function parseStringList(value: unknown, max: number): string[] {
+  return Array.isArray(value)
+    ? value
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => cleanText(item).slice(0, 280))
+        .filter(Boolean)
+        .slice(0, max)
+    : [];
+}
+
+function finiteCount(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.max(0, Math.floor(value))
+    : 0;
 }
 
 function parseDecisions(value: unknown): ProjectDecision[] {

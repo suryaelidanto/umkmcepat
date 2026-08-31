@@ -6,6 +6,7 @@ import { getModerationModel } from "@/lib/ai/ai-models";
 import { devLog } from "@/lib/dev-log";
 import { chargeEnergyForAiUsage } from "@/lib/payment/user-credits";
 import { prisma } from "@/lib/prisma";
+import { parseCanonicalBrief } from "@/lib/projects/canonical-brief";
 import { maybeCompactProjectChat } from "@/lib/projects/chat-compaction";
 import {
   dedupeUiMessages,
@@ -23,9 +24,10 @@ export async function runQueuedProjectCompaction(
       chatMessages: unknown;
       chatSummary: unknown;
       memoryFacts: unknown;
+      brief: unknown;
     }>
   >`
-    SELECT "chatMessages", "chatSummary", "memoryFacts"
+    SELECT "chatMessages", "chatSummary", "memoryFacts", "brief"
     FROM "Project"
     WHERE id = ${job.projectId} AND "userId" = ${job.userId}
   `;
@@ -39,6 +41,7 @@ export async function runQueuedProjectCompaction(
   });
   const summary = parseProjectChatSummary(row.chatSummary);
   const memoryFacts = parseProjectMemoryFacts(row.memoryFacts);
+  const factLedger = parseCanonicalBrief(row.brief).factLedger;
 
   try {
     const compaction = await maybeCompactProjectChat({
@@ -46,6 +49,7 @@ export async function runQueuedProjectCompaction(
       memoryFacts,
       messages: messages as UIMessage[],
       summary,
+      factLedger,
     });
 
     if (!compaction) {

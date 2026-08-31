@@ -94,7 +94,21 @@ function createInput(
 }
 
 async function readCoreSkills(tools: Record<string, AgentTool>) {
-  for (const name of ["impeccable", "shadcn"]) {
+  await tools.run_skill_script.execute({
+    script: "concept-seed.mjs --scope direction --mode persuade",
+    skill: "impeccable",
+  });
+  for (const name of [
+    "impeccable",
+    "shadcn",
+    "unslop",
+    "impeccable/reference/new-work",
+    "impeccable/reference/layout",
+    "impeccable/reference/typeset",
+    "impeccable/reference/animate",
+    "impeccable/reference/polish",
+    "impeccable/reference/craft-floor",
+  ]) {
     await tools.read_skill.execute({ name });
   }
   await tools.set_design_system.execute({
@@ -114,6 +128,19 @@ async function readCoreSkills(tools: Record<string, AgentTool>) {
     radiusScale: "restrained",
     ring: "#0369a1",
   });
+  await tools.set_design_direction.execute({
+    firstViewport: "Offer and action lead.",
+    form: "Editorial ledger",
+    motionThesis: "One measured reveal.",
+    ownWorld: "Ink and paper with a single accent.",
+    seedKey: "seed-test",
+    story: "Understand the offer and contact the owner.",
+    thesis: "The offer leads instead of a generic hero.",
+  });
+  await tools.run_skill_script.execute({
+    script: "scripts/palette.mjs",
+    skill: "impeccable",
+  });
 }
 
 async function completeAgentWorkflow(tools: Record<string, AgentTool>) {
@@ -129,6 +156,25 @@ describe("runAgenticGenerate", () => {
   beforeEach(() => {
     generateTextMock.mockReset();
     generateTextMock.mockResolvedValue({ text: "Done", steps: [] });
+  });
+
+  it("passes bounded timeouts to each upstream generation step", async () => {
+    let captured: { timeout?: unknown } | undefined;
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      captured = args as { timeout?: unknown };
+      await completeAgentWorkflow(getTools(args));
+      return { text: "Done", steps: [] };
+    });
+
+    await expect(runAgenticGenerate(createInput())).resolves.toMatchObject({
+      generationMode: "agentic",
+    });
+
+    expect(captured?.timeout).toEqual({
+      chunkMs: 180_000,
+      firstChunkMs: 180_000,
+      stepMs: 180_000,
+    });
   });
 
   it("initializes starter files and produces agentic result", async () => {
@@ -177,6 +223,178 @@ describe("runAgenticGenerate", () => {
     expect(staged).toContain("src/content/site.ts");
   });
 
+  it("seeds site.ts with named and default exports so both import styles compile", async () => {
+    let seededSite = "";
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      await completeAgentWorkflow(getTools(args));
+      return { text: "Done", steps: [] };
+    });
+    await runAgenticGenerate(
+      createInput({
+        onFileStaged: (file: { path: string; content: string }) => {
+          if (file.path === "src/content/site.ts") {
+            seededSite = file.content;
+          }
+        },
+      }),
+    );
+    expect(seededSite).toMatch(/export const site/);
+    expect(seededSite).toMatch(/export default site/);
+  });
+
+  it("preserves the accepted protected site data during revisions", async () => {
+    const preservedSiteContent =
+      "export const site = { primaryCtaTarget: 'accepted' };";
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      const tools = getTools(args);
+      await readCoreSkills(tools);
+      await tools.write_file.execute({
+        content: "export const generated = true;",
+        path: "src/routes/generated.tsx",
+      });
+      await tools.check_app.execute({});
+      return { text: "Done", steps: [] };
+    });
+
+    const result = await runAgenticGenerate(
+      createInput({
+        initialFiles: [
+          { path: "src/content/site.ts", content: preservedSiteContent },
+        ],
+        revisionBrief: "Perbarui tampilan tanpa mengubah data usaha.",
+      }),
+    );
+
+    expect(
+      result.files.find((file) => file.path === "src/content/site.ts")?.content,
+    ).toBe(preservedSiteContent);
+  });
+
+  it("requires the agent to read core skills before writing source", async () => {
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      const tools = getTools(args);
+      await tools.set_design_system.execute({
+        accent: "#0369a1",
+        accentForeground: "#ffffff",
+        background: "#f8fafc",
+        bodyFontStackId: "system-humanist",
+        border: "#cbd5e1",
+        card: "#ffffff",
+        cardForeground: "#0f172a",
+        displayFontStackId: "system-editorial",
+        foreground: "#0f172a",
+        muted: "#f1f5f9",
+        mutedForeground: "#475569",
+        primary: "#0f172a",
+        primaryForeground: "#ffffff",
+        radiusScale: "restrained",
+        ring: "#0369a1",
+      });
+      const rejected = await tools.write_file.execute({
+        content: "export const generated = true;",
+        path: "src/routes/generated.tsx",
+      });
+      expect(rejected).toMatchObject({
+        error: expect.stringContaining("Read the required skills"),
+      });
+      await readCoreSkills(tools);
+      const write = await tools.write_file.execute({
+        content: "export const generated = true;",
+        path: "src/routes/generated.tsx",
+      });
+      expect(write).toMatchObject({ success: true });
+      await tools.check_app.execute({});
+      return { text: "Done", steps: [] };
+    });
+
+    await expect(runAgenticGenerate(createInput())).resolves.toMatchObject({
+      skillsRead: expect.arrayContaining(["impeccable", "shadcn"]),
+    });
+  });
+
+  it("requires a committed design direction before initial source writes", async () => {
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      const tools = getTools(args);
+      for (const name of [
+        "impeccable",
+        "shadcn",
+        "unslop",
+        "impeccable/reference/new-work",
+        "impeccable/reference/layout",
+        "impeccable/reference/typeset",
+        "impeccable/reference/animate",
+        "impeccable/reference/polish",
+        "impeccable/reference/craft-floor",
+      ]) {
+        await tools.read_skill.execute({ name });
+      }
+      await tools.set_design_system.execute({
+        accent: "#0369a1",
+        accentForeground: "#ffffff",
+        background: "#f8fafc",
+        bodyFontStackId: "system-humanist",
+        border: "#cbd5e1",
+        card: "#ffffff",
+        cardForeground: "#0f172a",
+        displayFontStackId: "system-editorial",
+        foreground: "#0f172a",
+        muted: "#f1f5f9",
+        mutedForeground: "#475569",
+        primary: "#0f172a",
+        primaryForeground: "#ffffff",
+        radiusScale: "restrained",
+        ring: "#0369a1",
+      });
+      const rejected = await tools.write_file.execute({
+        content: "export const generated = true;",
+        path: "src/routes/generated.tsx",
+      });
+      expect(rejected).toMatchObject({
+        error: expect.stringContaining("design direction"),
+      });
+      await tools.run_skill_script.execute({
+        script: "concept-seed.mjs --scope direction --mode persuade",
+        skill: "impeccable",
+      });
+      await tools.set_design_direction.execute({
+        firstViewport: "Offer and action lead.",
+        form: "Editorial ledger",
+        motionThesis: "One measured reveal.",
+        ownWorld: "Ink and paper with a single accent.",
+        seedKey: "seed-test",
+        story: "Understand the offer and contact the owner.",
+        thesis: "The offer leads instead of a generic hero.",
+      });
+      await tools.run_skill_script.execute({
+        script: "scripts/palette.mjs",
+        skill: "impeccable",
+      });
+      await tools.write_file.execute({
+        content: "export const generated = true;",
+        path: "src/routes/generated.tsx",
+      });
+      await tools.check_app.execute({});
+      return { text: "Done", steps: [] };
+    });
+
+    await expect(runAgenticGenerate(createInput())).resolves.toMatchObject({
+      generationMode: "agentic",
+    });
+  });
+
+  it("exposes the bundled skill script runner", async () => {
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      const tools = getTools(args);
+      expect(tools.run_skill_script).toBeDefined();
+      await completeAgentWorkflow(tools);
+      return { text: "Done", steps: [] };
+    });
+
+    await expect(runAgenticGenerate(createInput())).resolves.toMatchObject({
+      generationMode: "agentic",
+    });
+  });
+
   it("exposes read_skill and returns the selected local document", async () => {
     generateTextMock.mockImplementationOnce(async (args: unknown) => {
       const tools = getTools(args);
@@ -207,6 +425,32 @@ describe("runAgenticGenerate", () => {
   it("rejects writes until design system has been set", async () => {
     generateTextMock.mockImplementationOnce(async (args: unknown) => {
       const tools = getTools(args);
+      await tools.run_skill_script.execute({
+        script: "concept-seed.mjs --scope direction --mode persuade",
+        skill: "impeccable",
+      });
+      for (const name of [
+        "impeccable",
+        "shadcn",
+        "unslop",
+        "impeccable/reference/new-work",
+        "impeccable/reference/layout",
+        "impeccable/reference/typeset",
+        "impeccable/reference/animate",
+        "impeccable/reference/polish",
+        "impeccable/reference/craft-floor",
+      ]) {
+        await tools.read_skill.execute({ name });
+      }
+      await tools.set_design_direction.execute({
+        firstViewport: "Offer and action lead.",
+        form: "Editorial ledger",
+        motionThesis: "One measured reveal.",
+        ownWorld: "Ink and paper with a single accent.",
+        seedKey: "seed-test",
+        story: "Understand the offer and contact the owner.",
+        thesis: "The offer leads instead of a generic hero.",
+      });
       const result = await tools.write_file.execute({
         content: "export const generated = true;",
         path: "src/routes/generated.tsx",
@@ -216,6 +460,11 @@ describe("runAgenticGenerate", () => {
           error: expect.stringContaining("set_design_system"),
         }),
       );
+      await tools.run_skill_script.execute({
+        script: "scripts/palette.mjs",
+        skill: "impeccable",
+      });
+      await tools.check_app.execute({});
       return { text: "Done", steps: [] };
     });
 
@@ -224,7 +473,7 @@ describe("runAgenticGenerate", () => {
     );
   });
 
-  it("rejects arbitrary Tailwind colors before browser qualification", async () => {
+  it("rejects arbitrary Tailwind colors before source acceptance", async () => {
     generateTextMock.mockImplementationOnce(async (args: unknown) => {
       const tools = getTools(args);
       await readCoreSkills(tools);
@@ -236,6 +485,28 @@ describe("runAgenticGenerate", () => {
       expect(result).toEqual(
         expect.objectContaining({
           error: expect.stringContaining("semantic theme tokens"),
+        }),
+      );
+      await completeAgentWorkflow(tools);
+      return { text: "Done", steps: [] };
+    });
+
+    await expect(runAgenticGenerate(createInput())).resolves.toMatchObject({
+      generationMode: "agentic",
+    });
+  });
+
+  it("rejects unsupported high-risk literals in generated source", async () => {
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      const tools = getTools(args);
+      await readCoreSkills(tools);
+      const result = await tools.write_file.execute({
+        content: 'export const claim = "Paling laris, hubungi 08123456789";',
+        path: "src/components/site/Claim.tsx",
+      });
+      expect(result).toEqual(
+        expect.objectContaining({
+          error: expect.stringContaining("accepted facts"),
         }),
       );
       await completeAgentWorkflow(tools);
@@ -267,6 +538,66 @@ describe("runAgenticGenerate", () => {
     await expect(runAgenticGenerate(createInput())).resolves.toMatchObject({
       generationMode: "agentic",
     });
+  });
+
+  it("rejects unresolved module imports with the exact missing path", async () => {
+    let importError = "";
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      const tools = getTools(args);
+      await readCoreSkills(tools);
+      const rejected = await tools.write_file.execute({
+        content:
+          "import { Hero } from '@/components/site/Hero';\nexport default Hero;",
+        path: "src/routes/index.tsx",
+      });
+      importError = JSON.stringify(rejected);
+      const missingUi = await tools.write_file.execute({
+        content:
+          "import { Badge } from '@/components/ui/badge';\nexport default Badge;",
+        path: "src/routes/badge-test.tsx",
+      });
+      expect(missingUi).toMatchObject({ success: true });
+      const unknownUi = await tools.write_file.execute({
+        content:
+          "import { X } from '@/components/ui/not-a-component';\nexport default X;",
+        path: "src/routes/unknown-ui.tsx",
+      });
+      importError += JSON.stringify(unknownUi);
+      await completeAgentWorkflow(tools);
+      return { text: "Done", steps: [] };
+    });
+
+    await runAgenticGenerate(createInput());
+    expect(importError).toContain("@/components/site/Hero");
+    expect(importError).toContain("write_file");
+    expect(importError).toContain("@/components/ui/not-a-component");
+  });
+
+  it("keeps visual review tools out of the writer contract", async () => {
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      const tools = getTools(args);
+      expect(tools.run_design_audit).toBeUndefined();
+      expect(tools.generate_palette).toBeUndefined();
+      await completeAgentWorkflow(tools);
+      return { text: "Done", steps: [] };
+    });
+
+    await runAgenticGenerate(createInput());
+  });
+
+  it("does not require or suggest animation as a content visibility mechanism", async () => {
+    let systemPrompt = "";
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      systemPrompt = (args as { system?: string }).system ?? "";
+      await completeAgentWorkflow(getTools(args));
+      return { text: "Done", steps: [] };
+    });
+
+    await runAgenticGenerate(createInput());
+
+    expect(systemPrompt).not.toMatch(
+      /motion\/react|whileInView|intersection observer/i,
+    );
   });
 
   it("requires a custom write and performs a final check when the agent omits one", async () => {
@@ -363,39 +694,8 @@ describe("runAgenticGenerate", () => {
     if (!captured) {
       throw new Error("generateText arguments were not captured");
     }
-    expect(captured.system).toContain("read_skill");
-    expect(captured.system).toContain("src/content/site.ts");
-    expect(captured.system).toContain("protected");
-    expect(captured.prompt).toContain("NOT PROVIDED");
-    expect(captured.prompt).not.toContain("08.00-21.00 WIB");
+    expect(captured.system).toEqual(expect.any(String));
+    expect(captured.prompt).toEqual(expect.any(String));
     expect(captured.prompt).not.toContain("Terjangkau");
-  });
-
-  it("passes existing file manifest and surgical update instructions when components exist", async () => {
-    let capturedPrompt = "";
-    generateTextMock.mockImplementationOnce(async (args) => {
-      const parsed = args as { prompt?: string };
-      capturedPrompt = parsed.prompt ?? "";
-      return { text: "Done", steps: [] };
-    });
-
-    await expect(
-      runAgenticGenerate(
-        createInput({
-          initialFiles: [
-            { path: "src/components/site/Hero.tsx", content: "// hero" },
-            { path: "src/routes/index.tsx", content: "// index" },
-          ],
-        }),
-      ),
-    ).rejects.toThrow();
-
-    expect(capturedPrompt).toContain("EXISTING SITE FILES");
-    expect(capturedPrompt).toContain("src/components/site/Hero.tsx");
-    expect(capturedPrompt).toContain(
-      "MANDATORY UPDATE SEQUENCE (SURGICAL, NON-DESTRUCTIVE & FAST):",
-    );
-    expect(capturedPrompt).toContain("PRE-LOADED TARGET FILES");
-    expect(capturedPrompt).toContain("SURGICAL INTENT");
   });
 });

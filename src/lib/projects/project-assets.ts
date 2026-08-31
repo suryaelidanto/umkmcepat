@@ -304,6 +304,32 @@ export type ProjectAssetItem = {
   isUsed: boolean;
 };
 
+export async function filterOwnedBusinessAssetIds(
+  assetIds: string[],
+  projectId: string,
+  userId: string,
+  client = defaultPrisma,
+): Promise<string[]> {
+  const uniqueAssetIds = [
+    ...new Set(assetIds.filter((assetId) => assetId.length > 0)),
+  ];
+  if (uniqueAssetIds.length === 0) {
+    return [];
+  }
+
+  const assets = await client.projectAsset.findMany({
+    select: { id: true },
+    where: {
+      id: { in: uniqueAssetIds },
+      projectId,
+      purpose: "business-image",
+      userId,
+    },
+  });
+  const ownedIds = new Set(assets.map((asset) => asset.id));
+  return uniqueAssetIds.filter((assetId) => ownedIds.has(assetId));
+}
+
 export async function listProjectAssetsWithUsage(
   projectId: string,
   client = defaultPrisma,
@@ -357,7 +383,7 @@ export async function listProjectAssetsWithUsage(
       contentType: asset.contentType,
       sizeBytes: asset.sizeBytes,
       publicUrl: asset.publicUrl,
-      mediaUrl: `/api/media/${asset.id}`,
+      mediaUrl: `/api/projects/${projectId}/asset/${asset.id}`,
       createdAt: asset.createdAt.toISOString(),
       isUsed,
     };

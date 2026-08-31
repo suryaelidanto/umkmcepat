@@ -117,13 +117,45 @@ describe("project runtime route", () => {
     );
   });
 
+  it("does not report a successful build with an artifact owned by another build", async () => {
+    prismaProjectBuildFindManyMock.mockResolvedValue([
+      {
+        artifactRef: "project-artifact:s3:dist:build_other",
+        createdAt: newer,
+        finishedAt: newer,
+        id: "build_1",
+        snapshot: { id: "snapshot_1", projectId: "project_1" },
+        snapshotId: "snapshot_1",
+        startedAt: newer,
+        status: "succeeded",
+        updatedAt: newer,
+        projectId: "project_1",
+      },
+    ]);
+    prismaProjectDeploymentFindManyMock.mockResolvedValue([]);
+    prismaProjectEditAttemptFindManyMock.mockResolvedValue([]);
+
+    const response = await GET(new Request("http://localhost/runtime"), {
+      id: "project_1",
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.latestSuccessfulBuild).toBeNull();
+    expect(body.build).toBeNull();
+    expect(body.canPreview).toBe(false);
+    expect(body.canPublish).toBe(false);
+  });
+
   it("reports the latest failed attempt without replacing the active successful preview", async () => {
     const successfulBuild = {
-      artifactRef: "project-artifact:local:dist:build_success",
+      artifactRef: "project-artifact:s3:dist:build_success",
       createdAt: older,
       finishedAt: older,
       id: "build_success",
       logText: "ok",
+      projectId: "project_1",
+      snapshot: { id: "snapshot_success", projectId: "project_1" },
       snapshotId: "snapshot_success",
       startedAt: older,
       status: "succeeded",
@@ -135,6 +167,8 @@ describe("project runtime route", () => {
       finishedAt: newer,
       id: "build_failed",
       logText: "failed",
+      projectId: "project_1",
+      snapshot: { id: "snapshot_failed", projectId: "project_1" },
       snapshotId: "snapshot_failed",
       startedAt: newer,
       status: "failed",
@@ -159,7 +193,12 @@ describe("project runtime route", () => {
             id: "deployment_failed",
             kind: "preview",
             lastRequestAt: null,
+            projectId: "project_1",
             publicPath: "/api/projects/project_1/preview",
+            snapshot: {
+              id: failedBuild.snapshotId,
+              projectId: "project_1",
+            },
             snapshotId: failedBuild.snapshotId,
             startedAt: null,
             status: "failed",
@@ -173,7 +212,12 @@ describe("project runtime route", () => {
             id: "deployment_success",
             kind: "preview",
             lastRequestAt: older,
+            projectId: "project_1",
             publicPath: "/api/projects/project_1/preview",
+            snapshot: {
+              id: successfulBuild.snapshotId,
+              projectId: "project_1",
+            },
             snapshotId: successfulBuild.snapshotId,
             startedAt: older,
             status: "running",

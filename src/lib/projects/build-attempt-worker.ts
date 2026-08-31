@@ -1,25 +1,8 @@
-import { generateText } from "ai";
-
-import type { ImplementationSpec } from "@/lib/projects/implementation-spec";
-
-import {
-  getAiModel,
-  getAiTelemetry,
-  getNoReasoningCallOptions,
-} from "@/lib/ai/ai";
-import {
-  classifyAiError,
-  recordAiCall,
-  startAiCallTimer,
-} from "@/lib/ai/ai-call-record";
 import { getGenerationModel } from "@/lib/ai/ai-models";
-import { getAiTimeoutMs } from "@/lib/ai/ai-timeouts";
-import { getSettingSync } from "@/lib/config/app-settings";
 import { devLog } from "@/lib/dev-log";
-import { chargeEnergyForAiUsage } from "@/lib/payment/user-credits";
 import { prisma } from "@/lib/prisma";
 import { runAgenticGenerate } from "@/lib/projects/agentic-generator";
-import { briefToBuildPrompt, parseProjectBrief } from "@/lib/projects/brief";
+import { parseProjectBrief } from "@/lib/projects/brief";
 import {
   publishBuildProgress,
   type BuildProgressEvent,
@@ -32,28 +15,12 @@ import {
 import { createStepCharger } from "@/lib/projects/energy-step-charger";
 import { formatGeneratedSource } from "@/lib/projects/format-generated-source";
 import {
-  storeGateEvidence,
-  storeGateScreenshotEvidence,
-} from "@/lib/projects/gate-evidence";
-import { runGeneratedSiteBrowserGates } from "@/lib/projects/generated-site-browser-runner";
-import { compileGeneratedSiteContract } from "@/lib/projects/generated-site-contract";
-import { selectGeneratedSiteRecipe } from "@/lib/projects/generated-site-recipes";
-import {
   buildGeneratedProject,
   createGeneratedSourceSnapshotMetadata,
   createGeneratedViteTanStackStarterFiles,
 } from "@/lib/projects/generated-source";
 import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
-import {
-  buildImplementationSpecPrompt,
-  implementationSpecFromBrief,
-  implementationSpecTool,
-  implementationSpecToSiteSchema,
-  parseImplementationSpec,
-} from "@/lib/projects/implementation-spec";
 import { loadPersistedProjectSourceFiles } from "@/lib/projects/load-persisted-project-source";
-import { runOutcomeCreativeDirection } from "@/lib/projects/outcome-creative-direction";
-import { compileOutcomeDirectedSiteContract } from "@/lib/projects/outcome-site-contract";
 import { createProgressiveSaver } from "@/lib/projects/progressive-save";
 import {
   finalizeProjectOperation,
@@ -75,11 +42,9 @@ import {
   type ProjectDeploymentStatus,
   type ProjectSnapshotSourceType,
 } from "@/lib/projects/runtime-types";
-import { projectSiteGenerationSystemPrompt } from "@/lib/projects/site-generation";
 import {
+  createProjectSiteSchemaFromAcceptedHandoff,
   createProjectSiteSchemaFromBrief,
-  createProjectSiteSchemaFromGeneratedContract,
-  type ProjectSiteSchema,
 } from "@/lib/projects/site-schema";
 
 const GENERATED_SNAPSHOT_SOURCE_TYPE =
@@ -92,7 +57,12 @@ type BuildAttemptContext = {
   buildId: string;
   generateMode: "first_generate" | "retry_build";
   operationToken: string;
-  project: { id: string; prompt: string; status: string };
+  project: {
+    id: string;
+    prompt: string;
+    status: string;
+    generationEngine?: string;
+  };
   userId: string;
 };
 
@@ -215,12 +185,6 @@ export async function runBuildAttempt({
     }
   }
 
-  let specInputTokens = 0;
-  let specOutputTokens = 0;
-  let specModelId: string | undefined;
-  let specAttempts = 0;
-  let energyCharged = false;
-
   const sourceStepCharger = createStepCharger({
     userId,
     projectId,
@@ -232,23 +196,6 @@ export async function runBuildAttempt({
     },
   });
 
-  const flushGenerateEnergy = async () => {
-    if (energyCharged) {
-      return;
-    }
-    energyCharged = true;
-    const fallbackModelId = getGenerationModel();
-    if (specInputTokens > 0 || specOutputTokens > 0) {
-      await chargeEnergyForAiUsage({
-        userId,
-        modelId: specModelId || fallbackModelId,
-        inputTokens: specInputTokens,
-        outputTokens: specOutputTokens,
-        reason: "build:spec",
-      });
-    }
-  };
-
   try {
     const persistedSourceFiles = await loadPersistedProjectSourceFiles({
       projectId,
@@ -258,6 +205,19 @@ export async function runBuildAttempt({
       requestedMode: generateMode,
       hasPersistedSource: persistedSourceFiles.length > 0,
     });
+    const usesAcceptedContract =
+      project.generationEngine === "contract" ||
+      project.generationEngine === "contract-v1";
+    const acceptedHandoff = usesAcceptedContract
+      ? await loadAcceptedHandoffForAttempt({
+          attemptId,
+          projectId,
+          userId,
+        })
+      : null;
+    if (usesAcceptedContract && !acceptedHandoff) {
+      throw new Error("accepted handoff missing");
+    }
     if (generateMode === "retry_build" && effectiveMode === "first_generate") {
       devLog("generate", "retry_build.empty_source_fallback", {
         projectId,
@@ -275,11 +235,18 @@ export async function runBuildAttempt({
         detail: "Menyiapkan pembuatan ulang dari bagian yang sudah ada.",
       });
 
-      const [retryBriefRow] = await prisma.$queryRaw<[{ brief: unknown }]>`
-      SELECT "brief" FROM "Project" WHERE id = ${projectId} AND "userId" = ${userId}
-    `;
-      const retryBrief = parseProjectBrief(retryBriefRow?.brief, projectPrompt);
-      const retrySchema = createProjectSiteSchemaFromBrief(retryBrief);
+      const retrySchema = acceptedHandoff
+        ? createProjectSiteSchemaFromAcceptedHandoff(acceptedHandoff)
+        : createProjectSiteSchemaFromBrief(
+            parseProjectBrief(
+              (
+                await prisma.$queryRaw<[{ brief: unknown }]>`
+                  SELECT "brief" FROM "Project" WHERE id = ${projectId} AND "userId" = ${userId}
+                `
+              )[0]?.brief,
+              projectPrompt,
+            ),
+          );
 
       let sourceFiles = persistedSourceFiles;
       if (!sourceFiles.some((f) => f.path === "package.json")) {
@@ -341,7 +308,8 @@ export async function runBuildAttempt({
         workspaceKey: projectId,
       });
 
-      const buildOk = finalBuildResult.ok;
+      const buildOk =
+        finalBuildResult.ok && finalBuildResult.distFiles.length > 0;
       let distRef: string | null = null;
       if (buildOk && finalBuildResult.distFiles?.length) {
         distRef = await writeProjectDistArtifact({
@@ -356,6 +324,13 @@ export async function runBuildAttempt({
             data: {
               buildLog: finalBuildResult.log ?? "",
               buildStatus: buildOk ? "ready" : "failed",
+              ...(buildOk ? { builtAt: new Date() } : {}),
+              ...(buildOk && acceptedHandoff
+                ? {
+                    activeHandoffId: acceptedHandoff.id,
+                    brief: acceptedHandoff.briefSnapshot as object,
+                  }
+                : {}),
               sourceFiles: sourceFiles as object,
               status: buildOk ? "ready" : "failed",
             },
@@ -411,11 +386,13 @@ export async function runBuildAttempt({
           message: "Website siap dilihat.",
           projectId,
         });
-        void refreshProjectThumbnail({
-          artifactRef: distRef ?? snapshot.id,
-          buildId: runtimeBuildId ?? snapshot.id,
-          projectId,
-        }).catch(() => undefined);
+        if (distRef && runtimeBuildId) {
+          void refreshProjectThumbnail({
+            artifactRef: distRef,
+            buildId: runtimeBuildId,
+            projectId,
+          }).catch(() => undefined);
+        }
       } else if (!sourceStepCharger.isExhausted()) {
         // ponytail: when energy halted the build mid-loop, the
         send("progress", {
@@ -433,7 +410,6 @@ export async function runBuildAttempt({
         });
       }
 
-      await flushGenerateEnergy();
       return;
     }
 
@@ -443,298 +419,35 @@ export async function runBuildAttempt({
     });
 
     const generateStartedAt = Date.now();
-    let specMs = 0;
     let agentMs = 0;
     let viteMs = 0;
 
-    const [briefRow] = await prisma.$queryRaw<[{ brief: unknown }]>`
-    SELECT "brief" FROM "Project" WHERE id = ${projectId} AND "userId" = ${userId}
-  `;
-    const brief = parseProjectBrief(briefRow?.brief, projectPrompt);
+    const brief = acceptedHandoff
+      ? parseProjectBrief(acceptedHandoff.briefSnapshot, projectPrompt)
+      : parseProjectBrief(
+          (
+            await prisma.$queryRaw<[{ brief: unknown }]>`
+              SELECT "brief" FROM "Project" WHERE id = ${projectId} AND "userId" = ${userId}
+            `
+          )[0]?.brief,
+          projectPrompt,
+        );
     devLog("generate", "brief.parsed", {
       projectId,
       promptLength: projectPrompt.length,
+      source: acceptedHandoff ? "accepted_handoff" : "project_brief",
     });
-    const buildPrompt = briefToBuildPrompt(brief);
+    const finalSchema = acceptedHandoff
+      ? createProjectSiteSchemaFromAcceptedHandoff(acceptedHandoff)
+      : createProjectSiteSchemaFromBrief(brief);
 
-    async function generateImplementationSpec(prompt: string) {
-      const system =
-        projectSiteGenerationSystemPrompt +
-        "\n\nCall the presentImplementationSpec tool exactly once with the full spec. Never reply with plain text or JSON in chat.";
-
-      let totalInputTokens = 0;
-      let totalOutputTokens = 0;
-      let lastModelId: string | undefined;
-
-      const attemptSpec = async (maxTokens: number) => {
-        // Real tool-calling (not prompt-based JSON mode) — 9Router combo
-        const abortController = new AbortController();
-        const timeoutMs = getAiTimeoutMs("buildSpec");
-        const timeout = setTimeout(() => abortController.abort(), timeoutMs);
-        specAttempts += 1;
-        const thisAttempt = specAttempts;
-        const stopSpecTimer = startAiCallTimer({ withTtft: true });
-        const specRequestedModel = getGenerationModel();
-
-        let result;
-        try {
-          result = await generateText({
-            model: getAiModel(specRequestedModel),
-            maxRetries: 2,
-            maxOutputTokens: maxTokens,
-            temperature: 0.35,
-            abortSignal: abortSignal,
-            instructions: system,
-            prompt,
-            tools: {
-              presentImplementationSpec: implementationSpecTool,
-            },
-            toolChoice: {
-              type: "tool",
-              toolName: "presentImplementationSpec",
-            },
-            ...getNoReasoningCallOptions(),
-            telemetry: getAiTelemetry("project-implementation-spec", {
-              projectId,
-              route: "api.projects.generate",
-              userId,
-            }),
-          });
-        } catch (error) {
-          recordAiCall({
-            attemptId,
-            buildId: runtimeBuildId ?? undefined,
-            errorClass: classifyAiError(error),
-            modelRequested: specRequestedModel,
-            projectId,
-            requestMs: stopSpecTimer().requestMs,
-            retryCount: thisAttempt - 1,
-            status: "error",
-            task: "build-spec",
-          });
-          throw error;
-        } finally {
-          clearTimeout(timeout);
-        }
-
-        // Non-streaming generateText: ttftMs = requestMs (buffered response).
-        const specTiming = stopSpecTimer({ nonStreaming: true });
-        recordAiCall({
-          attemptId,
-          buildId: runtimeBuildId ?? undefined,
-          inputTokens: result.usage?.inputTokens ?? undefined,
-          modelRequested: specRequestedModel,
-          modelServed: result.response?.modelId,
-          outputTokens: result.usage?.outputTokens ?? undefined,
-          projectId,
-          requestMs: specTiming.requestMs,
-          retryCount: thisAttempt - 1,
-          status: "ok",
-          task: "build-spec",
-          ttftMs: specTiming.ttftMs,
-        });
-
-        const usage = result.usage;
-        const toolCall = result.toolCalls?.[0] as
-          { input?: unknown; args?: unknown } | undefined;
-        const rawOutput = toolCall?.input ?? toolCall?.args ?? null;
-        const inputTokens = usage.inputTokens ?? 0;
-        const outputTokens = usage.outputTokens ?? 0;
-        totalInputTokens += inputTokens;
-        totalOutputTokens += outputTokens;
-        lastModelId = result.response.modelId;
-        devLog("generate", "spec.attempt", {
-          projectId,
-          maxTokens,
-          finishReason: result.finishReason,
-          contentLength: result.text.length,
-          inputTokens,
-          outputTokens,
-        });
-
-        const spec = parseImplementationSpec(rawOutput);
-
-        return {
-          spec,
-          inputTokens,
-          outputTokens,
-          finishReason: result.finishReason,
-          modelId: result.response.modelId,
-        };
-      };
-
-      try {
-        const attempt1 = await attemptSpec(4_096);
-        if (attempt1.spec) {
-          return {
-            spec: attempt1.spec,
-            source: "ai" as const,
-            inputTokens: totalInputTokens,
-            outputTokens: totalOutputTokens,
-            modelId: attempt1.modelId,
-          };
-        }
-      } catch (error) {
-        devLog("generate", "spec.error", {
-          error:
-            error instanceof Error
-              ? error.message
-              : typeof error === "object" && error
-                ? JSON.stringify(error)
-                : String(error),
-          projectId,
-          attempt: 1,
-        });
-      }
-
-      send("progress", {
-        label: "Menyusun halaman lagi",
-        detail: "Merapikan struktur halaman.",
-      });
-      await new Promise((resolve) => setTimeout(resolve, 2_000));
-
-      try {
-        const attempt2 = await attemptSpec(8_192);
-        if (attempt2.spec) {
-          return {
-            spec: attempt2.spec,
-            source: "ai" as const,
-            inputTokens: totalInputTokens,
-            outputTokens: totalOutputTokens,
-            modelId: attempt2.modelId,
-          };
-        }
-      } catch (error) {
-        devLog("generate", "spec.error", {
-          error:
-            error instanceof Error
-              ? error.message
-              : typeof error === "object" && error
-                ? JSON.stringify(error)
-                : String(error),
-          projectId,
-          attempt: 2,
-        });
-      }
-
-      const fallbackSpec = implementationSpecFromBrief(brief);
-      if (!parseImplementationSpec(fallbackSpec)) {
-        throw new Error(
-          "AI implementation spec was invalid after retries and brief fallback failed.",
-        );
-      }
-
-      send("progress", {
-        label: "Menyiapkan rancangan website",
-        detail:
-          "Rancangan awal belum lengkap, jadi kami melanjutkan dari brief.",
-      });
-      send("progress", {
-        label: "Membuat halaman utama",
-        detail: "Menyusun halaman utama dari data usaha.",
-      });
-      devLog("generate", "spec.fallback", {
-        projectId,
-        inputTokens: totalInputTokens,
-        outputTokens: totalOutputTokens,
-      });
-
-      return {
-        spec: fallbackSpec,
-        source: "brief_fallback" as const,
-        inputTokens: totalInputTokens,
-        outputTokens: totalOutputTokens,
-        modelId: lastModelId,
-      };
-    }
-
-    const acceptedHandoff = await loadAcceptedHandoffForAttempt({
-      attemptId,
-      projectId,
-      userId,
-    });
-    const useGeneratedSiteQuality =
-      acceptedHandoff !== null &&
-      (acceptedHandoff.plan.appKind === "landing" ||
-        acceptedHandoff.plan.appKind === "marketing_site");
-
-    let implementationSpec: ImplementationSpec | undefined;
-    let finalSchema = createProjectSiteSchemaFromBrief(brief);
-    let generatedSiteContract: ReturnType<
-      typeof compileGeneratedSiteContract
-    > | null = null;
-
-    if (useGeneratedSiteQuality && acceptedHandoff) {
-      const generatedSiteRecipe = selectGeneratedSiteRecipe(
-        acceptedHandoff.plan.archetype,
-      );
-      generatedSiteContract = compileGeneratedSiteContract({
-        contract: acceptedHandoff.contract,
-        plan: acceptedHandoff.plan,
-        briefSnapshot: acceptedHandoff.briefSnapshot,
-        photoEnabled: Boolean(
-          getSettingSync("feature.composer_uploads_enabled", true),
-        ),
-        recipe: generatedSiteRecipe,
-      });
-      const briefSchema = createProjectSiteSchemaFromBrief(brief);
-      finalSchema = createProjectSiteSchemaFromGeneratedContract({
-        contract: generatedSiteContract,
-        theme: finalSchema.theme,
-      });
-      if (!finalSchema.images?.length && briefSchema.images?.length) {
-        finalSchema.images = briefSchema.images;
-      }
-      if (briefSchema.primaryCtaTarget) {
-        finalSchema.primaryCtaTarget = briefSchema.primaryCtaTarget;
-      }
-    } else {
-      const implementationSpecPrompt = buildImplementationSpecPrompt(brief);
-      const specStartedAt = Date.now();
-      const specResult = await generateImplementationSpec(
-        implementationSpecPrompt,
-      );
-      specMs = Date.now() - specStartedAt;
-      implementationSpec = specResult.spec;
-      specInputTokens = specResult.inputTokens;
-      specOutputTokens = specResult.outputTokens;
-      specModelId = specResult.modelId;
-      finalSchema = implementationSpecToSiteSchema(implementationSpec);
-    }
-
-    const currentProjectAssets = prisma.projectAsset?.findMany
-      ? await prisma.projectAsset.findMany({
-          where: { projectId },
-          orderBy: { createdAt: "desc" },
-          select: { id: true, purpose: true },
-        })
-      : [];
-
-    if (currentProjectAssets.length > 0) {
-      const seenIds = new Set<string>();
-      const uniqueImages: NonNullable<ProjectSiteSchema["images"]> = [];
-      for (const asset of currentProjectAssets) {
-        if (!seenIds.has(asset.id)) {
-          seenIds.add(asset.id);
-          uniqueImages.push({
-            url: `/api/media/${asset.id}`,
-            purpose: asset.purpose || "business-image",
-            alt: finalSchema.businessName,
-          });
-        }
-      }
-      finalSchema.images = uniqueImages;
-    } else {
-      finalSchema.images = [];
-    }
-
-    const specLeaseRenewed = await renewProjectOperation({
+    const leaseRenewed = await renewProjectOperation({
       projectId,
       token: operationToken,
       userId,
     });
 
-    if (!specLeaseRenewed) {
+    if (!leaseRenewed) {
       throw new Error("Build operation lease was superseded.");
     }
 
@@ -756,33 +469,15 @@ export async function runBuildAttempt({
       onFilesChanged([...batchedStageFiles.values()]);
     };
 
-    const existingSourceFiles = await loadPersistedProjectSourceFiles({
-      projectId,
-      userId,
-    }).catch(() => []);
-
-    const isRevision = existingSourceFiles.length > 0;
-
-    const outcomeDirection =
-      acceptedHandoff && !isRevision
-        ? await runOutcomeCreativeDirection({
-            abortSignal,
-            contract: compileOutcomeDirectedSiteContract({
-              briefHash: acceptedHandoff.briefHash,
-              briefRevision: acceptedHandoff.briefRevision,
-              briefSnapshot: acceptedHandoff.briefSnapshot,
-              contract: acceptedHandoff.contract,
-              contractHash: acceptedHandoff.contractHash,
-              contractRevision: acceptedHandoff.contractRevision,
-              id: acceptedHandoff.id,
-              plan: acceptedHandoff.plan,
-              planHash: acceptedHandoff.planHash,
-              planRevision: acceptedHandoff.planRevision,
-            }),
+    const existingSourceFiles =
+      generateMode === "first_generate"
+        ? []
+        : await loadPersistedProjectSourceFiles({
             projectId,
             userId,
-          })
-        : null;
+          }).catch(() => []);
+
+    const isRevision = existingSourceFiles.length > 0;
 
     const agentStartedAt = Date.now();
     send("progress", {
@@ -795,11 +490,14 @@ export async function runBuildAttempt({
     const agenticResult = await runAgenticGenerate({
       abortSignal,
       attemptId,
-      brief,
+      brief: {
+        ...brief,
+        factLedger: acceptedHandoff?.briefSnapshot.factLedger,
+        discussionContext: acceptedHandoff?.briefSnapshot.discussionContext,
+      },
+      buildContract: acceptedHandoff?.contract,
       buildId: runtimeBuildId,
-      creativeDirection: outcomeDirection
-        ? JSON.stringify(outcomeDirection)
-        : (acceptedHandoff?.creativeDirection ?? null),
+      buildPlan: acceptedHandoff?.plan,
       initialFiles:
         existingSourceFiles.length > 0 ? existingSourceFiles : undefined,
       onEvent: (type, data) => send(type, data),
@@ -812,15 +510,12 @@ export async function runBuildAttempt({
     });
 
     const generationOutput = {
-      buildSpec: buildPrompt,
       energyExhausted: sourceStepCharger.isExhausted(),
       files: agenticResult.files,
       generationMode: "agentic" as const,
       operationTrace: agenticResult.operationTrace,
-      repairAttempts: 0,
       summary: agenticResult.summary,
       touchedFiles: agenticResult.touchedFiles,
-      referenceCalibratedQualityProof: undefined,
     };
 
     const sourceGeneration = generationOutput;
@@ -833,7 +528,6 @@ export async function runBuildAttempt({
     }
     await saver.flush();
     devLog("generate", "source.generated", {
-      buildSpecLength: sourceGeneration.buildSpec.length,
       files: sourceGeneration.files.length,
       mode: sourceGeneration.generationMode,
       projectId: projectId,
@@ -854,15 +548,6 @@ export async function runBuildAttempt({
       label: "Bagian website sudah siap",
       detail: `${sourceGeneration.touchedFiles.length} bagian website selesai dibuat.`,
     });
-    if (sourceGeneration.repairAttempts > 0) {
-      send("operation", {
-        detail: `${sourceGeneration.repairAttempts} bagian website dirapikan.`,
-        id: `repair-${sourceGeneration.repairAttempts}`,
-        state: "succeeded",
-        title: "Merapikan tampilan",
-        type: "check_app",
-      });
-    }
     const snapshot = await prisma.projectSnapshot.create({
       data: {
         files: sourceFiles,
@@ -941,57 +626,11 @@ export async function runBuildAttempt({
       projectId: projectId,
     });
 
-    if (buildResult.ok) {
-      // Capture screenshot thumbnails for history and preview
-      try {
-        if (generatedSiteContract) {
-          await runGeneratedSiteBrowserGates(
-            {
-              projectId,
-              candidateId: snapshot.id,
-              files: buildResult.distFiles,
-              contract: generatedSiteContract,
-              timeoutMs: 10_000,
-            },
-            {
-              storeEvidence: async (evidence) => {
-                const refs = [
-                  await storeGateEvidence({
-                    projectId: evidence.projectId,
-                    candidateId: evidence.candidateId,
-                    kind: "report",
-                    route: evidence.route,
-                    viewport: evidence.viewport,
-                    value: evidence.value,
-                  }),
-                ];
-                if (evidence.screenshot) {
-                  refs.push(
-                    await storeGateScreenshotEvidence({
-                      projectId: evidence.projectId,
-                      candidateId: evidence.candidateId,
-                      route: evidence.route,
-                      viewport: evidence.viewport,
-                      bytes: evidence.screenshot,
-                    }),
-                  );
-                }
-                return refs;
-              },
-            },
-          ).catch(() => null);
-        }
-      } catch {
-        // Thumbnail capture is non-blocking
-      }
-    }
-
     const finalBuildResult = buildResult;
-
-    const finalBuildOk = finalBuildResult.ok;
+    const finalBuildOk =
+      finalBuildResult.ok && finalBuildResult.distFiles.length > 0;
     devLog("generate", "timings", {
       projectId,
-      specMs,
       agentMs,
       viteMs,
       totalMs: Date.now() - generateStartedAt,
@@ -1000,8 +639,8 @@ export async function runBuildAttempt({
 
     if (finalBuildOk) {
       send("progress", {
-        label: "Website sudah diperiksa",
-        detail: "Semua bagian website berhasil diperiksa.",
+        label: "Build website selesai",
+        detail: "File website berhasil dikompilasi.",
       });
     } else if (!sourceGeneration.energyExhausted) {
       // ponytail: on energy exhaustion the energy_exhausted event at :836
@@ -1064,7 +703,7 @@ export async function runBuildAttempt({
     const projectBuildStatus: ProjectBuildStatus = finalBuildOk
       ? "succeeded"
       : "failed";
-    const artifactRef = finalBuildResult.ok
+    const artifactRef = finalBuildOk
       ? await writeProjectDistArtifact({
           artifactId: build.id,
           files: finalBuildResult.distFiles,
@@ -1079,6 +718,12 @@ export async function runBuildAttempt({
           data: {
             buildLog: finalBuildResult.log,
             buildStatus: finalBuildResult.ok ? "passed" : "failed",
+            ...(finalBuildResult.ok && acceptedHandoff
+              ? {
+                  activeHandoffId: acceptedHandoff.id,
+                  brief: acceptedHandoff.briefSnapshot as object,
+                }
+              : {}),
             builtAt: new Date(),
             distFiles: finalBuildResult.distFiles,
             siteSchema: finalSchema,
@@ -1131,9 +776,6 @@ export async function runBuildAttempt({
       { timeout: 30_000 },
     );
     runtimeBuildFinalized = true;
-
-    // Charge whether build ok or not — AI tokens already spent.
-    await flushGenerateEnergy();
 
     await Promise.allSettled([
       prisma.runtimeEvent.create({
@@ -1258,8 +900,5 @@ export async function runBuildAttempt({
         ? "Belum ada bagian website yang berhasil ditulis. Coba buat ulang website — biasanya berhasil di percobaan berikutnya."
         : "Coba buat ulang website.",
     });
-  } finally {
-    // Always debit if AI already ran (success or failure).
-    await flushGenerateEnergy();
   }
 }

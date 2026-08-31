@@ -28,6 +28,10 @@ import {
   PRESENT_WORKSPACE_CARD_TOOL_NAME,
   presentWorkspaceCardTool,
 } from "@/lib/projects/discuss-tool";
+import {
+  UNSLOP_SYSTEM_INSTRUCTION,
+  unslopUserFacingText,
+} from "@/lib/projects/unslop-policy";
 
 export type RepairedToolCall = {
   type: "tool-call";
@@ -95,6 +99,8 @@ export async function repairDiscussCardWithTool({
   hasBuiltSite,
   lastUserText,
   previousWorkspaceCard,
+  ownerTexts,
+  sourceTurnId,
   model,
   modelMessages,
   modelName,
@@ -107,6 +113,8 @@ export async function repairDiscussCardWithTool({
   hasBuiltSite: boolean;
   lastUserText?: string;
   previousWorkspaceCard?: WorkspaceCard;
+  ownerTexts?: string[];
+  sourceTurnId?: string;
   model: LanguageModel;
   modelMessages: Awaited<ReturnType<typeof convertToModelMessages>>;
   modelName: string;
@@ -134,6 +142,8 @@ export async function repairDiscussCardWithTool({
           abortSignal: abortController.signal,
           model,
           system: `${cardSystemPrompt}
+
+${UNSLOP_SYSTEM_INSTRUCTION}
 
 REPAIR attempt ${semanticAttempt + 1}: previous card was invalid or missing.
 Call ${PRESENT_WORKSPACE_CARD_TOOL_NAME} exactly once with a valid workspace card.
@@ -180,12 +190,16 @@ Prefer 2-5 options per choice question and set recommendedOptionLabel.`,
         const turn = normalizeWorkspaceTurn(input, brief, {
           hasBuiltSite,
           lastUserText,
+          ownerTexts,
           previousWorkspaceCard,
+          sourceTurnId,
         });
         if (turn.workspaceCard.type !== "none") {
           return {
             ...turn,
-            assistantText: extractAssistantTextFromToolInput(input),
+            assistantText: unslopUserFacingText(
+              extractAssistantTextFromToolInput(input),
+            ),
             repairsUsed: semanticAttempt + 1,
             usage: {
               inputTokens: totalInputTokens,
@@ -248,6 +262,7 @@ export async function repairToolCallInTurn({
   try {
     const result = await generateText({
       model,
+      system: UNSLOP_SYSTEM_INSTRUCTION,
       messages,
       tools: { [PRESENT_WORKSPACE_CARD_TOOL_NAME]: presentWorkspaceCardTool },
       toolChoice: { type: "tool", toolName: PRESENT_WORKSPACE_CARD_TOOL_NAME },

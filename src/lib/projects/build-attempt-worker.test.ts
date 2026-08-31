@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
-  recordAiCallMock,
-  getSettingSyncMock,
   buildGeneratedProjectMock,
-  generateTextMock,
+  finalizeProjectOperationMock,
   loadAcceptedHandoffMock,
+  runAgenticGenerateMock,
   prismaMock,
+  resolveGenerateModeMock,
 } = vi.hoisted(() => {
   const pMock = {
     $executeRaw: vi.fn(async () => 1),
@@ -42,6 +42,9 @@ const {
     },
     projectBuildHandoff: {
       findFirst: vi.fn(),
+    },
+    projectDeployment: {
+      create: vi.fn(async () => ({ id: "deployment-1" })),
     },
     projectAsset: {
       findMany: vi.fn(async () => []),
@@ -98,20 +101,12 @@ const {
             contractHash: "c".repeat(64),
             contentHash: "p".repeat(64),
             appKind: "marketing_site",
-            archetype: "fnb",
             pages: [{ id: "home", path: "/", purpose: "landing" }],
             navigation: [],
             capabilities: [],
-            artDirection: {
-              businessSpecificReference: "",
-              antiReferences: [],
-              imageStrategy: "graphic",
-              fontStrategy: "system_stack",
-            },
           },
           reviewItems: [],
           reviewHash: "r".repeat(64),
-          creativeDirection: null,
         },
       })),
       update: vi.fn(async () => ({})),
@@ -128,92 +123,8 @@ const {
   };
 
   return {
-    recordAiCallMock: vi.fn(),
-    getSettingSyncMock: vi.fn((_key: string, fallback: unknown) => fallback),
-    buildGeneratedProjectMock: vi.fn(async () => ({
-      ok: true,
-      log: "ok",
-      distFiles: [
-        { path: "index.html", content: "<html/>", contentType: "text/html" },
-      ],
-    })),
-    loadAcceptedHandoffMock: pMock.projectBuildHandoff.findFirst,
-    generateTextMock: vi.fn(async (args: unknown) => {
-      const prompt = (args as { prompt?: string })?.prompt || "";
-      if (prompt.includes("<implementation_spec>")) {
-        return {
-          finishReason: "stop",
-          text: `<spec>\n${JSON.stringify({
-            appKind: "landing",
-            archetype: "generic",
-            businessName: "Kopi Sela",
-            pages: [{ slug: "/", title: "Home", purpose: "landing" }],
-            components: [],
-            features: ["landing"],
-            content: {},
-            style: {
-              direction: "warm",
-              palette: {
-                background: "#fff",
-                foreground: "#000",
-                muted: "#888",
-                accent: "#f00",
-              },
-            },
-            primaryCta: "Hubungi",
-            notes: [],
-          })}\n</spec>`,
-          response: { modelId: "served/spec" },
-          usage: { inputTokens: 10, outputTokens: 5 },
-          toolCalls: [],
-        };
-      }
-      return {
-        finishReason: "stop",
-        text: "ok",
-        response: { modelId: "served/spec" },
-        usage: { inputTokens: 10, outputTokens: 5 },
-        toolCalls: [],
-      };
-    }),
-    prismaMock: pMock,
-  };
-});
-
-vi.mock("ai", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("ai")>();
-  return {
-    ...actual,
-    generateText: generateTextMock,
-    isStepCount: vi.fn((count: number) => (step: unknown) => step === count),
-  };
-});
-
-vi.mock("@/lib/prisma", () => ({ prisma: prismaMock }));
-
-vi.mock("@/lib/projects/project-operation", () => ({
-  claimProjectOperation: vi.fn(async () => ({
-    claimed: true,
-    token: "lease-1",
-  })),
-  finalizeProjectOperation: vi.fn(async () => true),
-  renewProjectOperation: vi.fn(async () => true),
-}));
-
-vi.mock("@/lib/projects/progressive-save", () => ({
-  createProgressiveSaver: () => ({
-    save: vi.fn(),
-    flush: vi.fn(async () => undefined),
-  }),
-}));
-
-vi.mock("@/lib/projects/resolve-generate-mode", () => ({
-  resolveGenerateMode: vi.fn(() => "first_generate"),
-}));
-
-vi.mock("@/lib/projects/agentic-generator", async () => {
-  return {
-    runAgenticGenerate: vi.fn(async () => {
+    finalizeProjectOperationMock: vi.fn(async () => true),
+    runAgenticGenerateMock: vi.fn(async () => {
       await buildGeneratedProjectMock();
       return {
         files: [
@@ -225,13 +136,50 @@ vi.mock("@/lib/projects/agentic-generator", async () => {
         generationMode: "agentic" as const,
         summary: "done",
         touchedFiles: ["src/routes/index.tsx"],
-        repairAttempts: 0,
         operationTrace: [],
         skillsRead: ["impeccable", "shadcn"],
       };
     }),
+    buildGeneratedProjectMock: vi.fn(async () => ({
+      ok: true,
+      log: "ok",
+      distFiles: [
+        { path: "index.html", content: "<html/>", contentType: "text/html" },
+      ],
+    })),
+    loadAcceptedHandoffMock: pMock.projectBuildHandoff.findFirst,
+    prismaMock: pMock,
+    resolveGenerateModeMock: vi.fn(
+      (): "first_generate" | "retry_build" => "first_generate",
+    ),
   };
 });
+
+vi.mock("@/lib/prisma", () => ({ prisma: prismaMock }));
+
+vi.mock("@/lib/projects/project-operation", () => ({
+  claimProjectOperation: vi.fn(async () => ({
+    claimed: true,
+    token: "lease-1",
+  })),
+  finalizeProjectOperation: finalizeProjectOperationMock,
+  renewProjectOperation: vi.fn(async () => true),
+}));
+
+vi.mock("@/lib/projects/progressive-save", () => ({
+  createProgressiveSaver: () => ({
+    save: vi.fn(),
+    flush: vi.fn(async () => undefined),
+  }),
+}));
+
+vi.mock("@/lib/projects/resolve-generate-mode", () => ({
+  resolveGenerateMode: resolveGenerateModeMock,
+}));
+
+vi.mock("@/lib/projects/agentic-generator", () => ({
+  runAgenticGenerate: runAgenticGenerateMock,
+}));
 
 vi.mock("@/lib/projects/generated-source", async (importOriginal) => {
   const actual =
@@ -251,21 +199,21 @@ vi.mock("@/lib/projects/generated-source", async (importOriginal) => {
 });
 
 vi.mock("@/lib/projects/build-handoffs", () => ({
-  loadAcceptedHandoffForAttempt: vi.fn(async () => null),
+  loadAcceptedHandoffForAttempt: loadAcceptedHandoffMock,
 }));
 
-vi.mock("@/lib/ai/ai-call-record", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("@/lib/ai/ai-call-record")>();
-  return {
-    ...actual,
-    recordAiCall: (...args: unknown[]) => recordAiCallMock(...args),
-  };
-});
+vi.mock("@/lib/projects/runtime-artifacts", () => ({
+  resolveArtifactFilesDir: vi.fn(() => null),
+  writeProjectDistArtifact: vi.fn(async () => "dist-artifact"),
+  writeProjectSourceArtifact: vi.fn(async () => "source-artifact"),
+}));
 
-vi.mock("@/lib/config/app-settings", () => ({
-  getSettingSync: (key: string, fallback: unknown) =>
-    getSettingSyncMock(key, fallback),
+vi.mock("@/lib/projects/project-thumbnail", () => ({
+  refreshProjectThumbnail: vi.fn(async () => undefined),
+}));
+
+vi.mock("@/lib/projects/runtime-supervisor", () => ({
+  stopSupersededPreviewDeployments: vi.fn(async () => undefined),
 }));
 
 vi.mock("@/lib/ai/ai", () => ({
@@ -291,6 +239,7 @@ function baseContext() {
       id: "project-1",
       prompt: "kopi",
       status: "building",
+      generationEngine: "contract-v1",
     },
     userId: "user-1",
   };
@@ -299,11 +248,86 @@ function baseContext() {
 describe("runBuildAttempt — tool-loop generation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    getSettingSyncMock.mockImplementation((_key, fallback) => fallback);
     loadAcceptedHandoffMock.mockResolvedValue(null);
+    resolveGenerateModeMock.mockReturnValue("first_generate");
   });
 
-  it("runs agentic tool-loop and builds project successfully", async () => {
+  it("fails closed when a contract build has no accepted handoff", async () => {
+    await runBuildAttempt(baseContext());
+
+    expect(runAgenticGenerateMock).not.toHaveBeenCalled();
+    expect(prismaMock.projectEditAttempt.updateMany).toHaveBeenCalled();
+  });
+
+  it("records the latest successful retry build time", async () => {
+    resolveGenerateModeMock.mockReturnValue("retry_build");
+
+    await runBuildAttempt({
+      ...baseContext(),
+      generateMode: "retry_build",
+      project: {
+        ...baseContext().project,
+        generationEngine: "legacy",
+      },
+    });
+
+    expect(finalizeProjectOperationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          builtAt: expect.any(Date),
+        }),
+      }),
+    );
+  });
+
+  it("passes the accepted handoff directly to the writer without a planning call", async () => {
+    const acceptedHandoff = {
+      id: "handoff-1",
+      briefSnapshot: {
+        version: 2,
+        prompt: "Buat website usaha",
+        business: { name: "Usaha", type: "lokal" },
+        offers: [{ name: "Layanan", isPrimary: true }],
+        visitorJobs: [],
+        audience: "Pelanggan sekitar",
+        primaryAction: { kind: "browse", label: "Lihat", target: null },
+        visualDirection: null,
+        fieldState: {},
+        content: {
+          tagline: null,
+          usp: [],
+          priceRange: null,
+          hours: [],
+          address: null,
+          deliveryArea: null,
+          since: null,
+          testimonials: [],
+          certifications: [],
+          paymentMethods: [],
+          socialLinks: [],
+          currentPromo: null,
+          secondaryAction: null,
+        },
+        assets: [],
+        provenance: { facts: [], decisions: [] },
+      },
+      contract: {
+        identity: { businessName: "Usaha", businessType: "lokal" },
+        facts: [],
+        ctaIntents: [],
+        assets: [],
+      },
+      plan: {
+        pages: [
+          {
+            path: "/",
+            title: "Beranda",
+          },
+        ],
+      },
+    };
+    loadAcceptedHandoffMock.mockResolvedValue(acceptedHandoff as never);
+
     buildGeneratedProjectMock.mockResolvedValue({
       ok: true,
       log: "ok",
@@ -322,6 +346,19 @@ describe("runBuildAttempt — tool-loop generation", () => {
     } as never);
     await runBuildAttempt(baseContext());
 
-    expect(buildGeneratedProjectMock).toHaveBeenCalled();
+    expect(runAgenticGenerateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        buildContract: acceptedHandoff.contract,
+        buildPlan: acceptedHandoff.plan,
+      }),
+    );
+    expect(finalizeProjectOperationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          activeHandoffId: "handoff-1",
+          brief: acceptedHandoff.briefSnapshot,
+        }),
+      }),
+    );
   });
 });

@@ -40,32 +40,79 @@ function contractHashInput(c: BuildContractV1): unknown {
   };
 }
 
+type LegacyPlanSection = {
+  id: string;
+  purpose: string;
+  surfaceIntent: "full_bleed" | "contained" | "prose";
+  requiredFactIds: string[];
+  requiredAssetIds: string[];
+};
+
+type LegacyBuildPlan = Omit<BuildPlanV1, "pages"> & {
+  archetype: string;
+  artDirection: {
+    businessSpecificReference: string;
+    antiReferences: string[];
+    imageStrategy: "owner_assets" | "graphic" | "typographic";
+    fontStrategy: "platform_registry" | "system_stack";
+  };
+  pages: Array<
+    BuildPlanV1["pages"][number] & { sections: LegacyPlanSection[] }
+  >;
+};
+
+function isLegacyBuildPlan(p: BuildPlanV1): p is LegacyBuildPlan {
+  const raw = p as unknown as Record<string, unknown>;
+  return (
+    typeof raw.archetype === "string" &&
+    typeof raw.artDirection === "object" &&
+    raw.artDirection !== null &&
+    p.pages.every((page) => {
+      const rawPage = page as unknown as Record<string, unknown>;
+      return Array.isArray(rawPage.sections);
+    })
+  );
+}
+
 function planHashInput(p: BuildPlanV1): unknown {
+  if (isLegacyBuildPlan(p)) {
+    return {
+      schemaVersion: p.schemaVersion,
+      contractHash: p.contractHash,
+      appKind: p.appKind,
+      archetype: p.archetype,
+      pages: p.pages.map((page) => ({
+        ...page,
+        visitorJobIds: sortValues(page.visitorJobIds),
+        requiredFactIds: sortValues(page.requiredFactIds),
+        sections: page.sections.map((section) => ({
+          ...section,
+          requiredFactIds: sortValues(section.requiredFactIds),
+          requiredAssetIds: sortValues(section.requiredAssetIds),
+        })),
+      })),
+      navigation: p.navigation,
+      capabilities: sortValues(p.capabilities),
+      artDirection: {
+        ...p.artDirection,
+        antiReferences: sortValues(p.artDirection.antiReferences),
+      },
+    };
+  }
+
   return {
     schemaVersion: p.schemaVersion,
     contractHash: p.contractHash,
     appKind: p.appKind,
-    archetype: p.archetype,
     pages: p.pages.map((page) => ({
       ...page,
       visitorJobIds: sortValues(page.visitorJobIds),
       requiredFactIds: sortValues(page.requiredFactIds),
-      sections: page.sections.map((section) => ({
-        ...section,
-        requiredFactIds: sortValues(section.requiredFactIds),
-        requiredAssetIds: sortValues(section.requiredAssetIds),
-      })),
     })),
     navigation: p.navigation,
     capabilities: sortValues(p.capabilities),
-    artDirection: {
-      ...p.artDirection,
-      antiReferences: sortValues(p.artDirection.antiReferences),
-    },
   };
 }
-
-export { canonicalJson } from "./canonical-json";
 
 export function hashBuildContract(c: BuildContractV1): string {
   return sha256Hex(CONTRACT_PREFIX + canonicalJson(contractHashInput(c)));

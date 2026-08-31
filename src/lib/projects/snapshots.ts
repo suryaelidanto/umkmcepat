@@ -1,5 +1,13 @@
 import { prisma } from "@/lib/prisma";
-import { readProjectSourceArtifact } from "@/lib/projects/runtime-artifacts";
+import {
+  isProjectBuildForProject,
+  isProjectDeploymentForProject,
+  isSuccessfulBuildWithArtifact,
+} from "@/lib/projects/deployment-resolution";
+import {
+  isProjectArtifactRefFor,
+  readProjectSourceArtifact,
+} from "@/lib/projects/runtime-artifacts";
 
 export type SnapshotSummary = {
   buildStatus: string | null;
@@ -41,53 +49,114 @@ export async function listSnapshots(
 
   const [builds, previewDeployments, publishedDeployments] = await Promise.all([
     prisma.projectBuild.findMany({
-      where: { projectId, artifactRef: { not: null }, status: "succeeded" },
+      where: {
+        artifactRef: { not: null },
+        project: { id: projectId },
+        projectId,
+        snapshot: { projectId },
+        status: "succeeded",
+      },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      select: { id: true, snapshotId: true, status: true },
+      select: {
+        artifactRef: true,
+        id: true,
+        projectId: true,
+        snapshot: { select: { id: true, projectId: true } },
+        snapshotId: true,
+        status: true,
+      },
     }),
     prisma.projectDeployment.findMany({
-      where: { kind: "preview", projectId },
+      where: {
+        build: {
+          project: { id: projectId },
+          snapshot: { projectId },
+        },
+        kind: "preview",
+        projectId,
+        snapshot: { projectId },
+      },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 100,
       select: {
-        build: { select: { id: true, status: true } },
+        build: {
+          select: {
+            artifactRef: true,
+            id: true,
+            projectId: true,
+            snapshot: { select: { id: true, projectId: true } },
+            snapshotId: true,
+            status: true,
+          },
+        },
+        buildId: true,
+        id: true,
+        projectId: true,
+        snapshot: { select: { id: true, projectId: true } },
         snapshotId: true,
       },
     }),
     prisma.projectDeployment.findMany({
-      where: { kind: "published", projectId },
+      where: { kind: "published", projectId, snapshot: { projectId } },
       orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
       take: 20,
-      select: { snapshotId: true },
+      select: {
+        build: {
+          select: {
+            artifactRef: true,
+            id: true,
+            projectId: true,
+            snapshot: { select: { id: true, projectId: true } },
+            snapshotId: true,
+            status: true,
+          },
+        },
+        buildId: true,
+        id: true,
+        projectId: true,
+        snapshot: { select: { id: true, projectId: true } },
+        snapshotId: true,
+      },
     }),
   ]);
   const buildBySnapshot = new Map<string, SnapshotBuildSummary>();
   for (const build of builds) {
-    buildBySnapshot.set(build.snapshotId, {
-      id: build.id,
-      status: build.status,
-    });
+    if (
+      isProjectBuildForProject(build, projectId) &&
+      isProjectArtifactRefFor(build.artifactRef, "dist", build.id) &&
+      !buildBySnapshot.has(build.snapshotId)
+    ) {
+      buildBySnapshot.set(build.snapshotId, {
+        id: build.id,
+        status: build.status,
+      });
+    }
   }
   for (const deployment of previewDeployments) {
-    if (deployment.snapshotId && deployment.build) {
-      buildBySnapshot.set(deployment.snapshotId, deployment.build);
+    const build = deployment.build;
+    if (
+      deployment.snapshotId &&
+      build &&
+      isProjectDeploymentForProject(deployment, projectId) &&
+      isSuccessfulBuildWithArtifact(build) &&
+      !buildBySnapshot.has(deployment.snapshotId)
+    ) {
+      buildBySnapshot.set(deployment.snapshotId, {
+        id: build.id,
+        status: build.status,
+      });
     }
   }
   const publishedSnapshotIds = new Set(
     publishedDeployments
+      .filter(
+        (deployment) =>
+          isProjectDeploymentForProject(deployment, projectId) &&
+          isSuccessfulBuildWithArtifact(deployment.build),
+      )
       .map((deployment) => deployment.snapshotId)
       .filter((snapshotId): snapshotId is string => Boolean(snapshotId)),
   );
-
-  // Also map parent snapshot builds if a snapshot was branched
-  for (const snapshot of snapshots) {
-    if (snapshot.parentSnapshotId && !buildBySnapshot.has(snapshot.id)) {
-      const parentBuild = buildBySnapshot.get(snapshot.parentSnapshotId);
-      if (parentBuild) {
-        buildBySnapshot.set(snapshot.id, parentBuild);
-      }
-    }
-  }
 
   return snapshots
     .filter((snapshot) => {
@@ -97,9 +166,7 @@ export async function listSnapshots(
       if (meta?.origin?.generator === "generate-placeholder") {
         return false;
       }
-      const fileCount = countFiles(snapshot.files);
-      const hasFiles =
-        (fileCount != null && fileCount > 0) || Boolean(snapshot.sourceRef);
+      const hasFiles = hasRestorableSource(snapshot);
       if (!hasFiles) {
         return false;
       }
@@ -110,8 +177,7 @@ export async function listSnapshots(
     })
     .map((snapshot) => {
       const fileCount = countFiles(snapshot.files);
-      const restorable =
-        (fileCount != null && fileCount > 0) || Boolean(snapshot.sourceRef);
+      const restorable = hasRestorableSource(snapshot);
       const build = buildBySnapshot.get(snapshot.id);
       const { summary, changes } = extractSnapshotChangelog(snapshot.metadata);
       const meta = snapshot.metadata as {
@@ -232,6 +298,18 @@ export function extractSnapshotChangelog(metadata: unknown): {
   return { summary, changes };
 }
 
+function hasRestorableSource(snapshot: {
+  files: unknown;
+  id: string;
+  sourceRef: string | null;
+}) {
+  const fileCount = countFiles(snapshot.files);
+  return (
+    (fileCount != null && fileCount > 0) ||
+    isProjectArtifactRefFor(snapshot.sourceRef, "source", snapshot.id)
+  );
+}
+
 export function countFiles(files: unknown): number | null {
   if (!Array.isArray(files)) {
     return null;
@@ -259,10 +337,15 @@ export function kindOf(sourceType: string, metadata: unknown): SnapshotKind {
 export async function readSnapshotFile(
   snapshotId: string,
   filePath: string,
+  owner: { projectId: string; userId: string },
 ): Promise<{ content: string } | null> {
-  const snapshot = await prisma.projectSnapshot.findUnique({
-    where: { id: snapshotId },
-    select: { files: true, sourceRef: true },
+  const snapshot = await prisma.projectSnapshot.findFirst({
+    where: {
+      id: snapshotId,
+      project: { userId: owner.userId },
+      projectId: owner.projectId,
+    },
+    select: { files: true, id: true, sourceRef: true },
   });
   if (!snapshot) {
     return null;
@@ -273,10 +356,11 @@ export async function readSnapshotFile(
     return { content: file };
   }
 
-  if (snapshot.sourceRef) {
-    const artifactFiles = await readProjectSourceArtifact(
-      snapshot.sourceRef,
-    ).catch(() => []);
+  const sourceRef = snapshot.sourceRef;
+  if (isProjectArtifactRefFor(sourceRef, "source", snapshot.id)) {
+    const artifactFiles = await readProjectSourceArtifact(sourceRef).catch(
+      () => [],
+    );
     const artifactFile = artifactFiles.find((entry) => entry.path === filePath);
     if (artifactFile) {
       return { content: artifactFile.content };

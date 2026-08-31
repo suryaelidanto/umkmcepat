@@ -1,13 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { prisma } from "@/lib/prisma";
-import { readProjectAsset } from "@/lib/projects/project-assets";
+import {
+  parseProjectAssetRef,
+  readProjectAsset,
+} from "@/lib/projects/project-assets";
 
 type AssetRow = {
   id: string;
+  purpose: string;
   publicUrl: string | null;
+  projectId?: string;
   ref?: string;
   contentType?: string;
+  userId?: string;
 } | null;
 
 export function resolveMediaRedirect(
@@ -16,9 +22,27 @@ export function resolveMediaRedirect(
   | { location: string; status: 302 }
   | { stream: boolean; status: 200 }
   | { status: 404 } {
-  if (!asset) {
+  if (
+    !asset ||
+    !asset.publicUrl ||
+    (asset.purpose !== "business-image" && asset.purpose !== "logo") ||
+    !asset.ref ||
+    asset.ref.startsWith("project-asset:s3-private:")
+  ) {
     return { status: 404 };
   }
+
+  const parsedRef = parseProjectAssetRef(asset.ref);
+  if (
+    !parsedRef ||
+    parsedRef.kind !== asset.purpose ||
+    (asset.projectId !== undefined &&
+      parsedRef.projectId !== asset.projectId) ||
+    (asset.userId !== undefined && parsedRef.userId !== asset.userId)
+  ) {
+    return { status: 404 };
+  }
+
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   let isSameOrigin = false;
   try {
@@ -46,7 +70,15 @@ export async function serveMediaAsset(assetId: string): Promise<Response> {
     return new Response(null, { status: 404 });
   }
   const asset = await prisma.projectAsset.findUnique({
-    select: { id: true, publicUrl: true, ref: true, contentType: true },
+    select: {
+      contentType: true,
+      id: true,
+      publicUrl: true,
+      projectId: true,
+      purpose: true,
+      ref: true,
+      userId: true,
+    },
     where: { id: assetId },
   });
   const resolved = resolveMediaRedirect(asset);
@@ -73,32 +105,6 @@ export async function serveMediaAsset(assetId: string): Promise<Response> {
     } catch {
       return new Response(null, { status: 404 });
     }
-  }
-
-  // Fallback: check if assetId is a temp-upload image token
-  try {
-    const jsonStr = Buffer.from(assetId.split(".")[0], "base64url").toString(
-      "utf-8",
-    );
-    const parsed = JSON.parse(jsonStr) as {
-      key?: string;
-      contentType?: string;
-    };
-    if (parsed.key?.startsWith("temp-uploads/")) {
-      const { getS3Object } = await import("@/lib/storage/s3-client");
-      const body = await getS3Object("private", parsed.key);
-      return new Response(new Uint8Array(body), {
-        headers: {
-          "Cache-Control": "public, max-age=3600",
-          "Content-Type": parsed.contentType || "image/jpeg",
-          "Content-Length": String(body.length),
-          "X-Content-Type-Options": "nosniff",
-        },
-        status: 200,
-      });
-    }
-  } catch {
-    // ignore
   }
 
   return new Response(null, { status: 404 });

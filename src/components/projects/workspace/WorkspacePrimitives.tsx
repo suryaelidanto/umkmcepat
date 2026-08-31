@@ -838,7 +838,7 @@ export function VisualFeedbackWidget({
             maxLength={1000}
             value={instruction}
             onChange={(event) => onInstructionChange(event.target.value)}
-            placeholder="Contoh: bikin keseluruhan lebih rapi dan tenang..."
+            placeholder="Tulis catatan tambahan..."
             className="mt-spacing-2 w-full resize-none rounded-[14px] border border-surface-warm-white/10 bg-[#111110] px-spacing-4 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none placeholder:text-surface-warm-white/38 focus:border-surface-warm-white/30"
           />
           <Button

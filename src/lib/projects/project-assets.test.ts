@@ -5,6 +5,7 @@ import {
   deleteProjectAsset,
   deleteProjectAssetById,
   detectImageFormat,
+  filterOwnedBusinessAssetIds,
   listProjectAssetsWithUsage,
   parseProjectAssetRef,
   readProjectAsset,
@@ -356,11 +357,41 @@ describe("project assets", () => {
         contentType: "image/jpeg",
         sizeBytes: 2000,
         publicUrl: "https://media.test/asset-1.jpg",
-        mediaUrl: "/api/media/asset-1",
+        mediaUrl: "/api/projects/p1/asset/asset-1",
         createdAt: "2026-08-25T10:00:00.000Z",
         isUsed: true,
       });
       expect(result.assets[1].isUsed).toBe(false);
+    });
+  });
+
+  describe("filterOwnedBusinessAssetIds", () => {
+    it("keeps only business images owned by the project user in input order", async () => {
+      const findMany = vi.fn(async () => [
+        { id: "asset-2" },
+        { id: "asset-1" },
+      ]);
+      const client = {
+        projectAsset: { findMany },
+      };
+
+      const result = await filterOwnedBusinessAssetIds(
+        ["asset-1", "foreign", "asset-1", "asset-2"],
+        "p1",
+        "u1",
+        client as unknown as Parameters<typeof filterOwnedBusinessAssetIds>[3],
+      );
+
+      expect(result).toEqual(["asset-1", "asset-2"]);
+      expect(findMany).toHaveBeenCalledWith({
+        select: { id: true },
+        where: {
+          id: { in: ["asset-1", "foreign", "asset-2"] },
+          projectId: "p1",
+          purpose: "business-image",
+          userId: "u1",
+        },
+      });
     });
   });
 

@@ -88,7 +88,7 @@ export const authConfig: AuthConfig = {
           (token as { admin?: boolean }).admin = isAdminEmail(dbUser.email);
         }
       } catch {
-        // Fail open: if DB is down, keep existing token to avoid
+        return null;
       }
 
       if (trigger === "update") {

@@ -28,9 +28,16 @@ vi.mock("@/lib/prisma", () => ({
     },
   },
 }));
-vi.mock("@/lib/projects/runtime-artifacts", () => ({
-  readProjectDistArtifact: readProjectDistArtifactMock,
-}));
+vi.mock("@/lib/projects/runtime-artifacts", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/projects/runtime-artifacts")
+  >("@/lib/projects/runtime-artifacts");
+
+  return {
+    ...actual,
+    readProjectDistArtifact: readProjectDistArtifactMock,
+  };
+});
 vi.mock("@/lib/projects/runtime-proxy", async () => {
   const actual = await vi.importActual<
     typeof import("@/lib/projects/runtime-proxy")
@@ -61,6 +68,8 @@ describe("project assets route", () => {
         artifactRef: "project-artifact:s3:dist:build_1",
         createdAt: new Date(),
         id: "build_1",
+        projectId: "project_1",
+        snapshot: { id: "snapshot_1", projectId: "project_1" },
         snapshotId: "snapshot_1",
         status: "succeeded",
         updatedAt: new Date(),
@@ -70,6 +79,7 @@ describe("project assets route", () => {
       id: "deployment_1",
       kind: "preview",
       projectId: "project_1",
+      snapshot: { id: "snapshot_1", projectId: "project_1" },
       snapshotId: "snapshot_1",
       status: "created",
       updatedAt: new Date(),
@@ -103,5 +113,259 @@ describe("project assets route", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("Content-Type")).toContain("text/css");
     await expect(response.text()).resolves.toContain("background: red");
+  });
+
+  it("does not fall back to an unrelated successful build for a selected deployment", async () => {
+    const deployment = {
+      build: {
+        artifactRef: "project-artifact:s3:dist:build_1",
+        createdAt: new Date(),
+        id: "build_1",
+        projectId: "project_1",
+        snapshot: { id: "snapshot_1", projectId: "project_1" },
+        snapshotId: "snapshot_1",
+        status: "succeeded",
+        updatedAt: new Date(),
+      },
+      buildId: "build_1",
+      createdAt: new Date(),
+      id: "deployment_1",
+      kind: "preview",
+      projectId: "project_1",
+      snapshot: { id: "snapshot_1", projectId: "project_1" },
+      snapshotId: "snapshot_1",
+      status: "created",
+      updatedAt: new Date(),
+    };
+    prismaProjectDeploymentFindManyMock.mockResolvedValue([deployment]);
+    prismaProjectBuildFindManyMock.mockResolvedValue([
+      { artifactRef: "project-artifact:s3:dist:build_2", id: "build_2" },
+    ]);
+    proxyDeploymentRequestMock.mockResolvedValue(null);
+    readProjectDistArtifactMock.mockImplementation(async (ref: string) =>
+      ref.endsWith("build_1")
+        ? []
+        : [
+            {
+              content: "wrong version",
+              contentType: "text/css",
+              path: "assets/index.css",
+            },
+          ],
+    );
+    prismaQueryRawMock.mockResolvedValue([{ distFiles: null }]);
+
+    const token = createPreviewAssetToken({
+      deploymentId: "deployment_1",
+      projectId: "project_1",
+    });
+    const response = await GET(
+      new Request(
+        `http://localhost/assets/index.css?assetToken=${encodeURIComponent(token)}`,
+      ),
+      { id: "project_1", _splat: "index.css" },
+    );
+
+    expect(response.status).toBe(503);
+    expect(readProjectDistArtifactMock).toHaveBeenCalledTimes(1);
+    expect(readProjectDistArtifactMock).toHaveBeenCalledWith(
+      "project-artifact:s3:dist:build_1",
+    );
+  });
+
+  it("does not read an artifact reference that does not belong to its build", async () => {
+    const deployment = {
+      build: {
+        artifactRef: "project-artifact:s3:dist:other_build",
+        createdAt: new Date(),
+        id: "build_1",
+        projectId: "project_1",
+        snapshot: { projectId: "project_1" },
+        snapshotId: "snapshot_1",
+        status: "succeeded",
+        updatedAt: new Date(),
+      },
+      buildId: "build_1",
+      createdAt: new Date(),
+      id: "deployment_1",
+      kind: "preview",
+      projectId: "project_1",
+      snapshotId: "snapshot_1",
+      status: "created",
+      updatedAt: new Date(),
+    };
+
+    prismaProjectDeploymentFindManyMock.mockResolvedValue([deployment]);
+    prismaQueryRawMock.mockResolvedValue([{ distFiles: null }]);
+    proxyDeploymentRequestMock.mockResolvedValue(null);
+    readProjectDistArtifactMock.mockResolvedValue([
+      {
+        content: "private",
+        contentType: "text/plain",
+        path: "assets/index.css",
+      },
+    ]);
+
+    const token = createPreviewAssetToken({
+      deploymentId: "deployment_1",
+      projectId: "project_1",
+    });
+
+    const response = await GET(
+      new Request(
+        `http://localhost/assets/index.css?assetToken=${encodeURIComponent(token)}`,
+      ),
+      {
+        id: "project_1",
+        _splat: "index.css",
+      },
+    );
+
+    expect(response.status).toBe(401);
+    expect(readProjectDistArtifactMock).not.toHaveBeenCalled();
+  });
+
+  it("does not fall back to project files when the selected artifact is unavailable", async () => {
+    const deployment = {
+      build: {
+        artifactRef: "project-artifact:s3:dist:build_1",
+        createdAt: new Date(),
+        id: "build_1",
+        projectId: "project_1",
+        snapshot: { id: "snapshot_1", projectId: "project_1" },
+        snapshotId: "snapshot_1",
+        status: "succeeded",
+        updatedAt: new Date(),
+      },
+      buildId: "build_1",
+      createdAt: new Date(),
+      id: "deployment_1",
+      kind: "preview",
+      projectId: "project_1",
+      snapshot: { id: "snapshot_1", projectId: "project_1" },
+      snapshotId: "snapshot_1",
+      status: "created",
+      updatedAt: new Date(),
+    };
+
+    prismaProjectDeploymentFindManyMock.mockResolvedValue([deployment]);
+    readProjectDistArtifactMock.mockResolvedValue([]);
+    prismaQueryRawMock.mockResolvedValue([
+      {
+        distFiles: [
+          {
+            content: "wrong version",
+            contentType: "text/css",
+            path: "assets/index.css",
+          },
+        ],
+      },
+    ]);
+    proxyDeploymentRequestMock.mockResolvedValue(null);
+
+    const token = createPreviewAssetToken({
+      deploymentId: "deployment_1",
+      projectId: "project_1",
+    });
+    const response = await GET(
+      new Request(
+        `http://localhost/assets/index.css?assetToken=${encodeURIComponent(token)}`,
+      ),
+      { id: "project_1", _splat: "index.css" },
+    );
+
+    expect(response.status).toBe(503);
+    expect(readProjectDistArtifactMock).toHaveBeenCalledTimes(1);
+    expect(readProjectDistArtifactMock).toHaveBeenCalledWith(
+      "project-artifact:s3:dist:build_1",
+    );
+  });
+
+  it("does not use a preview deployment whose snapshot pointer disagrees with its build", async () => {
+    const deployment = {
+      build: {
+        artifactRef: "project-artifact:s3:dist:build_1",
+        createdAt: new Date(),
+        id: "build_1",
+        projectId: "project_1",
+        snapshot: { projectId: "project_1" },
+        snapshotId: "snapshot_2",
+        status: "succeeded",
+        updatedAt: new Date(),
+      },
+      buildId: "build_1",
+      createdAt: new Date(),
+      id: "deployment_1",
+      kind: "preview",
+      projectId: "project_1",
+      snapshotId: "snapshot_1",
+      status: "created",
+      updatedAt: new Date(),
+    };
+
+    prismaProjectDeploymentFindManyMock.mockResolvedValue([deployment]);
+
+    const token = createPreviewAssetToken({
+      deploymentId: "deployment_1",
+      projectId: "project_1",
+    });
+
+    const response = await GET(
+      new Request(
+        `http://localhost/assets/index.css?assetToken=${encodeURIComponent(token)}`,
+      ),
+      {
+        id: "project_1",
+        _splat: "index.css",
+      },
+    );
+
+    expect(response.status).toBe(401);
+    expect(proxyDeploymentRequestMock).not.toHaveBeenCalled();
+    expect(readProjectDistArtifactMock).not.toHaveBeenCalled();
+  });
+
+  it("does not use a preview deployment whose build belongs to another project", async () => {
+    const deployment = {
+      build: {
+        artifactRef: "project-artifact:s3:dist:build_1",
+        createdAt: new Date(),
+        id: "build_1",
+        projectId: "project_2",
+        snapshot: { projectId: "project_2" },
+        snapshotId: "snapshot_1",
+        status: "succeeded",
+        updatedAt: new Date(),
+      },
+      buildId: "build_1",
+      createdAt: new Date(),
+      id: "deployment_1",
+      kind: "preview",
+      projectId: "project_1",
+      snapshotId: "snapshot_1",
+      status: "created",
+      updatedAt: new Date(),
+    };
+
+    prismaProjectDeploymentFindManyMock.mockResolvedValue([deployment]);
+
+    const token = createPreviewAssetToken({
+      deploymentId: "deployment_1",
+      projectId: "project_1",
+    });
+
+    const response = await GET(
+      new Request(
+        `http://localhost/assets/index.css?assetToken=${encodeURIComponent(token)}`,
+      ),
+      {
+        id: "project_1",
+        _splat: "index.css",
+      },
+    );
+
+    expect(response.status).toBe(401);
+    expect(proxyDeploymentRequestMock).not.toHaveBeenCalled();
+    expect(readProjectDistArtifactMock).not.toHaveBeenCalled();
   });
 });

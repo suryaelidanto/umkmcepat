@@ -16,6 +16,11 @@ const {
 
 vi.mock("@/lib/prisma", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/projects/runtime-artifacts", () => ({
+  isProjectArtifactRefFor: (
+    ref: string | null | undefined,
+    kind: string,
+    artifactId: string,
+  ) => ref === `project-artifact:s3:${kind}:${artifactId}`,
   readProjectSourceArtifact: readProjectSourceArtifactMock,
 }));
 vi.mock("@/lib/projects/resolve-project-source-files", () => ({
@@ -61,10 +66,63 @@ describe("loadPersistedProjectSourceFiles", () => {
     ).toBe(true);
   });
 
+  it("removes a source artifact reference that is not tied to its snapshot", async () => {
+    prismaMock.projectBuild.findFirst.mockResolvedValue({
+      snapshot: {
+        id: "s1",
+        files: [],
+        sourceRef: "project-artifact:s3:source:other",
+      },
+    });
+    resolveProjectSourceFilesMock.mockResolvedValue(sample);
+
+    await loadPersistedProjectSourceFiles({ projectId: "p1", userId: "u1" });
+
+    const [{ readArtifact }] = resolveProjectSourceFilesMock.mock.calls[0] as [
+      {
+        readArtifact: (
+          sourceRef: string,
+          snapshot: { id: string },
+        ) => Promise<unknown[]>;
+      },
+    ];
+    await expect(
+      readArtifact("project-artifact:s3:source:other", { id: "s1" }),
+    ).resolves.toEqual([]);
+    expect(readProjectSourceArtifactMock).not.toHaveBeenCalled();
+  });
+
+  it("scopes persisted build and snapshot reads to the requesting owner", async () => {
+    await loadPersistedProjectSourceFiles({ projectId: "p1", userId: "u1" });
+
+    expect(prismaMock.projectBuild.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { project: { userId: "u1" }, projectId: "p1" },
+      }),
+    );
+    expect(prismaMock.projectSnapshot.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { project: { userId: "u1" }, projectId: "p1" },
+      }),
+    );
+  });
+
+  it("does not pass a build snapshot from another project into the resolver", async () => {
+    prismaMock.projectBuild.findFirst.mockResolvedValue({
+      snapshot: { id: "s1", files: [], projectId: "p2", sourceRef: null },
+    });
+
+    await loadPersistedProjectSourceFiles({ projectId: "p1", userId: "u1" });
+
+    expect(resolveProjectSourceFilesMock).toHaveBeenCalledWith(
+      expect.objectContaining({ latestAttemptSnapshot: null }),
+    );
+  });
+
   it("passes snapshots and project sourceFiles into resolver", async () => {
     prismaMock.$queryRaw.mockResolvedValue([{ sourceFiles: sample }]);
     prismaMock.projectBuild.findFirst.mockResolvedValue({
-      snapshot: { id: "s1", files: [], sourceRef: null },
+      snapshot: { id: "s1", files: [], projectId: "p1", sourceRef: null },
     });
     prismaMock.projectSnapshot.findFirst.mockResolvedValue({
       id: "ps1",
@@ -77,7 +135,12 @@ describe("loadPersistedProjectSourceFiles", () => {
 
     expect(resolveProjectSourceFilesMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        latestAttemptSnapshot: { id: "s1", files: [], sourceRef: null },
+        latestAttemptSnapshot: {
+          id: "s1",
+          files: [],
+          projectId: "p1",
+          sourceRef: null,
+        },
         latestProjectSnapshot: { id: "ps1", files: [], sourceRef: null },
         projectSourceFiles: sample,
         readArtifact: expect.any(Function),

@@ -89,6 +89,30 @@ describe("acceptHandoffAndCreateAttempt", () => {
     }
   });
 
+  it("rejects a superseded handoff before creating an attempt", async () => {
+    prismaMock.projectBuildHandoff.findUnique.mockResolvedValue({
+      id: "h1",
+      projectId: "p1",
+      userId: "u1",
+      status: "superseded",
+      reviewHash: "current",
+    });
+
+    await expect(
+      acceptHandoffAndCreateAttempt({
+        projectId: "p1",
+        userId: "u1",
+        handoffId: "h1",
+        reviewHash: "current",
+        generationEngine: "contract-v1",
+        clientIdempotencyKey: "r1",
+        attemptId: "build_new",
+      }),
+    ).rejects.toThrow("handoff not found");
+    expect(prismaMock.projectEditAttempt.findFirst).not.toHaveBeenCalled();
+    expect(prismaMock.projectEditAttempt.create).not.toHaveBeenCalled();
+  });
+
   it("creates an attempt for a fresh idempotency key against a draft handoff", async () => {
     prismaMock.projectBuildHandoff.findUnique.mockResolvedValue({
       id: "h1",

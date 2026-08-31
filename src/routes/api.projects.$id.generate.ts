@@ -355,6 +355,7 @@ export async function handleGeneratePost(request: Request, routeId: string) {
       projectId,
       projectPrompt,
       projectStatus: project.status,
+      generationEngine: project.generationEngine,
       userId,
     });
   } catch (error) {

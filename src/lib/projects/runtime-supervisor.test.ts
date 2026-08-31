@@ -117,6 +117,43 @@ describe("noop runtime supervisor", () => {
     expect(stopDeployment).toHaveBeenCalledTimes(2);
   });
 
+  it("does not start a deployment with an artifact owned by another build", async () => {
+    const prisma = {
+      projectDeployment: {
+        findUnique: vi.fn(async () => ({
+          build: {
+            artifactRef: "project-artifact:s3:dist:other_build",
+            id: "build_1",
+            projectId: "project_1",
+            snapshot: { id: "snapshot_1", projectId: "project_1" },
+            snapshotId: "snapshot_1",
+            status: "succeeded",
+          },
+          buildId: "build_1",
+          containerName: null,
+          id: "deployment_1",
+          internalUrl: null,
+          kind: "preview",
+          projectId: "project_1",
+          runtimeNodeId: null,
+          snapshot: { id: "snapshot_1", projectId: "project_1" },
+          snapshotId: "snapshot_1",
+          status: "created",
+        })),
+        update: vi.fn(),
+      },
+      runtimeEvent: { create: vi.fn() },
+      runtimeNode: { upsert: vi.fn() },
+    };
+    const supervisor = createLocalProcessRuntimeSupervisor({ prisma });
+
+    await expect(supervisor.startDeployment("deployment_1")).resolves.toBe(
+      "failed",
+    );
+    expect(prisma.projectDeployment.update).not.toHaveBeenCalled();
+    expect(prisma.runtimeNode.upsert).not.toHaveBeenCalled();
+  });
+
   it("starts and stops a generated dist artifact in a local runtime process", async () => {
     tempDir = await mkdtemp(path.join(os.tmpdir(), "umkmcepat-runtime-"));
     const artifactRef = await writeProjectDistArtifact({
@@ -131,12 +168,23 @@ describe("noop runtime supervisor", () => {
     });
     const events: unknown[] = [];
     let deployment = {
-      build: { artifactRef },
+      build: {
+        artifactRef,
+        id: "build_1",
+        projectId: "project_1",
+        snapshot: { id: "snapshot_1", projectId: "project_1" },
+        snapshotId: "snapshot_1",
+        status: "succeeded",
+      },
+      buildId: "build_1",
       containerName: null as string | null,
       id: "deployment_1",
       internalUrl: null as string | null,
+      kind: "preview",
       projectId: "project_1",
       runtimeNodeId: null as string | null,
+      snapshot: { id: "snapshot_1", projectId: "project_1" },
+      snapshotId: "snapshot_1",
       status: "created",
     };
     const prisma = {
@@ -204,12 +252,23 @@ describe("noop runtime supervisor", () => {
       ],
     });
     let deployment = {
-      build: { artifactRef },
+      build: {
+        artifactRef,
+        id: "build_404",
+        projectId: "project_404",
+        snapshot: { id: "snapshot_404", projectId: "project_404" },
+        snapshotId: "snapshot_404",
+        status: "succeeded",
+      },
+      buildId: "build_404",
       containerName: null as string | null,
       id: "deployment_404",
       internalUrl: null as string | null,
+      kind: "preview",
       projectId: "project_404",
       runtimeNodeId: null as string | null,
+      snapshot: { id: "snapshot_404", projectId: "project_404" },
+      snapshotId: "snapshot_404",
       status: "created",
     };
     const prisma = {

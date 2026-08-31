@@ -3,13 +3,19 @@ import { createFileRoute } from "@tanstack/react-router";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { isPrismaDatabaseUnavailable } from "@/lib/prisma-errors";
-import { selectActivePreviewDeployment } from "@/lib/projects/deployment-resolution";
+import {
+  isProjectDeploymentForProject,
+  selectActivePreviewDeployment,
+} from "@/lib/projects/deployment-resolution";
 import { parseGeneratedDistFiles } from "@/lib/projects/generated-source";
 import {
   PREVIEW_ASSET_TOKEN_PARAM,
   verifyPreviewAssetToken,
 } from "@/lib/projects/preview-asset-token";
-import { readProjectDistArtifact } from "@/lib/projects/runtime-artifacts";
+import {
+  isProjectArtifactRefFor,
+  readProjectDistArtifact,
+} from "@/lib/projects/runtime-artifacts";
 import {
   applyPreviewSandboxHeaders,
   proxyDeploymentRequest,
@@ -68,6 +74,8 @@ async function getAssetResponse({
           artifactRef: true,
           createdAt: true,
           id: true,
+          projectId: true,
+          snapshot: { select: { id: true, projectId: true } },
           snapshotId: true,
           status: true,
           updatedAt: true,
@@ -78,12 +86,17 @@ async function getAssetResponse({
       id: true,
       kind: true,
       projectId: true,
+      snapshot: { select: { id: true, projectId: true } },
       snapshotId: true,
       status: true,
       updatedAt: true,
     },
   });
-  const deployment = selectActivePreviewDeployment(deployments);
+  const deployment = selectActivePreviewDeployment(
+    deployments.filter((candidate) =>
+      isProjectDeploymentForProject(candidate, id),
+    ),
+  );
   const requestUrl = new URL(request.url);
   const assetToken = requestUrl.searchParams.get(PREVIEW_ASSET_TOKEN_PARAM);
 
@@ -91,7 +104,7 @@ async function getAssetResponse({
     deployment?.build?.artifactRef &&
     (verifyPreviewAssetToken({
       deploymentId: deployment.id,
-      projectId: deployment.projectId,
+      projectId: id,
       token: assetToken,
     }) ||
       verifyPreviewAssetToken({
@@ -117,6 +130,7 @@ async function getAssetResponse({
     }
 
     const staticResponse = await getStoredAssetResponse({
+      artifactId: deployment.build?.id,
       artifactRef: deployment.build?.artifactRef,
       path: assetPath,
       projectId: id,
@@ -166,6 +180,7 @@ async function getAssetResponse({
     }
 
     const staticResponse = await getStoredAssetResponse({
+      artifactId: deployment.build.id,
       artifactRef: deployment.build.artifactRef,
       path: assetPath,
       projectId: id,
@@ -195,36 +210,29 @@ async function getAssetResponse({
 }
 
 async function getStoredAssetResponse({
+  artifactId,
   artifactRef,
   path,
   projectId,
 }: {
+  artifactId?: string;
   artifactRef?: string | null;
   path: string[];
   projectId: string;
 }) {
   const requestedPath = path.join("/");
-  const candidateArtifacts: string[] = [];
+  const candidateArtifact = isProjectArtifactRefFor(
+    artifactRef,
+    "dist",
+    artifactId ?? "",
+  )
+    ? artifactRef
+    : null;
 
-  if (artifactRef) {
-    candidateArtifacts.push(artifactRef);
-  }
-
-  // Also query recent successful builds for this project to resolve versioned snapshot assets
-  const recentBuilds = await prisma.projectBuild.findMany({
-    where: { projectId, status: "succeeded", artifactRef: { not: null } },
-    orderBy: { createdAt: "desc" },
-    take: 10,
-    select: { artifactRef: true },
-  });
-  for (const build of recentBuilds) {
-    if (build.artifactRef && !candidateArtifacts.includes(build.artifactRef)) {
-      candidateArtifacts.push(build.artifactRef);
-    }
-  }
-
-  for (const ref of candidateArtifacts) {
-    const distFiles = await readProjectDistArtifact(ref).catch(() => []);
+  if (candidateArtifact) {
+    const distFiles = await readProjectDistArtifact(candidateArtifact).catch(
+      () => [],
+    );
     const file = distFiles.find(
       (item) =>
         item.path === requestedPath || item.path === `assets/${requestedPath}`,
@@ -240,6 +248,10 @@ async function getStoredAssetResponse({
         ),
       });
     }
+  }
+
+  if (artifactId !== undefined || artifactRef !== undefined) {
+    return null;
   }
 
   const storedFiles = await readStoredProjectDistFiles(projectId);

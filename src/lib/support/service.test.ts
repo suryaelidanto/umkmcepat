@@ -167,12 +167,33 @@ describe("support service", () => {
       ).rejects.toThrow("Maksimal 3 lampiran diperbolehkan.");
     });
 
+    it("rejects a user message for another user's ticket before writing", async () => {
+      (
+        prisma.supportTicket.findUnique as ReturnType<typeof vi.fn>
+      ).mockResolvedValue({
+        id: "ticket-1",
+        status: SupportTicketStatus.OPEN,
+        userId: "user-2",
+      });
+
+      await expect(
+        addMessage({
+          ticketId: "ticket-1",
+          authorId: "user-1",
+          authorRole: "user",
+          body: "Pesan tambahan",
+        }),
+      ).rejects.toThrow("Akses ditolak.");
+      expect(prisma.supportMessage.create).not.toHaveBeenCalled();
+    });
+
     it("validates ticket status is open", async () => {
       (
         prisma.supportTicket.findUnique as ReturnType<typeof vi.fn>
       ).mockResolvedValue({
         id: "ticket-1",
         status: SupportTicketStatus.RESOLVED,
+        userId: "user-1",
       });
 
       await expect(
@@ -191,6 +212,7 @@ describe("support service", () => {
       ).mockResolvedValue({
         id: "ticket-1",
         status: SupportTicketStatus.OPEN,
+        userId: "user-1",
       });
       (
         prisma.supportMessage.create as ReturnType<typeof vi.fn>
@@ -221,6 +243,7 @@ describe("support service", () => {
       ).mockResolvedValue({
         id: "ticket-1",
         status: SupportTicketStatus.OPEN,
+        userId: "user-1",
       });
       (
         prisma.supportMessage.create as ReturnType<typeof vi.fn>
@@ -318,6 +341,21 @@ describe("support service", () => {
       await expect(resolveTicket("ticket-1", "user-1", false)).rejects.toThrow(
         "Akses ditolak.",
       );
+    });
+
+    it("checks ownership before returning success for a resolved ticket", async () => {
+      (
+        prisma.supportTicket.findUnique as ReturnType<typeof vi.fn>
+      ).mockResolvedValue({
+        id: "ticket-1",
+        userId: "other-user",
+        status: SupportTicketStatus.RESOLVED,
+      });
+
+      await expect(resolveTicket("ticket-1", "user-1", false)).rejects.toThrow(
+        "Akses ditolak.",
+      );
+      expect(prisma.supportTicket.update).not.toHaveBeenCalled();
     });
   });
 

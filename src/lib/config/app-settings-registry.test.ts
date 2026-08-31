@@ -5,7 +5,6 @@ import { describe, expect, it } from "vitest";
 const photoSettingConsumerSources = [
   "../projects/discuss-tool.ts",
   "../projects/brief-flow.ts",
-  "../projects/build-attempt-worker.ts",
 ].map((relativePath) =>
   readFileSync(new URL(relativePath, import.meta.url), "utf8"),
 );
@@ -71,21 +70,6 @@ describe("APP_SETTINGS registry", () => {
     ).toBe(false);
   });
 
-  it("keeps critic sampling in AI settings as a percentage", () => {
-    expect(
-      APP_SETTINGS.find(
-        (entry) => entry.key === "quality.generated_site_critic_sample_rate",
-      ),
-    ).toMatchObject({
-      category: "ai",
-      display: "percentage",
-      type: "number",
-      fallback: 0.1,
-      min: 0,
-      max: 1,
-    });
-  });
-
   it("keeps discuss auto-retry in advanced AI settings", () => {
     expect(
       APP_SETTINGS.find(
@@ -148,7 +132,7 @@ describe("registry schema", () => {
         entry.tier === "advanced" &&
         CATEGORY_TIER[entry.category] === "basic"
       ) {
-        // Per-entry demotion into Konfigurasi lanjutan (e.g. thumbnail capture).
+        // Per-entry demotion into Konfigurasi lanjutan.
         continue;
       }
       expect(entry.tier).toBe(CATEGORY_TIER[entry.category]);

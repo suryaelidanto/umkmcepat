@@ -1,6 +1,7 @@
+import { execFile } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { promisify } from "node:util";
 
 export interface DiscoveredSkill {
   name: string;
@@ -17,6 +18,43 @@ export interface SkillExecutionResult {
 }
 
 const SKILLS_ROOT_DIR = path.resolve(process.cwd(), "src/lib/projects/skills");
+const execFileAsync = promisify(execFile);
+
+function parseScriptCommand(value: string): { path: string; args: string[] } {
+  const tokens = value.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/gu) ?? [];
+  const cleaned = tokens.map((token) => token.replace(/^["']|["']$/gu, ""));
+  const scriptIndex = cleaned.findIndex(
+    (token, index) =>
+      index === 0 ||
+      /(?:\\.m?js|\\.ts)$/u.test(token) ||
+      token.includes("/scripts/"),
+  );
+  const index = scriptIndex >= 0 ? scriptIndex : 0;
+  return {
+    path: cleaned[index] ?? value.trim(),
+    args: cleaned.slice(index + 1),
+  };
+}
+
+function argsToCli(value: unknown): string[] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return [];
+  }
+  return Object.entries(value as Record<string, unknown>).flatMap(
+    ([key, item]) => {
+      const flag = key.startsWith("-")
+        ? key
+        : `--${key.replace(/[A-Z]/gu, (character) => `-${character.toLowerCase()}`)}`;
+      if (typeof item === "boolean") {
+        return item ? [flag] : [];
+      }
+      if (typeof item === "string" || typeof item === "number") {
+        return [flag, String(item)];
+      }
+      return [];
+    },
+  );
+}
 
 class DynamicSkillEngine {
   private skills = new Map<string, DiscoveredSkill>();
@@ -146,9 +184,41 @@ class DynamicSkillEngine {
       return { ok: false, error: `Skill "${skillName}" not found.` };
     }
 
-    const scriptPath =
-      skill.executableScripts.get(scriptRelativePath) ||
-      skill.executableScripts.get(`${skillName}/${scriptRelativePath}`);
+    const command = parseScriptCommand(scriptRelativePath);
+    const normalizedScript = command.path
+      .replaceAll("\\\\", "/")
+      .replace(/^\.\//u, "")
+      .replace(/^\/+/, "");
+    const withoutSkillPrefix = normalizedScript.startsWith(`${skillName}/`)
+      ? normalizedScript.slice(skillName.length + 1)
+      : normalizedScript;
+    const scriptsIndex = withoutSkillPrefix.indexOf("scripts/");
+    const scriptFromScriptsDirectory =
+      scriptsIndex >= 0
+        ? withoutSkillPrefix.slice(scriptsIndex)
+        : withoutSkillPrefix;
+    const scriptCandidates = [
+      normalizedScript,
+      withoutSkillPrefix,
+      `${skillName}/${withoutSkillPrefix}`,
+      scriptFromScriptsDirectory,
+      withoutSkillPrefix.includes("/")
+        ? withoutSkillPrefix
+        : `scripts/${withoutSkillPrefix}`,
+      withoutSkillPrefix.endsWith(".mjs") || withoutSkillPrefix.endsWith(".js")
+        ? `scripts/${withoutSkillPrefix}`
+        : `scripts/${withoutSkillPrefix}.mjs`,
+      ...(normalizedScript.toLowerCase().includes("palette")
+        ? ["scripts/palette.mjs"]
+        : []),
+      ...(normalizedScript.toLowerCase().includes("context")
+        ? ["scripts/context.mjs"]
+        : []),
+    ];
+    const scriptPath = scriptCandidates.reduce<string | undefined>(
+      (found, candidate) => found ?? skill.executableScripts.get(candidate),
+      undefined,
+    );
 
     if (!scriptPath) {
       return {
@@ -158,20 +228,18 @@ class DynamicSkillEngine {
     }
 
     try {
-      const module = await import(
-        /* @vite-ignore */ pathToFileURL(scriptPath).href
+      const { stdout, stderr } = await execFileAsync(
+        process.execPath,
+        [scriptPath, ...command.args, ...argsToCli(args)],
+        {
+          cwd: process.cwd(),
+          env: process.env,
+          maxBuffer: 2 * 1024 * 1024,
+        },
       );
-      const runner =
-        module.run || module.default || module.execute || module.detectCli;
-
-      if (typeof runner === "function") {
-        const output = await runner(args);
-        return { ok: true, output };
-      }
-
       return {
         ok: true,
-        output: module,
+        output: stderr.trim() ? `${stdout}${stderr}` : stdout,
       };
     } catch (err: unknown) {
       return {
@@ -186,7 +254,19 @@ export const skillEngine = new DynamicSkillEngine();
 
 export const PROJECT_SKILL_NAMES = skillEngine.getAllMarkdownTopics();
 
-export const PROJECT_CORE_SKILL_NAMES = ["impeccable", "shadcn"] as const;
+export const PROJECT_CORE_SKILL_NAMES = [
+  "impeccable",
+  "shadcn",
+  "unslop",
+  "impeccable/reference/new-work",
+  "impeccable/reference/layout",
+  "impeccable/reference/typeset",
+  "impeccable/reference/animate",
+  "impeccable/reference/polish",
+  "impeccable/reference/craft-floor",
+] as const;
+
+export const PROJECT_SCRIPT_SKILL_NAMES = ["impeccable"] as const;
 
 export type ProjectSkillName = string;
 

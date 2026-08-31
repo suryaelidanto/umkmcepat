@@ -1,6 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { prisma } from "@/lib/prisma";
+import {
+  isProjectDeploymentForProject,
+  isSuccessfulBuildWithArtifact,
+} from "@/lib/projects/deployment-resolution";
 
 const siteUrl = "https://umkmcepat.com";
 
@@ -20,12 +24,15 @@ export const Route = createFileRoute("/sitemap.xml")({
         const deployments = await prisma.projectDeployment
           .findMany({
             select: {
-              slug: true,
-              updatedAt: true,
               build: {
                 select: {
+                  artifactRef: true,
+                  id: true,
+                  projectId: true,
                   snapshot: {
                     select: {
+                      id: true,
+                      projectId: true,
                       project: {
                         select: {
                           user: { select: { bannedAt: true } },
@@ -33,30 +40,43 @@ export const Route = createFileRoute("/sitemap.xml")({
                       },
                     },
                   },
+                  snapshotId: true,
+                  status: true,
                 },
               },
+              buildId: true,
+              id: true,
+              kind: true,
+              projectId: true,
+              snapshot: { select: { id: true, projectId: true } },
+              snapshotId: true,
+              slug: true,
+              updatedAt: true,
             },
             where: { kind: "published" },
           })
           .catch(() => []);
 
-        const published = (
-          deployments as Array<{
-            slug: string;
-            updatedAt: Date;
-            build: {
-              snapshot: {
-                project: { user: { bannedAt: Date | null } | null };
-              } | null;
-            } | null;
-          }>
-        )
-          .filter((d) => !d.build?.snapshot?.project?.user?.bannedAt)
+        const published = deployments
+          .filter((deployment) => {
+            const projectId = deployment.projectId;
+            return (
+              typeof deployment.slug === "string" &&
+              deployment.slug.length > 0 &&
+              isProjectDeploymentForProject(deployment, projectId) &&
+              isSuccessfulBuildWithArtifact(deployment.build) &&
+              !deployment.build?.snapshot?.project?.user?.bannedAt
+            );
+          })
           .map((d) => {
+            if (typeof d.slug !== "string") {
+              return null;
+            }
             const safeSlug = encodeURIComponent(d.slug);
             const lastmod = d.updatedAt.toISOString();
             return `  <url>\n    <loc>${origin}/p/${safeSlug}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.8</priority>\n  </url>`;
           })
+          .filter((entry): entry is string => entry !== null)
           .join("\n");
         const body = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${staticPages}\n${published}\n</urlset>`;
 

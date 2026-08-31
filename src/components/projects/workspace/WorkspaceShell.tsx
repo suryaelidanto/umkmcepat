@@ -99,7 +99,7 @@ import {
   MAX_COMPOSER_IMAGES,
   removeAttachment,
   revokeAll,
-  toUploadPlan,
+  tempImageUrl,
   type PendingAttachment,
 } from "@/lib/projects/composer-attachments";
 import {
@@ -2697,136 +2697,49 @@ export function WorkspaceShell({
       submitInFlightRef.current = true;
       setIsSubmittingTurn(true);
 
-      // Upload attached images to R2 (commit-on-send; nothing left the browser
-      const fileParts: FileUIPart[] = [];
-      const mediaPaths: string[] = [];
-      const uploadErrors: { name: string; message: string }[] = [];
+      // Submit-first: the worker moderates + claims after the message persists.
+      if (hasUploadingAttachments(pendingAttachments)) {
+        toast.error("Tunggu unggahan gambar selesai dulu ya.");
+        submitInFlightRef.current = false;
+        setIsSubmittingTurn(false);
+        return;
+      }
 
-      if (options.uploads?.length) {
-        await Promise.all(
-          options.uploads.map(async (item) => {
-            try {
-              const form = new FormData();
-              form.append("purpose", "business-image");
-              form.append("assetId", item.assetId);
-              const res = await fetch(
-                `/api/projects/${projectId}/assets/upload`,
-                {
-                  body: form,
-                  method: "POST",
-                },
-              );
-              if (res.ok) {
-                const asset = (await res.json()) as { id?: string };
-                if (asset?.id) {
-                  fileParts.push(
-                    createUploadedImageFilePart({
-                      filename: "gambar-usaha.jpg",
-                      mediaType: "image/jpeg",
-                      url: `/api/media/${asset.id}`,
-                    }),
-                  );
-                  mediaPaths.push(`/api/media/${asset.id}`);
-                  return;
-                }
-              }
-              fileParts.push(
-                createUploadedImageFilePart({
-                  filename: "gambar-usaha.jpg",
-                  mediaType: "image/jpeg",
-                  url: item.url,
-                }),
-              );
-            } catch {
-              fileParts.push(
-                createUploadedImageFilePart({
-                  filename: "gambar-usaha.jpg",
-                  mediaType: "image/jpeg",
-                  url: item.url,
-                }),
-              );
-            }
+      const fileParts: FileUIPart[] = [];
+
+      for (const item of options.uploads ?? []) {
+        fileParts.push(
+          createUploadedImageFilePart({
+            filename: "gambar-usaha.jpg",
+            mediaType: "image/jpeg",
+            url: item.url,
           }),
         );
       }
 
-      if (pendingAttachments.length) {
-        const uploadPlan = toUploadPlan(pendingAttachments);
-        await Promise.all(
-          uploadPlan.map(async (item) => {
-            try {
-              const form = new FormData();
-              form.append("purpose", "business-image");
-              if (item.assetId) {
-                form.append("assetId", item.assetId);
-              } else {
-                form.append("file", item.file);
-              }
-              const res = await fetch(
-                `/api/projects/${projectId}/assets/upload`,
-                {
-                  body: form,
-                  method: "POST",
-                },
-              );
-              if (!res.ok) {
-                throw new Error(
-                  (await res.json().catch(() => null))?.message ||
-                    `Gagal mengunggah ${item.file.name}`,
-                );
-              }
-              const contentType = res.headers.get("content-type") ?? "";
-              if (!contentType.toLowerCase().includes("application/json")) {
-                throw new Error(
-                  `Respons tidak valid saat mengunggah ${item.file.name}.`,
-                );
-              }
-              const asset = (await res.json()) as {
-                id?: string;
-                publicUrl?: string | null;
-              };
-              if (!asset?.id) {
-                throw new Error(
-                  `Gambar belum tersedia (${item.file.name}). Coba lagi.`,
-                );
-              }
-              fileParts.push(
-                createUploadedImageFilePart({
-                  filename: item.file.name,
-                  mediaType: item.file.type,
-                  url: `/api/media/${asset.id}`,
-                }),
-              );
-              mediaPaths.push(`/api/media/${asset.id}`);
-            } catch (error) {
-              uploadErrors.push({
-                name: item.file.name,
-                message:
-                  error instanceof Error
-                    ? error.message
-                    : "Error tidak diketahui",
-              });
-            }
+      for (const item of pendingAttachments) {
+        if (!item.assetId) {
+          continue;
+        }
+        fileParts.push(
+          createUploadedImageFilePart({
+            filename: item.file.name,
+            mediaType: item.file.type,
+            url: tempImageUrl(item.assetId),
           }),
         );
+      }
 
-        if (uploadErrors.length > 0) {
-          const lines = uploadErrors.map((e) => `• ${e.name}: ${e.message}`);
-          toast.error(
-            `Gagal mengunggah ${uploadErrors.length} file:\n${lines.join("\n")}`,
-            { duration: 8000 },
-          );
-        }
-
-        if (fileParts.length === 0 && uploadErrors.length > 0) {
-          toast.error(
-            "Gagal mengunggah semua file. Periksa ukuran/format dan coba lagi.",
-          );
-          setPendingAttachments([]);
-          submitInFlightRef.current = false;
-          setIsSubmittingTurn(false);
-          return;
-        }
+      if (
+        pendingAttachments.length > 0 &&
+        fileParts.length === (options.uploads?.length ?? 0)
+      ) {
+        toast.error(
+          "Gambar belum siap dikirim. Coba pilih ulang gambarnya ya.",
+        );
+        submitInFlightRef.current = false;
+        setIsSubmittingTurn(false);
+        return;
       }
 
       // Lock the channel for the duration of the request so a synchronous
@@ -2852,7 +2765,6 @@ export function WorkspaceShell({
         },
         {
           body: {
-            mediaPaths: mediaPaths.length ? mediaPaths : undefined,
             mode: composerState === "post_build_chat" ? "discuss" : mode,
             workspaceAnswers: options.workspaceAnswers,
           },
@@ -3006,7 +2918,7 @@ export function WorkspaceShell({
       }
       setMessages((current) => {
         const guideText =
-          "Bagian apa yang ingin kamu perbarui? Tulis kebutuhanmu di bawah ya (contoh: ganti warna tema, tambah foto baru, atau ubah nomor WhatsApp & harga).";
+          "Bagian apa yang ingin kamu perbarui? Tulis kebutuhanmu di bawah ya.";
         const last = current[current.length - 1];
         if (
           last &&
@@ -3786,6 +3698,7 @@ export function WorkspaceShell({
                         {workspaceCard.type === "image_upload" ? (
                           <ImageUploadComposer
                             imageUpload={workspaceCard.imageUpload}
+                            projectId={projectId}
                             onSubmit={(answer, workspaceAnswers, uploads) =>
                               submitChatText(answer, {
                                 workspaceAnswers,
@@ -4031,7 +3944,7 @@ export function WorkspaceShell({
                           sessionExpired
                             ? "Sesi habis, login ulang..."
                             : mode === "build"
-                              ? "Minta perubahan, contoh: buat lebih premium..."
+                              ? "Tulis perubahan yang kamu mau..."
                               : "Tulis pesan atau kebutuhanmu di sini..."
                         }
                         className="w-full resize-none bg-transparent px-1 py-1 text-sm leading-6 text-foreground outline-none [scrollbar-width:none] placeholder:text-muted-foreground disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
@@ -4764,7 +4677,7 @@ export function canStartBuild(
   );
 }
 
-// Legacy single-arg bridge — callers passing only a brief (e.g. older tests)
+// Legacy single-arg bridge for callers that pass only a brief.
 export function canStartBuildFromBrief(
   brief: ProjectBrief | null | undefined,
 ): boolean {

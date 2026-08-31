@@ -116,11 +116,14 @@ export async function proxyDeploymentRequest(
     const originalHtml = await runtimeResponse.text();
 
     const rewrittenHtml = input.assetRewrite
-      ? injectPreviewAnnotationBridge(
-          rewritePreviewAssetUrls(originalHtml, {
-            deploymentId: input.deploymentId,
-            projectId: input.assetRewrite.projectId,
-          }),
+      ? injectPreviewHead(
+          injectPreviewAnnotationBridge(
+            rewritePreviewAssetUrls(originalHtml, {
+              deploymentId: input.deploymentId,
+              projectId: input.assetRewrite.projectId,
+            }),
+          ),
+          { businessName: input.businessName },
         )
       : input.publicAssetRewrite
         ? injectPublishedHead(
@@ -169,6 +172,50 @@ export function applyPreviewSandboxHeaders(
 
 function encodeRuntimePath(pathSegments: string[]) {
   return pathSegments.map((segment) => encodeURIComponent(segment)).join("/");
+}
+
+export type PreviewDocumentMetadata = {
+  description: string;
+  title: string;
+  viewport: string;
+};
+
+export function getPreviewDocumentMetadata(
+  businessName?: string | null,
+): PreviewDocumentMetadata {
+  const name = businessName?.trim() || "UMKM Cepat";
+  return {
+    description: `Website usaha ${name}.`,
+    title: name,
+    viewport: "width=device-width, initial-scale=1",
+  };
+}
+
+export function injectPreviewHead(
+  html: string,
+  { businessName }: { businessName?: string | null } = {},
+) {
+  const metadata = getPreviewDocumentMetadata(businessName);
+  const tags = [
+    !/<title(?:\s|>)/i.test(html)
+      ? `<title>${escapeHtml(metadata.title)}</title>`
+      : "",
+    !/<meta\s+name=["']description["']/i.test(html)
+      ? `<meta name="description" content="${escapeHtml(metadata.description)}" />`
+      : "",
+    !/<meta\s+name=["']viewport["']/i.test(html)
+      ? `<meta name="viewport" content="${metadata.viewport}" />`
+      : "",
+  ].filter(Boolean);
+
+  if (!tags.length) {
+    return html;
+  }
+
+  const injection = tags.join("\n    ");
+  return /<head>/i.test(html)
+    ? html.replace(/<head>/i, `<head>\n    ${injection}`)
+    : `<head>\n    ${injection}\n  </head>\n${html}`;
 }
 
 export function injectPreviewAnnotationBridge(html: string) {
@@ -256,7 +303,26 @@ export function rewritePublicAssetUrls(html: string, slug: string) {
     );
 }
 
-// Inject a per-page <title>/meta/og/canonical/LocalBusiness JSON-LD into the
+export type PublishedDocumentMetadata = {
+  description: string;
+  name: string;
+  title: string;
+  viewport: string;
+};
+
+export function getPublishedDocumentMetadata(
+  businessName?: string | null,
+): PublishedDocumentMetadata {
+  const name = businessName?.trim() || "UMKM Cepat";
+  return {
+    description: `Website usaha ${name}. Dibuat dengan UMKM Cepat.`,
+    name,
+    title: `${name} — Website UMKM Cepat`,
+    viewport: "width=device-width, initial-scale=1",
+  };
+}
+
+// Inject a per-page title, metadata, canonical, and LocalBusiness JSON-LD.
 export function injectPublishedHead(
   html: string,
   {
@@ -269,21 +335,20 @@ export function injectPublishedHead(
     process.env.GENERATED_PUBLIC_ORIGIN ||
     process.env.NEXT_PUBLIC_APP_URL ||
     "";
-  const name = businessName || "UMKM Cepat";
-  const title = `${name} — Website UMKM Cepat`;
-  const description = `Website usaha ${name}. Dibuat dengan UMKM Cepat.`;
+  const metadata = getPublishedDocumentMetadata(businessName);
   const url = `${origin}/p/${encodeURIComponent(slug)}`;
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
-    name,
+    name: metadata.name,
     url,
   };
   const headInjection = [
-    `<title>${escapeHtml(title)}</title>`,
-    `<meta name="description" content="${escapeHtml(description)}" />`,
-    `<meta property="og:title" content="${escapeHtml(title)}" />`,
-    `<meta property="og:description" content="${escapeHtml(description)}" />`,
+    `<title>${escapeHtml(metadata.title)}</title>`,
+    `<meta name="description" content="${escapeHtml(metadata.description)}" />`,
+    `<meta name="viewport" content="${metadata.viewport}" />`,
+    `<meta property="og:title" content="${escapeHtml(metadata.title)}" />`,
+    `<meta property="og:description" content="${escapeHtml(metadata.description)}" />`,
     `<meta property="og:url" content="${escapeHtml(url)}" />`,
     `<meta property="og:type" content="website" />`,
     `<link rel="canonical" href="${escapeHtml(url)}" />`,
@@ -731,7 +796,7 @@ const EDIT_MODE_BRIDGE = String.raw`(() => {
     const interactive = closestElement(element, 'button,a,input,select,textarea,[role="button"],[onclick]');
     if (interactive) return interactive;
 
-    // 3. Child media within small container (e.g. div wrapping an img)
+    // 3. Child media within a small container.
     const childMedia = element.querySelector ? element.querySelector('img,picture,video,svg') : null;
     if (childMedia && !isIgnorableDecoration(childMedia) && !element.matches('section,main,article,body')) {
       const imgRect = childMedia.getBoundingClientRect();

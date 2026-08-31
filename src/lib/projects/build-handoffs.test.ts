@@ -5,6 +5,7 @@ const { prismaMock } = vi.hoisted(() => ({
     $transaction: vi.fn(),
     projectBuildHandoff: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       create: vi.fn(),
       updateMany: vi.fn(),
     },
@@ -32,7 +33,10 @@ import {
 } from "./build-handoffs";
 import { hashBuildContract, hashBuildPlan } from "./build-hash";
 import { parseCanonicalBrief } from "./canonical-brief";
-import { hashCanonicalBrief } from "./canonical-brief-hash";
+import {
+  hashCanonicalBrief,
+  hashCanonicalBriefContent,
+} from "./canonical-brief-hash";
 
 import type { BuildContractV1 } from "./build-contract";
 import type { BuildPlanV1 } from "./build-plan";
@@ -71,7 +75,6 @@ function acceptedPair(): {
     contractHash: contract.contentHash,
     contentHash: "",
     appKind: "landing",
-    archetype: "fnb-menu",
     pages: [
       {
         id: "home",
@@ -80,25 +83,10 @@ function acceptedPair(): {
         purpose: "Membantu pelanggan memilih dan memesan kopi.",
         visitorJobIds: ["job-order"],
         requiredFactIds: [],
-        sections: [
-          {
-            id: "menu",
-            purpose: "Menampilkan pilihan kopi.",
-            surfaceIntent: "contained",
-            requiredFactIds: [],
-            requiredAssetIds: [],
-          },
-        ],
       },
     ],
     navigation: [],
     capabilities: ["catalog"],
-    artDirection: {
-      businessSpecificReference: "menu kedai yang mudah dipindai",
-      antiReferences: ["generic card grid"],
-      imageStrategy: "typographic",
-      fontStrategy: "system_stack",
-    },
   };
   plan.contentHash = hashBuildPlan(plan);
   return { contract, plan };
@@ -353,11 +341,11 @@ describe("loadActiveHandoff", () => {
     expect(result).toBeNull();
   });
 
-  it("loads the active handoff by id", async () => {
+  it("loads the active handoff only when it belongs to the project", async () => {
     prismaMock.project.findUnique.mockResolvedValue({
       activeHandoffId: "handoff-1",
     });
-    prismaMock.projectBuildHandoff.findUnique.mockResolvedValue({
+    prismaMock.projectBuildHandoff.findFirst.mockResolvedValue({
       id: "handoff-1",
       contractHash: "a",
       planHash: "b",
@@ -368,8 +356,20 @@ describe("loadActiveHandoff", () => {
       contractHash: "a",
       planHash: "b",
     });
-    expect(prismaMock.projectBuildHandoff.findUnique).toHaveBeenCalledWith({
-      where: { id: "handoff-1" },
+    expect(prismaMock.projectBuildHandoff.findFirst).toHaveBeenCalledWith({
+      where: { id: "handoff-1", projectId: "project-1" },
+    });
+  });
+
+  it("returns null when the active handoff pointer targets another project", async () => {
+    prismaMock.project.findUnique.mockResolvedValue({
+      activeHandoffId: "handoff-1",
+    });
+    prismaMock.projectBuildHandoff.findFirst.mockResolvedValue(null);
+
+    await expect(loadActiveHandoff("project-1")).resolves.toBeNull();
+    expect(prismaMock.projectBuildHandoff.findFirst).toHaveBeenCalledWith({
+      where: { id: "handoff-1", projectId: "project-1" },
     });
   });
 });
@@ -377,6 +377,49 @@ describe("loadActiveHandoff", () => {
 describe("selectQualifiedHandoff", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("uses the stable brief content hash for active handoff comparisons", async () => {
+    const briefSnapshot = parseCanonicalBrief({
+      version: 2,
+      business: { name: "Toko", type: "Retail", category: "retail" },
+      offers: [{ name: "Produk", isPrimary: true }],
+      factLedger: {
+        version: 1,
+        entries: [
+          {
+            id: "offers-primary",
+            field: "offers",
+            label: "Produk",
+            value: "Produk",
+            state: "owner_confirmed",
+            source: "owner",
+            sourceTurnId: "turn-a",
+          },
+        ],
+      },
+      discussionContext: {
+        version: 1,
+        messages: [],
+        summary: { text: "", compactedMessageCount: 0 },
+        memoryFacts: { facts: [], decisions: [], preferences: [] },
+        capturedAt: "2026-08-29T00:00:00.000Z",
+      },
+    });
+    prismaMock.project.findUnique.mockResolvedValue({
+      activeHandoffId: "handoff-1",
+    });
+    prismaMock.projectBuildHandoff.findFirst.mockResolvedValue({
+      id: "handoff-1",
+      briefHash: hashCanonicalBrief(briefSnapshot),
+      briefSnapshot,
+      contractHash: "a",
+      planHash: "b",
+    });
+
+    const result = await loadActiveHandoff("project-1");
+
+    expect(result?.briefHash).toBe(hashCanonicalBriefContent(briefSnapshot));
   });
 
   it("selects the snapshot and supersedes the prior active handoff atomically", async () => {
@@ -387,6 +430,8 @@ describe("selectQualifiedHandoff", () => {
       activeOperationToken: "op-1",
       activeHandoffId: "handoff-1",
     });
+    prismaMock.projectBuildHandoff.updateMany.mockResolvedValue({ count: 1 });
+    prismaMock.projectSnapshot.updateMany.mockResolvedValue({ count: 1 });
     await selectQualifiedHandoff({
       projectId: "project-1",
       handoffId: "handoff-2",
@@ -396,5 +441,49 @@ describe("selectQualifiedHandoff", () => {
     expect(prismaMock.project.update).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: "project-1" } }),
     );
+  });
+
+  it("rejects a handoff from another project before changing the active pointer", async () => {
+    prismaMock.$transaction.mockImplementation(
+      async (fn: (tx: unknown) => unknown) => fn(prismaMock),
+    );
+    prismaMock.project.findUnique.mockResolvedValue({
+      activeOperationToken: "op-1",
+      activeHandoffId: "handoff-1",
+    });
+    prismaMock.projectBuildHandoff.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      selectQualifiedHandoff({
+        projectId: "project-1",
+        handoffId: "handoff-2",
+        snapshotId: "snap-2",
+        operationId: "op-1",
+      }),
+    ).rejects.toThrow("handoff does not belong to project");
+    expect(prismaMock.project.update).not.toHaveBeenCalled();
+    expect(prismaMock.projectSnapshot.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects a snapshot from another project before changing the active pointer", async () => {
+    prismaMock.$transaction.mockImplementation(
+      async (fn: (tx: unknown) => unknown) => fn(prismaMock),
+    );
+    prismaMock.project.findUnique.mockResolvedValue({
+      activeOperationToken: "op-1",
+      activeHandoffId: "handoff-1",
+    });
+    prismaMock.projectBuildHandoff.updateMany.mockResolvedValue({ count: 1 });
+    prismaMock.projectSnapshot.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      selectQualifiedHandoff({
+        projectId: "project-1",
+        handoffId: "handoff-2",
+        snapshotId: "snap-2",
+        operationId: "op-1",
+      }),
+    ).rejects.toThrow("snapshot does not belong to project");
+    expect(prismaMock.project.update).not.toHaveBeenCalled();
   });
 });

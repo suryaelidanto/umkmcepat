@@ -12,12 +12,12 @@ import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { validateGeneratedAppManifest } from "./generated-app-manifest";
-import { createEmptyGeneratedSiteQualityProofV2 } from "./generated-site-quality-proof";
 import {
   assertSafeProjectFilePath,
   buildGeneratedProject,
   createDependencySignature,
   getGeneratedBuildTimeoutMs,
+  isPublicProjectAssetForGeneratedSite,
   runCommand,
   createGeneratedProjectFiles,
   createGeneratedSourceSnapshotMetadata,
@@ -41,6 +41,27 @@ afterEach(async () => {
 });
 
 describe("generated project source", () => {
+  it("dependency signature ignores the project-specific package name", () => {
+    const manifest = {
+      packageManager: "bun" as const,
+      runtimeProfile: "vite-react-tanstack-v1",
+      templateId: "vite-tanstack-starter",
+      templateVersion: "1.0.0",
+    };
+    const withName = (name: string): GeneratedProjectFile[] => [
+      {
+        path: "package.json",
+        content: JSON.stringify({
+          name,
+          private: true,
+          dependencies: { react: "^19.2.7" },
+        }),
+      },
+    ];
+    expect(createDependencySignature(withName("toko-beras-gg"), manifest)).toBe(
+      createDependencySignature(withName("laundry-kilat"), manifest),
+    );
+  });
   it("keeps valid stored files only", () => {
     expect(
       parseGeneratedProjectFiles([
@@ -55,7 +76,7 @@ describe("generated project source", () => {
 
   it("starter contract CSS includes shadcn theme tokens and Tailwind v4 import", () => {
     const schema = createProjectSiteSchemaFromBrief({
-      businessName: "Toko Contoh",
+      businessName: "Toko Sari",
       businessType: "Retail",
       contactOrCta: "WhatsApp",
       notes: [],
@@ -87,6 +108,53 @@ describe("generated project source", () => {
     expect(css.length).toBeGreaterThan(0);
   });
 
+  it("allows only owner-matched public display assets into generated output", () => {
+    const publicAsset = {
+      id: "asset-public",
+      projectId: "project-assets",
+      publicUrl: "https://cdn.example.test/public.webp",
+      purpose: "business-image",
+      ref: "project-asset:s3:project-assets/user-1/business-image/assetpublic.webp",
+      userId: "user-1",
+    };
+
+    expect(
+      isPublicProjectAssetForGeneratedSite(publicAsset, "project-assets"),
+    ).toBe(true);
+    expect(
+      isPublicProjectAssetForGeneratedSite(
+        {
+          ...publicAsset,
+          purpose: "reference",
+          ref: publicAsset.ref.replace("business-image", "reference"),
+        },
+        "project-assets",
+      ),
+    ).toBe(false);
+    expect(
+      isPublicProjectAssetForGeneratedSite(
+        {
+          ...publicAsset,
+          publicUrl: null,
+          ref: publicAsset.ref.replace(
+            "project-asset:s3:",
+            "project-asset:s3-private:",
+          ),
+        },
+        "project-assets",
+      ),
+    ).toBe(false);
+    expect(
+      isPublicProjectAssetForGeneratedSite(
+        { ...publicAsset, userId: "user-2" },
+        "project-assets",
+      ),
+    ).toBe(false);
+    expect(
+      isPublicProjectAssetForGeneratedSite(publicAsset, "other-project"),
+    ).toBe(false);
+  });
+
   it("rejects unsafe paths", () => {
     expect(() => assertSafeProjectFilePath("../secret.ts")).toThrow();
     expect(() => assertSafeProjectFilePath("C:/secret.ts")).toThrow();
@@ -104,140 +172,6 @@ describe("generated project source", () => {
     ).toThrow();
   });
 
-  it("generates seven beta fixture variants with distinct structure and safe static content", () => {
-    const fixtures = [
-      {
-        key: "angkringan",
-        variant: "angkringan",
-        marker: ".night-menu",
-        input: {
-          prompt: "buatkan website angkringan dekat kampus",
-          businessType: "Angkringan malam dekat kampus",
-          offer: "Nasi kucing, sate usus, gorengan, kopi jos, wedang jahe",
-          targetCustomer: "Mahasiswa, anak kos, dan pekerja malam",
-          contactOrCta: "Arahkan ke WhatsApp dan Google Maps",
-          stylePreference: "Hangat tradisional dengan nuansa lampu malam",
-        },
-      },
-      {
-        key: "laundry",
-        variant: "laundry",
-        marker: ".service-grid",
-        input: {
-          prompt: "buatkan website laundry kiloan antar jemput",
-          businessType: "Laundry kiloan dan satuan",
-          offer: "Cuci setrika, laundry ekspres, antar jemput, cuci sepatu",
-          targetCustomer: "Karyawan, keluarga muda, dan penghuni kos",
-          contactOrCta: "Booking pickup lewat WhatsApp",
-          stylePreference: "Bersih modern, rapi, dan ringan",
-        },
-      },
-      {
-        key: "coffee",
-        variant: "coffee",
-        marker: ".brew-board",
-        input: {
-          prompt: "buatkan website coffee shop kecil untuk kerja remote",
-          businessType: "Coffee shop kecil",
-          offer: "Espresso based, manual brew, pastry, area kerja nyaman",
-          targetCustomer: "Mahasiswa dan pekerja remote",
-          contactOrCta: "Lihat menu dan tanya lokasi lewat WhatsApp",
-          stylePreference: "Hangat premium sederhana dengan suasana tenang",
-        },
-      },
-      {
-        key: "barber",
-        variant: "barber",
-        marker: ".cut-list",
-        input: {
-          prompt: "buatkan website barber shop booking whatsapp",
-          businessType: "Barber shop pria",
-          offer: "Haircut, shave, styling, hair wash",
-          targetCustomer: "Pria dewasa dan pekerja sekitar",
-          contactOrCta: "Booking jadwal lewat WhatsApp",
-          stylePreference: "Tegas, maskulin, bersih, kontras",
-        },
-      },
-      {
-        key: "fashion",
-        variant: "fashion",
-        marker: ".lookbook-grid",
-        input: {
-          prompt: "buatkan website fashion shop koleksi harian",
-          businessType: "Fashion shop lokal",
-          offer: "Atasan, outer, celana, koleksi warna netral",
-          targetCustomer: "Perempuan muda yang suka outfit simpel",
-          contactOrCta: "Tanya stok dan ukuran lewat WhatsApp",
-          stylePreference: "Editorial, clean, seperti lookbook",
-        },
-      },
-      {
-        key: "tutoring",
-        variant: "tutoring",
-        marker: ".learning-path",
-        input: {
-          prompt: "buatkan website jasa les privat sd smp sma",
-          businessType: "Jasa les privat",
-          offer: "Matematika, bahasa Inggris, persiapan ujian, pendampingan PR",
-          targetCustomer: "Orang tua murid SD sampai SMA",
-          contactOrCta: "Konsultasi jadwal lewat WhatsApp",
-          stylePreference: "Profesional, tenang, dan terpercaya",
-        },
-      },
-      {
-        key: "homeFood",
-        variant: "home-food",
-        marker: ".daily-menu",
-        input: {
-          prompt: "buatkan website usaha makanan rumahan pre order",
-          businessType: "Usaha makanan rumahan",
-          offer: "Nasi box, lauk harian, sambal, katering kecil, pre order",
-          targetCustomer: "Keluarga sekitar dan pekerja kantor",
-          contactOrCta: "Pesan menu hari ini lewat WhatsApp",
-          stylePreference: "Hangat rumahan, segar, dan mudah dipesan",
-        },
-      },
-    ] as const;
-
-    const outputs = fixtures.map((fixture) => {
-      const files = createFiles(`project_${fixture.key}`, fixture.input);
-      const app = readGeneratedFile(files, "src/routes/index.tsx");
-      const css = readGeneratedFile(files, "src/index.css");
-      const manifest = validateGeneratedAppManifest(files);
-
-      expect(typeof app).toBe("string");
-      expect(typeof css).toBe("string");
-      expect(app.length).toBeGreaterThan(0);
-      expect(css.length).toBeGreaterThan(0);
-      expect(app).not.toMatch(/checkout|payment|login|register|api\//i);
-      expect(css).not.toMatch(/checkout|payment|login|register|api\//i);
-      expect(manifest.ok).toBe(true);
-
-      return { app, css };
-    });
-
-    expect(new Set(outputs.map((output) => output.css)).size).toBe(7);
-    expect(new Set(outputs.map((output) => output.app)).size).toBe(7);
-  });
-
-  it("uses an automotive layout for bengkel motor fallback output", () => {
-    const files = createFiles("project_bengkel", {
-      prompt: "buatkan website bengkel motor",
-      businessType: "Bengkel servis motor harian",
-      offer:
-        "Ganti ban dan velg, perbaikan kelistrikan, aki, lampu, klakson, ECU",
-      targetCustomer: "Pengendara harian dan pekerja sekitar",
-      contactOrCta: "Booking servis lewat WhatsApp",
-      stylePreference: "Modern bersih dan teknis",
-    });
-
-    expect(readGeneratedFile(files, "src/routes/index.tsx")).toContain(
-      "variant-automotive",
-    );
-    expect(readGeneratedFile(files, "src/index.css")).toContain(
-      "variant-automotive",
-    );
-  });
   it("adds a preview-ready signal after the generated React app renders", () => {
     const app = readGeneratedFile(
       createFiles("project_ready_signal", {
@@ -337,108 +271,6 @@ describe("generated project source", () => {
         businessName: schema.businessName,
         runtimeProfile: "vite-react-tanstack-v1",
       },
-    });
-  });
-
-  it("records sanitized generated-site quality proof", () => {
-    const schema = createProjectSiteSchemaFromBrief({
-      businessName: "Proof Test",
-      businessType: "Jasa",
-      contactOrCta: "Hubungi",
-      notes: [],
-      offer: "Jasa lokal",
-      prompt: "buat website jasa",
-      stylePreference: "",
-      targetCustomer: "",
-      version: 1,
-      productOrService: null,
-      contact: null,
-      tagline: null,
-      usp: null,
-      priceRange: null,
-      visuals: null,
-      hours: null,
-      address: null,
-      deliveryArea: null,
-      since: null,
-      testimonials: null,
-      certifications: null,
-      paymentMethods: null,
-      socialLinks: null,
-      currentPromo: null,
-      secondaryCta: null,
-      readyForBuild: false,
-    });
-    const metadata = createGeneratedSourceSnapshotMetadata([], schema, {
-      generationMode: "agent-custom",
-      qualityProof: {
-        version: 1,
-        contractHash: "contract-hash",
-        planHash: "plan-hash",
-        recipeId: "retail-catalog",
-        recipeVersion: 1,
-        exampleId: "retail-catalog-v1",
-        designPlanVersion: 1,
-        sourceGateStatus: "pass",
-        browserGateStatus: "pass",
-        riskStatus: "clean",
-        criticStatus: "not_invoked",
-        visualRepairCount: 0,
-        outcome: "pass",
-        timingsMs: { writer: 100, build: 200, qualification: 300 },
-      },
-    });
-    expect(metadata.generation?.qualityProof).toMatchObject({
-      recipeId: "retail-catalog",
-      outcome: "pass",
-    });
-    expect(JSON.stringify(metadata)).not.toContain("screenshot");
-  });
-
-  it("persists a V2 proof beside the readable V1 proof", () => {
-    const schema = createProjectSiteSchemaFromBrief({
-      version: 1,
-      notes: [],
-      prompt: "test",
-      readyForBuild: false,
-      businessName: "Test",
-      businessType: "jasa_online",
-      offer: "Layanan",
-      targetCustomer: "Pemilik usaha",
-      contactOrCta: "Hubungi kami",
-      stylePreference: "Jelas",
-      productOrService: null,
-      contact: null,
-      umkmType: "jasa_online",
-      fieldState: {},
-      tagline: null,
-      usp: null,
-      priceRange: null,
-      visuals: null,
-      hours: null,
-      address: null,
-      deliveryArea: null,
-      since: null,
-      testimonials: null,
-      certifications: null,
-      paymentMethods: null,
-      socialLinks: null,
-      currentPromo: null,
-      secondaryCta: null,
-    } as never);
-    const proof = createEmptyGeneratedSiteQualityProofV2({
-      contractHash: "a".repeat(64),
-      planHash: "b".repeat(64),
-      kitId: "bold-typographic",
-      mediaMode: "graphic",
-    });
-    const metadata = createGeneratedSourceSnapshotMetadata([], schema, {
-      generationMode: "agent-custom",
-      referenceCalibratedQualityProof: proof,
-    });
-    expect(metadata.generation?.referenceCalibratedQualityProof).toMatchObject({
-      engine: "reference-calibrated-single-shot",
-      kitId: "bold-typographic",
     });
   });
 

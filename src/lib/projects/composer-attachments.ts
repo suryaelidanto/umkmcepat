@@ -1,5 +1,9 @@
 export const MAX_COMPOSER_IMAGES = 6;
 
+export function tempImageUrl(assetId: string): string {
+  return `/api/uploads/temp-images/${encodeURIComponent(assetId)}`;
+}
+
 export type PendingAttachment = {
   assetId?: string;
   blobUrl: string;
@@ -61,14 +65,4 @@ export function revokeAll(current: PendingAttachment[]): void {
 
 export function hasUploadingAttachments(current: PendingAttachment[]): boolean {
   return current.some((item) => item.status === "uploading");
-}
-
-export function toUploadPlan(
-  current: PendingAttachment[],
-): { assetId?: string; file: File; id: string }[] {
-  return current.map((item) => ({
-    assetId: item.assetId,
-    file: item.file,
-    id: item.id,
-  }));
 }

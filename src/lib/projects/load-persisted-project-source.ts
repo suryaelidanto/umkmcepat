@@ -1,7 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
 import { resolveProjectSourceFiles } from "@/lib/projects/resolve-project-source-files";
-import { readProjectSourceArtifact } from "@/lib/projects/runtime-artifacts";
+import {
+  isProjectArtifactRefFor,
+  readProjectSourceArtifact,
+} from "@/lib/projects/runtime-artifacts";
 
 export async function loadPersistedProjectSourceFiles(args: {
   projectId: string;
@@ -14,13 +17,14 @@ export async function loadPersistedProjectSourceFiles(args: {
   `;
 
   const latestAttempt = await prisma.projectBuild.findFirst({
-    where: { projectId },
+    where: { project: { userId }, projectId },
     orderBy: { createdAt: "desc" },
     select: {
       snapshot: {
         select: {
           files: true,
           id: true,
+          projectId: true,
           sourceRef: true,
         },
       },
@@ -28,7 +32,7 @@ export async function loadPersistedProjectSourceFiles(args: {
   });
 
   const latestProjectSnapshot = await prisma.projectSnapshot.findFirst({
-    where: { projectId },
+    where: { project: { userId }, projectId },
     orderBy: { createdAt: "desc" },
     select: {
       files: true,
@@ -37,11 +41,19 @@ export async function loadPersistedProjectSourceFiles(args: {
     },
   });
 
+  const latestAttemptSnapshot =
+    latestAttempt?.snapshot?.projectId === projectId
+      ? latestAttempt.snapshot
+      : null;
+
   return resolveProjectSourceFiles({
-    latestAttemptSnapshot: latestAttempt?.snapshot ?? null,
+    latestAttemptSnapshot,
     latestProjectSnapshot,
     projectSourceFiles: sourceRow?.sourceFiles,
-    readArtifact: (sourceRef) => readProjectSourceArtifact(sourceRef),
+    readArtifact: (sourceRef, snapshot) =>
+      isProjectArtifactRefFor(sourceRef, "source", snapshot.id)
+        ? readProjectSourceArtifact(sourceRef)
+        : Promise.resolve([]),
   });
 }
 

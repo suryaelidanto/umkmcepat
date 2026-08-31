@@ -48,36 +48,11 @@ export function isExplicitBuildRequest(text: string): boolean {
   return patterns.some((p) => p.test(normalized));
 }
 
-export function fallbackUspOptions(
-  _context?: string,
-): Array<{ label: string; description: string }> {
-  return [
-    {
-      label: "Kualitas Terjamin & Bergaransi",
-      description: "Pelayanan terbaik untuk setiap pelanggan",
-    },
-    {
-      label: "Harga Jujur & Transparan",
-      description: "Tanpa biaya siluman dan jelas di awal",
-    },
-    {
-      label: "Respon Cepat via WhatsApp",
-      description: "Konsultasi ramah dan cepat tanggap",
-    },
-    {
-      label: "Pengerjaan Rapi & Teliti",
-      description: "Dikerjakan profesional dengan standar tinggi",
-    },
-  ];
-}
-
 export function getNextTieredEnrichmentCard(
   brief: ProjectBriefV2,
   options?: { uploadsEnabled?: boolean },
 ): WorkspaceCard | null {
   const name = brief.business.name.trim() || "usahamu";
-  const context = `${brief.business.name} ${brief.business.type} ${brief.prompt}`;
-
   // Tier 1 Missing:
   if (!brief.business.name.trim()) {
     return {
@@ -88,7 +63,7 @@ export function getNextTieredEnrichmentCard(
         answerMode: "text",
         selectionMode: "single",
         required: true,
-        placeholder: "Contoh: Bengkel Berkah Jaya",
+        placeholder: "Tulis nama usaha",
         options: [],
       },
     };
@@ -100,23 +75,11 @@ export function getNextTieredEnrichmentCard(
       question: {
         id: "services",
         question: `Layanan atau produk utama yang ditawarkan di ${name} apa saja?`,
-        answerMode: "choice",
-        selectionMode: "multiple",
+        answerMode: "text",
+        selectionMode: "single",
         required: true,
-        options: [
-          {
-            label: "Paket Layanan Utama",
-            description: "Pilihan yang paling sering dicari pelanggan",
-          },
-          {
-            label: "Paket Lengkap / Komplit",
-            description: "Solusi menyeluruh dari awal sampai tuntas",
-          },
-          {
-            label: "Konsultasi / Permintaan Khusus",
-            description: "Disesuaikan dengan kebutuhan spesifik pelanggan",
-          },
-        ],
+        placeholder: "Tulis produk atau layanan utama",
+        options: [],
       },
     };
   }
@@ -135,7 +98,7 @@ export function getNextTieredEnrichmentCard(
         answerMode: "text",
         selectionMode: "single",
         required: true,
-        placeholder: "Contoh: 081234567890",
+        placeholder: "Tulis nomor WhatsApp aktif",
         options: [],
       },
     };
@@ -160,7 +123,7 @@ export function getNextTieredEnrichmentCard(
         answerMode: "text",
         selectionMode: "single",
         required: false,
-        placeholder: "Contoh: Jl. Kenangan No. 4, Jakarta Utara",
+        placeholder: "Tulis alamat atau patokan lokasi",
         options: [],
       },
     };
@@ -178,7 +141,7 @@ export function getNextTieredEnrichmentCard(
         answerMode: "text",
         selectionMode: "single",
         required: false,
-        placeholder: "Contoh: Mulai Rp 35.000 (servis ringan)",
+        placeholder: "Tulis kisaran harga atau tarif",
         options: [],
       },
     };
@@ -190,10 +153,11 @@ export function getNextTieredEnrichmentCard(
       question: {
         id: "usp",
         question: `Apa keunggulan utama ${name} yang paling disukai pelanggan?`,
-        answerMode: "choice",
-        selectionMode: "multiple",
+        answerMode: "text",
+        selectionMode: "single",
         required: false,
-        options: fallbackUspOptions(context),
+        placeholder: "Tulis keunggulan yang benar-benar kamu tawarkan",
+        options: [],
       },
     };
   }

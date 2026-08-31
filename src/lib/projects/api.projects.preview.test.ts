@@ -32,10 +32,11 @@ describe("discuss system prompts respect hasBuiltSite", () => {
     expect(beforeBuild).toContain("build_recommendation");
 
     expect(afterBuild).not.toContain("INTERVIEW DISCIPLINE");
-    expect(afterBuild).toContain('"workspaceCard"');
-    expect(afterBuild).toContain('"type": "none"');
-    expect(afterBuild).toContain('"type": "question"');
+    expect(afterBuild).toContain("workspaceCard");
+    expect(afterBuild).toContain("build recommendation");
+    expect(afterBuild).toContain("clarification");
     expect(afterBuild).toContain("edit request, not an interview");
+    expect(afterBuild).not.toContain("Full tool input examples");
     expect(afterBuild).not.toContain(
       'call presentWorkspaceCard exactly once with { type: "none" }',
     );

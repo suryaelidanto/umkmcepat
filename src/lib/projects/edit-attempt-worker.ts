@@ -4,7 +4,19 @@ import { prisma } from "@/lib/prisma";
 import { runAgenticGenerate } from "@/lib/projects/agentic-generator";
 import { enqueueAndWaitEditBuild } from "@/lib/projects/attempt-queue";
 import { publishBuildProgress } from "@/lib/projects/build-attempt-pubsub";
-import { selectActivePreviewDeployment } from "@/lib/projects/deployment-resolution";
+import {
+  createDiscussionContextSnapshot,
+  parseCanonicalBrief,
+} from "@/lib/projects/canonical-brief";
+import {
+  parseProjectChatMessages,
+  parseProjectChatSummary,
+  parseProjectMemoryFacts,
+} from "@/lib/projects/chat-memory";
+import {
+  isProjectDeploymentForProject,
+  selectActivePreviewDeployment,
+} from "@/lib/projects/deployment-resolution";
 import { type DiffLine } from "@/lib/projects/diff";
 import { validateGeneratedEdit } from "@/lib/projects/edit-validation";
 import { createStepCharger } from "@/lib/projects/energy-step-charger";
@@ -21,6 +33,7 @@ import {
 } from "@/lib/projects/project-operation";
 import { refreshProjectThumbnail } from "@/lib/projects/project-thumbnail";
 import {
+  isProjectArtifactRefFor,
   readProjectSourceArtifact,
   resolveArtifactFilesDir,
   writeProjectSourceArtifact,
@@ -118,6 +131,10 @@ export async function runEditAttempt({
       status: true,
       buildStatus: true,
       siteSchema: true,
+      brief: true,
+      chatMessages: true,
+      chatSummary: true,
+      memoryFacts: true,
       prompt: true,
       title: true,
       userId: true,
@@ -144,6 +161,8 @@ export async function runEditAttempt({
           artifactRef: true,
           createdAt: true,
           id: true,
+          projectId: true,
+          snapshot: { select: { id: true, projectId: true } },
           snapshotId: true,
           status: true,
           updatedAt: true,
@@ -153,15 +172,20 @@ export async function runEditAttempt({
       createdAt: true,
       id: true,
       kind: true,
+      projectId: true,
       snapshot: {
-        select: { files: true, id: true, sourceRef: true },
+        select: { files: true, id: true, projectId: true, sourceRef: true },
       },
       snapshotId: true,
       status: true,
       updatedAt: true,
     },
   });
-  const activeDeployment = selectActivePreviewDeployment(deployments);
+  const activeDeployment = selectActivePreviewDeployment(
+    deployments.filter((candidate) =>
+      isProjectDeploymentForProject(candidate, project.id),
+    ),
+  );
   const activeSnapshot = activeDeployment?.snapshot;
   if (!activeSnapshot) {
     await updateProjectEditAttempt(attempt.id, {
@@ -177,8 +201,13 @@ export async function runEditAttempt({
     return;
   }
 
-  const artifactFiles = activeSnapshot.sourceRef
-    ? await readProjectSourceArtifact(activeSnapshot.sourceRef).catch(() => [])
+  const activeSourceRef = activeSnapshot.sourceRef;
+  const artifactFiles = isProjectArtifactRefFor(
+    activeSourceRef,
+    "source",
+    activeSnapshot.id,
+  )
+    ? await readProjectSourceArtifact(activeSourceRef).catch(() => [])
     : [];
   const baseFiles = artifactFiles.length
     ? artifactFiles
@@ -291,12 +320,20 @@ export async function runEditAttempt({
       onFilesChanged([...merged.values()]);
     };
 
+    const storedMessages = parseProjectChatMessages(project.chatMessages);
+    const storedBrief = parseCanonicalBrief(project.brief, project.prompt);
     const agenticResult = await runAgenticGenerate({
       abortSignal,
       attemptId: attempt.id,
       brief: {
         prompt: instruction,
-        businessName: project.title,
+        businessName: storedBrief.business.name || project.title,
+        factLedger: storedBrief.factLedger,
+        discussionContext: createDiscussionContextSnapshot({
+          messages: storedMessages,
+          summary: parseProjectChatSummary(project.chatSummary),
+          memoryFacts: parseProjectMemoryFacts(project.memoryFacts),
+        }),
       },
       initialFiles: baseFiles,
       onEvent(type: string, data: unknown) {
@@ -491,15 +528,23 @@ export async function runEditAttempt({
     });
     const { readProjectDistArtifact } =
       await import("@/lib/projects/runtime-artifacts");
-    const distFiles =
-      queuedBuild.artifactRef && queuedBuild.buildStatus === "succeeded"
-        ? await readProjectDistArtifact(queuedBuild.artifactRef)
-        : [];
+    const queuedArtifactRef =
+      queuedBuild.buildStatus === "succeeded" &&
+      isProjectArtifactRefFor(queuedBuild.artifactRef, "dist", build.id)
+        ? queuedBuild.artifactRef
+        : null;
+    const artifactLineageValid =
+      queuedBuild.buildStatus !== "succeeded" || queuedArtifactRef !== null;
+    const distFiles = queuedArtifactRef
+      ? await readProjectDistArtifact(queuedArtifactRef)
+      : [];
     const buildResult = {
-      artifactRef: queuedBuild.artifactRef,
+      artifactRef: queuedArtifactRef,
       distFiles,
-      logText: queuedBuild.logText,
-      status: queuedBuild.buildStatus,
+      logText: artifactLineageValid
+        ? queuedBuild.logText
+        : "Build artifact does not match its build.",
+      status: artifactLineageValid ? queuedBuild.buildStatus : "failed",
     };
     devLog("edit", "build.finished", {
       projectId: project.id,

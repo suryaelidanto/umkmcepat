@@ -14,7 +14,10 @@ import {
   parseCanonicalBrief,
   type ProjectBriefV2,
 } from "@/lib/projects/canonical-brief";
-import { hashCanonicalBrief } from "@/lib/projects/canonical-brief-hash";
+import {
+  hashCanonicalBrief,
+  hashCanonicalBriefContent,
+} from "@/lib/projects/canonical-brief-hash";
 
 export type ActiveHandoff = {
   id: string;
@@ -23,8 +26,6 @@ export type ActiveHandoff = {
   planHash: string;
   contractRevision: number;
   planRevision: number;
-  creativeDirection?: string | null;
-  creativeDirectionHash?: string | null;
 };
 
 export type AcceptedBuildHandoff = {
@@ -38,7 +39,6 @@ export type AcceptedBuildHandoff = {
   planHash: string;
   contractRevision: number;
   planRevision: number;
-  creativeDirection: string | null;
 };
 
 export type CreateHandoffInput = {
@@ -56,8 +56,6 @@ export type CreateHandoffInput = {
   reviewHash: string;
   contractRevision: number;
   planRevision: number;
-  creativeDirection?: string | null;
-  creativeDirectionHash?: string | null;
 };
 
 export async function loadAcceptedHandoffForAttempt(input: {
@@ -140,7 +138,6 @@ export async function loadAcceptedHandoffForAttempt(input: {
     planHash,
     contractRevision: handoff.contractRevision,
     planRevision: handoff.planRevision,
-    creativeDirection: handoff.creativeDirection ?? null,
   };
 }
 
@@ -201,8 +198,6 @@ export async function createDraftHandoff(input: CreateHandoffInput): Promise<{
         reviewHash: input.reviewHash,
         contractRevision: nextRevision,
         planRevision: input.planRevision,
-        creativeDirection: input.creativeDirection ?? null,
-        creativeDirectionHash: input.creativeDirectionHash ?? null,
       },
       select: { id: true },
     });
@@ -229,8 +224,6 @@ export async function createDraftHandoff(input: CreateHandoffInput): Promise<{
       reviewHash: input.reviewHash,
       contractRevision: input.contractRevision,
       planRevision: input.planRevision,
-      creativeDirection: input.creativeDirection ?? null,
-      creativeDirectionHash: input.creativeDirectionHash ?? null,
     },
     select: { id: true },
   });
@@ -252,15 +245,20 @@ export async function loadActiveHandoff(
   if (!project?.activeHandoffId) {
     return null;
   }
-  const handoff = await prisma.projectBuildHandoff.findUnique({
-    where: { id: project.activeHandoffId },
+  const handoff = await prisma.projectBuildHandoff.findFirst({
+    where: { id: project.activeHandoffId, projectId },
   });
   if (!handoff) {
     return null;
   }
+  const rawBriefSnapshot = asRecord(handoff.briefSnapshot);
+  const briefHash =
+    rawBriefSnapshot?.version === 2
+      ? hashCanonicalBriefContent(parseCanonicalBrief(rawBriefSnapshot))
+      : handoff.briefHash;
   return {
     id: handoff.id,
-    briefHash: handoff.briefHash,
+    briefHash,
     contractHash: handoff.contractHash,
     planHash: handoff.planHash,
     contractRevision: handoff.contractRevision,
@@ -293,18 +291,23 @@ export async function selectQualifiedHandoff(input: {
     if (!project || project.activeOperationToken !== operationId) {
       throw new Error("operation lease mismatch");
     }
-    await tx.projectBuildHandoff.updateMany({
+    const handoffSelection = await tx.projectBuildHandoff.updateMany({
       where: { id: handoffId, projectId },
       data: { status: "accepted" },
     });
+    if (handoffSelection.count !== 1) {
+      throw new Error("handoff does not belong to project");
+    }
+    const snapshotSelection = await tx.projectSnapshot.updateMany({
+      where: { id: snapshotId, projectId },
+      data: { metadata: { selected: true } },
+    });
+    if (snapshotSelection.count !== 1) {
+      throw new Error("snapshot does not belong to project");
+    }
     await tx.project.update({
       where: { id: projectId },
       data: { activeHandoffId: handoffId },
-    });
-    // Select the candidate's snapshot as the last-known-good deployment.
-    await tx.projectSnapshot.updateMany({
-      where: { id: snapshotId, projectId },
-      data: { metadata: { selected: true } },
     });
     const prior = project.activeHandoffId;
     if (prior && prior !== handoffId) {

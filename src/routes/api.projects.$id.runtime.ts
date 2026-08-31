@@ -4,6 +4,8 @@ import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { isPrismaDatabaseUnavailable } from "@/lib/prisma-errors";
 import {
+  isProjectBuildForProject,
+  isProjectDeploymentForProject,
   selectActivePreviewDeployment,
   selectActivePublishedDeployment,
   selectLatestAttempt,
@@ -117,6 +119,9 @@ async function getRuntimeState({
           finishedAt: true,
           id: true,
           logText: true,
+          projectId: true,
+          snapshot: { select: { id: true, projectId: true } },
+          snapshotId: true,
           startedAt: true,
           status: true,
           updatedAt: true,
@@ -132,6 +137,8 @@ async function getRuntimeState({
               artifactRef: true,
               createdAt: true,
               id: true,
+              projectId: true,
+              snapshot: { select: { id: true, projectId: true } },
               snapshotId: true,
               status: true,
               updatedAt: true,
@@ -142,6 +149,9 @@ async function getRuntimeState({
           id: true,
           kind: true,
           lastRequestAt: true,
+          projectId: true,
+          snapshot: { select: { id: true, projectId: true } },
+          snapshotId: true,
           publicPath: true,
           startedAt: true,
           status: true,
@@ -159,6 +169,8 @@ async function getRuntimeState({
               artifactRef: true,
               createdAt: true,
               id: true,
+              projectId: true,
+              snapshot: { select: { id: true, projectId: true } },
               snapshotId: true,
               status: true,
               updatedAt: true,
@@ -168,7 +180,9 @@ async function getRuntimeState({
           createdAt: true,
           id: true,
           kind: true,
+          projectId: true,
           publicPath: true,
+          snapshot: { select: { id: true, projectId: true } },
           snapshotId: true,
           slug: true,
           status: true,
@@ -204,12 +218,22 @@ async function getRuntimeState({
         },
       }),
     ]);
-  const latestAttempt = selectLatestAttempt(builds);
-  const latestFailedAttempt = selectLatestFailedAttempt(builds);
-  const latestSuccessfulBuild = selectLatestSuccessfulBuild(builds);
-  const deployment = selectActivePreviewDeployment(previewDeployments);
-  const publishedDeployment =
-    selectActivePublishedDeployment(publishedDeployments);
+  const projectBuilds = builds.filter((build) =>
+    isProjectBuildForProject(build, project.id),
+  );
+  const projectPreviewDeployments = previewDeployments.filter((candidate) =>
+    isProjectDeploymentForProject(candidate, project.id),
+  );
+  const projectPublishedDeployments = publishedDeployments.filter((candidate) =>
+    isProjectDeploymentForProject(candidate, project.id),
+  );
+  const latestAttempt = selectLatestAttempt(projectBuilds);
+  const latestFailedAttempt = selectLatestFailedAttempt(projectBuilds);
+  const latestSuccessfulBuild = selectLatestSuccessfulBuild(projectBuilds);
+  const deployment = selectActivePreviewDeployment(projectPreviewDeployments);
+  const publishedDeployment = selectActivePublishedDeployment(
+    projectPublishedDeployments,
+  );
   const publishedDeploymentState = publishedDeployment
     ? {
         ...publishedDeployment,

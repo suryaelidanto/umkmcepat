@@ -13,7 +13,6 @@ function plan() {
     contractHash: "c",
     contentHash: "",
     appKind: "marketing_site",
-    archetype: "fnb",
     pages: [
       {
         id: "home",
@@ -22,17 +21,10 @@ function plan() {
         purpose: "Landing",
         visitorJobIds: ["order"],
         requiredFactIds: ["contact-primary"],
-        sections: [],
       },
     ],
     navigation: [],
     capabilities: ["static_content", "whatsapp_cta"],
-    artDirection: {
-      businessSpecificReference: "",
-      antiReferences: [],
-      imageStrategy: "typographic",
-      fontStrategy: "system_stack",
-    },
   } as const;
 }
 

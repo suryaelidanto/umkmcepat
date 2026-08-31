@@ -37,9 +37,16 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/projects/project-thumbnail", () => ({
   refreshProjectThumbnail: refreshProjectThumbnailMock,
 }));
-vi.mock("@/lib/projects/runtime-artifacts", () => ({
-  readProjectDistArtifact: readProjectDistArtifactMock,
-}));
+vi.mock("@/lib/projects/runtime-artifacts", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/projects/runtime-artifacts")
+  >("@/lib/projects/runtime-artifacts");
+
+  return {
+    ...actual,
+    readProjectDistArtifact: readProjectDistArtifactMock,
+  };
+});
 vi.mock("@/lib/projects/runtime-proxy", async () => {
   const actual = await vi.importActual<
     typeof import("@/lib/projects/runtime-proxy")
@@ -77,15 +84,18 @@ describe("project preview route", () => {
       new Response("preview-success", { status: 200 }),
     );
     readProjectDistArtifactMock.mockResolvedValue([]);
+    prismaQueryRawMock.mockResolvedValue([{ distFiles: null }]);
     refreshProjectThumbnailMock.mockResolvedValue(undefined);
     afterMock.mockImplementation((callback: () => void) => callback());
   });
 
   it("proxies the active successful deployment when the newest deployment failed", async () => {
     const successfulBuild = {
-      artifactRef: "project-artifact:local:dist:build_success",
+      artifactRef: "project-artifact:s3:dist:build_success",
       createdAt: older,
       id: "build_success",
+      projectId: "project_1",
+      snapshot: { id: "snapshot_success", projectId: "project_1" },
       snapshotId: "snapshot_success",
       status: "succeeded",
       updatedAt: older,
@@ -116,6 +126,11 @@ describe("project preview route", () => {
         createdAt: older,
         id: "deployment_success",
         kind: "preview",
+        projectId: "project_1",
+        snapshot: {
+          id: successfulBuild.snapshotId,
+          projectId: "project_1",
+        },
         snapshotId: successfulBuild.snapshotId,
         status: "stopped",
         updatedAt: older,
@@ -164,11 +179,36 @@ describe("project preview route", () => {
     expect(body).not.toContain('src="./assets/');
   });
 
+  it("does not fall back to the current project artifact for a missing snapshot deployment", async () => {
+    prismaProjectDeploymentFindManyMock.mockResolvedValue([]);
+    prismaQueryRawMock.mockResolvedValue([
+      {
+        distFiles: [
+          {
+            content: "must not be served",
+            contentType: "text/html; charset=utf-8",
+            path: "index.html",
+          },
+        ],
+      },
+    ]);
+
+    const response = await GET(
+      new Request("http://localhost/preview?snapshotId=selected_snapshot"),
+      { id: "project_1", _splat: "" },
+    );
+
+    expect(response.status).toBe(404);
+    expect(prismaQueryRawMock).not.toHaveBeenCalled();
+  });
+
   it("serves the active deployment artifact when the runtime is unavailable", async () => {
     const successfulBuild = {
       artifactRef: "project-artifact:s3:dist:build_success",
       createdAt: newer,
       id: "build_success",
+      projectId: "project_1",
+      snapshot: { id: "snapshot_success", projectId: "project_1" },
       snapshotId: "snapshot_success",
       status: "succeeded",
       updatedAt: newer,
@@ -180,6 +220,11 @@ describe("project preview route", () => {
         createdAt: newer,
         id: "deployment_success",
         kind: "preview",
+        projectId: "project_1",
+        snapshot: {
+          id: successfulBuild.snapshotId,
+          projectId: "project_1",
+        },
         snapshotId: successfulBuild.snapshotId,
         status: "created",
         updatedAt: newer,
@@ -207,11 +252,64 @@ describe("project preview route", () => {
     );
   });
 
+  it("returns 404 for a missing preview asset instead of the SPA fallback", async () => {
+    const successfulBuild = {
+      artifactRef: "project-artifact:s3:dist:build_missing_asset",
+      createdAt: newer,
+      id: "build_missing_asset",
+      projectId: "project_1",
+      snapshot: {
+        id: "snapshot_missing_asset",
+        projectId: "project_1",
+      },
+      snapshotId: "snapshot_missing_asset",
+      status: "succeeded",
+      updatedAt: newer,
+    };
+    prismaProjectDeploymentFindManyMock.mockResolvedValue([
+      {
+        build: successfulBuild,
+        buildId: successfulBuild.id,
+        createdAt: newer,
+        id: "deployment_missing_asset",
+        kind: "preview",
+        projectId: "project_1",
+        snapshot: {
+          id: successfulBuild.snapshotId,
+          projectId: "project_1",
+        },
+        snapshotId: successfulBuild.snapshotId,
+        status: "created",
+        updatedAt: newer,
+      },
+    ]);
+    proxyDeploymentRequestMock.mockResolvedValue(null);
+    readProjectDistArtifactMock.mockResolvedValue([
+      {
+        content: "home",
+        contentType: "text/html; charset=utf-8",
+        path: "index.html",
+      },
+    ]);
+
+    const response = await GET(
+      new Request("http://localhost/preview/assets/missing.js"),
+      { id: "project_1", _splat: "assets/missing.js" },
+    );
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get("Content-Security-Policy")).toContain(
+      "sandbox allow-scripts",
+    );
+  });
+
   it("backfills a missing thumbnail once after a successful preview response", async () => {
     const successfulBuild = {
-      artifactRef: "project-artifact:local:dist:build_success",
+      artifactRef: "project-artifact:s3:dist:build_success",
       createdAt: newer,
       id: "build_success",
+      projectId: "project_1",
+      snapshot: { id: "snapshot_success", projectId: "project_1" },
       snapshotId: "snapshot_success",
       status: "succeeded",
       updatedAt: newer,
@@ -223,6 +321,11 @@ describe("project preview route", () => {
         createdAt: newer,
         id: "deployment_success",
         kind: "preview",
+        projectId: "project_1",
+        snapshot: {
+          id: successfulBuild.snapshotId,
+          projectId: "project_1",
+        },
         snapshotId: successfulBuild.snapshotId,
         status: "running",
         updatedAt: newer,
@@ -243,9 +346,11 @@ describe("project preview route", () => {
 
   it("does not recapture a thumbnail already matching the successful build", async () => {
     const successfulBuild = {
-      artifactRef: "project-artifact:local:dist:build_success",
+      artifactRef: "project-artifact:s3:dist:build_success",
       createdAt: newer,
       id: "build_success",
+      projectId: "project_1",
+      snapshot: { id: "snapshot_success", projectId: "project_1" },
       snapshotId: "snapshot_success",
       status: "succeeded",
       updatedAt: newer,
@@ -262,6 +367,11 @@ describe("project preview route", () => {
         createdAt: newer,
         id: "deployment_success",
         kind: "preview",
+        projectId: "project_1",
+        snapshot: {
+          id: successfulBuild.snapshotId,
+          projectId: "project_1",
+        },
         snapshotId: successfulBuild.snapshotId,
         status: "running",
         updatedAt: newer,
@@ -274,6 +384,81 @@ describe("project preview route", () => {
     });
 
     expect(refreshProjectThumbnailMock).not.toHaveBeenCalled();
+  });
+
+  it("does not serve a deployment artifact reference that does not belong to its build", async () => {
+    const deployment = {
+      build: {
+        artifactRef: "project-artifact:s3:dist:other_build",
+        createdAt: newer,
+        id: "build_1",
+        projectId: "project_1",
+        snapshot: { id: "snapshot_1", projectId: "project_1" },
+        snapshotId: "snapshot_1",
+        status: "succeeded",
+        updatedAt: newer,
+      },
+      buildId: "build_1",
+      createdAt: newer,
+      id: "deployment_1",
+      kind: "preview",
+      projectId: "project_1",
+      snapshotId: "snapshot_1",
+      status: "created",
+      updatedAt: newer,
+    };
+    prismaProjectDeploymentFindManyMock.mockResolvedValue([deployment]);
+    proxyDeploymentRequestMock.mockResolvedValue(null);
+    prismaQueryRawMock.mockResolvedValue([{ distFiles: null }]);
+    readProjectDistArtifactMock.mockResolvedValue([
+      {
+        content: "must not be served",
+        contentType: "text/html; charset=utf-8",
+        path: "index.html",
+      },
+    ]);
+
+    const response = await GET(new Request("http://localhost/preview"), {
+      id: "project_1",
+      _splat: "",
+    });
+
+    expect(response.status).toBe(404);
+    expect(readProjectDistArtifactMock).not.toHaveBeenCalled();
+  });
+
+  it("does not use a preview deployment whose build belongs to another project", async () => {
+    const deployment = {
+      build: {
+        artifactRef: "project-artifact:s3:dist:build_1",
+        createdAt: newer,
+        id: "build_1",
+        projectId: "project_2",
+        snapshot: { projectId: "project_2" },
+        snapshotId: "snapshot_1",
+        status: "succeeded",
+        updatedAt: newer,
+      },
+      buildId: "build_1",
+      createdAt: newer,
+      id: "deployment_1",
+      kind: "preview",
+      projectId: "project_1",
+      snapshotId: "snapshot_1",
+      status: "created",
+      updatedAt: newer,
+    };
+    prismaProjectDeploymentFindManyMock.mockResolvedValue([deployment]);
+    prismaQueryRawMock.mockResolvedValue([{ distFiles: null }]);
+
+    const response = await GET(new Request("http://localhost/preview"), {
+      id: "project_1",
+      _splat: "",
+    });
+
+    expect(response.status).toBe(404);
+    expect(proxyDeploymentRequestMock).not.toHaveBeenCalled();
+    expect(readProjectDistArtifactMock).not.toHaveBeenCalled();
   });
 
   it("returns an actionable HTML panel when no preview artifact exists", async () => {

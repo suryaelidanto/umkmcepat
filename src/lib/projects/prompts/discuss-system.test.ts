@@ -52,7 +52,7 @@ describe("DISCUSS_SYSTEM_PROMPT", () => {
   it("explains when the model may record distinct visitor jobs", () => {
     expect(DISCUSS_SYSTEM_PROMPT).toMatch(/visitor job/i);
     expect(DISCUSS_SYSTEM_PROMPT).toMatch(/distinct/i);
-    expect(DISCUSS_SYSTEM_PROMPT).toMatch(/katalog/i);
+    expect(DISCUSS_SYSTEM_PROMPT).toContain("product-listing term");
   });
 
   it("forbids hallucinating values", () => {
@@ -65,8 +65,9 @@ describe("DISCUSS_SYSTEM_PROMPT", () => {
   });
 
   it("instructs the AI to push back on single-word generic business names", () => {
-    expect(DISCUSS_SYSTEM_PROMPT).toContain("Warung");
-    expect(DISCUSS_SYSTEM_PROMPT).toContain("Toko");
-    expect(DISCUSS_SYSTEM_PROMPT).toContain("nama brand penuhnya apa?");
+    expect(DISCUSS_SYSTEM_PROMPT).toContain("generic single-word name");
+    expect(DISCUSS_SYSTEM_PROMPT).toContain("full brand name");
+    expect(DISCUSS_SYSTEM_PROMPT).not.toContain("Warung");
+    expect(DISCUSS_SYSTEM_PROMPT).not.toContain("Toko");
   });
 });

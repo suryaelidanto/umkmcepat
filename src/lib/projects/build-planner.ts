@@ -1,11 +1,11 @@
 // src/lib/projects/build-planner.ts
+import { groundProjectBriefToOwnerFacts, type ProjectBrief } from "./brief";
 import {
   parseBuildContract,
   type BuildContractV1,
   type ContractAsset,
   type ContractFactV1,
 } from "./build-contract";
-import { generateBuildCreativeDirection } from "./build-creative-direction";
 import { createDraftHandoff } from "./build-handoffs";
 import {
   hashBuildContract,
@@ -13,15 +13,17 @@ import {
   hashReviewItems,
 } from "./build-hash";
 import { parseBuildPlan } from "./build-plan";
-import { parseCanonicalBrief } from "./canonical-brief";
+import {
+  createDiscussionContextSnapshot,
+  parseCanonicalBrief,
+} from "./canonical-brief";
 import { hashCanonicalBrief } from "./canonical-brief-hash";
+import { getRenderableFactEntry, normalizeFactLedger } from "./fact-ledger";
 import { deriveReviewItems } from "./review-items";
 import { parseVisitorJobs, type VisitorJob } from "./visitor-jobs";
 
-import type { ProjectBrief } from "./brief";
 import type { ContactValue } from "./brief-rich-fields";
 import type { BuildPlanV1 } from "./build-plan";
-import type { UIMessage } from "ai";
 
 export type PlannerDeps = {
   parseBuildContract: typeof parseBuildContract;
@@ -56,14 +58,21 @@ export function buildContractFromBrief(
   turnId = "server",
 ): ContractDraftResult {
   const identity = {
-    businessName: brief.businessName.trim(),
-    businessType: brief.businessType.trim() || null,
+    businessName: isApprovedField(brief, "businessName")
+      ? brief.businessName.trim()
+      : "",
+    businessType: isApprovedField(brief, "businessType")
+      ? brief.businessType.trim() || null
+      : null,
   };
   if (!identity.businessName) {
     return { ok: false, reason: "business name required" };
   }
-  if (!brief.productOrService?.length) {
-    return { ok: false, reason: "at least one offer required" };
+  if (!brief.productOrService?.length || !isApprovedField(brief, "offers")) {
+    return {
+      ok: false,
+      reason: "at least one owner-confirmed offer required",
+    };
   }
 
   const explicitVisitorJobs = brief.visitorJobs ?? [];
@@ -84,79 +93,149 @@ export function buildContractFromBrief(
   }
 
   const facts: ContractFactV1[] = [];
+  const provenance = () => ({
+    source: "owner" as const,
+    turnId: turnId ?? null,
+    assetId: null,
+    supersedesFactId: null,
+    reviewItemId: null,
+  });
+  const addFact = <K extends ContractFactV1["kind"]>(
+    fact: Extract<ContractFactV1, { kind: K }>,
+  ) => facts.push(fact);
 
-  if (brief.productOrService.length) {
-    facts.push({
+  if (brief.productOrService.length && isApprovedField(brief, "offers")) {
+    addFact({
       id: "offer-primary",
       kind: "offer",
       value: brief.productOrService,
-      provenance: {
-        source: "owner",
-        turnId: turnId ?? null,
-        assetId: null,
-        supersedesFactId: null,
-        reviewItemId: null,
-      },
+      provenance: provenance(),
     });
   }
-
-  if (brief.contact) {
-    facts.push({
+  if (brief.contact && isApprovedField(brief, "contact")) {
+    addFact({
       id: "contact-primary",
       kind: "contact",
       value: brief.contact,
-      provenance: {
-        source: "owner",
-        turnId: turnId ?? null,
-        assetId: null,
-        supersedesFactId: null,
-        reviewItemId: null,
-      },
+      provenance: provenance(),
     });
   }
-
-  if (brief.hours?.length) {
-    facts.push({
+  if (brief.hours?.length && isApprovedField(brief, "hours")) {
+    addFact({
       id: "hours-primary",
       kind: "hours",
       value: brief.hours,
-      provenance: {
-        source: "owner",
-        turnId: turnId ?? null,
-        assetId: null,
-        supersedesFactId: null,
-        reviewItemId: null,
-      },
+      provenance: provenance(),
     });
   }
-
-  if (brief.address) {
-    facts.push({
+  if (brief.address && isApprovedField(brief, "address")) {
+    addFact({
       id: "address-primary",
       kind: "address",
       value: { line1: brief.address },
-      provenance: {
-        source: "owner",
-        turnId: turnId ?? null,
-        assetId: null,
-        supersedesFactId: null,
-        reviewItemId: null,
-      },
+      provenance: provenance(),
     });
   }
-
-  if (brief.paymentMethods?.length) {
-    facts.push({
+  if (brief.deliveryArea && isApprovedField(brief, "serviceArea")) {
+    addFact({
+      id: "service-area-primary",
+      kind: "service_area",
+      value: [{ area: brief.deliveryArea }],
+      provenance: provenance(),
+    });
+  }
+  if (brief.priceRange && isApprovedField(brief, "priceRange")) {
+    addFact({
+      id: "price-primary",
+      kind: "price",
+      value: [{ amount: brief.priceRange }],
+      provenance: provenance(),
+    });
+  }
+  if (brief.usp?.length && isApprovedField(brief, "usp")) {
+    addFact({
+      id: "usp-primary",
+      kind: "usp",
+      value: brief.usp,
+      provenance: provenance(),
+    });
+  }
+  if (brief.targetCustomer && isApprovedField(brief, "audience")) {
+    addFact({
+      id: "audience-primary",
+      kind: "audience",
+      value: brief.targetCustomer,
+      provenance: provenance(),
+    });
+  }
+  if (brief.tagline && isApprovedField(brief, "tagline")) {
+    addFact({
+      id: "tagline-primary",
+      kind: "tagline",
+      value: brief.tagline,
+      provenance: provenance(),
+    });
+  }
+  if (brief.since && isApprovedField(brief, "since")) {
+    addFact({
+      id: "since-primary",
+      kind: "since",
+      value: brief.since,
+      provenance: provenance(),
+    });
+  }
+  if (brief.testimonials?.length && isApprovedField(brief, "testimonials")) {
+    addFact({
+      id: "testimonials-primary",
+      kind: "testimonial",
+      value: brief.testimonials,
+      provenance: provenance(),
+    });
+  }
+  if (
+    brief.certifications?.length &&
+    isApprovedField(brief, "certifications")
+  ) {
+    addFact({
+      id: "certifications-primary",
+      kind: "certification",
+      value: brief.certifications,
+      provenance: provenance(),
+    });
+  }
+  if (
+    brief.paymentMethods?.length &&
+    isApprovedField(brief, "paymentMethods")
+  ) {
+    addFact({
       id: "payment-primary",
       kind: "payment_method",
       value: brief.paymentMethods,
-      provenance: {
-        source: "owner",
-        turnId: turnId ?? null,
-        assetId: null,
-        supersedesFactId: null,
-        reviewItemId: null,
-      },
+      provenance: provenance(),
+    });
+  }
+  if (brief.socialLinks?.length && isApprovedField(brief, "socialLinks")) {
+    addFact({
+      id: "social-links-primary",
+      kind: "social_link",
+      value: brief.socialLinks,
+      provenance: provenance(),
+    });
+  }
+  if (brief.currentPromo && isApprovedField(brief, "promotion")) {
+    addFact({
+      id: "promotion-primary",
+      kind: "promotion",
+      value: [{ title: brief.currentPromo }],
+      provenance: provenance(),
+    });
+  }
+  if (brief.secondaryCta && isApprovedField(brief, "secondaryAction")) {
+    addFact({
+      id: "secondary-action-primary",
+      kind: "secondary_action",
+      value: brief.secondaryCta,
+      provenance: provenance(),
     });
   }
 
@@ -178,8 +257,10 @@ export function buildContractFromBrief(
     hardRequirements: [],
     prohibitedClaims: [],
     preferences: {
-      visualDirection: brief.stylePreference || null,
-      tone: brief.tagline || null,
+      visualDirection: isApprovedField(brief, "visualDirection")
+        ? brief.stylePreference || null
+        : null,
+      tone: isApprovedField(brief, "tagline") ? brief.tagline || null : null,
       density: null,
       motion: null,
     },
@@ -203,8 +284,63 @@ export function buildContractFromBrief(
   };
 }
 
+function extractDiscussionOwnerTexts(messages: unknown[]): string[] {
+  return messages.flatMap((message) => {
+    if (!message || typeof message !== "object" || Array.isArray(message)) {
+      return [];
+    }
+    const record = message as Record<string, unknown>;
+    if (record.role !== "user" || !Array.isArray(record.parts)) {
+      return [];
+    }
+    const text = record.parts
+      .flatMap((part) => {
+        if (!part || typeof part !== "object" || Array.isArray(part)) {
+          return [];
+        }
+        const item = part as Record<string, unknown>;
+        return item.type === "text" && typeof item.text === "string"
+          ? [item.text]
+          : [];
+      })
+      .join(" ")
+      .trim();
+    return text ? [text] : [];
+  });
+}
+
+function isApprovedField(brief: ProjectBrief, field: string): boolean {
+  const fieldStateKey =
+    field === "offers"
+      ? null
+      : field === "audience"
+        ? "targetCustomer"
+        : field === "serviceArea"
+          ? "deliveryArea"
+          : field === "secondaryAction"
+            ? "secondaryCta"
+            : field === "visualDirection"
+              ? null
+              : field;
+  const fieldState = fieldStateKey
+    ? brief.fieldState?.[
+        fieldStateKey as keyof NonNullable<ProjectBrief["fieldState"]>
+      ]
+    : undefined;
+  if (fieldState === "declined" || fieldState === "explicitly_empty") {
+    return false;
+  }
+  const ledger = normalizeFactLedger(brief.factLedger);
+  if (ledger.entries.length === 0) {
+    return true;
+  }
+  return Boolean(getRenderableFactEntry(ledger, field));
+}
+
 function buildCtaIntents(brief: ProjectBrief): BuildContractV1["ctaIntents"] {
-  const contact = brief.contact as ContactValue | null;
+  const contact = isApprovedField(brief, "contact")
+    ? (brief.contact as ContactValue | null)
+    : null;
   if (contact && contact.channel === "whatsapp") {
     return [
       {
@@ -225,7 +361,7 @@ function buildCtaIntents(brief: ProjectBrief): BuildContractV1["ctaIntents"] {
       },
     ];
   }
-  if (brief.address) {
+  if (brief.address && isApprovedField(brief, "address")) {
     return [
       {
         id: "cta-primary",
@@ -264,15 +400,6 @@ export function buildPlanFromContract(contract: BuildContractV1): BuildPlanV1 {
       purpose: "Landing and primary conversion",
       visitorJobIds: [primaryJob.id],
       requiredFactIds: ctaFactIds,
-      sections: [
-        {
-          id: "hero",
-          purpose: "Intro and primary CTA",
-          surfaceIntent: "full_bleed",
-          requiredFactIds: [],
-          requiredAssetIds: [],
-        },
-      ],
     },
   ];
 
@@ -288,19 +415,21 @@ export function buildPlanFromContract(contract: BuildContractV1): BuildPlanV1 {
     pages.push(page);
   }
 
-  const hasCatalog = pages.some((page) =>
-    page.sections.some((section) => section.id === "catalog"),
-  );
   const capabilities = new Set<BuildPlanV1["capabilities"][number]>([
     "static_content",
-    "whatsapp_cta",
   ]);
-  if (hasCatalog) {
+  if (contract.facts.some((fact) => fact.kind === "offer")) {
     capabilities.add("catalog");
   }
+  if (contract.ctaIntents.some((cta) => cta.kind === "whatsapp")) {
+    capabilities.add("whatsapp_cta");
+  }
   if (
-    pages.some((page) =>
-      page.sections.some((section) => section.id === "operations"),
+    contract.facts.some(
+      (fact) =>
+        fact.kind === "address" ||
+        fact.kind === "service_area" ||
+        fact.kind === "hours",
     )
   ) {
     capabilities.add("location");
@@ -312,7 +441,6 @@ export function buildPlanFromContract(contract: BuildContractV1): BuildPlanV1 {
     contractHash: contract.contentHash,
     contentHash: "",
     appKind: pages.length > 1 ? "marketing_site" : "landing",
-    archetype: contract.identity.businessType || "generic",
     pages,
     navigation: pages.slice(1).map((p) => ({
       fromPageId: "home",
@@ -320,12 +448,6 @@ export function buildPlanFromContract(contract: BuildContractV1): BuildPlanV1 {
       label: p.title,
     })),
     capabilities: [...capabilities],
-    artDirection: {
-      businessSpecificReference: contract.identity.businessName,
-      antiReferences: [],
-      imageStrategy: "typographic",
-      fontStrategy: "system_stack",
-    },
   };
   return { ...plan, contentHash: hashBuildPlan(plan) };
 }
@@ -342,11 +464,7 @@ function deriveSecondaryPage(input: {
       path: uniquePath("/katalog", input.usedPaths),
       title: "Katalog",
       purpose: "Browse offers",
-      section: {
-        id: "catalog",
-        purpose: "Offer listing",
-        requiredFactIds: existingFactIds(input.factIds, ["offer-primary"]),
-      },
+      requiredFactIds: existingFactIds(input.factIds, ["offer-primary"]),
     });
   }
   if (/lokasi|alamat|datang|tempat|jam|area|local/.test(text)) {
@@ -354,15 +472,11 @@ function deriveSecondaryPage(input: {
       path: uniquePath("/lokasi", input.usedPaths),
       title: "Lokasi dan jam",
       purpose: "Find the business location and operating details",
-      section: {
-        id: "operations",
-        purpose: "Location and operating details",
-        requiredFactIds: existingFactIds(input.factIds, [
-          "address-primary",
-          "hours-primary",
-          "service-area-primary",
-        ]),
-      },
+      requiredFactIds: existingFactIds(input.factIds, [
+        "address-primary",
+        "hours-primary",
+        "service-area-primary",
+      ]),
     });
   }
   if (/pesan|order|beli|booking|hubung|tanya|konsult/.test(text)) {
@@ -370,14 +484,10 @@ function deriveSecondaryPage(input: {
       path: uniquePath("/pesan", input.usedPaths),
       title: "Cara pesan",
       purpose: "Understand how to contact and order",
-      section: {
-        id: "contact",
-        purpose: "Contact and order action",
-        requiredFactIds: existingFactIds(input.factIds, [
-          "offer-primary",
-          "contact-primary",
-        ]),
-      },
+      requiredFactIds: existingFactIds(input.factIds, [
+        "offer-primary",
+        "contact-primary",
+      ]),
     });
   }
 
@@ -389,11 +499,7 @@ function deriveSecondaryPage(input: {
     ),
     title: input.job.goal,
     purpose: "Additional customer information",
-    section: {
-      id: `job-${input.job.id}`,
-      purpose: input.job.goal,
-      requiredFactIds: [],
-    },
+    requiredFactIds: [],
   });
 }
 
@@ -404,11 +510,7 @@ function createJobPage(
   page: {
     path: string;
     purpose: string;
-    section: {
-      id: string;
-      purpose: string;
-      requiredFactIds: string[];
-    };
+    requiredFactIds: string[];
     title: string;
   },
 ): BuildPlanV1["pages"][number] {
@@ -418,16 +520,7 @@ function createJobPage(
     title: page.title,
     purpose: page.purpose,
     visitorJobIds: [input.job.id],
-    requiredFactIds: page.section.requiredFactIds,
-    sections: [
-      {
-        id: page.section.id,
-        purpose: page.section.purpose,
-        surfaceIntent: "contained",
-        requiredFactIds: page.section.requiredFactIds,
-        requiredAssetIds: [],
-      },
-    ],
+    requiredFactIds: page.requiredFactIds,
   };
 }
 
@@ -473,13 +566,34 @@ export async function prepareBuildHandoff(input: {
   userId: string;
   engine: string;
   brief: ProjectBrief;
+  discussionContext?: {
+    messages: unknown[];
+    summary?: unknown;
+    memoryFacts?: unknown;
+  };
   turnId?: string;
-  messages?: UIMessage[];
 }): Promise<PrepareHandoffResult> {
-  const briefSnapshot = parseCanonicalBrief(input.brief, input.brief.prompt);
+  const discussionOwnerTexts = input.discussionContext
+    ? extractDiscussionOwnerTexts(input.discussionContext.messages)
+    : [];
+  const groundedBrief = discussionOwnerTexts.length
+    ? groundProjectBriefToOwnerFacts(input.brief, {
+        ownerTexts: discussionOwnerTexts,
+        sourceTurnId: input.turnId,
+      })
+    : input.brief;
+  const parsedBrief = parseCanonicalBrief(groundedBrief, groundedBrief.prompt);
+  const briefSnapshot = input.discussionContext
+    ? {
+        ...parsedBrief,
+        discussionContext: createDiscussionContextSnapshot(
+          input.discussionContext,
+        ),
+      }
+    : parsedBrief;
   const briefHash = hashCanonicalBrief(briefSnapshot);
   const contractResult = buildContractFromBrief(
-    input.brief,
+    groundedBrief,
     { parseBuildContract, hashContract: hashBuildContract },
     input.turnId,
   );
@@ -497,18 +611,6 @@ export async function prepareBuildHandoff(input: {
 
   const reviewItems = deriveReviewItems(contract, validatedPlan);
   const reviewHashValue = hashReviewItems(reviewItems);
-  // Written once from the discussion and frozen with the rest of the handoff,
-  const creative = input.messages?.length
-    ? await generateBuildCreativeDirection({
-        businessName: briefSnapshot.business.name,
-        businessType: briefSnapshot.business.type,
-        messages: input.messages,
-        projectId: input.projectId,
-        userId: input.userId,
-        turnId: input.turnId,
-        mediaMode: validatedPlan.artDirection.imageStrategy,
-      })
-    : null;
   const created = await createDraftHandoff({
     projectId: input.projectId,
     userId: input.userId,
@@ -524,8 +626,6 @@ export async function prepareBuildHandoff(input: {
     reviewHash: reviewHashValue,
     contractRevision: contract.revision,
     planRevision: validatedPlan.revision,
-    creativeDirection: creative?.direction ?? null,
-    creativeDirectionHash: creative?.hash ?? null,
   });
 
   return {

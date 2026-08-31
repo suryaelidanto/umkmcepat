@@ -18,9 +18,16 @@ vi.mock("@/lib/prisma", () => ({
     },
   },
 }));
-vi.mock("@/lib/projects/runtime-artifacts", () => ({
-  readProjectDistArtifact: readProjectDistArtifactMock,
-}));
+vi.mock("@/lib/projects/runtime-artifacts", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/projects/runtime-artifacts")
+  >("@/lib/projects/runtime-artifacts");
+
+  return {
+    ...actual,
+    readProjectDistArtifact: readProjectDistArtifactMock,
+  };
+});
 vi.mock("@/lib/projects/runtime-proxy", async () => {
   const actual = await vi.importActual<
     typeof import("@/lib/projects/runtime-proxy")
@@ -104,9 +111,19 @@ describe("published generated route", () => {
     prismaProjectDeploymentFindManyMock.mockResolvedValueOnce([
       {
         build: {
-          artifactRef: "project-artifact:local:dist:abc",
+          artifactRef: "project-artifact:s3:dist:build_1",
           createdAt: new Date(),
           id: "build_1",
+          projectId: "project_1",
+          snapshot: {
+            id: "snapshot_1",
+            projectId: "project_1",
+            project: {
+              id: "project_1",
+              title: "Warung",
+              user: { bannedAt: null },
+            },
+          },
           snapshotId: "snapshot_1",
           status: "succeeded",
           updatedAt: new Date(),
@@ -115,6 +132,8 @@ describe("published generated route", () => {
         createdAt: new Date(),
         id: "deployment_1",
         kind: "published",
+        projectId: "project_1",
+        snapshot: { id: "snapshot_1", projectId: "project_1" },
         snapshotId: "snapshot_1",
         status: "running",
         updatedAt: new Date(),
@@ -142,21 +161,188 @@ describe("published generated route", () => {
     );
   });
 
+  it("uses the accepted snapshot business name for public metadata", async () => {
+    vi.stubEnv("GENERATED_PUBLIC_EXECUTION_ENABLED", "true");
+    prismaProjectDeploymentFindManyMock.mockResolvedValueOnce([
+      {
+        build: {
+          artifactRef: "project-artifact:s3:dist:build_accepted_name",
+          createdAt: new Date(),
+          id: "build_accepted_name",
+          projectId: "project_1",
+          snapshot: {
+            id: "snapshot_accepted_name",
+            metadata: {
+              summary: { businessName: "Beras GG" },
+              manifest: { routes: [{ path: "/", title: "Beras GG" }] },
+            },
+            projectId: "project_1",
+            project: {
+              id: "project_1",
+              title: "buatin web jualan beras",
+              user: { bannedAt: null },
+            },
+          },
+          snapshotId: "snapshot_accepted_name",
+          status: "succeeded",
+          updatedAt: new Date(),
+        },
+        buildId: "build_accepted_name",
+        createdAt: new Date(),
+        id: "deployment_accepted_name",
+        kind: "published",
+        projectId: "project_1",
+        snapshot: {
+          id: "snapshot_accepted_name",
+          projectId: "project_1",
+        },
+        snapshotId: "snapshot_accepted_name",
+        status: "running",
+        updatedAt: new Date(),
+      },
+    ]);
+    proxyDeploymentRequestMock.mockResolvedValueOnce(
+      new Response("<html></html>", {
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      }),
+    );
+
+    await GET(new Request("https://sites.example.net/p/warung/"), {
+      slug: "warung",
+    });
+
+    expect(proxyDeploymentRequestMock).toHaveBeenCalledWith(
+      expect.objectContaining({ businessName: "Beras GG" }),
+    );
+  });
+
+  it("returns 404 for a path outside the published route manifest", async () => {
+    vi.stubEnv("GENERATED_PUBLIC_EXECUTION_ENABLED", "true");
+    prismaProjectDeploymentFindManyMock.mockResolvedValueOnce([
+      {
+        build: {
+          artifactRef: "project-artifact:s3:dist:build_unknown_path",
+          createdAt: new Date(),
+          id: "build_unknown_path",
+          projectId: "project_1",
+          snapshot: {
+            id: "snapshot_unknown_path",
+            metadata: {
+              manifest: {
+                routes: [{ path: "/", title: "Beranda" }],
+              },
+            },
+            projectId: "project_1",
+            project: {
+              id: "project_1",
+              title: "Warung",
+              user: { bannedAt: null },
+            },
+          },
+          snapshotId: "snapshot_unknown_path",
+          status: "succeeded",
+          updatedAt: new Date(),
+        },
+        buildId: "build_unknown_path",
+        createdAt: new Date(),
+        id: "deployment_unknown_path",
+        kind: "published",
+        projectId: "project_1",
+        snapshot: {
+          id: "snapshot_unknown_path",
+          projectId: "project_1",
+        },
+        snapshotId: "snapshot_unknown_path",
+        status: "running",
+        updatedAt: new Date(),
+      },
+    ]);
+    const response = await GET(
+      new Request("https://sites.example.net/p/warung/missing"),
+      { _splat: "missing", slug: "warung" },
+    );
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get("X-Robots-Tag")).toBe("noindex");
+    expect(proxyDeploymentRequestMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 for a missing published asset when the runtime is unavailable", async () => {
+    vi.stubEnv("GENERATED_PUBLIC_EXECUTION_ENABLED", "true");
+    prismaProjectDeploymentFindManyMock.mockResolvedValueOnce([
+      {
+        build: {
+          artifactRef: "project-artifact:s3:dist:build_missing_asset",
+          createdAt: new Date(),
+          id: "build_missing_asset",
+          projectId: "project_1",
+          snapshot: {
+            id: "snapshot_missing_asset",
+            metadata: {
+              manifest: { routes: [{ path: "/", title: "Beranda" }] },
+            },
+            projectId: "project_1",
+            project: {
+              id: "project_1",
+              title: "Warung",
+              user: { bannedAt: null },
+            },
+          },
+          snapshotId: "snapshot_missing_asset",
+          status: "succeeded",
+          updatedAt: new Date(),
+        },
+        buildId: "build_missing_asset",
+        createdAt: new Date(),
+        id: "deployment_missing_asset",
+        kind: "published",
+        projectId: "project_1",
+        snapshot: {
+          id: "snapshot_missing_asset",
+          projectId: "project_1",
+        },
+        snapshotId: "snapshot_missing_asset",
+        status: "created",
+        updatedAt: new Date(),
+      },
+    ]);
+    proxyDeploymentRequestMock.mockResolvedValueOnce(null);
+    readProjectDistArtifactMock.mockResolvedValueOnce([
+      {
+        content: "home",
+        contentType: "text/html; charset=utf-8",
+        path: "index.html",
+      },
+    ]);
+
+    const response = await GET(
+      new Request("https://sites.example.net/p/warung/assets/missing.js"),
+      { _splat: "assets/missing.js", slug: "warung" },
+    );
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get("X-Robots-Tag")).toBe("noindex");
+  });
+
   it("returns 410 for a published deployment whose owner is banned, without proxying", async () => {
     vi.stubEnv("GENERATED_PUBLIC_EXECUTION_ENABLED", "true");
     prismaProjectDeploymentFindManyMock.mockResolvedValueOnce([
       {
         build: {
-          artifactRef: "project-artifact:local:dist:abc",
+          artifactRef: "project-artifact:s3:dist:build_banned",
           createdAt: new Date(),
           id: "build_banned",
-          snapshotId: "snapshot_banned",
+          projectId: "project_1",
           snapshot: {
+            id: "snapshot_banned",
+            projectId: "project_1",
             project: {
+              id: "project_1",
               title: "Warung",
               user: { bannedAt: new Date("2026-08-01") },
             },
           },
+          snapshotId: "snapshot_banned",
           status: "succeeded",
           updatedAt: new Date(),
         },
@@ -164,6 +350,8 @@ describe("published generated route", () => {
         createdAt: new Date(),
         id: "deployment_banned",
         kind: "published",
+        projectId: "project_1",
+        snapshot: { id: "snapshot_banned", projectId: "project_1" },
         snapshotId: "snapshot_banned",
         status: "running",
         updatedAt: new Date(),
@@ -190,8 +378,15 @@ describe("published generated route", () => {
           artifactRef: "project-artifact:s3:dist:build_2",
           createdAt: new Date(),
           id: "build_2",
+          projectId: "project_1",
           snapshot: {
-            project: { title: "Warung", user: { bannedAt: null } },
+            id: "snapshot_2",
+            projectId: "project_1",
+            project: {
+              id: "project_1",
+              title: "Warung",
+              user: { bannedAt: null },
+            },
           },
           snapshotId: "snapshot_2",
           status: "succeeded",
@@ -201,6 +396,8 @@ describe("published generated route", () => {
         createdAt: new Date(),
         id: "deployment_2",
         kind: "published",
+        projectId: "project_1",
+        snapshot: { id: "snapshot_2", projectId: "project_1" },
         snapshotId: "snapshot_2",
         status: "created",
         updatedAt: new Date(),
@@ -228,17 +425,68 @@ describe("published generated route", () => {
     );
   });
 
+  it("does not proxy or read a published artifact reference owned by another build", async () => {
+    vi.stubEnv("GENERATED_PUBLIC_EXECUTION_ENABLED", "true");
+    prismaProjectDeploymentFindManyMock.mockResolvedValueOnce([
+      {
+        build: {
+          artifactRef: "project-artifact:s3:dist:other_build",
+          createdAt: new Date(),
+          id: "build_1",
+          projectId: "project_1",
+          snapshot: {
+            metadata: { manifest: { routes: [{ path: "/" }] } },
+            projectId: "project_1",
+            project: {
+              id: "project_1",
+              title: "Warung",
+              user: { bannedAt: null },
+            },
+          },
+          snapshotId: "snapshot_1",
+          status: "succeeded",
+          updatedAt: new Date(),
+        },
+        buildId: "build_1",
+        createdAt: new Date(),
+        id: "deployment_1",
+        kind: "published",
+        projectId: "project_1",
+        snapshot: { projectId: "project_1" },
+        snapshotId: "snapshot_1",
+        status: "running",
+        updatedAt: new Date(),
+      },
+    ]);
+
+    const response = await GET(
+      new Request("https://sites.example.net/p/warung/"),
+      { slug: "warung" },
+    );
+
+    expect(response.status).toBe(404);
+    expect(proxyDeploymentRequestMock).not.toHaveBeenCalled();
+    expect(readProjectDistArtifactMock).not.toHaveBeenCalled();
+  });
+
   it("still proxies for an active (non-banned) owner", async () => {
     vi.stubEnv("GENERATED_PUBLIC_EXECUTION_ENABLED", "true");
     prismaProjectDeploymentFindManyMock.mockResolvedValueOnce([
       {
         build: {
-          artifactRef: "project-artifact:local:dist:abc",
+          artifactRef: "project-artifact:s3:dist:build_2",
           createdAt: new Date(),
           id: "build_2",
+          projectId: "project_1",
           snapshotId: "snapshot_2",
           snapshot: {
-            project: { title: "Warung", user: { bannedAt: null } },
+            id: "snapshot_2",
+            projectId: "project_1",
+            project: {
+              id: "project_1",
+              title: "Warung",
+              user: { bannedAt: null },
+            },
           },
           status: "succeeded",
           updatedAt: new Date(),
@@ -247,6 +495,8 @@ describe("published generated route", () => {
         createdAt: new Date(),
         id: "deployment_2",
         kind: "published",
+        projectId: "project_1",
+        snapshot: { id: "snapshot_2", projectId: "project_1" },
         snapshotId: "snapshot_2",
         status: "running",
         updatedAt: new Date(),

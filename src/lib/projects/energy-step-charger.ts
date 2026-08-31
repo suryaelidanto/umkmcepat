@@ -29,7 +29,6 @@ export type StepCharger = {
 const REASON_TO_RECORD_TASK: Record<string, string> = {
   "build:step": "build-step",
   "edit:step": "edit",
-  "build:subagent": "build-step",
 };
 
 export function createStepCharger(opts: {

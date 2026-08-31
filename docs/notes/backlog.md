@@ -6,24 +6,39 @@ kanban-plugin: board
 
 ## Backlog
 
-
-
 ## In Progress
-
-
 
 ## Needs Revision / Check Again
 
-
-
 ## Ready for Review
+
+- [ ] 🔬 **[#53] End-to-End Generator Quality Rollout and Observability**: Introduce the visual-engine changes behind a controlled rollout with per-stage timing, writer and reviewer model IDs, review scores, rejection reasons, revision counts, energy cost, and fallback evidence so quality gains can be measured and rollback remains safe without weakening gates #engine #data
+
+- [ ] 🧪 **[#50] Generated-Site Visual Quality Evaluation Corpus**: Build a versioned corpus of representative Indonesian UMKM briefs with mobile and desktop browser evidence, blind human calibration, category-complete visual ratings, genericity rejection metrics, and prompt/model A/B comparison outside deterministic unit tests #engine #data
+
+- [ ] 🔄 **[#44] Bounded Visual Revision and Re-Review Pass**: Feed low-rated visual-review findings into one bounded revision of the existing candidate, rerun source, build, browser, and final visual checks, forbid post-review mutation, and retain the prior successful version when revision cannot pass #engine #ux #data
+
+- [ ] 👁️ **[#43] Fail-Closed Rendered Visual Review Gate**: Connect mobile and desktop browser evidence to `runOutcomeVisualReview`, require every review category to reach the existing confidence and quality floors before a candidate can become Preview, preserve the last successful Preview on failure, and surface actionable review evidence without changing discuss, card, history, publish, or deployment contracts #engine #ux #data
+
+- [ ] 📚 **[#45] Real Generated-Site Skill Loading Enforcement**: Remove preemptive `skillsRead` bookkeeping, ensure required Impeccable and shadcn guidance actually enters model context before source writes, keep tool progress honest, and preserve current skill registry, energy charging, and write restrictions #engine #security
+
+- [ ] ✂️ **[#46] Outcome-First Generator Prompt Diet**: Audit and surgically reduce duplicated, conflicting, and implementation-prescriptive generator instructions so prompts define accepted facts, visitor jobs, actions, omissions, safety, accessibility, and quality outcomes while restoring agent ownership of composition, typography, palette, rhythm, section order, and component choice #engine #copy
+
+- [ ] 🎞️ **[#47] Progressive-Enhancement Motion Policy**: Remove mandatory repeated `motion/react` reveal recipes, require generated content to remain visible and usable without JavaScript, intersection observers, or animation support, preserve reduced-motion behavior, and test browser evidence against hidden-content and excessive-empty-space regressions #engine #ux #scaffold
+
+- [ ] 🎭 **[#48] Structured Business-Specific Creative Direction Contract**: Replace free-form visual thesis handling with validated structured direction covering visitor tension, accepted business anchors, material vocabulary, character, first-view intent, signature idea, mobile intent, quiet priorities, factual boundaries, and explicit genericity risks without prescribing layouts or implementation values #engine #data
+
+- [ ] 🧭 **[#49] Multi-Direction Creative Exploration and Selection**: Generate three concise, materially distinct creative directions for each new build, rank them against business specificity, customer trust, factual grounding, differentiation, and asset feasibility, select one before implementation, and avoid multiplying full-site generation cost #engine #ux
+
+- [ ] 🛡️ **[#51] Accepted-Fact Claim Provenance Gate**: Trace every generated commercial claim, contact detail, price, date, delivery promise, popularity label, guarantee, and product attribute to accepted contract facts, fail closed on dummy or unsupported values, and preserve concise grounded connective copy #engine #security #copy
+
+- [ ] 🧱 **[#52] Generation Pipeline Non-Regression Contract**: Add deterministic integration coverage for discuss-to-build handoff, workspace cards, protected source boundaries, snapshot creation, Preview preservation, history, surgical edits, publish pointers, energy accounting, and failure recovery before changing generation taste infrastructure #engine #workspace #data
 
 - [ ] 🖱️ **[#29] Visual Edit Iframe Selector & Smart Target Detection**: Overhaul runtime proxy click listeners and bounding box calculation to accurately resolve target elements, prioritizing semantic tags and image containers without getting blocked by transparent overlays #workspace #preview #ux #engine
 
 - [ ] 📜 **[#10] High-Signal Snapshot History UX**: Upgrade snapshot changelog summaries to 1-2 sentence AI-generated commit notes, replace static "Pembuatan Awal" with descriptive action titles, and display file modification counts instead of total project files #ux #workspace #history
 - [ ] 🧩 **[#02] Modular Contributor SKILL.md Dropzone**: Decouple and organize engine skill dropzone for plug-and-play community skills #engine #architecture
 - [ ] 🔒 **[#03] High & Medium Security Audit**: Audit tenant isolation, project deletion authorization, auth headers, and prompt injection defense #security #audit
-
 
 ## Done
 
@@ -64,13 +79,9 @@ kanban-plugin: board
 - [ ] 🚀 **[#14] Persistent Workspace Composer Action Button**: Add persistent primary build/update action button in the chat composer bar (e.g. `[🚀 Buat Website]` pre-build and `[✨ Perbarui Website]` post-build) with pre-flight readiness checks that guide users to missing core facts if clicked prematurely #ux #workspace #chat
 - [ ] ⚡ **[#18] Admin Users Energy Column & Top-Up Fix**: Add current live energy balance column in `/admin/users` table, display remaining/granted balance clearly, and fix the grant energy mutation endpoint to eliminate the "gagal add energy" error #admin #energy #data
 
-
 ## Future / Icebox
 
 - [ ] 🛡️ **[#42] Advanced Prompt Injection & UMKM Domain Scope Detector**: Deep adversarial jailbreak detection and heuristic domain relevance classification for non-business prompts #security #engine #future
-
-
-
 
 %% kanban:settings
 ```

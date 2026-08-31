@@ -52,6 +52,25 @@ describe("shared node_modules", () => {
     expect(install).toHaveBeenCalledTimes(2);
   });
 
+  it("keeps per-signature installs so alternating manifests never thrash", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "umkmcepat-shared-nm-"));
+    const install = mockInstallRunner();
+    const first = await ensureSharedNodeModules(tempDir, "sigA", {
+      installRunner: install,
+    });
+    const second = await ensureSharedNodeModules(tempDir, "sigB", {
+      installRunner: install,
+    });
+    const firstAgain = await ensureSharedNodeModules(tempDir, "sigA", {
+      installRunner: install,
+    });
+    expect(install).toHaveBeenCalledTimes(2);
+    expect(firstAgain).toBe(first);
+    expect(second).not.toBe(first);
+    expect(first.startsWith(path.join(tempDir, "_shared"))).toBe(true);
+    expect(second.startsWith(path.join(tempDir, "_shared"))).toBe(true);
+  });
+
   it("links the golden node_modules into a workspace (symlink or junction)", async () => {
     tempDir = await mkdtemp(path.join(os.tmpdir(), "umkmcepat-shared-nm-"));
     const shared = await ensureSharedNodeModules(tempDir, "sig1", {

@@ -4,6 +4,10 @@ import { z } from "zod";
 import { getSettingSync } from "@/lib/config/app-settings";
 import { unstringifyJsonObject } from "@/lib/projects/json-unstringify";
 import { DISCUSS_SYSTEM_PROMPT } from "@/lib/projects/prompts/discuss-system";
+import {
+  UNSLOP_SYSTEM_INSTRUCTION,
+  unslopUserFacingText,
+} from "@/lib/projects/unslop-policy";
 import { buildChatSystemPrompt } from "@/routes/api.projects.preview";
 
 export const PRESENT_WORKSPACE_CARD_TOOL_NAME = "presentWorkspaceCard";
@@ -177,7 +181,7 @@ export const presentWorkspaceCardInputSchema = z.object({
 
 export const presentWorkspaceCardTool = tool({
   description:
-    'Present the next workspace card. Always include assistantText (one short Indonesian chat sentence, max 20 words, aku/kamu) and workspaceCard as a nested object (e.g. workspaceCard: { type: "none" } or workspaceCard: { type: "question", question: {...} }). Never put type at the top level alone.',
+    "Present the next workspace card. Always include assistantText as one short Indonesian chat sentence and workspaceCard as a nested object. Never put type at the top level alone.",
   inputSchema: presentWorkspaceCardInputSchema,
 });
 
@@ -189,7 +193,7 @@ export function extractAssistantTextFromToolInput(toolInput: unknown): string {
   if (typeof raw !== "string") {
     return "";
   }
-  return raw.trim();
+  return unslopUserFacingText(raw.trim());
 }
 
 export function extractPartialAssistantTextFromToolInput(
@@ -299,22 +303,24 @@ export function buildOneCallSystemPrompt({
 
   if (hasBuiltSite) {
     const syncStateDirective = hasPendingChanges
-      ? '\nSYNC STATE (DIRTY): New changes have been discussed/updated that are NOT yet rendered in the preview. When the user confirms or wants to see them applied, emit type="build_recommendation", title="Perbarui website", summary=["<short summary of new changes>"].'
-      : '\nSYNC STATE (CLEAN): The website in preview is already 100% up-to-date with all agreed details. DO NOT blindly rebuild. If the user asks to update or build with no new changes, warmly ask in assistantText what specific part they want to refine (e.g. text, colors, package details, or contact), and emit type="question" with relevant refinement options or type="none".';
+      ? '\nSYNC STATE (DIRTY): New changes have been discussed/updated that are NOT yet rendered in the preview. When the user confirms or wants to see them applied, emit type="build_recommendation" with a title and a short summary of the changes.'
+      : '\nSYNC STATE (CLEAN): The website in preview is already 100% up-to-date with all agreed details. DO NOT blindly rebuild. If the user asks to update or build with no new changes, warmly ask in assistantText what specific part they want to refine, and emit type="question" with relevant refinement options or type="none".';
 
     return `${buildChatSystemPrompt({ brief, context, hasBuiltSite })}${photoRule}${syncStateDirective}
+
+${UNSLOP_SYSTEM_INSTRUCTION}
 
 CRITICAL OUTPUT:
 Call ${PRESENT_WORKSPACE_CARD_TOOL_NAME} exactly once. Tool input MUST include:
 - assistantText: EXACTLY ONE short Indonesian chat sentence (max 20 words, aku/kamu only) acknowledging the edit request or asking a helpful refinement question
-- workspaceCard: nested object only. Full tool input examples:
-  - When user wants to rebuild, requests an edit, or changes are ready: { "assistantText": "...", "workspaceCard": { "type": "build_recommendation", "title": "Perbarui website", "summary": ["Perubahan siap diterapkan"] } }
-  - Clarification (preferred when you need a choice, e.g. which color or which section to refine): { "assistantText": "...", "workspaceCard": { "type": "question", "question": { "id": "slug", "question": "...", "answerMode": "choice"|"text", "selectionMode": "single", "options": [{ "label": "...", "description": "..." }] } } }
-  - General conversational ack with no pending changes: { "assistantText": "...", "workspaceCard": { "type": "none" } }
+- workspaceCard: the nested card object defined by the tool schema
+Choose a build recommendation when changes are ready, a question when clarification is needed, and none when no action is needed.
 This is an edit request, not an interview. Never put type at the top level without workspaceCard. Never put JSON in free chat text. Put the user-visible reply in assistantText.`;
   }
 
   return `${buildChatSystemPrompt({ brief, context, hasBuiltSite })}${photoRule}
+
+${UNSLOP_SYSTEM_INSTRUCTION}
 
 CRITICAL OUTPUT:
 Call ${PRESENT_WORKSPACE_CARD_TOOL_NAME} exactly once.
@@ -331,14 +337,14 @@ INTERVIEW DISCIPLINE — one question per turn:
 - Pick the main question that moves the build forward. Ask the next question next turn after the user answers.
 - The question sets recommendedOptionLabel (your default) — user can accept in one click.
 - Do not ask fields inferable from brief/chat. Walk the decision tree, resolve the deepest open dependency first.
-- NEVER re-ask the same question id that already appears in brief.facts/decisions (e.g., if delivery_area, visuals, hours already answered, skip them — pick the next unfilled applicable field). Re-asking the same id wastes a turn and will be blocked by the server.
+- NEVER re-ask a question id that already appears in brief.facts/decisions. Skip answered fields and pick the next unfilled applicable field. Re-asking the same id wastes a turn and will be blocked by the server.
 - Keep asking one question per turn until every structural decision (offer/primary offer, visitor job + CTA, local-vs-online, media strategy, visual direction) is answered or explicitly declined. The server authorizes the build recommendation; model confidence alone never does. Never expose confidence percentages or answered-field counts to the user.
 
 Never put JSON in free chat text. Put the user-visible reply in assistantText.
-Use type="question" with a single question (question.id is a short slug like business_name or services) or type="image_upload" when asking for photos.
-Prefer choice options with label+description (2-5). Never include a catch-all "other"/"write your own" option — the UI already appends one automatically.
-RELENTLESS PROBING MANDATE: Keep probing through all Tier 1 (name, offers, contact) and Tier 2 fields (pricing, USP, location, photo uploads) before recommending build. If the user skips photo upload ("Lewati"), accept it immediately and DO NOT ask for photos again. Use build_recommendation when all Tier 1 and Tier 2 fields are resolved (or skipped), or when the user explicitly commands to build now (e.g. "buat sekarang", "langsung buat"). Below that, keep asking the next unfilled question. Never emit premature build recommendations on turns 2-5.
-Card richness: for answerMode "text", ALWAYS set a short Indonesian placeholder (e.g. "Contoh: Kopi Senja"). For answerMode "choice", set selectionMode "multiple" only when the answer naturally allows several (e.g. "produk apa saja"), otherwise "single". question.options MUST be an array of 2-5 objects shaped { "label": "...", "description": "..." }. NEVER emit string arrays or empty strings (e.g. options: ["", "", ""]) — that renders as a plain text box. Every option needs a non-empty label.
+Use type="question" with a single question and a stable string question.id, or type="image_upload" when asking for photos.
+Use choice options with label and description only when the conversation provides a bounded set of real choices. Otherwise use a text question. Never include a catch-all "other"/"write your own" option — the UI already appends one automatically.
+RELENTLESS PROBING MANDATE: Keep probing through all Tier 1 (name, offers, contact) and Tier 2 fields (pricing, USP, location, photo uploads) before recommending build. If the user skips photo upload, accept it immediately and DO NOT ask for photos again. Use build_recommendation when all Tier 1 and Tier 2 fields are resolved or skipped, or when the user explicitly commands an immediate build. Below that, keep asking the next unfilled question. Never emit premature build recommendations on early turns.
+Card richness: for answerMode "text", ALWAYS set a short, contextual Indonesian placeholder. For answerMode "choice", set selectionMode "multiple" only when several answers naturally apply, otherwise "single". question.options MUST be an array of 2-5 objects with non-empty label and description strings. Use text mode when real choices are not grounded in the conversation. Never emit string arrays or empty options. Every option needs a non-empty label.
 If the user explicitly asks to build now, still emit the build_recommendation card; the server adds an honest warning about what stays generic.`;
 }
 
@@ -357,14 +363,15 @@ export function buildCardSystemPrompt() {
     ? ""
     : " PHOTO OFF: Never generate visuals/image_upload/media_strategy.";
   return `You are a card generator for an Indonesian small business website brief flow.${photoNote}
+${UNSLOP_SYSTEM_INSTRUCTION}
 Based on the conversation, output ONLY a JSON object. No markdown fences, no explanation.
 
 The JSON object must have these fields:
 - assistantText: one short Indonesian chat sentence (max 20 words, aku/kamu)
 - briefPatch: object with confidence (number 0-100), and any of these optional fields: businessName, businessType, offer, targetCustomer, contactOrCta, stylePreference, notes (string array), openQuestions (string array), facts (array of {key, label, value}), decisions (array of {id, question, answer})
 - workspaceCard: object with type (exactly "question" or "build_recommendation")
-  - For type "question": question object with id (string slug like business_name), question (string in Indonesian), answerMode ("choice" or "text"), selectionMode ("single" or "multiple"), and either options (array of {label, description} objects, 2-5 items, for choice mode) or placeholder (string, for text mode). For answerMode "text", ALWAYS include placeholder (short Indonesian example). For answerMode "choice", use selectionMode "multiple" only when several choices naturally apply. options MUST be {label, description} objects — never string arrays or empty strings like ["", "", ""].
-  - For type "image_upload": imageUpload object with id (string slug), question (Indonesian), hint (optional), selectionMode ("single" or "multiple"), purpose ("business-image" | "logo" | "reference"), and optional required. Use this card when you need the owner to upload one or more images (e.g. logo, product photos); the server keeps it optional so the user can skip.
+  - For type "question": question object with a string id, question in Indonesian, answerMode ("choice" or "text"), selectionMode ("single" or "multiple"), and either grounded options (2-5 objects with label and description strings) or a placeholder string.
+  - For type "image_upload": imageUpload object with a string id, question in Indonesian, optional hint, selectionMode ("single" or "multiple"), purpose ("business-image" | "logo" | "reference"), and optional required. Use this card when the owner may provide images; the server keeps it optional so the user can skip.
   - For type "build_recommendation": title (string), summary (string array)
 - projectTitle: concise Indonesian project name string
 
@@ -376,7 +383,7 @@ Rules:
 - assistantText and workspaceCard.question MUST ask the SAME question. Acknowledge the last answer, then ask exactly the card's question — never a different one, and never a second question the card does not carry
 - NEVER re-ask a question id that already appears in brief.facts/decisions — pick the next unfilled applicable field; re-asking the same id will be blocked
 - Set confidence to 95+ only when genuinely build-ready
-- RELENTLESS PROBING: Probe through all Tier 1 (name, offers, contact) and Tier 2 fields (pricing, USP, location, photos) before recommending build. If the user skips photos or answers "Lewati", accept immediately and NEVER ask for photos again. Use "build_recommendation" when all Tier 2 fields have been asked/resolved (or skipped), or the user explicitly commands to build now (e.g. "buat sekarang", "langsung buat"). Keep asking the next missing question otherwise. Never emit premature build recommendations on early turns. The server authorizes build readiness; model confidence does not. Never surface confidence percentages or field counts to the user.
+- RELENTLESS PROBING: Probe through all Tier 1 (name, offers, contact) and Tier 2 fields (pricing, USP, location, photos) before recommending build. If the user skips photos, accept immediately and NEVER ask for photos again. Use "build_recommendation" when all Tier 2 fields have been asked/resolved or skipped, or when the user explicitly commands an immediate build. Keep asking the next missing question otherwise. Never emit premature build recommendations on early turns. The server authorizes build readiness; model confidence does not. Never surface confidence percentages or field counts to the user.
 - briefPatch and workspaceCard MUST be JSON objects (nested inside the tool call), NOT JSON-encoded strings. Never put a stringified JSON blob where an object belongs.
 
 Output valid JSON only. Put the user-visible reply in assistantText, not as free chat prose.
@@ -388,8 +395,8 @@ export function alignAssistantTextWithCard(
   assistantText: string,
   card: Record<string, unknown> | null | undefined,
 ): string {
-  const cardQuestion = cardQuestionOf(card);
-  const text = assistantText.trim();
+  const cardQuestion = unslopUserFacingText(cardQuestionOf(card));
+  const text = unslopUserFacingText(assistantText.trim());
   if (!text) {
     return cardQuestion || ACKNOWLEDGED_FALLBACK;
   }

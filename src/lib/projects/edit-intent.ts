@@ -100,7 +100,7 @@ export function classifyEditIntent({
       category: "copy_content",
       confidence: 0.93,
       guidelines: [
-        "Update the specific factual fields in src/content/site.ts (e.g. WhatsApp contact, hours, address, pricing, or products).",
+        "Update the specific factual fields in src/content/site.ts without changing unrelated content.",
         "Preserve existing component markup and visual hierarchy.",
         "Call check_app immediately after updating site data.",
       ],

@@ -8,8 +8,7 @@ import {
 } from "ai";
 
 import { getAiModel } from "@/lib/ai/ai";
-import { getDiscussModel, getModerationModel } from "@/lib/ai/ai-models";
-import { moderateProjectRequest } from "@/lib/ai/ai-moderation";
+import { getDiscussModel } from "@/lib/ai/ai-models";
 import { auth } from "@/lib/auth/auth";
 import { isBoundedJsonError, readBoundedJson } from "@/lib/bounded-json";
 import {
@@ -20,6 +19,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { enqueueAttemptJob } from "@/lib/projects/attempt-queue";
 import {
+  groundProjectBriefToOwnerFacts,
   mergeProjectBriefPatch,
   parseProjectBrief,
 } from "@/lib/projects/brief";
@@ -49,11 +49,12 @@ import {
 import { runDiscussProgressTail } from "@/lib/projects/discuss-turn-sse-tail";
 import { DISCUSS_SYSTEM_PROMPT } from "@/lib/projects/prompts/discuss-system";
 import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
+import { UNSLOP_SYSTEM_INSTRUCTION } from "@/lib/projects/unslop-policy";
 import { buildBriefPatchFromWorkspaceAnswers } from "@/lib/projects/workspace-answers";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { mapToUserFacingError } from "@/lib/user-facing-error";
 
-// Re-export so external importers (e.g. the preview test) keep resolving after
+// Keep the shared prompt available to the route test and other callers.
 export { buildOneCallSystemPrompt } from "@/lib/projects/discuss-tool";
 
 type PreviewRequest = {
@@ -273,12 +274,6 @@ async function handlePreviewPost(request: Request) {
     latestUserText = summary;
   }
 
-  const moderationPromise = latestUserText.trim()
-    ? moderateProjectRequest(latestUserText, [], undefined, {
-        projectId: project.id,
-      })
-    : null;
-
   const currentBrief = parseProjectBrief(
     parseCanonicalBrief(chatRow?.brief, project.prompt),
     project.prompt,
@@ -334,13 +329,6 @@ async function handlePreviewPost(request: Request) {
     );
   }
 
-  // Dedupe concurrent discuss turns for the same project. A second in-flight
-  await persistProjectBrief({
-    brief: effectiveBrief,
-    projectId: project.id,
-    userId,
-  });
-
   const messages = await validateUIMessages({
     messages: dedupeUiMessages(
       parseProjectChatMessages([...storedMessages, ...incoming]),
@@ -353,45 +341,7 @@ async function handlePreviewPost(request: Request) {
     summary: chatSummary,
   });
 
-  if (moderationPromise) {
-    let moderation;
-    try {
-      moderation = await moderationPromise;
-    } catch (error) {
-      console.error(
-        "[moderation] failed:",
-        error instanceof Error ? error.message : error,
-      );
-      return Response.json(
-        {
-          code: "moderation_unavailable",
-          message: "Pemeriksaan keamanan belum berhasil. Coba lagi sebentar.",
-        },
-        { status: 503, headers: { "Retry-After": "3" } },
-      );
-    }
-
-    if (moderation.usage) {
-      await chargeEnergyForAiUsage({
-        userId,
-        modelId: moderation.modelId || getModerationModel(),
-        inputTokens: moderation.usage.inputTokens,
-        outputTokens: moderation.usage.outputTokens,
-        reason: "moderation",
-      });
-    }
-
-    if (!moderation.allowed) {
-      return Response.json(
-        {
-          code: "project_request_blocked",
-          message: moderation.message || "Permintaan belum bisa diproses.",
-        },
-        { status: 400 },
-      );
-    }
-  }
-
+  // Moderation runs in the worker after persist; the POST stays sub-second.
   return handleDiscussTurnOneCall({
     chatContext,
     effectiveBrief,
@@ -445,9 +395,23 @@ async function handleDiscussTurnOneCall({
   }
 
   // 1. Persist the user message immediately â€” the reply is never lost even
+  const groundedEffectiveBrief = groundProjectBriefToOwnerFacts(
+    _effectiveBrief,
+    {
+      ownerTexts: messages
+        .filter((message) => message.role === "user")
+        .map(getTextFromUIMessage),
+    },
+  );
   await persistProjectChatTurn({
+    brief: scrubBriefForStorage(
+      groundedEffectiveBrief,
+      groundedEffectiveBrief.readyForBuild,
+      project.id,
+    ),
     messages,
     projectId: project.id,
+    title: project.title,
     userId,
     workspaceCard: null,
   });
@@ -625,7 +589,11 @@ async function repairWorkspaceCard({
     model: getAiModel(modelName),
     modelMessages,
     modelName,
+    ownerTexts: messages
+      .filter((message) => message.role === "user")
+      .map(getTextFromUIMessage),
     projectId: project.id,
+    sourceTurnId: "repair",
     userId,
   });
 
@@ -649,7 +617,7 @@ async function repairWorkspaceCard({
       userId,
       engine: "contract",
       brief: turn.brief,
-      messages,
+      discussionContext: { messages },
     });
     if (prepared.state === "ready") {
       const base = finalWorkspaceCard as {
@@ -710,21 +678,6 @@ function findLastMessageIndex(
   return -1;
 }
 
-function persistProjectBrief({
-  brief,
-  projectId,
-  userId,
-}: {
-  brief: unknown;
-  projectId: string;
-  userId: string;
-}) {
-  const canonicalBrief = parseCanonicalBrief(brief);
-  return prisma.$executeRaw`
-    UPDATE "Project" SET "brief" = ${JSON.stringify(canonicalBrief)}::jsonb WHERE id = ${projectId} AND "userId" = ${userId}
-  `;
-}
-
 export function buildChatSystemPrompt({
   brief,
   context,
@@ -742,6 +695,8 @@ The user's message is an edit/revision request about the built site (copy, layou
 Write user-visible chat copy in natural, ultra-concise Indonesian.
 Do NOT output JSON, XML, markdown fences, or any structured format. Just write your Indonesian chat response as plain text.
 
+${UNSLOP_SYSTEM_INSTRUCTION}
+
 Tone contract:
 - Treat the user like a friend building something together.
 - Use "aku" for yourself and "kamu" for the user.
@@ -749,7 +704,7 @@ Tone contract:
 - Keep it warm, relaxed, helpful, and specific.
 
 Chat style:
-- EXACTLY ONE short Indonesian sentence (max 20 words) acknowledging the edit request, e.g. "oke, gw ubah variantnya sekarang ya."
+- EXACTLY ONE short Indonesian sentence (max 20 words) acknowledging the edit request.
 - Do not restate the brief or ask an unrelated question.
 
 Current brief:
@@ -764,6 +719,8 @@ Your job is to ask one clear question per turn until every decision that shapes 
 
 Write user-visible chat copy in natural, ultra-concise Indonesian.
 Do NOT output JSON, XML, markdown fences, or any structured format. Just write your Indonesian chat response as plain text.
+
+${UNSLOP_SYSTEM_INSTRUCTION}
 
 Tone contract:
 - Treat the user like a friend building something together.

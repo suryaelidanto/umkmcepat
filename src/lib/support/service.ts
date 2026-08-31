@@ -168,6 +168,9 @@ export async function addMessage(
   if (!ticket) {
     throw new Error("Tiket tidak ditemukan.");
   }
+  if (input.authorRole === "user" && ticket.userId !== input.authorId) {
+    throw new Error("Akses ditolak.");
+  }
   if (ticket.status === SupportTicketStatus.RESOLVED) {
     if (input.authorRole !== "admin") {
       throw new Error("Tidak bisa membalas tiket yang sudah selesai.");
@@ -256,14 +259,13 @@ export async function resolveTicket(
   if (!ticket) {
     throw new Error("Tiket tidak ditemukan.");
   }
-  if (ticket.status === SupportTicketStatus.RESOLVED) {
-    return { success: true };
+
+  if (!isAdmin && ticket.userId !== userId) {
+    throw new Error("Akses ditolak.");
   }
 
-  if (!isAdmin) {
-    if (ticket.userId !== userId) {
-      throw new Error("Akses ditolak.");
-    }
+  if (ticket.status === SupportTicketStatus.RESOLVED) {
+    return { success: true };
   }
 
   await prisma.supportTicket.update({

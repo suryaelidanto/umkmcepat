@@ -4,6 +4,7 @@ import {
   applySecurityHeaders,
   buildContentSecurityPolicy,
   isCrossSiteMutation,
+  isMalformedPathEncoding,
 } from "@/lib/security-headers";
 
 describe("mutation origin policy", () => {
@@ -68,6 +69,14 @@ describe("mutation origin policy", () => {
   });
 });
 
+describe("request path policy", () => {
+  it("recognizes malformed percent-encoded paths without rejecting valid escapes", () => {
+    expect(isMalformedPathEncoding("/p/warung/%E0%A4%A")).toBe(true);
+    expect(isMalformedPathEncoding("/p/warung/a%2Fb")).toBe(false);
+    expect(isMalformedPathEncoding("/p/warung/produk")).toBe(false);
+  });
+});
+
 describe("security headers", () => {
   const originalS3PublicBaseUrl = process.env.S3_PUBLIC_BASE_URL;
   const originalUmamiScriptSrc = process.env.NEXT_PUBLIC_UMAMI_SCRIPT_SRC;
@@ -109,9 +118,7 @@ describe("security headers", () => {
     expect(headers.get("Content-Security-Policy")).toBe(
       "sandbox allow-scripts; frame-ancestors 'self'; object-src 'none'; base-uri 'none'",
     );
-    expect(headers.get("Content-Security-Policy-Report-Only")).toBe(
-      "script-src 'nonce-testnonce123' 'strict-dynamic' https: 'unsafe-inline'; report-uri /api/csp-violation",
-    );
+    expect(headers.get("Content-Security-Policy-Report-Only")).toBeNull();
     expect(headers.get("X-Frame-Options")).toBe("SAMEORIGIN");
   });
 

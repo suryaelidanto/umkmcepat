@@ -6,7 +6,11 @@ import path from "node:path";
 import { getSettingSync } from "@/lib/config/app-settings";
 import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
-import { readProjectDistArtifact } from "@/lib/projects/runtime-artifacts";
+import { isProjectBuildForProject } from "@/lib/projects/deployment-resolution";
+import {
+  readProjectDistArtifact,
+  isProjectArtifactRefFor,
+} from "@/lib/projects/runtime-artifacts";
 import {
   deleteS3Object,
   getS3Object,
@@ -106,6 +110,36 @@ export async function refreshProjectThumbnail({
     }
   }
 
+  const candidateBuild = await prisma.projectBuild.findFirst({
+    where: {
+      id: buildId,
+      project: { id: projectId },
+      projectId,
+      snapshot: { projectId },
+      status: "succeeded",
+    },
+    select: {
+      artifactRef: true,
+      id: true,
+      projectId: true,
+      snapshot: { select: { id: true, projectId: true } },
+      snapshotId: true,
+    },
+  });
+  if (
+    !candidateBuild ||
+    !isProjectBuildForProject(candidateBuild, projectId) ||
+    candidateBuild.artifactRef !== artifactRef ||
+    !isProjectArtifactRefFor(artifactRef, "dist", buildId)
+  ) {
+    devLog("thumbnail", "capture.skipped", {
+      buildId,
+      projectId,
+      reason: "artifact-lineage",
+    });
+    return;
+  }
+
   latestRequestedBuild.set(projectId, buildId);
 
   if (activeCaptures >= getSettingSync("runtime.thumbnail_concurrency", 1)) {
@@ -129,11 +163,27 @@ export async function refreshProjectThumbnail({
     }
 
     const latest = await prisma.projectBuild.findFirst({
-      where: { projectId, status: "succeeded" },
+      where: {
+        project: { id: projectId },
+        projectId,
+        snapshot: { projectId },
+        status: "succeeded",
+      },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      select: { id: true },
+      select: {
+        artifactRef: true,
+        id: true,
+        projectId: true,
+        snapshot: { select: { id: true, projectId: true } },
+        snapshotId: true,
+      },
     });
-    if (latest?.id !== buildId) {
+    if (
+      latest?.id !== buildId ||
+      !isProjectBuildForProject(latest, projectId) ||
+      latest.artifactRef !== artifactRef ||
+      !isProjectArtifactRefFor(artifactRef, "dist", buildId)
+    ) {
       devLog("thumbnail", "capture.superseded", { buildId, projectId });
       return;
     }

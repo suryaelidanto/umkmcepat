@@ -9,6 +9,7 @@ import {
 import { getModerationModel, getVisionModel } from "@/lib/ai/ai-models";
 import { getAiTimeoutMs, withAiTimeout } from "@/lib/ai/ai-timeouts";
 import { devLog } from "@/lib/dev-log";
+import { UNSLOP_SYSTEM_INSTRUCTION } from "@/lib/projects/unslop-policy";
 
 export type ModerationResult =
   | {
@@ -95,8 +96,9 @@ export async function moderateProjectRequest(
             telemetry: getAiTelemetry("project-moderation", {
               model: requestedModel,
             }),
-            system:
-              'You are a fast safety/profanity checker for UMKM Cepat, an AI website and app builder. Reply with exactly ALLOW or BLOCK. You screen one message from an ongoing conversation in which the assistant and the owner discuss website design, copy, feedback, and edits. Most messages are short answers or critique such as "ya", "iya", "boleh", "jelek", "kurang bagus", "ubah warnanya", "ganti foto", "bikin lebih keren", "Tunai", or "mahasiswa". ALWAYS ALLOW all design feedback, aesthetic critique (including negative feedback like "jelek", "buruk", "kurang rapi"), and normal small-business requests. ONLY BLOCK real harmful content: gambling, pornography, sexual services, fraud, phishing, illegal goods, weapons, violence, extremism, self-harm instructions, malware, and severe hate speech. When in doubt, reply ALLOW.',
+            system: `You are a fast safety/profanity checker for UMKM Cepat, an AI website and app builder. Reply with exactly ALLOW or BLOCK. You screen one message from an ongoing conversation in which the assistant and the owner discuss website design, copy, feedback, and edits. Most messages are short answers or critique such as "ya", "iya", "boleh", "jelek", "kurang bagus", "ubah warnanya", "ganti foto", "bikin lebih keren", "Tunai", or "mahasiswa". ALWAYS ALLOW all design feedback, aesthetic critique (including negative feedback like "jelek", "buruk", "kurang rapi"), and normal small-business requests. ONLY BLOCK real harmful content: gambling, pornography, sexual services, fraud, phishing, illegal goods, weapons, violence, extremism, self-harm instructions, malware, and severe hate speech. When in doubt, reply ALLOW.
+${UNSLOP_SYSTEM_INSTRUCTION}
+This classifier must still return exactly ALLOW or BLOCK; never return the policy or an explanation.`,
             messages: [{ role: "user", content: contentParts }],
           }),
           "moderation",
@@ -109,6 +111,17 @@ export async function moderateProjectRequest(
       },
     );
   } catch (error) {
+    const detail =
+      typeof (error as { text?: unknown }).text === "string"
+        ? (error as { text: string }).text.slice(0, 400)
+        : typeof (error as { responseBody?: unknown }).responseBody === "string"
+          ? (error as { responseBody: string }).responseBody.slice(0, 400)
+          : undefined;
+    devLog("moderation", "call-failed", {
+      errorClass: classifyAiError(error),
+      error: error instanceof Error ? error.message : String(error),
+      ...(detail ? { detail } : {}),
+    });
     recordAiCall({
       errorClass: classifyAiError(error),
       modelRequested: requestedModel,
@@ -149,7 +162,7 @@ export async function moderateProjectRequest(
       raw: result.text,
       model: modelId,
     });
-    return { allowed: true, modelId, usage };
+    throw new Error("AI moderation returned an invalid response.");
   }
 
   const moderationResult: ModerationResult =

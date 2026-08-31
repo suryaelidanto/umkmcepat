@@ -74,7 +74,7 @@ export function mask(
       };
     }
     case "orderId": {
-      // Find the longest leading non-digit prefix (e.g. "INV-" or "").
+      // Find the longest leading non-digit prefix.
       const match = text.match(/^(\D*)(.*)$/);
       if (!match || !match[2] || match[2].length < 3) {
         return { masked: DASH, revealable: true };

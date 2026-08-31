@@ -15,11 +15,20 @@ import {
   type ImageUploadPurpose,
   type ProjectBrief,
   type WorkspaceCard,
+  groundProjectBriefToOwnerFacts,
   isBriefQuestionId,
 } from "@/lib/projects/brief";
 import { evaluateBuildReadiness } from "@/lib/projects/build-readiness";
 import { parseCanonicalBrief } from "@/lib/projects/canonical-brief";
+import {
+  createEmptyFactLedger,
+  createFactLedgerEntriesFromPatch,
+  mergeFactLedger,
+  normalizeFactLedger,
+} from "@/lib/projects/fact-ledger";
+import { scanSourceClaims } from "@/lib/projects/high-risk-claims";
 import { unstringifyJsonObject } from "@/lib/projects/json-unstringify";
+import { unslopUserFacingText } from "@/lib/projects/unslop-policy";
 import { parseVisitorJobs, type VisitorJob } from "@/lib/projects/visitor-jobs";
 const OPTION_LABEL_MAX_LENGTH = 120;
 const OPTION_DESCRIPTION_MAX_LENGTH = 180;
@@ -54,6 +63,8 @@ export type WorkspaceTurnToolInput = {
     socialLinks?: SocialLinkValue[];
     currentPromo?: string;
     secondaryCta?: { label: string; action: string };
+    fieldState?: ProjectBrief["fieldState"];
+    factLedger?: unknown;
   };
   projectTitle?: string;
   workspaceCard?: WorkspaceCard;
@@ -63,12 +74,17 @@ export type WorkspaceTurnToolInput = {
 export function applyBriefPatch(
   brief: ProjectBrief,
   patch: WorkspaceTurnToolInput["briefPatch"],
+  context: { ownerTexts?: string[]; sourceTurnId?: string } = {},
 ): ProjectBrief {
   if (!patch || typeof patch !== "object") {
     return brief;
   }
 
-  const next = { ...brief, notes: [...(brief.notes ?? [])] };
+  const next = {
+    ...brief,
+    notes: [...(brief.notes ?? [])],
+    factLedger: normalizeFactLedger(brief.factLedger),
+  };
   for (const field of BRIEF_PATCH_FIELDS) {
     const value = cleanText(patch[field], 160);
 
@@ -201,6 +217,42 @@ export function applyBriefPatch(
   if (patch.secondaryCta !== undefined && patch.secondaryCta !== null) {
     next.secondaryCta = patch.secondaryCta;
   }
+  if (patch.fieldState) {
+    next.fieldState = { ...(next.fieldState ?? {}), ...patch.fieldState };
+  }
+
+  const patchRecord = patch as unknown as Record<string, unknown>;
+  const ledgerEntries = createFactLedgerEntriesFromPatch(patchRecord);
+  const rawLedger = patch.factLedger;
+  const incomingLedgerEntries =
+    rawLedger && typeof rawLedger === "object" && !Array.isArray(rawLedger)
+      ? (rawLedger as { entries?: unknown }).entries
+      : undefined;
+  const allLedgerEntries = [
+    ...ledgerEntries,
+    ...(Array.isArray(incomingLedgerEntries) ? incomingLedgerEntries : []),
+  ];
+  if (patch.visuals === false) {
+    allLedgerEntries.push({
+      id: "visuals-primary",
+      field: "visuals",
+      label: "Foto usaha",
+      value: null,
+      state: "declined",
+      source: "owner",
+      sourceTurnId: context.sourceTurnId ?? null,
+    });
+  }
+  if (allLedgerEntries.length > 0) {
+    next.factLedger = mergeFactLedger(
+      next.factLedger ?? createEmptyFactLedger(),
+      allLedgerEntries,
+      {
+        ownerTexts: context.ownerTexts ?? [],
+        sourceTurnId: context.sourceTurnId,
+      },
+    );
+  }
 
   return next;
 }
@@ -208,7 +260,9 @@ export function applyBriefPatch(
 export type NormalizeWorkspaceTurnOptions = {
   hasBuiltSite?: boolean;
   lastUserText?: string;
+  ownerTexts?: string[];
   previousWorkspaceCard?: WorkspaceCard;
+  sourceTurnId?: string;
 };
 
 const BUILD_CONFIRM_ID_RE =
@@ -309,7 +363,17 @@ export function normalizeWorkspaceTurn(
   let brief = applyBriefPatch(
     fallbackBrief,
     unstringifyJsonObject(value.briefPatch),
+    {
+      ownerTexts: options.ownerTexts,
+      sourceTurnId: options.sourceTurnId,
+    },
   );
+  if (options.ownerTexts !== undefined) {
+    brief = groundProjectBriefToOwnerFacts(brief, {
+      ownerTexts: options.ownerTexts,
+      sourceTurnId: options.sourceTurnId,
+    });
+  }
   let workspaceCard = normalizeWorkspaceCard(
     unstringifyJsonObject(value.workspaceCard),
     brief,
@@ -649,7 +713,9 @@ export function createImageUploadCard(raw: unknown): ImageUploadCard | null {
   const img = (src.imageUpload ?? {}) as Record<string, unknown>;
   const id = typeof img.id === "string" ? img.id.slice(0, 100) : "";
   const question =
-    typeof img.question === "string" ? img.question.slice(0, 300) : "";
+    typeof img.question === "string"
+      ? unslopUserFacingText(img.question.slice(0, 300))
+      : "";
   if (!id || !question) {
     return null;
   }
@@ -661,7 +727,9 @@ export function createImageUploadCard(raw: unknown): ImageUploadCard | null {
   const selectionMode =
     img.selectionMode === "multiple" ? "multiple" : "single";
   const hint =
-    typeof img.hint === "string" ? img.hint.slice(0, 180) : undefined;
+    typeof img.hint === "string"
+      ? unslopUserFacingText(img.hint.slice(0, 180))
+      : undefined;
   const required = img.required === true;
   return {
     type: "image_upload",
@@ -865,13 +933,8 @@ function isPriceQuestion(id: string, question: string): boolean {
 
 // Clean choice and price handling
 
-function pricePlaceholderForQuestion(id: string, question: string): string {
-  const lowerId = id.toLowerCase();
-  const q = question.toLowerCase();
-  if (q.includes("berapa harga") || lowerId === "price_range") {
-    return "Contoh: Rp 25.000 per porsi (10 tusuk)";
-  }
-  return "Contoh: Rp 25.000";
+function pricePlaceholderForQuestion(): string {
+  return "Tulis kisaran harga atau tarif layanan.";
 }
 
 function normalizeQuestion(raw: unknown): BriefQuestion | null {
@@ -943,15 +1006,15 @@ function normalizeQuestion(raw: unknown): BriefQuestion | null {
   );
 
   const placeholder =
-    cleanText(candidate.placeholder, 100) ||
+    cleanPlaceholder(candidate.placeholder) ||
     (answerMode === "text" && isPrice
-      ? pricePlaceholderForQuestion(coercedId, question)
+      ? pricePlaceholderForQuestion()
       : undefined) ||
     undefined;
 
   return {
     id: coercedId,
-    question,
+    question: unslopUserFacingText(question),
     answerMode,
     options: answerMode === "text" ? [] : options,
     recommendedOptionLabel: options.some(
@@ -959,16 +1022,17 @@ function normalizeQuestion(raw: unknown): BriefQuestion | null {
     )
       ? recommendedOptionLabel
       : undefined,
-    placeholder,
+    placeholder: placeholder ? unslopUserFacingText(placeholder) : undefined,
     selectionMode:
       candidate.selectionMode === "multiple" && answerMode === "choice"
         ? "multiple"
         : "single",
     whyThisQuestionMatters:
-      cleanText(candidate.whyThisQuestionMatters, 180) ||
-      cleanText(aliasedQuestion.description, 180) ||
-      cleanText(aliasedQuestion.hint, 180) ||
-      undefined,
+      unslopUserFacingText(
+        cleanText(candidate.whyThisQuestionMatters, 180) ||
+          cleanText(aliasedQuestion.description, 180) ||
+          cleanText(aliasedQuestion.hint, 180),
+      ) || undefined,
     required:
       typeof candidate.required === "boolean"
         ? candidate.required
@@ -976,12 +1040,21 @@ function normalizeQuestion(raw: unknown): BriefQuestion | null {
   };
 }
 
+function cleanPlaceholder(value: unknown): string {
+  return cleanText(value, 100).replace(
+    /^(?:contoh|misal|misalnya)\s*:\s*/i,
+    "",
+  );
+}
+
 function coerceQuestionOption(
   option: unknown,
 ): { label: string; description: string } | null {
   if (typeof option === "string") {
     const label = cleanText(option, OPTION_LABEL_MAX_LENGTH);
-    return label ? { label, description: "" } : null;
+    return label
+      ? { label: unslopUserFacingText(label), description: "" }
+      : null;
   }
 
   if (!option || typeof option !== "object") {
@@ -994,8 +1067,10 @@ function coerceQuestionOption(
     return null;
   }
   return {
-    label,
-    description: cleanText(value.description, OPTION_DESCRIPTION_MAX_LENGTH),
+    label: unslopUserFacingText(label),
+    description: unslopUserFacingText(
+      cleanText(value.description, OPTION_DESCRIPTION_MAX_LENGTH),
+    ),
   };
 }
 
@@ -1014,7 +1089,7 @@ function buildRecommendationCard(
 
 function friendlyBuildRecommendationTitle(title: string): string {
   const cleaned = cleanText(title, 80) || "Website siap dibuat";
-  return cleaned
+  return unslopUserFacingText(cleaned)
     .replace(/^brief sudah siap dibuild$/i, "Website siap dibuat")
     .replace(/\bmulai build\b/gi, "Mulai buat website")
     .replace(/\bbuild ulang\b/gi, "Buat ulang website")
@@ -1023,23 +1098,43 @@ function friendlyBuildRecommendationTitle(title: string): string {
 }
 
 function buildCardSummary(brief: ProjectBrief, summary?: string[]) {
-  return (
-    summary
-      ?.map((item) => cleanText(item, 120))
-      .filter(Boolean)
-      .slice(0, 7) ||
-    [
-      brief.businessType,
-      brief.offer,
-      brief.targetCustomer,
-      brief.contactOrCta,
-      brief.stylePreference,
-      `Keyakinan AI: ${brief.confidence ?? 0}%`,
-      ...(brief.openQuestions ?? []).map(
-        (question) => `Masih perlu jelas: ${question}`,
-      ),
-    ].filter(Boolean)
+  const ownerText = [
+    brief.businessName,
+    brief.businessType,
+    brief.offer,
+    brief.targetCustomer,
+    brief.contactOrCta,
+    brief.stylePreference,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const ownerWords = new Set(
+    ownerText
+      .toLocaleLowerCase("id-ID")
+      .split(/[^\p{L}\p{N}]+/u)
+      .filter((word) => word.length >= 4),
   );
+  const safeSummary = (summary ?? [])
+    .map((item) => unslopUserFacingText(cleanText(item, 120)))
+    .filter((item) => {
+      if (!item || scanSourceClaims(item, undefined, [ownerText]).length > 0) {
+        return false;
+      }
+      return item
+        .toLocaleLowerCase("id-ID")
+        .split(/[^\p{L}\p{N}]+/u)
+        .some((word) => ownerWords.has(word));
+    })
+    .slice(0, 7);
+  return safeSummary.length
+    ? safeSummary
+    : [
+        brief.businessType,
+        brief.offer,
+        brief.targetCustomer,
+        brief.contactOrCta,
+        brief.stylePreference,
+      ].filter(Boolean);
 }
 
 const BRIEF_PATCH_FIELDS = [
