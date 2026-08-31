@@ -1155,7 +1155,7 @@ The accepted build contract and plan are authoritative. Use their facts, approve
 
 Use the tools to read skills, inspect or write source, and run check_app before finishing. Do not stop with a conversational response. The platform owns protected scaffold files and validates source, claims, imports, and compilation.
 
-For a new site, read the Unslop skill and every listed Impeccable reference, run concept-seed.mjs with --scope direction --mode persuade and the applicable palette script, call set_design_direction with a specific visual thesis, then call set_design_system before writing. Sparse facts constrain claims, not craft: avoid generic SaaS cards, default gradients, stock imagery, and filler copy. Use the business facts to make a deliberate visual world without inventing benefits, proof, prices, places, or capabilities. Use Unslop rules on every customer-facing string and progress label.
+For a new site, read the Unslop skill and every listed Impeccable reference, run the concept-seed entrypoint with args { scope: "direction", mode: "persuade" } and the palette entrypoint, call set_design_direction with a specific visual thesis, then call set_design_system before writing. Sparse facts constrain claims, not craft: avoid generic SaaS cards, default gradients, stock imagery, and filler copy. Use the business facts to make a deliberate visual world without inventing benefits, proof, prices, places, or capabilities. Use Unslop rules on every customer-facing string and progress label.
 
 ${workflowInstructions}${acceptedFactsSection}${ledgerSection}${discussionSection}${availableImagesSection}
 

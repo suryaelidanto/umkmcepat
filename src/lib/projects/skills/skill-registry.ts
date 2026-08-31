@@ -8,7 +8,7 @@ export interface DiscoveredSkill {
   isRootSkill: boolean;
   parentSkillName?: string;
   markdownFiles: Map<string, string>;
-  executableScripts: Map<string, string>;
+  entrypoints: Map<string, string>;
 }
 
 export interface SkillExecutionResult {
@@ -19,22 +19,6 @@ export interface SkillExecutionResult {
 
 const SKILLS_ROOT_DIR = path.resolve(process.cwd(), "src/lib/projects/skills");
 const execFileAsync = promisify(execFile);
-
-function parseScriptCommand(value: string): { path: string; args: string[] } {
-  const tokens = value.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/gu) ?? [];
-  const cleaned = tokens.map((token) => token.replace(/^["']|["']$/gu, ""));
-  const scriptIndex = cleaned.findIndex(
-    (token, index) =>
-      index === 0 ||
-      /(?:\\.m?js|\\.ts)$/u.test(token) ||
-      token.includes("/scripts/"),
-  );
-  const index = scriptIndex >= 0 ? scriptIndex : 0;
-  return {
-    path: cleaned[index] ?? value.trim(),
-    args: cleaned.slice(index + 1),
-  };
-}
 
 function argsToCli(value: unknown): string[] {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -92,7 +76,7 @@ class DynamicSkillEngine {
         name: skillName,
         isRootSkill: true,
         markdownFiles: new Map(),
-        executableScripts: new Map(),
+        entrypoints: new Map(),
       };
 
       this.scanDirectoryRecursively(skillDir, skillDir, discoveredSkill);
@@ -141,13 +125,11 @@ class DynamicSkillEngine {
             this.markdownMap.set(shortPath, content);
           }
         } else if (
-          entry.name.endsWith(".js") ||
-          entry.name.endsWith(".mjs") ||
-          entry.name.endsWith(".ts")
+          currentDir === path.join(skillBaseDir, "scripts") &&
+          /\.(mjs|js)$/u.test(entry.name)
         ) {
-          skillRecord.executableScripts.set(relPath, fullPath);
-          const scriptSlug = `${skillRecord.name}/${relPath}`;
-          skillRecord.executableScripts.set(scriptSlug, fullPath);
+          const entrypointId = entry.name.replace(/\.(mjs|js)$/u, "");
+          skillRecord.entrypoints.set(entrypointId, fullPath);
         }
       }
     }
@@ -155,6 +137,13 @@ class DynamicSkillEngine {
 
   public getRootSkillNames(): string[] {
     return Array.from(this.skills.keys()).sort();
+  }
+
+  public getScriptSkillNames(): string[] {
+    return Array.from(this.skills.values())
+      .filter((skill) => skill.entrypoints.size > 0)
+      .map((skill) => skill.name)
+      .sort();
   }
 
   public getAllMarkdownTopics(): string[] {
@@ -176,7 +165,7 @@ class DynamicSkillEngine {
 
   public async executeSkillScript(
     skillName: string,
-    scriptRelativePath: string,
+    scriptId: string,
     args?: unknown,
   ): Promise<SkillExecutionResult> {
     const skill = this.skills.get(skillName);
@@ -184,53 +173,33 @@ class DynamicSkillEngine {
       return { ok: false, error: `Skill "${skillName}" not found.` };
     }
 
-    const command = parseScriptCommand(scriptRelativePath);
-    const normalizedScript = command.path
-      .replaceAll("\\\\", "/")
+    const normalized = scriptId
+      .trim()
+      .replaceAll("\\", "/")
       .replace(/^\.\//u, "")
-      .replace(/^\/+/, "");
-    const withoutSkillPrefix = normalizedScript.startsWith(`${skillName}/`)
-      ? normalizedScript.slice(skillName.length + 1)
-      : normalizedScript;
-    const scriptsIndex = withoutSkillPrefix.indexOf("scripts/");
-    const scriptFromScriptsDirectory =
-      scriptsIndex >= 0
-        ? withoutSkillPrefix.slice(scriptsIndex)
-        : withoutSkillPrefix;
-    const scriptCandidates = [
-      normalizedScript,
-      withoutSkillPrefix,
-      `${skillName}/${withoutSkillPrefix}`,
-      scriptFromScriptsDirectory,
-      withoutSkillPrefix.includes("/")
-        ? withoutSkillPrefix
-        : `scripts/${withoutSkillPrefix}`,
-      withoutSkillPrefix.endsWith(".mjs") || withoutSkillPrefix.endsWith(".js")
-        ? `scripts/${withoutSkillPrefix}`
-        : `scripts/${withoutSkillPrefix}.mjs`,
-      ...(normalizedScript.toLowerCase().includes("palette")
-        ? ["scripts/palette.mjs"]
-        : []),
-      ...(normalizedScript.toLowerCase().includes("context")
-        ? ["scripts/context.mjs"]
-        : []),
-    ];
-    const scriptPath = scriptCandidates.reduce<string | undefined>(
-      (found, candidate) => found ?? skill.executableScripts.get(candidate),
-      undefined,
-    );
+      .replace(/^\/+/u, "")
+      .replace(/\.(mjs|js)$/iu, "");
+    const withoutSkillPrefix = normalized.startsWith(`${skillName}/`)
+      ? normalized.slice(skillName.length + 1)
+      : normalized;
+    const withoutScriptsPrefix = withoutSkillPrefix.replace(/^scripts\//u, "");
+
+    const scriptPath =
+      skill.entrypoints.get(withoutScriptsPrefix) ??
+      skill.entrypoints.get(withoutSkillPrefix) ??
+      skill.entrypoints.get(normalized);
 
     if (!scriptPath) {
       return {
         ok: false,
-        error: `Script "${scriptRelativePath}" not found in skill "${skillName}".`,
+        error: `Script "${scriptId}" is not a callable entrypoint of skill "${skillName}". Only direct entrypoints are callable; helper and nested scripts cannot be invoked.`,
       };
     }
 
     try {
       const { stdout, stderr } = await execFileAsync(
         process.execPath,
-        [scriptPath, ...command.args, ...argsToCli(args)],
+        [scriptPath, ...argsToCli(args)],
         {
           cwd: process.cwd(),
           env: process.env,
@@ -266,7 +235,10 @@ export const PROJECT_CORE_SKILL_NAMES = [
   "impeccable/reference/craft-floor",
 ] as const;
 
-export const PROJECT_SCRIPT_SKILL_NAMES = ["impeccable"] as const;
+export const PROJECT_SCRIPT_SKILL_NAMES = skillEngine.getScriptSkillNames() as [
+  string,
+  ...string[],
+];
 
 export type ProjectSkillName = string;
 
@@ -279,8 +251,8 @@ export function readProjectSkill(name: string): {
 
 export async function executeSkillScript(
   skillName: string,
-  scriptRelPath: string,
+  scriptId: string,
   args?: unknown,
 ): Promise<SkillExecutionResult> {
-  return skillEngine.executeSkillScript(skillName, scriptRelPath, args);
+  return skillEngine.executeSkillScript(skillName, scriptId, args);
 }

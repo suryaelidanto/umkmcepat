@@ -95,7 +95,8 @@ function createInput(
 
 async function readCoreSkills(tools: Record<string, AgentTool>) {
   await tools.run_skill_script.execute({
-    script: "concept-seed.mjs --scope direction --mode persuade",
+    args: { mode: "persuade", scope: "direction" },
+    script: "concept-seed",
     skill: "impeccable",
   });
   for (const name of [
@@ -353,7 +354,8 @@ describe("runAgenticGenerate", () => {
         error: expect.stringContaining("design direction"),
       });
       await tools.run_skill_script.execute({
-        script: "concept-seed.mjs --scope direction --mode persuade",
+        args: { mode: "persuade", scope: "direction" },
+        script: "concept-seed",
         skill: "impeccable",
       });
       await tools.set_design_direction.execute({
@@ -426,7 +428,8 @@ describe("runAgenticGenerate", () => {
     generateTextMock.mockImplementationOnce(async (args: unknown) => {
       const tools = getTools(args);
       await tools.run_skill_script.execute({
-        script: "concept-seed.mjs --scope direction --mode persuade",
+        args: { mode: "persuade", scope: "direction" },
+        script: "concept-seed",
         skill: "impeccable",
       });
       for (const name of [
