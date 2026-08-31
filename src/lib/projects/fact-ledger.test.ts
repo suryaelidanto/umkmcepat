@@ -26,8 +26,20 @@ describe("fact ledger", () => {
           field: `field-${index}`,
           label: `Field ${index}`,
           origin,
-          source: index === 1 ? "uploaded_asset" : "owner",
-          state: index === 5 ? "declined" : "owner_confirmed",
+          source:
+            index === 1
+              ? "uploaded_asset"
+              : index === 3
+                ? "assistant"
+                : index === 4
+                  ? "system"
+                  : "owner",
+          state:
+            index === 3
+              ? "ai_suggestion"
+              : index === 5
+                ? "declined"
+                : "owner_confirmed",
           value: index === 5 ? null : `value-${index}`,
           sourceTurnId: null,
         })),
@@ -63,6 +75,66 @@ describe("fact ledger", () => {
 
     expect(ledger.entries).toHaveLength(0);
     expect(getRenderableFactEntries(ledger)).toHaveLength(0);
+  });
+
+  it("rejects an owner origin paired with an assistant source", () => {
+    const ledger = normalizeFactLedger({
+      version: 1,
+      entries: [
+        {
+          id: "forged-owner",
+          field: "offer",
+          label: "Offer",
+          origin: "owner_message",
+          source: "assistant",
+          state: "owner_confirmed",
+          value: "Unsupported offer",
+          sourceTurnId: null,
+        },
+      ],
+    });
+
+    expect(ledger.entries).toEqual([]);
+  });
+
+  it("rejects an uploaded origin paired with a normal owner source", () => {
+    const ledger = normalizeFactLedger({
+      version: 1,
+      entries: [
+        {
+          id: "forged-upload",
+          field: "visuals",
+          label: "Foto",
+          origin: "uploaded_asset",
+          source: "owner",
+          state: "owner_confirmed",
+          value: "remote-image",
+          sourceTurnId: null,
+        },
+      ],
+    });
+
+    expect(ledger.entries).toEqual([]);
+  });
+
+  it("rejects a safe derivation that claims owner confirmation", () => {
+    const ledger = normalizeFactLedger({
+      version: 1,
+      entries: [
+        {
+          id: "forged-derivation",
+          field: "mood",
+          label: "Nuansa",
+          origin: "safe_derivation",
+          source: "assistant",
+          state: "owner_confirmed",
+          value: "hangat",
+          sourceTurnId: null,
+        },
+      ],
+    });
+
+    expect(ledger.entries).toEqual([]);
   });
 
   it("creates an explicit omission that cannot render as a business fact", () => {

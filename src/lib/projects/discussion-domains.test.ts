@@ -3,9 +3,101 @@ import { describe, expect, it } from "vitest";
 import { parseCanonicalBrief } from "./canonical-brief";
 import {
   DISCUSSION_DOMAINS,
+  evaluateAdaptiveDiscussionReadiness,
   getDiscussionDomainCoverage,
   getUnresolvedDiscussionDomains,
 } from "./discussion-domains";
+
+describe("adaptive discussion readiness", () => {
+  it("keeps the four minimum safety requirements closed for an empty brief", () => {
+    const readiness = evaluateAdaptiveDiscussionReadiness(
+      parseCanonicalBrief({}),
+    );
+
+    expect(readiness.minimumSatisfied).toBe(false);
+    expect(readiness.missingMinimum).toEqual([
+      "businessName",
+      "offer",
+      "primaryAction",
+      "actionTarget",
+    ]);
+    expect(readiness.commercialSatisfied).toBe(false);
+  });
+
+  it("opens minimum readiness for identity, offer, and an actionable on-site action", () => {
+    const readiness = evaluateAdaptiveDiscussionReadiness(
+      parseCanonicalBrief({
+        businessName: "Kopi Senja",
+        offer: "Kopi susu",
+        contactOrCta: "Lihat menu",
+      }),
+    );
+
+    expect(readiness).toMatchObject({
+      commercialDomainCount: 0,
+      commercialSatisfied: false,
+      minimumSatisfied: true,
+      missingMinimum: [],
+    });
+  });
+
+  it("rejects an external action without its target", () => {
+    const readiness = evaluateAdaptiveDiscussionReadiness(
+      parseCanonicalBrief({
+        businessName: "Kopi Senja",
+        offer: "Kopi susu",
+        contact: { channel: "whatsapp", label: "Pesan" },
+      }),
+    );
+
+    expect(readiness.missingMinimum).toEqual(["primaryAction", "actionTarget"]);
+  });
+
+  it("requires two commercial domains before a normal recommendation", () => {
+    const readiness = evaluateAdaptiveDiscussionReadiness(
+      parseCanonicalBrief({
+        businessName: "Kopi Senja",
+        offer: "Kopi susu",
+        contactOrCta: "Lihat menu",
+        usp: ["Gula aren asli"],
+        targetCustomer: "Pekerja sekitar",
+      }),
+    );
+
+    expect(readiness.commercialDomainCount).toBe(2);
+    expect(readiness.commercialSatisfied).toBe(true);
+  });
+
+  it("counts explicit omissions as resolved commercial domains", () => {
+    const readiness = evaluateAdaptiveDiscussionReadiness(
+      parseCanonicalBrief({
+        businessName: "Kopi Senja",
+        offer: "Kopi susu",
+        contactOrCta: "Lihat menu",
+        fieldState: {
+          audience: "declined",
+          visual_direction: "declined",
+        },
+      }),
+    );
+
+    expect(readiness.commercialDomainCount).toBe(2);
+    expect(readiness.commercialSatisfied).toBe(true);
+  });
+
+  it("leaves optional domains open even when the safety minimum is complete", () => {
+    const readiness = evaluateAdaptiveDiscussionReadiness(
+      parseCanonicalBrief({
+        businessName: "Kopi Senja",
+        offer: "Kopi susu",
+        contactOrCta: "Lihat menu",
+      }),
+    );
+
+    expect(readiness.minimumSatisfied).toBe(true);
+    expect(readiness.commercialSatisfied).toBe(false);
+  });
+});
 
 describe("discussion domain coverage", () => {
   it("exposes six independent discovery domains", () => {

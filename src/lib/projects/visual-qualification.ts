@@ -20,6 +20,8 @@ export type VisualCandidateEvidence = {
   mobile: VisualViewportEvidence;
   consoleErrorCount: number;
   failedRequestCount: number;
+  imageRequestCount: number;
+  remoteImageRequestCount: number;
   unsupportedClaimCount: number;
   visualScore: number;
 };
@@ -48,6 +50,8 @@ export function parseVisualCandidateEvidence(
   if (
     typeof input.consoleErrorCount !== "number" ||
     typeof input.failedRequestCount !== "number" ||
+    typeof input.imageRequestCount !== "number" ||
+    typeof input.remoteImageRequestCount !== "number" ||
     typeof input.unsupportedClaimCount !== "number" ||
     typeof input.visualScore !== "number"
   ) {
@@ -59,7 +63,9 @@ export function parseVisualCandidateEvidence(
       consoleErrorCount: input.consoleErrorCount,
       desktop,
       failedRequestCount: input.failedRequestCount,
+      imageRequestCount: input.imageRequestCount,
       mobile,
+      remoteImageRequestCount: input.remoteImageRequestCount,
       unsupportedClaimCount: input.unsupportedClaimCount,
       visualScore: input.visualScore,
     },
@@ -122,6 +128,21 @@ export function diagnoseVisualCandidate(
     reasons.push("request_evidence_invalid");
   } else if (evidence.failedRequestCount !== 0) {
     reasons.push("failed_requests");
+  }
+  if (!isNonNegativeInteger(evidence.imageRequestCount)) {
+    reasons.push("image_request_evidence_invalid");
+  }
+  if (!isNonNegativeInteger(evidence.remoteImageRequestCount)) {
+    reasons.push("remote_image_request_evidence_invalid");
+  } else if (evidence.remoteImageRequestCount !== 0) {
+    reasons.push("remote_image_requests");
+  }
+  if (
+    isNonNegativeInteger(evidence.imageRequestCount) &&
+    isNonNegativeInteger(evidence.remoteImageRequestCount) &&
+    evidence.remoteImageRequestCount > evidence.imageRequestCount
+  ) {
+    reasons.push("image_request_evidence_invalid");
   }
   if (!isNonNegativeInteger(evidence.unsupportedClaimCount)) {
     reasons.push("claim_evidence_invalid");

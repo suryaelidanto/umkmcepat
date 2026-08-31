@@ -20,6 +20,7 @@ import {
 } from "@/lib/projects/brief";
 import { evaluateBuildReadiness } from "@/lib/projects/build-readiness";
 import { parseCanonicalBrief } from "@/lib/projects/canonical-brief";
+import { evaluateAdaptiveDiscussionReadiness } from "@/lib/projects/discussion-domains";
 import {
   createEmptyFactLedger,
   createFactLedgerEntriesFromPatch,
@@ -415,8 +416,13 @@ export function normalizeWorkspaceTurn(
     }
   } else if (!options.hasBuiltSite) {
     // Reliable handoff: promote to build_recommendation when build-time is
+    const readinessBrief = parseCanonicalBrief(brief);
+    const adaptiveReadiness =
+      evaluateAdaptiveDiscussionReadiness(readinessBrief);
+    const explicitBuildRequest = isUserAffirmingBuild(options.lastUserText);
     const briefIsReady =
-      evaluateBuildReadiness(parseCanonicalBrief(brief)).state === "ready";
+      adaptiveReadiness.minimumSatisfied &&
+      (adaptiveReadiness.commercialSatisfied || explicitBuildRequest);
     const modelTitle =
       workspaceCard.type === "build_recommendation"
         ? workspaceCard.title
@@ -1110,6 +1116,7 @@ function buildCardSummary(brief: ProjectBrief, summary?: string[]) {
     brief.targetCustomer,
     brief.contactOrCta,
     brief.stylePreference,
+    ...(brief.usp ?? []),
   ].filter(Boolean);
   const ownerText = ownerFacts.join(" ");
   const ownerWords = new Set(
@@ -1124,7 +1131,10 @@ function buildCardSummary(brief: ProjectBrief, summary?: string[]) {
       if (!item) {
         return false;
       }
-      const copyClass = classifySafeCopy({ text: item, ownerFacts });
+      const copyClass = classifySafeCopy({
+        text: item,
+        ownerFacts: [...ownerFacts, ...ownerWords],
+      });
       if (copyClass === "unsupported_claim") {
         return false;
       }

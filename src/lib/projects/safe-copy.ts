@@ -61,5 +61,5 @@ export function classifySafeCopy({
   if (ATMOSPHERE_RE.test(normalizedText)) {
     return "atmospheric_framing";
   }
-  return "fact_preserving_polish";
+  return "unsupported_claim";
 }

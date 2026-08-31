@@ -43,7 +43,10 @@ import {
 } from "@/lib/projects/brief-tiered-readiness";
 import { loadActiveHandoff } from "@/lib/projects/build-handoffs";
 import { prepareBuildHandoff } from "@/lib/projects/build-planner";
-import { evaluateBuildReadiness } from "@/lib/projects/build-readiness";
+import {
+  createReadinessQuestion,
+  evaluateBuildReadiness,
+} from "@/lib/projects/build-readiness";
 import { describeBuildRecommendation } from "@/lib/projects/build-recommendation-summary";
 import {
   createDiscussionContextSnapshot,
@@ -80,6 +83,7 @@ import {
   repairToolCallInTurn,
   scrubBriefForStorage,
 } from "@/lib/projects/discuss-turn-shared";
+import { evaluateAdaptiveDiscussionReadiness } from "@/lib/projects/discussion-domains";
 import { isImageUploadBoilerplateText } from "@/lib/projects/image-upload-copy";
 import { inlineChatAssetFileParts } from "@/lib/projects/inline-chat-asset-file-parts";
 import { filterOwnedBusinessAssetIds } from "@/lib/projects/project-assets";
@@ -986,8 +990,23 @@ export async function runDiscussTurn({
         project.prompt,
       );
       const readiness = evaluateBuildReadiness(canonicalBrief);
+      const adaptiveReadiness =
+        evaluateAdaptiveDiscussionReadiness(canonicalBrief);
       const tieredReadiness = evaluateTieredBriefReadiness(canonicalBrief);
       const isExplicitBuild = isExplicitBuildRequest(lastUserTextValue ?? "");
+      const minimumBlocker = readiness.blockers.find((blocker) =>
+        ["business.name", "offers", "primaryOffer", "primaryAction"].includes(
+          blocker.field,
+        ),
+      );
+      const minimumQuestion = minimumBlocker
+        ? createReadinessQuestion(minimumBlocker)
+        : readiness.state === "blocked"
+          ? readiness.nextQuestion
+          : createReadinessQuestion({
+              field: "business.name",
+              reason: "business name missing",
+            });
       const photoUploadsActive = (() => {
         try {
           return getSettingSync(
@@ -999,43 +1018,43 @@ export async function runDiscussTurn({
         }
       })();
 
-      if (readiness.state === "blocked") {
+      if (!adaptiveReadiness.minimumSatisfied && !isExplicitBuild) {
         if (workspaceTurn.workspaceCard.type === "build_recommendation") {
           workspaceTurn = {
             ...workspaceTurn,
             readyForBuild: false,
             workspaceCard: {
               type: "question",
-              question: readiness.nextQuestion,
+              question: minimumQuestion,
             },
           };
           chatText = "Masih ada informasi penting yang perlu dilengkapi dulu.";
           devLog("discuss", "contract-readiness-blocked", {
             projectId: project.id,
             turnId,
-            blockers: readiness.blockers.map((blocker) => blocker.field),
+            blockers: adaptiveReadiness.missingMinimum,
           });
         } else if (
           wasBuildRecommendationAttempt &&
           workspaceTurn.workspaceCard.type === "question"
         ) {
           const isAlreadyReadinessQuestion =
-            workspaceTurn.workspaceCard.question.id ===
-            readiness.nextQuestion.id;
+            workspaceTurn.workspaceCard.question.id === minimumQuestion.id;
           if (isAlreadyReadinessQuestion) {
             chatText =
               "Masih ada informasi penting yang perlu dilengkapi dulu.";
             devLog("discuss", "contract-readiness-blocked", {
               projectId: project.id,
               turnId,
-              blockers: readiness.blockers.map((blocker) => blocker.field),
+              blockers: adaptiveReadiness.missingMinimum,
             });
           }
         }
       } else if (
         workspaceTurn.workspaceCard.type === "build_recommendation" &&
         !isExplicitBuild &&
-        !tieredReadiness.tier2.satisfied
+        (!adaptiveReadiness.commercialSatisfied ||
+          !tieredReadiness.tier2.satisfied)
       ) {
         const nextEnrichment = getNextTieredEnrichmentCard(canonicalBrief, {
           uploadsEnabled: photoUploadsActive,

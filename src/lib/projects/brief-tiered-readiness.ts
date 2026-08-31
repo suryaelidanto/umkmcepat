@@ -104,6 +104,43 @@ export function getNextTieredEnrichmentCard(
     };
   }
 
+  const fieldState = brief.fieldState as Record<string, string> | undefined;
+  if (
+    !brief.audience?.trim() &&
+    !isResolvedField(fieldState, ["audience", "target_customer"])
+  ) {
+    return {
+      type: "question",
+      question: {
+        id: "audience",
+        question: `Siapa yang paling ingin kamu bantu dengan ${name}?`,
+        answerMode: "text",
+        selectionMode: "single",
+        required: false,
+        placeholder: "Contoh: pekerja sekitar atau keluarga",
+        options: [],
+      },
+    };
+  }
+
+  if (
+    !brief.visualDirection?.trim() &&
+    !isResolvedField(fieldState, ["visual_direction", "style_preference"])
+  ) {
+    return {
+      type: "question",
+      question: {
+        id: "visual_direction",
+        question: `Nuansa visual seperti apa yang cocok untuk ${name}?`,
+        answerMode: "text",
+        selectionMode: "single",
+        required: false,
+        placeholder: "Contoh: tenang, tegas, atau penuh warna",
+        options: [],
+      },
+    };
+  }
+
   // Tier 2 Missing:
   const isOnlineOnly =
     brief.business.category === "jasa_online" ||
@@ -162,7 +199,6 @@ export function getNextTieredEnrichmentCard(
     };
   }
 
-  const fieldState = brief.fieldState as Record<string, string> | undefined;
   const photosResolved =
     brief.assets.length > 0 ||
     fieldState?.visuals === "declined" ||
@@ -191,6 +227,17 @@ export function getNextTieredEnrichmentCard(
   }
 
   return null;
+}
+
+function isResolvedField(
+  fieldState: Record<string, string> | undefined,
+  keys: readonly string[],
+): boolean {
+  return keys.some((key) =>
+    ["answered", "declined", "explicitly_empty"].includes(
+      fieldState?.[key] ?? "",
+    ),
+  );
 }
 
 export function evaluateTieredBriefReadiness(

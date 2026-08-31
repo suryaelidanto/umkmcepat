@@ -1,5 +1,16 @@
 import type { ProjectBriefV2 } from "./canonical-brief";
 
+export const ADAPTIVE_COMMERCIAL_DOMAIN_MINIMUM = 2;
+
+export type AdaptiveDiscussionReadiness = {
+  minimumSatisfied: boolean;
+  missingMinimum: Array<
+    "businessName" | "offer" | "primaryAction" | "actionTarget"
+  >;
+  commercialDomainCount: number;
+  commercialSatisfied: boolean;
+};
+
 export const DISCUSSION_DOMAINS = [
   "identity_transaction",
   "selling_angle",
@@ -30,7 +41,9 @@ export function getDiscussionDomainCoverage(
       hasActionablePrimaryAction(brief),
     selling_angle: brief.content.usp.length > 0,
     audience_decision:
-      Boolean(brief.audience?.trim()) || brief.visitorJobs.length > 0,
+      Boolean(brief.audience?.trim()) ||
+      brief.visitorJobs.length > 0 ||
+      isResolvedField(brief.fieldState, ["audience", "target_customer"]),
     operations: Boolean(
       brief.content.address?.trim() ||
       brief.content.deliveryArea?.trim() ||
@@ -42,9 +55,46 @@ export function getDiscussionDomainCoverage(
       photosResolved,
     visual_direction:
       Boolean(brief.visualDirection?.trim()) ||
-      ["answered", "declined", "explicitly_empty"].includes(
-        fieldState.visual_direction ?? fieldState.style_preference ?? "",
-      ),
+      isResolvedField(fieldState, ["visual_direction", "style_preference"]),
+  };
+}
+
+export function evaluateAdaptiveDiscussionReadiness(
+  brief: ProjectBriefV2,
+): AdaptiveDiscussionReadiness {
+  const missingMinimum: Array<
+    "businessName" | "offer" | "primaryAction" | "actionTarget"
+  > = [];
+  if (!brief.business.name.trim()) {
+    missingMinimum.push("businessName");
+  }
+  if (
+    brief.offers.length === 0 ||
+    (brief.offers.length > 1 && !brief.offers.some((offer) => offer.isPrimary))
+  ) {
+    missingMinimum.push("offer");
+  }
+  if (!brief.primaryAction || !brief.primaryAction.label.trim()) {
+    missingMinimum.push("primaryAction", "actionTarget");
+  } else if (!hasActionablePrimaryAction(brief)) {
+    missingMinimum.push("actionTarget");
+  }
+
+  const coverage = getDiscussionDomainCoverage(brief);
+  const commercialDomainCount = [
+    "selling_angle",
+    "audience_decision",
+    "operations",
+    "proof_assets",
+    "visual_direction",
+  ].filter((domain) => coverage[domain as DiscussionDomain]).length;
+
+  return {
+    minimumSatisfied: missingMinimum.length === 0,
+    missingMinimum,
+    commercialDomainCount,
+    commercialSatisfied:
+      commercialDomainCount >= ADAPTIVE_COMMERCIAL_DOMAIN_MINIMUM,
   };
 }
 
@@ -53,6 +103,17 @@ export function getUnresolvedDiscussionDomains(
 ): DiscussionDomain[] {
   const coverage = getDiscussionDomainCoverage(brief);
   return DISCUSSION_DOMAINS.filter((domain) => !coverage[domain]);
+}
+
+function isResolvedField(
+  fieldState: Record<string, string>,
+  keys: readonly string[],
+): boolean {
+  return keys.some((key) =>
+    ["answered", "declined", "explicitly_empty"].includes(
+      fieldState[key] ?? "",
+    ),
+  );
 }
 
 function hasActionablePrimaryAction(brief: ProjectBriefV2): boolean {

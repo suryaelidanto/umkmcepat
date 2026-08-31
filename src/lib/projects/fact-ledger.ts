@@ -481,7 +481,12 @@ function parseEntry(value: unknown): FactLedgerEntry | null {
     !FACT_LEDGER_STATES.includes(state as FactLedgerState) ||
     typeof source !== "string" ||
     !SOURCES.has(source) ||
-    !origin
+    !origin ||
+    !isValidOriginSource(
+      origin,
+      source as FactLedgerSource,
+      state as FactLedgerState,
+    )
   ) {
     return null;
   }
@@ -525,6 +530,33 @@ function parseOrigin(
     return "accepted_decision";
   }
   return "safe_derivation";
+}
+
+function isValidOriginSource(
+  origin: FactLedgerOrigin,
+  source: FactLedgerSource,
+  state: FactLedgerState,
+): boolean {
+  switch (origin) {
+    case "owner_message":
+      return source === "owner" && state === "owner_confirmed";
+    case "uploaded_asset":
+      return source === "uploaded_asset" && state === "owner_confirmed";
+    case "accepted_decision":
+      return (
+        (source === "owner" || source === "system") &&
+        state === "owner_confirmed"
+      );
+    case "safe_derivation":
+      return (
+        (source === "assistant" || source === "system") &&
+        state === "ai_suggestion"
+      );
+    case "design_only":
+      return source === "system" && state === "owner_confirmed";
+    case "explicit_omission":
+      return source === "owner" && state === "declined";
+  }
 }
 
 function getOwnerEvidenceValue(entry: FactLedgerEntry): FactLedgerValue | null {

@@ -36,6 +36,8 @@ const passingEvidence = (): VisualCandidateEvidence => ({
   mobile: mobileViewport(),
   consoleErrorCount: 0,
   failedRequestCount: 0,
+  imageRequestCount: 0,
+  remoteImageRequestCount: 0,
   unsupportedClaimCount: 0,
   visualScore: 85,
 });
@@ -155,6 +157,17 @@ describe("qualifyVisualCandidate", () => {
       revisionAllowed: false,
       reasons: ["visual_score_low"],
     });
+  });
+
+  it("rejects remote image requests even when visual signals pass", () => {
+    const result = qualifyVisualCandidate({
+      ...passingEvidence(),
+      imageRequestCount: 1,
+      remoteImageRequestCount: 1,
+    });
+
+    expect(result.release).toBe(false);
+    expect(result.reasons).toContain("remote_image_requests");
   });
 
   it("rejects unsupported claims even when visual signals pass", () => {

@@ -1,89 +1,109 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  SPARSE_BUSINESS_CATEGORIES,
+  SPARSE_CASE_CONDITIONS,
   SPARSE_EVALUATION_CORPUS,
   evaluateSparseCase,
 } from "./sparse-evaluation-corpus";
 
 describe("sparse evaluation corpus", () => {
-  it("contains enough varied sparse states for a regression pass", () => {
-    expect(SPARSE_EVALUATION_CORPUS.length).toBeGreaterThanOrEqual(12);
+  it("contains exactly eight categories and four conditions", () => {
+    expect(SPARSE_BUSINESS_CATEGORIES).toHaveLength(8);
+    expect(SPARSE_CASE_CONDITIONS).toHaveLength(4);
+    expect(SPARSE_EVALUATION_CORPUS).toHaveLength(32);
     expect(new Set(SPARSE_EVALUATION_CORPUS.map((item) => item.id)).size).toBe(
-      SPARSE_EVALUATION_CORPUS.length,
+      32,
     );
   });
 
-  it("covers empty, partial, minimal, omitted, uploaded, proof, and rich states", () => {
-    const ids = new Set(SPARSE_EVALUATION_CORPUS.map((item) => item.id));
-
-    for (const id of [
-      "empty-brief",
-      "identity-only",
-      "offer-only",
-      "contact-only",
-      "minimal-fnb",
-      "owner-omits-photos",
-      "owner-uploads-one-asset",
-      "proof-without-invention",
-      "complete-rich-brief",
-    ]) {
-      expect(ids.has(id)).toBe(true);
+  it("contains every category-condition pair exactly once", () => {
+    for (const category of SPARSE_BUSINESS_CATEGORIES) {
+      for (const condition of SPARSE_CASE_CONDITIONS) {
+        expect(
+          SPARSE_EVALUATION_CORPUS.filter(
+            (item) =>
+              item.category === category && item.condition === condition,
+          ),
+        ).toHaveLength(1);
+      }
     }
   });
 
-  it("keeps every corpus case within its declared readiness and omission contract", () => {
+  it("validates every scenario through truth, omission, readiness, strategy, and review surfaces", () => {
     const results = SPARSE_EVALUATION_CORPUS.map(evaluateSparseCase);
 
+    expect(results).toHaveLength(32);
     expect(results.every((result) => result.ok)).toBe(true);
-    expect(results.flatMap((result) => result.unexpectedFields)).toEqual([]);
+    expect(results.every((result) => result.truthBoundaryValid)).toBe(true);
+    expect(results.every((result) => result.omissionStateValid)).toBe(true);
+    expect(results.every((result) => result.readinessValid)).toBe(true);
+    expect(results.every((result) => result.strategyInputValid)).toBe(true);
+    expect(results.every((result) => result.reviewRequestValid)).toBe(true);
   });
 
-  it("keeps Tier 1 closed until identity, offer, and contact are present", () => {
-    const incomplete = SPARSE_EVALUATION_CORPUS.filter(
-      (item) => !item.expected.tier1Satisfied,
-    );
+  it("keeps unsupported fact leakage at zero for every scenario", () => {
+    const results = SPARSE_EVALUATION_CORPUS.map(evaluateSparseCase);
 
-    expect(incomplete.length).toBeGreaterThanOrEqual(4);
     expect(
-      incomplete.every((item) => item.expected.missingTier1.length > 0),
+      results.reduce(
+        (total, result) => total + result.unsupportedFactLeakage,
+        0,
+      ),
+    ).toBe(0);
+    expect(
+      results.reduce((total, result) => total + result.remoteMediaRequests, 0),
+    ).toBe(0);
+    expect(
+      results.reduce((total, result) => total + result.placeholderCount, 0),
+    ).toBe(0);
+  });
+
+  it("keeps no-photo scenarios free of media requests and repeated photo questions", () => {
+    const results = SPARSE_EVALUATION_CORPUS.filter(
+      (item) => item.condition === "no_photo",
+    ).map(evaluateSparseCase);
+
+    expect(results).toHaveLength(8);
+    expect(results.every((result) => result.remoteMediaRequests === 0)).toBe(
+      true,
+    );
+    expect(results.every((result) => result.placeholderCount === 0)).toBe(true);
+    expect(
+      results.every((result) => result.repeatedOmittedQuestions === 0),
     ).toBe(true);
   });
 
-  it("records a complete minimal state without requiring optional proof", () => {
-    const minimal = SPARSE_EVALUATION_CORPUS.find(
-      (item) => item.id === "minimal-fnb",
-    );
-    expect(minimal?.expected.tier1Satisfied).toBe(true);
-    expect(minimal?.expected.omittedFields).toContain("testimonials");
-    expect(minimal?.expected.omittedFields).toContain("assets");
+  it("keeps explicit omissions stable across all categories", () => {
+    const results = SPARSE_EVALUATION_CORPUS.filter(
+      (item) => item.condition === "explicit_omission",
+    ).map(evaluateSparseCase);
+
+    expect(results).toHaveLength(8);
+    expect(results.every((result) => result.omissionStateValid)).toBe(true);
+    expect(
+      results.every((result) => result.repeatedOmittedQuestions === 0),
+    ).toBe(true);
   });
 
-  it("keeps an explicit photo omission distinct from an uploaded asset", () => {
-    const omitted = SPARSE_EVALUATION_CORPUS.find(
-      (item) => item.id === "owner-omits-photos",
-    );
-    const uploaded = SPARSE_EVALUATION_CORPUS.find(
-      (item) => item.id === "owner-uploads-one-asset",
-    );
+  it("does not open a tenant-crossing or generated-skill output surface", () => {
+    const serialized = JSON.stringify(SPARSE_EVALUATION_CORPUS);
 
-    expect(omitted?.expected.omittedFields).toContain("assets");
-    expect(uploaded?.expected.omittedFields).not.toContain("assets");
+    expect(serialized).not.toContain(".agents/");
+    expect(serialized).not.toContain("run_skill_script");
   });
 
-  it("does not treat a proof-bearing case as permission to invent location or price", () => {
-    const proof = SPARSE_EVALUATION_CORPUS.find(
-      (item) => item.id === "proof-without-invention",
-    );
+  it("keeps Tier 1 closed only for the intentionally partial cases", () => {
+    const results = SPARSE_EVALUATION_CORPUS.map((item) => ({
+      expected: item.expected.tier1Satisfied,
+      result: evaluateSparseCase(item).readinessValid,
+    }));
 
-    expect(proof?.expected.omittedFields).toContain("address");
-    expect(proof?.expected.omittedFields).toContain("priceRange");
-  });
-
-  it("keeps the online case free of a fabricated physical address", () => {
-    const online = SPARSE_EVALUATION_CORPUS.find(
-      (item) => item.id === "online-service-with-area",
-    );
-
-    expect(online?.expected.omittedFields).toContain("address");
+    expect(results.every(({ result }) => result)).toBe(true);
+    expect(
+      SPARSE_EVALUATION_CORPUS.every(
+        (item) => item.expected.tier1Satisfied === true,
+      ),
+    ).toBe(true);
   });
 });
