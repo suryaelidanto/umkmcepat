@@ -702,3 +702,102 @@ describe("runAgenticGenerate", () => {
     expect(captured.prompt).not.toContain("Terjangkau");
   });
 });
+
+describe("generated design docs", () => {
+  it("adds exactly PRODUCT.md and DESIGN.md on first build", async () => {
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      await completeAgentWorkflow(getTools(args));
+      return { text: "Done", steps: [] };
+    });
+    const result = await runAgenticGenerate(createInput());
+    const mdFiles = result.files
+      .map((f) => f.path)
+      .filter((p) => p.endsWith(".md"))
+      .sort();
+    expect(mdFiles).toEqual(["DESIGN.md", "PRODUCT.md"]);
+    const design = result.files.find((f) => f.path === "DESIGN.md");
+    expect(design?.content).toContain("## THESIS");
+    expect(design?.content).toContain("## OWN-WORLD");
+    expect(design?.content).toContain("## STORY");
+    expect(design?.content).toContain("## FIRST VIEWPORT");
+    expect(design?.content).toContain("## MOTION");
+  });
+
+  it("injects persisted docs into the revision prompt as anchors", async () => {
+    let capturedPrompt = "";
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      capturedPrompt = (args as { prompt?: string }).prompt ?? "";
+      await completeAgentWorkflow(getTools(args));
+      return { text: "Done", steps: [] };
+    });
+    await runAgenticGenerate(
+      createInput({
+        initialFiles: [
+          {
+            content: "PRODUCT ANCHOR MARKER",
+            path: "PRODUCT.md",
+          },
+          {
+            content: "DESIGN ANCHOR MARKER",
+            path: "DESIGN.md",
+          },
+          {
+            content: "export const site = {};",
+            path: "src/content/site.ts",
+          },
+          {
+            content: "export default function Home() { return null; }",
+            path: "src/routes/index.tsx",
+          },
+        ],
+        revisionBrief: "perbarui bagian offer",
+      }),
+    );
+    expect(capturedPrompt).toContain("PRODUCT ANCHOR MARKER");
+    expect(capturedPrompt).toContain("DESIGN ANCHOR MARKER");
+  });
+
+  it("regenerates both docs on a full rebuild and keeps them on partial revisions", async () => {
+    const oldDocs = [
+      { content: "OLD PRODUCT MARKER", path: "PRODUCT.md" },
+      { content: "OLD DESIGN MARKER", path: "DESIGN.md" },
+      { content: "export const site = {};", path: "src/content/site.ts" },
+      {
+        content: "export default function Home() { return null; }",
+        path: "src/routes/index.tsx",
+      },
+    ];
+
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      await completeAgentWorkflow(getTools(args));
+      return { text: "Done", steps: [] };
+    });
+    const rebuilt = await runAgenticGenerate(
+      createInput({
+        fullRebuild: true,
+        initialFiles: oldDocs,
+        revisionBrief: "rombak total websitenya",
+      }),
+    );
+    const rebuiltProduct = rebuilt.files.find((f) => f.path === "PRODUCT.md");
+    const rebuiltDesign = rebuilt.files.find((f) => f.path === "DESIGN.md");
+    expect(rebuiltProduct?.content).not.toContain("OLD PRODUCT MARKER");
+    expect(rebuiltDesign?.content).not.toContain("OLD DESIGN MARKER");
+
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      await completeAgentWorkflow(getTools(args));
+      return { text: "Done", steps: [] };
+    });
+    const partial = await runAgenticGenerate(
+      createInput({
+        initialFiles: [
+          ...oldDocs,
+          { content: "x", path: "src/components/site/hero.tsx" },
+        ],
+        revisionBrief: "ganti warna tombol",
+      }),
+    );
+    const partialProduct = partial.files.find((f) => f.path === "PRODUCT.md");
+    expect(partialProduct?.content).toContain("OLD PRODUCT MARKER");
+  });
+});

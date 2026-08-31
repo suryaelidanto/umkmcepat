@@ -21,6 +21,14 @@ import { classifyBuildFailure } from "@/lib/projects/build-logs";
 import { generateDiff, type DiffLine } from "@/lib/projects/diff";
 import { classifyEditIntent } from "@/lib/projects/edit-intent";
 import {
+  buildDesignAnchorContext,
+  buildDesignMarkdown,
+  buildProductMarkdown,
+  DESIGN_DOC_PATH,
+  type DesignDirectionInput,
+  PRODUCT_DOC_PATH,
+} from "@/lib/projects/generated-design-docs";
+import {
   compileGeneratedDesignSystem,
   repairDesignSystemContrast,
   type GeneratedDesignSystemProposalV1,
@@ -238,6 +246,7 @@ export async function runAgenticGenerate(input: {
   buildContract?: BuildContractV1;
   buildId?: string | null;
   buildPlan?: BuildPlanV1;
+  fullRebuild?: boolean;
   initialFiles?: GeneratedProjectFile[];
   revisionBrief?: string | null;
   onEvent?: (
@@ -281,6 +290,12 @@ export async function runAgenticGenerate(input: {
   }
   if (input.initialFiles && input.initialFiles.length > 0) {
     for (const f of input.initialFiles) {
+      if (
+        input.fullRebuild &&
+        (f.path === PRODUCT_DOC_PATH || f.path === DESIGN_DOC_PATH)
+      ) {
+        continue;
+      }
       fileMap.set(f.path, f.content);
     }
   }
@@ -298,12 +313,37 @@ export default site;
       onFileStaged({ path: "src/content/site.ts", content: siteTsContent });
     }
   }
+
+  const emitProductDoc = () => {
+    const productMd = buildProductMarkdown(schema);
+    fileMap.set(PRODUCT_DOC_PATH, productMd);
+    touched.add(PRODUCT_DOC_PATH);
+    onFileStaged?.({ content: productMd, path: PRODUCT_DOC_PATH });
+  };
   const touched = new Set<string>();
   const operationTrace: AgenticGeneratedSourceResult["operationTrace"] = [];
   const skillsRead = new Set<ProjectSkillName>();
+  if (!isRevisionMode || input.fullRebuild) {
+    emitProductDoc();
+  }
   let checkAppCalls = 0;
   let lastCheckOk: boolean | null = null;
   let designSystemAccepted = isRevisionMode;
+  let designDirectionState: DesignDirectionInput | null = null;
+  let designSystemState: GeneratedDesignSystemProposalV1 | null = null;
+
+  function refreshDesignDoc(): void {
+    if (!designDirectionState) {
+      return;
+    }
+    const designMd = buildDesignMarkdown({
+      direction: designDirectionState,
+      system: designSystemState,
+    });
+    fileMap.set(DESIGN_DOC_PATH, designMd);
+    touched.add(DESIGN_DOC_PATH);
+    onFileStaged?.({ content: designMd, path: DESIGN_DOC_PATH });
+  }
   let designDirectionAccepted = isRevisionMode;
   let paletteScriptRun = isRevisionMode;
   let conceptSeedScriptRun = isRevisionMode;
@@ -606,6 +646,8 @@ export default site;
         motionThesis: string;
       }) => {
         designDirectionAccepted = true;
+        designDirectionState = direction;
+        refreshDesignDoc();
         opSeq++;
         const operation = {
           detail: "Arah visual, komposisi awal, dan gerak utama sudah dipilih.",
@@ -675,7 +717,9 @@ export default site;
         }
         fileMap.set("src/index.css", result.css);
         touched.add("src/index.css");
+        designSystemState = proposal;
         designSystemAccepted = true;
+        refreshDesignDoc();
         const operation = {
           detail:
             "Warna dan tipografi sudah nyaman dibaca di seluruh tampilan.",
@@ -1244,8 +1288,12 @@ Progress labels and details must be plain Indonesian. Do not expose file names, 
         })),
       })}`
     : "";
+  const designAnchorContext =
+    isRevisionMode && !input.fullRebuild
+      ? buildDesignAnchorContext(input.initialFiles ?? [])
+      : "";
   const userPrompt = input.revisionBrief
-    ? `Update the existing static website for this user request:\n${formatPromptValue(input.revisionBrief)}\n\n${executionContext}`
+    ? `Update the existing static website for this user request:\n${formatPromptValue(input.revisionBrief)}\n\n${executionContext}${designAnchorContext}`
     : `Build the static website for an Indonesian UMKM from the accepted data below.
 
 ${routesInstruction}
@@ -1360,9 +1408,12 @@ ${executionContext}`;
       `Agent did not read required skills before finishing: ${missing.join(", ")}.`,
     );
   }
+  const engineEmittedDocs = new Set([PRODUCT_DOC_PATH, DESIGN_DOC_PATH]);
   const customFilesWritten = isRevisionMode
-    ? touched.size > 0
-    : Array.from(touched).some((p) => p !== "src/index.css");
+    ? Array.from(touched).some((p) => !engineEmittedDocs.has(p))
+    : Array.from(touched).some(
+        (p) => p !== "src/index.css" && !engineEmittedDocs.has(p),
+      );
 
   if (!customFilesWritten) {
     throw new Error("Agent did not write a custom source file.");
