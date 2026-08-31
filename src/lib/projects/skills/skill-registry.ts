@@ -4,8 +4,6 @@ import path from "node:path";
 import { promisify } from "node:util";
 
 import {
-  getAllowlistedFlags,
-  kebabFlag,
   MAX_SCRIPT_OUTPUT_BYTES,
   SCRIPT_OUTPUT_TRUNCATION_MARKER,
   SCRIPT_SPAWN_MAX_BUFFER_BYTES,
@@ -203,33 +201,6 @@ class DynamicSkillEngine {
       return {
         ok: false,
         error: `Script "${scriptId}" is not a callable entrypoint of skill "${skillName}". Only direct entrypoints are callable; helper and nested scripts cannot be invoked.`,
-      };
-    }
-
-    const flags = getAllowlistedFlags(withoutScriptsPrefix);
-    const rawKeys =
-      args && typeof args === "object" && !Array.isArray(args)
-        ? Object.keys(args)
-        : [];
-    const stringArgs =
-      typeof args === "string"
-        ? args
-            .split(/\s+/)
-            .filter((token) => token.startsWith("--"))
-            .map((token) => token.slice(2))
-        : [];
-    const flagKeys = [...rawKeys, ...stringArgs];
-    if (
-      flagKeys.length > 0 &&
-      (flags === null ||
-        flagKeys.some(
-          (key) =>
-            !flags.has(kebabFlag(key).replace(/^-+/u, "")) && !flags.has(key),
-        ))
-    ) {
-      return {
-        ok: false,
-        error: `Arguments for entrypoint "${withoutScriptsPrefix}" are outside the allowlist; rejected before spawn.`,
       };
     }
 

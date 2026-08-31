@@ -186,7 +186,7 @@ describe("sandboxed script spawning", () => {
     }
   });
 
-  it("rejects non-allowlisted arguments before spawning", async () => {
+  it("passes unknown flags through to the first-party script", async () => {
     writeFixture(
       "__sandbox-marker.mjs",
       'import { writeFileSync } from "node:fs";\nwriteFileSync(new URL("./__sandbox-marker.txt", import.meta.url), "spawned\\n");\n',
@@ -194,47 +194,18 @@ describe("sandboxed script spawning", () => {
     skillEngine.refresh();
     try {
       rmSync(markerPath, { force: true });
-      const rejected = await executeSkillScript(
+      const spawned = await executeSkillScript(
         "impeccable",
         "__sandbox-marker",
         { unlisted: true },
       );
-      expect(rejected.ok).toBe(false);
-      expect(rejected.error).toContain("allowlist");
+      expect(spawned.ok).toBe(true);
       const { existsSync } = await import("node:fs");
-      expect(existsSync(markerPath)).toBe(false);
-
-      const spawned = await executeSkillScript(
-        "impeccable",
-        "__sandbox-marker",
-      );
+      expect(existsSync(markerPath)).toBe(true);
       expect(spawned.ok).toBe(true);
       expect(existsSync(markerPath)).toBe(true);
     } finally {
       clearFixtures();
     }
   });
-});
-
-it("accepts camelCase aliases of allowlisted flags", async () => {
-  const result = await executeSkillScript("impeccable", "concept-seed", {
-    scope: "direction",
-    mode: "persuade",
-    candidateCount: 6,
-  });
-  expect(result.ok).toBe(true);
-});
-
-it("accepts dash-prefixed flag keys and flag-style string args", async () => {
-  const objectForm = await executeSkillScript("impeccable", "concept-seed", {
-    "--scope": "direction",
-    "--mode": "persuade",
-  });
-  expect(objectForm.ok).toBe(true);
-  const stringForm = await executeSkillScript(
-    "impeccable",
-    "concept-seed",
-    "--scope direction --mode persuade",
-  );
-  expect(stringForm.ok).toBe(true);
 });
