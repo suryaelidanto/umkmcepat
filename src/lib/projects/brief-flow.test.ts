@@ -632,6 +632,31 @@ describe("normalizeWorkspaceTurn", () => {
     }
   });
 
+  it("allows an explicit build-now request with only the four safety minimums", () => {
+    const brief = parseProjectBrief(
+      {
+        businessName: "Kedai Pagi",
+        offer: "Kopi susu",
+        contactOrCta: "Lihat menu",
+      },
+      "jualan kopi",
+    );
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "build_recommendation",
+          title: "Buat sekarang",
+          summary: [],
+        },
+      },
+      brief,
+      { lastUserText: "buat sekarang" },
+    );
+
+    expect(turn.workspaceCard.type).toBe("build_recommendation");
+    expect(turn.readyForBuild).toBe(true);
+  });
+
   it("accepts brief_review as build_recommendation when min brief is filled (even if confidence low)", () => {
     const brief = parseBuildReadyBrief(
       {
