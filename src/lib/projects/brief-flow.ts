@@ -26,8 +26,8 @@ import {
   mergeFactLedger,
   normalizeFactLedger,
 } from "@/lib/projects/fact-ledger";
-import { scanSourceClaims } from "@/lib/projects/high-risk-claims";
 import { unstringifyJsonObject } from "@/lib/projects/json-unstringify";
+import { classifySafeCopy } from "@/lib/projects/safe-copy";
 import { unslopUserFacingText } from "@/lib/projects/unslop-policy";
 import { parseVisitorJobs, type VisitorJob } from "@/lib/projects/visitor-jobs";
 const OPTION_LABEL_MAX_LENGTH = 120;
@@ -1103,16 +1103,15 @@ function friendlyBuildRecommendationTitle(title: string): string {
 }
 
 function buildCardSummary(brief: ProjectBrief, summary?: string[]) {
-  const ownerText = [
+  const ownerFacts = [
     brief.businessName,
     brief.businessType,
     brief.offer,
     brief.targetCustomer,
     brief.contactOrCta,
     brief.stylePreference,
-  ]
-    .filter(Boolean)
-    .join(" ");
+  ].filter(Boolean);
+  const ownerText = ownerFacts.join(" ");
   const ownerWords = new Set(
     ownerText
       .toLocaleLowerCase("id-ID")
@@ -1122,8 +1121,19 @@ function buildCardSummary(brief: ProjectBrief, summary?: string[]) {
   const safeSummary = (summary ?? [])
     .map((item) => unslopUserFacingText(cleanText(item, 120)))
     .filter((item) => {
-      if (!item || scanSourceClaims(item, undefined, [ownerText]).length > 0) {
+      if (!item) {
         return false;
+      }
+      const copyClass = classifySafeCopy({ text: item, ownerFacts });
+      if (copyClass === "unsupported_claim") {
+        return false;
+      }
+      if (
+        copyClass === "navigation" ||
+        copyClass === "neutral_cta" ||
+        copyClass === "atmospheric_framing"
+      ) {
+        return true;
       }
       return item
         .toLocaleLowerCase("id-ID")
