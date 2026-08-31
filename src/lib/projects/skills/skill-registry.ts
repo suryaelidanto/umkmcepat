@@ -3,6 +3,14 @@ import fs from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
 
+import {
+  getAllowlistedFlags,
+  MAX_SCRIPT_OUTPUT_BYTES,
+  SCRIPT_OUTPUT_TRUNCATION_MARKER,
+  SCRIPT_SPAWN_MAX_BUFFER_BYTES,
+  SCRIPT_TIMEOUT_MS,
+} from "./script-sandbox";
+
 export interface DiscoveredSkill {
   name: string;
   isRootSkill: boolean;
@@ -167,6 +175,7 @@ class DynamicSkillEngine {
     skillName: string,
     scriptId: string,
     args?: unknown,
+    options?: { timeoutMs?: number },
   ): Promise<SkillExecutionResult> {
     const skill = this.skills.get(skillName);
     if (!skill) {
@@ -196,24 +205,56 @@ class DynamicSkillEngine {
       };
     }
 
+    const flags = getAllowlistedFlags(withoutScriptsPrefix);
+    const argKeys =
+      args && typeof args === "object" && !Array.isArray(args)
+        ? Object.keys(args)
+        : [];
+    if (
+      argKeys.length > 0 &&
+      (flags === null || argKeys.some((key) => !flags.has(key)))
+    ) {
+      return {
+        ok: false,
+        error: `Arguments for entrypoint "${withoutScriptsPrefix}" are outside the allowlist; rejected before spawn.`,
+      };
+    }
+
+    const timeoutMs = options?.timeoutMs ?? SCRIPT_TIMEOUT_MS;
     try {
       const { stdout, stderr } = await execFileAsync(
         process.execPath,
         [scriptPath, ...argsToCli(args)],
         {
           cwd: process.cwd(),
-          env: process.env,
-          maxBuffer: 2 * 1024 * 1024,
+          env: {
+            PATH: process.env.PATH ?? process.env.Path ?? "",
+            DO_NOT_TRACK: "1",
+          },
+          maxBuffer: SCRIPT_SPAWN_MAX_BUFFER_BYTES,
+          timeout: timeoutMs,
+          killSignal: "SIGKILL",
         },
       );
+      let output = stderr.trim() ? `${stdout}${stderr}` : stdout;
+      if (output.length > MAX_SCRIPT_OUTPUT_BYTES) {
+        output =
+          output.slice(0, MAX_SCRIPT_OUTPUT_BYTES) +
+          SCRIPT_OUTPUT_TRUNCATION_MARKER;
+      }
       return {
         ok: true,
-        output: stderr.trim() ? `${stdout}${stderr}` : stdout,
+        output,
       };
     } catch (err: unknown) {
+      const killed = (err as { killed?: boolean }).killed === true;
       return {
         ok: false,
-        error: err instanceof Error ? err.message : String(err),
+        error: killed
+          ? `Skill script "${scriptId}" timed out after ${timeoutMs}ms.`
+          : err instanceof Error
+            ? err.message
+            : String(err),
       };
     }
   }
@@ -253,6 +294,7 @@ export async function executeSkillScript(
   skillName: string,
   scriptId: string,
   args?: unknown,
+  options?: { timeoutMs?: number },
 ): Promise<SkillExecutionResult> {
-  return skillEngine.executeSkillScript(skillName, scriptId, args);
+  return skillEngine.executeSkillScript(skillName, scriptId, args, options);
 }
