@@ -11,11 +11,7 @@ import { getAiModel } from "@/lib/ai/ai";
 import { getDiscussModel } from "@/lib/ai/ai-models";
 import { auth } from "@/lib/auth/auth";
 import { isBoundedJsonError, readBoundedJson } from "@/lib/bounded-json";
-import {
-  chargeEnergyForAiUsage,
-  checkEnergy,
-  getEnergyConfig,
-} from "@/lib/payment/user-credits";
+import { checkEnergy, getEnergyConfig } from "@/lib/payment/user-credits";
 import { prisma } from "@/lib/prisma";
 import { enqueueAttemptJob } from "@/lib/projects/attempt-queue";
 import {
@@ -650,14 +646,6 @@ async function repairWorkspaceCard({
     title,
     userId,
     workspaceCard: finalWorkspaceCard,
-  });
-  await chargeEnergyForAiUsage({
-    userId,
-    projectId: project.id,
-    modelId: modelName,
-    inputTokens: turn.usage?.inputTokens ?? 0,
-    outputTokens: turn.usage?.outputTokens ?? 0,
-    reason: "discuss:repair",
   });
 
   return Response.json({

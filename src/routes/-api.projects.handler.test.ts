@@ -53,6 +53,7 @@ vi.mock("@/lib/ai/ai-models", () => ({
   getGenerationModel: () => "test/model",
 }));
 vi.mock("@/lib/ai/ai-moderation", () => ({
+  chargeModerationEnergy: vi.fn(async () => undefined),
   moderateProjectRequest: moderateProjectRequestMock,
 }));
 vi.mock("@/lib/projects/input", async () => {

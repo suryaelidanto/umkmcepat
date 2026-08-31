@@ -33,6 +33,12 @@ import {
   unslopUserFacingText,
 } from "@/lib/projects/unslop-policy";
 
+type RepairOutcome = ReturnType<typeof normalizeWorkspaceTurn> & {
+  assistantText: string;
+  repairsUsed: number;
+  usage: { inputTokens: number; outputTokens: number };
+};
+
 export type RepairedToolCall = {
   type: "tool-call";
   toolCallId: string;
@@ -130,8 +136,9 @@ export async function repairDiscussCardWithTool({
   let deadline: ReturnType<typeof setTimeout> | undefined;
   let totalInputTokens = 0;
   let totalOutputTokens = 0;
+  let settled: RepairOutcome | null = null;
 
-  const attempts = (async () => {
+  const attempts = (async (): Promise<RepairOutcome | null> => {
     for (
       let semanticAttempt = 0;
       semanticAttempt < DISCUSS_CARD_SEMANTIC_ATTEMPTS;
@@ -195,7 +202,7 @@ Prefer 2-5 options per choice question and set recommendedOptionLabel.`,
           sourceTurnId,
         });
         if (turn.workspaceCard.type !== "none") {
-          return {
+          settled = {
             ...turn,
             assistantText: unslopUserFacingText(
               extractAssistantTextFromToolInput(input),
@@ -205,7 +212,8 @@ Prefer 2-5 options per choice question and set recommendedOptionLabel.`,
               inputTokens: totalInputTokens,
               outputTokens: totalOutputTokens,
             },
-          };
+          } as RepairOutcome;
+          break;
         }
       } catch (error) {
         console.error(
@@ -214,7 +222,16 @@ Prefer 2-5 options per choice question and set recommendedOptionLabel.`,
         );
       }
     }
-    return null;
+    // Every attempt's tokens are billed once, including failed legs.
+    void chargeEnergyForAiUsage({
+      userId,
+      projectId,
+      modelId: modelName,
+      inputTokens: totalInputTokens,
+      outputTokens: totalOutputTokens,
+      reason: "discuss:repair",
+    });
+    return settled;
   })();
 
   try {

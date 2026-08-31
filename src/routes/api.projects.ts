@@ -3,8 +3,9 @@ import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { createFileRoute } from "@tanstack/react-router";
 
-import { getDefaultAiModel, getModerationModel } from "@/lib/ai/ai-models";
+import { getDefaultAiModel } from "@/lib/ai/ai-models";
 import {
+  chargeModerationEnergy,
   moderateProjectRequest,
   type ModerationImage,
 } from "@/lib/ai/ai-moderation";
@@ -14,7 +15,6 @@ import { getSetting } from "@/lib/config/app-settings";
 import { checkMaintenanceGate } from "@/lib/config/maintenance-mode";
 import {
   assertUnderProjectLimit,
-  chargeEnergyForAiUsage,
   checkEnergy,
   getEnergyConfig,
   getProjectCount,
@@ -283,15 +283,7 @@ export const Route = createFileRoute("/api/projects")({
             validation.value,
             imageParts,
           );
-          if (moderation.usage) {
-            await chargeEnergyForAiUsage({
-              userId,
-              modelId: moderation.modelId || getModerationModel(),
-              inputTokens: moderation.usage.inputTokens,
-              outputTokens: moderation.usage.outputTokens,
-              reason: "moderation",
-            });
-          }
+          await chargeModerationEnergy(userId, moderation);
           if (!moderation.allowed) {
             return Response.json(
               {

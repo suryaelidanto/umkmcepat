@@ -9,6 +9,7 @@ import {
 import { getModerationModel, getVisionModel } from "@/lib/ai/ai-models";
 import { getAiTimeoutMs, withAiTimeout } from "@/lib/ai/ai-timeouts";
 import { devLog } from "@/lib/dev-log";
+import { chargeEnergyForAiUsage } from "@/lib/payment/user-credits";
 import { UNSLOP_SYSTEM_INSTRUCTION } from "@/lib/projects/unslop-policy";
 
 export type ModerationResult =
@@ -85,6 +86,7 @@ export async function moderateProjectRequest(
   try {
     result = await callWithRetry(
       () => {
+        const attemptTimer = startAiCallTimer({ withTtft: true });
         const abortController = new AbortController();
         return withAiTimeout(
           generateText({
@@ -104,7 +106,24 @@ This classifier must still return exactly ALLOW or BLOCK; never return the polic
           "moderation",
           abortController,
           timeoutMs,
-        );
+        ).catch((attemptError: unknown) => {
+          recordAiCall({
+            errorClass: classifyAiError(attemptError),
+            modelRequested: requestedModel,
+            requestMs: attemptTimer().requestMs,
+            retryCount: attemptedRetry ? 1 : 0,
+            status: /timed out|timeout|aborted/i.test(
+              attemptError instanceof Error
+                ? attemptError.message
+                : String(attemptError),
+            )
+              ? "timeout"
+              : "error",
+            task: "moderation",
+            ...ledgerCorrelation,
+          });
+          throw attemptError;
+        });
       },
       () => {
         attemptedRetry = true;
@@ -121,19 +140,6 @@ This classifier must still return exactly ALLOW or BLOCK; never return the polic
       errorClass: classifyAiError(error),
       error: error instanceof Error ? error.message : String(error),
       ...(detail ? { detail } : {}),
-    });
-    recordAiCall({
-      errorClass: classifyAiError(error),
-      modelRequested: requestedModel,
-      requestMs: stopTimer().requestMs,
-      retryCount: attemptedRetry ? 1 : 0,
-      status: /timed out|timeout|aborted/i.test(
-        error instanceof Error ? error.message : String(error),
-      )
-        ? "timeout"
-        : "error",
-      task: "moderation",
-      ...ledgerCorrelation,
     });
     throw error;
   }
@@ -209,6 +215,22 @@ async function callWithRetry<T>(
 
 export function getModerationTimeoutMs() {
   return getAiTimeoutMs("moderation");
+}
+
+export async function chargeModerationEnergy(
+  userId: string | null | undefined,
+  result: ModerationResult,
+): Promise<void> {
+  if (!userId || !result.usage) {
+    return;
+  }
+  await chargeEnergyForAiUsage({
+    userId,
+    modelId: result.modelId || getModerationModel(),
+    inputTokens: result.usage.inputTokens,
+    outputTokens: result.usage.outputTokens,
+    reason: "moderation",
+  });
 }
 
 function normalizePrompt(prompt: string) {

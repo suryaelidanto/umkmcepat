@@ -46,6 +46,7 @@ vi.mock("@/lib/rate-limit", () => ({
 }));
 
 vi.mock("@/lib/ai/ai-moderation", () => ({
+  chargeModerationEnergy: vi.fn(async () => undefined),
   moderateProjectRequest: moderateProjectRequestMock,
 }));
 

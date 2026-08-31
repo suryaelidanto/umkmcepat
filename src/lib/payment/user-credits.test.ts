@@ -56,6 +56,7 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import {
+  addEnergyUsage,
   calculateEnergyCost,
   chargeEnergyForAiUsage,
   chargeEnergyForStep,
@@ -385,5 +386,75 @@ describe("economics settings are DB-first", () => {
     expect(config.minBuild).toBe(40_000);
     expect(config.minEdit).toBe(10_000);
     expect(config.minModeration).toBe(500);
+  });
+});
+
+describe("energy ledger reasons", () => {
+  beforeEach(() => {
+    prismaExecuteRawMock.mockReset();
+    resolveModelPricingMock.mockReset();
+  });
+
+  it("writes the moderation reason with 1:1 tokens into the ledger", async () => {
+    resolveModelPricingMock.mockResolvedValue({
+      rawModelId: "m-1",
+      pricedModelId: "m-1",
+      pricingSource: "catalog",
+      promptPrice: 3e-7,
+      completionPrice: 1e-6,
+    });
+
+    const result = await addEnergyUsage("u1", "m-1", 10, 5, "moderation");
+
+    expect(result.inputTokens).toBe(10);
+    expect(result.outputTokens).toBe(5);
+    expect(result.energyUsed).toBeGreaterThan(0);
+    const flat = JSON.stringify(prismaExecuteRawMock.mock.calls);
+    expect(flat).toContain("moderation");
+    expect(flat).toContain("m-1");
+  });
+
+  it("writes the compaction reason into the ledger", async () => {
+    resolveModelPricingMock.mockResolvedValue({
+      rawModelId: "m-1",
+      pricedModelId: "m-1",
+      pricingSource: "catalog",
+      promptPrice: 3e-7,
+      completionPrice: 1e-6,
+    });
+
+    const result = await chargeEnergyForAiUsage({
+      userId: "u1",
+      modelId: "m-1",
+      inputTokens: 4,
+      outputTokens: 6,
+      reason: "discuss:compaction",
+    });
+
+    expect(result?.inputTokens).toBe(4);
+    expect(result?.outputTokens).toBe(6);
+    const flat = JSON.stringify(prismaExecuteRawMock.mock.calls);
+    expect(flat).toContain("discuss:compaction");
+  });
+
+  it("never writes a ledger row when no tokens were consumed", async () => {
+    resolveModelPricingMock.mockResolvedValue({
+      rawModelId: "m-1",
+      pricedModelId: "m-1",
+      pricingSource: "catalog",
+      promptPrice: 3e-7,
+      completionPrice: 1e-6,
+    });
+
+    const result = await chargeEnergyForAiUsage({
+      userId: "u1",
+      modelId: "m-1",
+      inputTokens: 0,
+      outputTokens: 0,
+      reason: "moderation",
+    });
+
+    expect(result).toBeNull();
+    expect(prismaExecuteRawMock).not.toHaveBeenCalled();
   });
 });
