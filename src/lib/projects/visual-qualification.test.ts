@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   diagnoseVisualCandidate,
+  parseVisualCandidateEvidence,
   qualifyVisualCandidate,
   type VisualCandidateEvidence,
 } from "./visual-qualification";
@@ -37,6 +38,40 @@ const passingEvidence = (): VisualCandidateEvidence => ({
   failedRequestCount: 0,
   unsupportedClaimCount: 0,
   visualScore: 85,
+});
+
+describe("parseVisualCandidateEvidence", () => {
+  it("parses the evidence shape and ignores browser-only metadata", () => {
+    const result = parseVisualCandidateEvidence({
+      ...passingEvidence(),
+      raw: { desktop: "browser details" },
+    });
+
+    expect(result.ok).toBe(true);
+  });
+
+  it.each(["desktop", "mobile"] as const)(
+    "rejects evidence without %s viewport data",
+    (missingViewport) => {
+      const candidate: Record<string, unknown> = passingEvidence();
+      delete candidate[missingViewport];
+
+      expect(parseVisualCandidateEvidence(candidate)).toEqual({
+        ok: false,
+        reason: "desktop and mobile evidence are required",
+      });
+    },
+  );
+
+  it("rejects evidence without global metrics", () => {
+    const candidate: Record<string, unknown> = passingEvidence();
+    delete candidate.visualScore;
+
+    expect(parseVisualCandidateEvidence(candidate)).toEqual({
+      ok: false,
+      reason: "global evidence metrics are required",
+    });
+  });
 });
 
 describe("qualifyVisualCandidate", () => {

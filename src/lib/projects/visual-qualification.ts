@@ -31,6 +31,41 @@ export type VisualQualificationResult = {
   reasons: string[];
 };
 
+export type VisualEvidenceParseResult =
+  { ok: true; value: VisualCandidateEvidence } | { ok: false; reason: string };
+
+export function parseVisualCandidateEvidence(
+  input: unknown,
+): VisualEvidenceParseResult {
+  if (!isRecord(input)) {
+    return { ok: false, reason: "evidence must be an object" };
+  }
+  const desktop = parseViewportEvidence(input.desktop);
+  const mobile = parseViewportEvidence(input.mobile);
+  if (!desktop || !mobile) {
+    return { ok: false, reason: "desktop and mobile evidence are required" };
+  }
+  if (
+    typeof input.consoleErrorCount !== "number" ||
+    typeof input.failedRequestCount !== "number" ||
+    typeof input.unsupportedClaimCount !== "number" ||
+    typeof input.visualScore !== "number"
+  ) {
+    return { ok: false, reason: "global evidence metrics are required" };
+  }
+  return {
+    ok: true,
+    value: {
+      consoleErrorCount: input.consoleErrorCount,
+      desktop,
+      failedRequestCount: input.failedRequestCount,
+      mobile,
+      unsupportedClaimCount: input.unsupportedClaimCount,
+      visualScore: input.visualScore,
+    },
+  };
+}
+
 export function qualifyVisualCandidate(
   evidence: VisualCandidateEvidence,
   revisionCount = 0,
@@ -96,6 +131,34 @@ export function diagnoseVisualCandidate(
   appendViewportReasons(reasons, "desktop", evidence.desktop);
   appendViewportReasons(reasons, "mobile", evidence.mobile);
   return reasons;
+}
+
+function parseViewportEvidence(value: unknown): VisualViewportEvidence | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  if (
+    typeof value.width !== "number" ||
+    typeof value.height !== "number" ||
+    typeof value.contentVisible !== "boolean" ||
+    typeof value.horizontalOverflowPx !== "number" ||
+    typeof value.emptyCtaCount !== "number" ||
+    typeof value.missingImageAltCount !== "number"
+  ) {
+    return null;
+  }
+  return {
+    contentVisible: value.contentVisible,
+    emptyCtaCount: value.emptyCtaCount,
+    height: value.height,
+    horizontalOverflowPx: value.horizontalOverflowPx,
+    missingImageAltCount: value.missingImageAltCount,
+    width: value.width,
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function appendViewportReasons(
