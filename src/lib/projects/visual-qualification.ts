@@ -1,0 +1,139 @@
+export const VISUAL_QUALIFICATION_VIEWPORTS = {
+  desktop: { height: 1000, width: 1440 },
+  mobile: { height: 844, width: 390 },
+} as const;
+
+export const MAX_VISUAL_REVISIONS = 1;
+export const MIN_VISUAL_SCORE = 70;
+
+export type VisualViewportEvidence = {
+  width: number;
+  height: number;
+  contentVisible: boolean;
+  horizontalOverflowPx: number;
+  emptyCtaCount: number;
+  missingImageAltCount: number;
+};
+
+export type VisualCandidateEvidence = {
+  desktop: VisualViewportEvidence;
+  mobile: VisualViewportEvidence;
+  consoleErrorCount: number;
+  failedRequestCount: number;
+  unsupportedClaimCount: number;
+  visualScore: number;
+};
+
+export type VisualQualificationResult = {
+  status: "qualified" | "revision_required" | "rejected";
+  release: boolean;
+  revisionAllowed: boolean;
+  reasons: string[];
+};
+
+export function qualifyVisualCandidate(
+  evidence: VisualCandidateEvidence,
+  revisionCount = 0,
+): VisualQualificationResult {
+  const reasons = diagnoseVisualCandidate(evidence);
+  if (reasons.length === 0) {
+    return {
+      status: "qualified",
+      release: true,
+      revisionAllowed: false,
+      reasons: [],
+    };
+  }
+
+  if (revisionCount < MAX_VISUAL_REVISIONS) {
+    return {
+      status: "revision_required",
+      release: false,
+      revisionAllowed: true,
+      reasons,
+    };
+  }
+
+  return {
+    status: "rejected",
+    release: false,
+    revisionAllowed: false,
+    reasons,
+  };
+}
+
+export function diagnoseVisualCandidate(
+  evidence: VisualCandidateEvidence,
+): string[] {
+  const reasons: string[] = [];
+  if (
+    !Number.isFinite(evidence.visualScore) ||
+    evidence.visualScore < 0 ||
+    evidence.visualScore > 100
+  ) {
+    reasons.push("visual_evidence_invalid");
+  }
+  if (!Number.isFinite(evidence.visualScore)) {
+    reasons.push("visual_score_missing");
+  } else if (evidence.visualScore < MIN_VISUAL_SCORE) {
+    reasons.push("visual_score_low");
+  }
+  if (!isNonNegativeInteger(evidence.consoleErrorCount)) {
+    reasons.push("console_evidence_invalid");
+  } else if (evidence.consoleErrorCount !== 0) {
+    reasons.push("console_errors");
+  }
+  if (!isNonNegativeInteger(evidence.failedRequestCount)) {
+    reasons.push("request_evidence_invalid");
+  } else if (evidence.failedRequestCount !== 0) {
+    reasons.push("failed_requests");
+  }
+  if (!isNonNegativeInteger(evidence.unsupportedClaimCount)) {
+    reasons.push("claim_evidence_invalid");
+  } else if (evidence.unsupportedClaimCount !== 0) {
+    reasons.push("unsupported_claims");
+  }
+  appendViewportReasons(reasons, "desktop", evidence.desktop);
+  appendViewportReasons(reasons, "mobile", evidence.mobile);
+  return reasons;
+}
+
+function appendViewportReasons(
+  reasons: string[],
+  viewport: "desktop" | "mobile",
+  evidence: VisualViewportEvidence,
+): void {
+  const expected = VISUAL_QUALIFICATION_VIEWPORTS[viewport];
+  if (
+    evidence.width !== expected.width ||
+    evidence.height !== expected.height
+  ) {
+    reasons.push(`${viewport}_viewport_mismatch`);
+  }
+  if (!evidence.contentVisible) {
+    reasons.push(`${viewport}_content_hidden`);
+  }
+  if (evidence.horizontalOverflowPx > 0) {
+    reasons.push(`${viewport}_horizontal_overflow`);
+  }
+  if (!isNonNegativeInteger(evidence.emptyCtaCount)) {
+    reasons.push(`${viewport}_cta_evidence_invalid`);
+  } else if (evidence.emptyCtaCount > 0) {
+    reasons.push(`${viewport}_empty_cta`);
+  }
+  if (!isNonNegativeInteger(evidence.missingImageAltCount)) {
+    reasons.push(`${viewport}_alt_evidence_invalid`);
+  } else if (evidence.missingImageAltCount > 0) {
+    reasons.push(`${viewport}_missing_image_alt`);
+  }
+  if (
+    !Number.isFinite(evidence.horizontalOverflowPx) ||
+    evidence.horizontalOverflowPx < 0
+  ) {
+    reasons.push(`${viewport}_overflow_evidence_invalid`);
+  }
+}
+
+function isNonNegativeInteger(value: number): boolean {
+  return Number.isInteger(value) && value >= 0;
+}
