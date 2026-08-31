@@ -7,6 +7,17 @@ export const FACT_LEDGER_STATES = [
 
 export type FactLedgerState = (typeof FACT_LEDGER_STATES)[number];
 
+export const FACT_LEDGER_ORIGINS = [
+  "owner_message",
+  "uploaded_asset",
+  "accepted_decision",
+  "safe_derivation",
+  "design_only",
+  "explicit_omission",
+] as const;
+
+export type FactLedgerOrigin = (typeof FACT_LEDGER_ORIGINS)[number];
+
 export type FactLedgerValue =
   | string
   | number
@@ -24,6 +35,7 @@ export type FactLedgerEntry = {
   label: string;
   value: FactLedgerValue | null;
   state: FactLedgerState;
+  origin: FactLedgerOrigin;
   source: FactLedgerSource;
   sourceTurnId: string | null;
   reason?: string;
@@ -39,6 +51,12 @@ const SOURCES: ReadonlySet<string> = new Set([
   "assistant",
   "system",
   "uploaded_asset",
+]);
+const ORIGINS: ReadonlySet<string> = new Set(FACT_LEDGER_ORIGINS);
+const RENDERABLE_ORIGINS: ReadonlySet<FactLedgerOrigin> = new Set([
+  "owner_message",
+  "uploaded_asset",
+  "accepted_decision",
 ]);
 const MAX_ENTRIES = 120;
 const MAX_TEXT_LENGTH = 320;
@@ -91,10 +109,15 @@ export function mergeFactLedger(
   for (const candidate of candidates) {
     const currentEntry = byId.get(candidate.id);
     if (candidate.state === "owner_confirmed") {
-      if (hasOwnerEvidence(getOwnerEvidenceValue(candidate), ownerTexts)) {
+      const trustedUpload = candidate.origin === "uploaded_asset";
+      if (
+        trustedUpload ||
+        hasOwnerEvidence(getOwnerEvidenceValue(candidate), ownerTexts)
+      ) {
         byId.set(candidate.id, {
           ...candidate,
-          source: "owner",
+          origin: trustedUpload ? "uploaded_asset" : "owner_message",
+          source: trustedUpload ? "uploaded_asset" : "owner",
           sourceTurnId: candidate.sourceTurnId || context.sourceTurnId || null,
         });
       } else if (currentEntry?.state === "owner_confirmed") {
@@ -102,6 +125,7 @@ export function mergeFactLedger(
       } else {
         byId.set(candidate.id, {
           ...candidate,
+          origin: "safe_derivation",
           state: "ai_suggestion",
           source: "assistant",
           sourceTurnId: candidate.sourceTurnId || context.sourceTurnId || null,
@@ -117,13 +141,23 @@ export function mergeFactLedger(
       }
       byId.set(candidate.id, {
         ...candidate,
+        origin:
+          candidate.origin === "owner_message"
+            ? "safe_derivation"
+            : candidate.origin,
         source: "assistant",
         sourceTurnId: candidate.sourceTurnId || context.sourceTurnId || null,
       });
       continue;
     }
 
-    byId.set(candidate.id, candidate);
+    byId.set(candidate.id, {
+      ...candidate,
+      origin:
+        candidate.origin === "explicit_omission"
+          ? candidate.origin
+          : "explicit_omission",
+    });
   }
 
   return {
@@ -136,7 +170,10 @@ export function getRenderableFactEntries(
   ledger: FactLedger,
 ): FactLedgerEntry[] {
   return normalizeFactLedger(ledger).entries.filter(
-    (entry) => entry.state === "owner_confirmed" && entry.value !== null,
+    (entry) =>
+      entry.state === "owner_confirmed" &&
+      entry.value !== null &&
+      RENDERABLE_ORIGINS.has(entry.origin),
   );
 }
 
@@ -147,6 +184,25 @@ export function getRenderableFactEntry(
   return getRenderableFactEntries(ledger).find(
     (entry) => entry.field === field,
   );
+}
+
+export function createExplicitOmissionEntry(input: {
+  field: string;
+  id: string;
+  label: string;
+  reason: string;
+}): FactLedgerEntry {
+  return {
+    id: cleanText(input.id, 80),
+    field: cleanText(input.field, 80),
+    label: cleanText(input.label, 120),
+    value: null,
+    state: "declined",
+    origin: "explicit_omission",
+    source: "owner",
+    sourceTurnId: null,
+    reason: cleanText(input.reason, 180),
+  };
 }
 
 export function createFactLedgerEntriesFromPatch(
@@ -281,6 +337,7 @@ export function createFactLedgerEntriesFromPatch(
       label: item.label,
       value,
       state: "owner_confirmed",
+      origin: "owner_message",
       source: "owner",
       sourceTurnId: null,
     });
@@ -304,6 +361,7 @@ export function createFactLedgerEntriesFromPatch(
         label,
         value: rawValue,
         state: "owner_confirmed",
+        origin: "owner_message",
         source: "owner",
         sourceTurnId: null,
       });
@@ -414,6 +472,7 @@ function parseEntry(value: unknown): FactLedgerEntry | null {
   const label = cleanText(value.label, 120);
   const state = value.state;
   const source = value.source;
+  const origin = parseOrigin(value.origin, state, source);
   if (
     !/^[a-z0-9][a-z0-9_-]*$/u.test(id) ||
     !/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/u.test(field) ||
@@ -421,7 +480,8 @@ function parseEntry(value: unknown): FactLedgerEntry | null {
     typeof state !== "string" ||
     !FACT_LEDGER_STATES.includes(state as FactLedgerState) ||
     typeof source !== "string" ||
-    !SOURCES.has(source)
+    !SOURCES.has(source) ||
+    !origin
   ) {
     return null;
   }
@@ -437,10 +497,34 @@ function parseEntry(value: unknown): FactLedgerEntry | null {
     label,
     value: valueJson,
     state: state as FactLedgerState,
+    origin,
     source: source as FactLedgerSource,
     sourceTurnId,
     ...(reason ? { reason } : {}),
   };
+}
+
+function parseOrigin(
+  value: unknown,
+  state: unknown,
+  source: unknown,
+): FactLedgerOrigin | null {
+  if (typeof value === "string") {
+    return ORIGINS.has(value) ? (value as FactLedgerOrigin) : null;
+  }
+  if (state === "unknown" || state === "declined") {
+    return "explicit_omission";
+  }
+  if (source === "owner") {
+    return "owner_message";
+  }
+  if (source === "uploaded_asset") {
+    return "uploaded_asset";
+  }
+  if (source === "system") {
+    return "accepted_decision";
+  }
+  return "safe_derivation";
 }
 
 function getOwnerEvidenceValue(entry: FactLedgerEntry): FactLedgerValue | null {

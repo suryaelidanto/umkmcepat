@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   createEmptyFactLedger,
+  createExplicitOmissionEntry,
   createFactLedgerEntriesFromPatch,
   getRenderableFactEntries,
   mergeFactLedger,
@@ -9,6 +10,192 @@ import {
 } from "./fact-ledger";
 
 describe("fact ledger", () => {
+  it("preserves each allowed origin while normalizing persisted entries", () => {
+    const ledger = normalizeFactLedger({
+      version: 1,
+      entries: [
+        ...[
+          "owner_message",
+          "uploaded_asset",
+          "accepted_decision",
+          "safe_derivation",
+          "design_only",
+          "explicit_omission",
+        ].map((origin, index) => ({
+          id: `origin-${index}`,
+          field: `field-${index}`,
+          label: `Field ${index}`,
+          origin,
+          source: index === 1 ? "uploaded_asset" : "owner",
+          state: index === 5 ? "declined" : "owner_confirmed",
+          value: index === 5 ? null : `value-${index}`,
+          sourceTurnId: null,
+        })),
+      ],
+    });
+
+    expect(ledger.entries.map((entry) => entry.origin)).toEqual([
+      "owner_message",
+      "uploaded_asset",
+      "accepted_decision",
+      "safe_derivation",
+      "design_only",
+      "explicit_omission",
+    ]);
+  });
+
+  it("drops unsupported origin entries before they can become renderable", () => {
+    const ledger = normalizeFactLedger({
+      version: 1,
+      entries: [
+        {
+          id: "fake-claim",
+          field: "claim",
+          label: "Claim",
+          origin: "unsupported",
+          source: "assistant",
+          state: "owner_confirmed",
+          value: "Tidak terverifikasi",
+          sourceTurnId: null,
+        },
+      ],
+    });
+
+    expect(ledger.entries).toHaveLength(0);
+    expect(getRenderableFactEntries(ledger)).toHaveLength(0);
+  });
+
+  it("creates an explicit omission that cannot render as a business fact", () => {
+    const omission = createExplicitOmissionEntry({
+      field: "visuals",
+      id: "visuals-omitted",
+      label: "Foto usaha",
+      reason: "owner skipped",
+    });
+
+    expect(omission).toMatchObject({
+      origin: "explicit_omission",
+      state: "declined",
+      value: null,
+    });
+    expect(
+      getRenderableFactEntries({ version: 1, entries: [omission] }),
+    ).toEqual([]);
+  });
+
+  it("marks owner-confirmed values as owner_message after evidence grounding", () => {
+    const [entry] = createFactLedgerEntriesFromPatch({
+      businessName: "Kopi Senja",
+    });
+
+    expect(entry?.origin).toBe("owner_message");
+  });
+
+  it("marks uploaded asset values as uploaded_asset", () => {
+    const ledger = mergeFactLedger(
+      createEmptyFactLedger(),
+      [
+        {
+          id: "logo",
+          field: "logo",
+          label: "Logo",
+          origin: "uploaded_asset",
+          value: "asset-1",
+          state: "owner_confirmed",
+          source: "uploaded_asset",
+          sourceTurnId: null,
+        },
+      ],
+      { ownerTexts: [] },
+    );
+
+    expect(ledger.entries[0]?.origin).toBe("uploaded_asset");
+  });
+
+  it("keeps a safe derivation distinct from owner-confirmed facts", () => {
+    const ledger = mergeFactLedger(
+      createEmptyFactLedger(),
+      [
+        {
+          id: "mood",
+          field: "mood",
+          label: "Nuansa",
+          origin: "safe_derivation",
+          value: "hangat",
+          state: "ai_suggestion",
+          source: "assistant",
+          sourceTurnId: "turn-1",
+        },
+      ],
+      { ownerTexts: [] },
+    );
+
+    expect(ledger.entries[0]).toMatchObject({
+      origin: "safe_derivation",
+      state: "ai_suggestion",
+    });
+    expect(getRenderableFactEntries(ledger)).toHaveLength(0);
+  });
+
+  it("does not accept another owner's text as evidence", () => {
+    const ledger = mergeFactLedger(
+      createEmptyFactLedger(),
+      [
+        {
+          id: "address",
+          field: "address",
+          label: "Alamat",
+          origin: "owner_message",
+          value: "Jl. Milik Toko Lain No. 1",
+          state: "owner_confirmed",
+          source: "owner",
+          sourceTurnId: "turn-1",
+        },
+      ],
+      { ownerTexts: ["Saya punya Kopi Senja di Jakarta Selatan."] },
+    );
+
+    expect(ledger.entries[0]).toMatchObject({
+      origin: "safe_derivation",
+      state: "ai_suggestion",
+    });
+  });
+
+  it("preserves explicit omissions when later patches contain no replacement", () => {
+    const omission = createExplicitOmissionEntry({
+      field: "hours",
+      id: "hours-omitted",
+      label: "Jam buka",
+      reason: "owner skipped",
+    });
+    const ledger = mergeFactLedger({ version: 1, entries: [omission] }, [], {
+      ownerTexts: [],
+    });
+
+    expect(ledger.entries).toEqual([omission]);
+  });
+
+  it("keeps design-only values out of the renderable fact collection", () => {
+    const ledger = normalizeFactLedger({
+      version: 1,
+      entries: [
+        {
+          id: "composition",
+          field: "composition",
+          label: "Komposisi",
+          origin: "design_only",
+          source: "system",
+          state: "owner_confirmed",
+          value: "editorial",
+          sourceTurnId: null,
+        },
+      ],
+    });
+
+    expect(ledger.entries[0]?.origin).toBe("design_only");
+    expect(getRenderableFactEntries(ledger)).toHaveLength(0);
+  });
+
   it("maps legacy provenance keys to renderable contract fields", () => {
     const entries = createFactLedgerEntriesFromPatch({
       facts: [
