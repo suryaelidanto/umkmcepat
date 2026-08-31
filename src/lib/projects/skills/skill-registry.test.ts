@@ -224,3 +224,17 @@ it("accepts camelCase aliases of allowlisted flags", async () => {
   });
   expect(result.ok).toBe(true);
 });
+
+it("accepts dash-prefixed flag keys and flag-style string args", async () => {
+  const objectForm = await executeSkillScript("impeccable", "concept-seed", {
+    "--scope": "direction",
+    "--mode": "persuade",
+  });
+  expect(objectForm.ok).toBe(true);
+  const stringForm = await executeSkillScript(
+    "impeccable",
+    "concept-seed",
+    "--scope direction --mode persuade",
+  );
+  expect(stringForm.ok).toBe(true);
+});

@@ -207,14 +207,25 @@ class DynamicSkillEngine {
     }
 
     const flags = getAllowlistedFlags(withoutScriptsPrefix);
-    const argKeys =
+    const rawKeys =
       args && typeof args === "object" && !Array.isArray(args)
         ? Object.keys(args)
         : [];
+    const stringArgs =
+      typeof args === "string"
+        ? args
+            .split(/\s+/)
+            .filter((token) => token.startsWith("--"))
+            .map((token) => token.slice(2))
+        : [];
+    const flagKeys = [...rawKeys, ...stringArgs];
     if (
-      argKeys.length > 0 &&
+      flagKeys.length > 0 &&
       (flags === null ||
-        argKeys.some((key) => !flags.has(kebabFlag(key)) && !flags.has(key)))
+        flagKeys.some(
+          (key) =>
+            !flags.has(kebabFlag(key).replace(/^-+/u, "")) && !flags.has(key),
+        ))
     ) {
       return {
         ok: false,
@@ -223,10 +234,14 @@ class DynamicSkillEngine {
     }
 
     const timeoutMs = options?.timeoutMs ?? SCRIPT_TIMEOUT_MS;
+    const cliArgs =
+      typeof args === "string"
+        ? args.split(/\s+/).filter(Boolean)
+        : argsToCli(args);
     try {
       const { stdout, stderr } = await execFileAsync(
         process.execPath,
-        [scriptPath, ...argsToCli(args)],
+        [scriptPath, ...cliArgs],
         {
           cwd: process.cwd(),
           env: {
