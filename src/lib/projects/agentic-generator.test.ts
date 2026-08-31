@@ -147,7 +147,8 @@ async function readCoreSkills(tools: Record<string, AgentTool>) {
 async function completeAgentWorkflow(tools: Record<string, AgentTool>) {
   await readCoreSkills(tools);
   await tools.write_file.execute({
-    content: "export const generated = true;",
+    content:
+      "export const generated = true;\n/* authored entrance: @keyframes umkm-entrance */",
     path: "src/routes/generated.tsx",
   });
   await tools.check_app.execute({});
@@ -250,7 +251,8 @@ describe("runAgenticGenerate", () => {
       const tools = getTools(args);
       await readCoreSkills(tools);
       await tools.write_file.execute({
-        content: "export const generated = true;",
+        content:
+          "export const generated = true;\n/* authored entrance: @keyframes umkm-entrance */",
         path: "src/routes/generated.tsx",
       });
       await tools.check_app.execute({});
@@ -292,7 +294,8 @@ describe("runAgenticGenerate", () => {
         ring: "#0369a1",
       });
       const rejected = await tools.write_file.execute({
-        content: "export const generated = true;",
+        content:
+          "export const generated = true;\n/* authored entrance: @keyframes umkm-entrance */",
         path: "src/routes/generated.tsx",
       });
       expect(rejected).toMatchObject({
@@ -300,7 +303,8 @@ describe("runAgenticGenerate", () => {
       });
       await readCoreSkills(tools);
       const write = await tools.write_file.execute({
-        content: "export const generated = true;",
+        content:
+          "export const generated = true;\n/* authored entrance: @keyframes umkm-entrance */",
         path: "src/routes/generated.tsx",
       });
       expect(write).toMatchObject({ success: true });
@@ -347,7 +351,8 @@ describe("runAgenticGenerate", () => {
         ring: "#0369a1",
       });
       const rejected = await tools.write_file.execute({
-        content: "export const generated = true;",
+        content:
+          "export const generated = true;\n/* authored entrance: @keyframes umkm-entrance */",
         path: "src/routes/generated.tsx",
       });
       expect(rejected).toMatchObject({
@@ -372,7 +377,8 @@ describe("runAgenticGenerate", () => {
         skill: "impeccable",
       });
       await tools.write_file.execute({
-        content: "export const generated = true;",
+        content:
+          "export const generated = true;\n/* authored entrance: @keyframes umkm-entrance */",
         path: "src/routes/generated.tsx",
       });
       await tools.check_app.execute({});
@@ -455,7 +461,8 @@ describe("runAgenticGenerate", () => {
         thesis: "The offer leads instead of a generic hero.",
       });
       const result = await tools.write_file.execute({
-        content: "export const generated = true;",
+        content:
+          "export const generated = true;\n/* authored entrance: @keyframes umkm-entrance */",
         path: "src/routes/generated.tsx",
       });
       expect(result).toEqual(
@@ -618,7 +625,8 @@ describe("runAgenticGenerate", () => {
       const tools = getTools(args);
       await readCoreSkills(tools);
       await tools.write_file.execute({
-        content: "export const generated = true;",
+        content:
+          "export const generated = true;\n/* authored entrance: @keyframes umkm-entrance */",
         path: "src/routes/generated.tsx",
       });
       return { text: "Done", steps: [] };
@@ -799,5 +807,67 @@ describe("generated design docs", () => {
     );
     const partialProduct = partial.files.find((f) => f.path === "PRODUCT.md");
     expect(partialProduct?.content).toContain("OLD PRODUCT MARKER");
+  });
+});
+
+describe("mandatory authored motion gate", () => {
+  it("fails check_app with motion_missing when custom source has no motion", async () => {
+    let gateResult: { failureReason?: string | null } | undefined;
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      const tools = getTools(args);
+      await readCoreSkills(tools);
+      await tools.write_file.execute({
+        content: "export const generated = true;",
+        path: "src/routes/generated.tsx",
+      });
+      gateResult = (await tools.check_app.execute({})) as {
+        failureReason?: string | null;
+      };
+      return { text: "Done", steps: [] };
+    });
+    await expect(runAgenticGenerate(createInput())).rejects.toThrow(
+      /Motion gate/,
+    );
+    expect(gateResult?.failureReason).toBe("motion_missing");
+  });
+
+  it("passes the gate when custom source carries an authored motion marker", async () => {
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      const tools = getTools(args);
+      await readCoreSkills(tools);
+      await tools.write_file.execute({
+        content:
+          "export const generated = true;\n/* authored entrance: @keyframes umkm-entrance */",
+        path: "src/routes/generated.tsx",
+      });
+      await tools.check_app.execute({});
+      return { text: "Done", steps: [] };
+    });
+    await expect(runAgenticGenerate(createInput())).resolves.toMatchObject({
+      generationMode: "agentic",
+    });
+  });
+
+  it("skips the motion gate on explicit motionOptOut", async () => {
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      const tools = getTools(args);
+      await readCoreSkills(tools);
+      await tools.write_file.execute({
+        content: "export const generated = true;",
+        path: "src/routes/generated.tsx",
+      });
+      await tools.check_app.execute({});
+      return { text: "Done", steps: [] };
+    });
+    await expect(
+      runAgenticGenerate(createInput({ motionOptOut: true })),
+    ).resolves.toMatchObject({ generationMode: "agentic" });
+  });
+
+  it("maps contract motion preferences with moderate as the default", async () => {
+    const { resolveMotionIntensity } = await import("./motion-policy");
+    expect(resolveMotionIntensity(null)).toBe("moderate");
+    expect(resolveMotionIntensity("minimal")).toBe("minimal");
+    expect(resolveMotionIntensity("expressive")).toBe("expressive");
   });
 });

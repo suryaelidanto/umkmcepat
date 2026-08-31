@@ -1,3 +1,4 @@
+import { MOTION_PRESET_CSS } from "./motion-preset";
 import {
   SHADCN_BUTTON_FILE,
   SHADCN_CARD_FILE,
@@ -203,7 +204,10 @@ export function createViteTanStackShadcnStarterFiles(
       path: "src/main.tsx",
       content: `import { RouterProvider } from "@tanstack/react-router";\nimport { StrictMode } from "react";\nimport { createRoot } from "react-dom/client";\n\nimport { router } from "./router";\nimport "./index.css";\n\ncreateRoot(document.getElementById("root")!).render(\n  <StrictMode>\n    <RouterProvider router={router} />\n  </StrictMode>,\n);\n`,
     },
-    { path: "src/index.css", content: shadcnThemeCss(schema) },
+    {
+      path: "src/index.css",
+      content: `${shadcnThemeCss(schema)}\n${MOTION_PRESET_CSS}`,
+    },
     SHADCN_UTILS_FILE,
     SHADCN_COMPONENTS_JSON_FILE,
     SHADCN_BUTTON_FILE,

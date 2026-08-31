@@ -38,7 +38,14 @@ import {
   createGeneratedViteTanStackStarterFiles,
 } from "@/lib/projects/generated-source";
 import { scanSourceClaims } from "@/lib/projects/high-risk-claims";
+import {
+  buildMotionPromptLine,
+  hasAuthoredMotionMarker,
+  MOTION_MISSING_REASON,
+  resolveMotionIntensity,
+} from "@/lib/projects/motion-policy";
 import { renewProjectOperation } from "@/lib/projects/project-operation";
+import { MOTION_PRESET_CSS } from "@/lib/projects/scaffold/motion-preset";
 import { isProtectedScaffoldPath } from "@/lib/projects/scaffold/protected-paths";
 import {
   resolveShadcnDeps,
@@ -248,6 +255,7 @@ export async function runAgenticGenerate(input: {
   buildPlan?: BuildPlanV1;
   fullRebuild?: boolean;
   initialFiles?: GeneratedProjectFile[];
+  motionOptOut?: boolean;
   revisionBrief?: string | null;
   onEvent?: (
     type:
@@ -715,7 +723,7 @@ export default site;
             issues: result.issues,
           };
         }
-        fileMap.set("src/index.css", result.css);
+        fileMap.set("src/index.css", `${result.css}\n${MOTION_PRESET_CSS}`);
         touched.add("src/index.css");
         designSystemState = proposal;
         designSystemAccepted = true;
@@ -1137,6 +1145,25 @@ export default site;
           };
         }
 
+        if (!isRevisionMode && !input.motionOptOut) {
+          const customSourceHasMotion = Array.from(fileMap.entries()).some(
+            ([file, content]) =>
+              (file.startsWith("src/routes/") ||
+                file.startsWith("src/components/") ||
+                file.startsWith("src/content/")) &&
+              hasAuthoredMotionMarker(content),
+          );
+          if (!customSourceHasMotion) {
+            return {
+              ok: false,
+              failureReason: MOTION_MISSING_REASON,
+              errors: [
+                "Motion gate: author one deliberate entrance or scroll moment using the preset keyframes in src/index.css. Keep content visible and honor prefers-reduced-motion.",
+              ],
+            };
+          }
+        }
+
         const currentFiles: GeneratedProjectFile[] = Array.from(
           fileMap.entries(),
         ).map(([path, content]) => ({
@@ -1206,6 +1233,11 @@ ${workflowInstructions}${acceptedFactsSection}${ledgerSection}${discussionSectio
 Protected files are read-only: src/content/site.ts, src/index.css, src/main.tsx, src/router.tsx, src/routes/__root.tsx, src/routes/not-found.tsx, src/lib/preview-ready.ts, src/lib/utils.ts, src/components/ui/button.tsx, and src/components/ui/card.tsx.
 
 Keep customer-facing copy grounded in site data. Omit unknown facts. Use approved /media paths only. Never use href=\"#\" or href=\"#/\" as a business CTA fallback. Use site.primaryCtaTarget when it exists; otherwise omit the action or render it as non-interactive text. Do not add packages, APIs, remote assets, fake transactions, login, persistence, or unsupported interactions. Use semantic theme tokens and preserve keyboard access, readable contrast, reduced motion, and safe mobile overflow. Do not invent package sizes, quantities, dates, hours, addresses, ratings, certifications, guarantees, or promotional adjectives. Bind every price, phone number, delivery area, product fact, and USP directly from site; do not repeat those literals in JSX. If a source write is rejected for a fact restriction, remove the reported unsupported literal rather than moving the same claim to another file.
+
+${buildMotionPromptLine(
+  resolveMotionIntensity(input.buildContract?.preferences.motion ?? null),
+  input.motionOptOut ?? false,
+)}
 
 Progress labels and details must be plain Indonesian. Do not expose file names, compiler terms, implementation jargon, or raw errors.`;
 
@@ -1387,6 +1419,17 @@ ${executionContext}`;
 
   ensureAllShadcnImportsResolved(fileMap, touched);
 
+  const engineEmittedDocs = new Set([PRODUCT_DOC_PATH, DESIGN_DOC_PATH]);
+  const customFilesWritten = isRevisionMode
+    ? Array.from(touched).some((p) => !engineEmittedDocs.has(p))
+    : Array.from(touched).some(
+        (p) => p !== "src/index.css" && !engineEmittedDocs.has(p),
+      );
+
+  if (!customFilesWritten) {
+    throw new Error("Agent did not write a custom source file.");
+  }
+
   if (!checkAppCalls || lastCheckOk !== true) {
     const finalCheckRes = (await tools.check_app.execute(
       {
@@ -1407,16 +1450,6 @@ ${executionContext}`;
     throw new Error(
       `Agent did not read required skills before finishing: ${missing.join(", ")}.`,
     );
-  }
-  const engineEmittedDocs = new Set([PRODUCT_DOC_PATH, DESIGN_DOC_PATH]);
-  const customFilesWritten = isRevisionMode
-    ? Array.from(touched).some((p) => !engineEmittedDocs.has(p))
-    : Array.from(touched).some(
-        (p) => p !== "src/index.css" && !engineEmittedDocs.has(p),
-      );
-
-  if (!customFilesWritten) {
-    throw new Error("Agent did not write a custom source file.");
   }
   if (!checkAppCalls) {
     throw new Error("Agent did not call check_app before finishing.");
