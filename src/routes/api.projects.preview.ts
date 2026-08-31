@@ -620,10 +620,12 @@ async function repairWorkspaceCard({
         type: "build_recommendation";
         title: string;
         summary: string[];
+        postBuildUpdate?: boolean;
       };
       finalWorkspaceCard = {
         type: "build_recommendation",
         engine: "contract" as const,
+        ...(base.postBuildUpdate ? { postBuildUpdate: true } : {}),
         title: base.title,
         summary: describeBuildRecommendation(prepared.contract, prepared.plan),
         handoffId: prepared.handoffId,

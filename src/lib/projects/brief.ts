@@ -138,6 +138,7 @@ export type ContractBuildRecommendationCard = {
   engine?: "contract";
   title: string;
   summary: string[];
+  postBuildUpdate?: boolean;
   handoffId?: string;
   reviewHash?: string;
   reviewItems?: Array<{

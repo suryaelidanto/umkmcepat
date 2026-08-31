@@ -1167,6 +1167,9 @@ describe("normalizeWorkspaceTurn", () => {
     );
 
     expect(turn.workspaceCard.type).toBe("build_recommendation");
+    if (turn.workspaceCard.type === "build_recommendation") {
+      expect(turn.workspaceCard.postBuildUpdate).toBe(true);
+    }
   });
 
   it("automatically emits build_recommendation post-build when user asks for an edit even if model emitted type none", () => {
@@ -1193,6 +1196,9 @@ describe("normalizeWorkspaceTurn", () => {
     );
 
     expect(turn.workspaceCard.type).toBe("build_recommendation");
+    if (turn.workspaceCard.type === "build_recommendation") {
+      expect(turn.workspaceCard.postBuildUpdate).toBe(true);
+    }
   });
 
   it("still allows a question card pre-build (hasBuiltSite: false / omitted) — same input as the built-site test above", () => {

@@ -564,6 +564,7 @@ export async function runEditAttempt({
                   buildLog: buildResult.logText,
                   buildStatus: "passed",
                   builtAt: new Date(),
+                  workspaceCard: { type: "none" },
                   distFiles: buildResult.distFiles,
                   sourceFiles: editResult.files,
                   status: "ready",

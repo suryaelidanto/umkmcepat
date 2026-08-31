@@ -1077,12 +1077,14 @@ export async function runDiscussTurn({
           type: "build_recommendation";
           title: string;
           summary: string[];
+          postBuildUpdate?: boolean;
         };
         workspaceTurn = {
           ...workspaceTurn,
           workspaceCard: {
             type: "build_recommendation",
             engine: "contract" as const,
+            ...(base.postBuildUpdate ? { postBuildUpdate: true } : {}),
             title: base.title,
             // Read from the frozen contract, never the model's prose, so the
             summary: describeBuildRecommendation(

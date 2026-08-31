@@ -399,6 +399,8 @@ export function normalizeWorkspaceTurn(
     ) {
       if (!isUpdateRequested) {
         workspaceCard = { type: "none" };
+      } else if (workspaceCard.type === "build_recommendation") {
+        workspaceCard = { ...workspaceCard, postBuildUpdate: true };
       }
     } else if (
       isUpdateRequested &&
@@ -406,6 +408,7 @@ export function normalizeWorkspaceTurn(
     ) {
       workspaceCard = {
         type: "build_recommendation",
+        postBuildUpdate: true,
         title: "Perbarui website",
         summary: ["Terapkan perubahan dan foto baru ke website"],
       };
@@ -812,6 +815,7 @@ function normalizeWorkspaceCard(
     handoffId?: unknown;
     reviewHash?: unknown;
     reviewItems?: unknown;
+    postBuildUpdate?: unknown;
   };
 
   if (value.type === "image_upload") {
@@ -847,6 +851,7 @@ function normalizeWorkspaceCard(
       engine: "contract" as const,
       title:
         typeof value.title === "string" ? value.title : "Website siap dibuat",
+      ...(value.postBuildUpdate === true ? { postBuildUpdate: true } : {}),
       summary: Array.isArray(value.summary)
         ? (value.summary as unknown[]).filter(
             (item): item is string => typeof item === "string",

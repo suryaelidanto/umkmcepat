@@ -346,6 +346,7 @@ export function WorkspaceShell({
   );
   const [postBuildChatOpen, setPostBuildChatOpen] = useState(
     () =>
+      hasInitialPreview ||
       initialMessages.length > 0 ||
       initialWorkspaceCard.type === "build_recommendation",
   );
@@ -1413,6 +1414,10 @@ export function WorkspaceShell({
 
       if (result.kind === "done") {
         setBuildStatus("ready");
+        setWorkspaceCard({ type: "none" });
+        setPostBuildChatOpen(true);
+        setMode("discuss");
+        setMobileSurface("chat");
         setBuildProgress((current) => completeBuildStreamProgress(current));
         patchProjectInList({ buildStatus: "ready" });
         void loadRuntimeState();

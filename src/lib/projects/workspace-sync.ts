@@ -171,6 +171,11 @@ export function getWorkspaceComposerState({
       return "build_failed_with_last_good";
     }
 
+    // First-build recommendations are stale after the website exists.
+    if (card.type === "build_recommendation" && !card.postBuildUpdate) {
+      return postBuildChatOpen ? "post_build_chat" : "post_build_review";
+    }
+
     // After a successful build, "Chat dengan AI" opens discuss first.
     if (postBuildChatOpen) {
       if (card.type === "build_recommendation" && heldEffective) {
@@ -186,6 +191,12 @@ export function getWorkspaceComposerState({
       }
 
       return "post_build_chat";
+    }
+
+    if (card.type === "build_recommendation" && !cardConsumed) {
+      return heldEffective
+        ? "held_build_recommendation"
+        : "build_recommendation";
     }
 
     return "post_build_review";

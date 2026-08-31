@@ -168,7 +168,7 @@ describe("workspace chat sync", () => {
         held: true,
         postBuildChatOpen: true,
       }),
-    ).toBe("held_build_recommendation");
+    ).toBe("post_build_chat");
     expect(
       getWorkspaceComposerState({
         buildComplete: true,
@@ -176,7 +176,7 @@ describe("workspace chat sync", () => {
         held: false,
         postBuildChatOpen: true,
       }),
-    ).toBe("build_recommendation");
+    ).toBe("post_build_chat");
   });
 
   it("hides stale build_recommendation cards after the website has been built", () => {
@@ -194,6 +194,14 @@ describe("workspace chat sync", () => {
         postBuildChatOpen: false,
       }),
     ).toBe("post_build_review");
+    expect(
+      getWorkspaceComposerState({
+        buildComplete: true,
+        card,
+        held: false,
+        postBuildChatOpen: true,
+      }),
+    ).toBe("post_build_chat");
   });
 
   it("never resurfaces a build_recommendation signature that was already used to start a build", () => {
@@ -261,6 +269,7 @@ describe("workspace chat sync", () => {
       type: "build_recommendation",
     };
     const freshCard: WorkspaceCard = {
+      postBuildUpdate: true,
       summary: ["Baru"],
       title: "Rancangan baru",
       type: "build_recommendation",
@@ -274,6 +283,15 @@ describe("workspace chat sync", () => {
         consumedSignatures: consumed,
         held: false,
         postBuildChatOpen: true,
+      }),
+    ).toBe("build_recommendation");
+
+    expect(
+      getWorkspaceComposerState({
+        buildComplete: true,
+        card: freshCard,
+        held: false,
+        postBuildChatOpen: false,
       }),
     ).toBe("build_recommendation");
   });

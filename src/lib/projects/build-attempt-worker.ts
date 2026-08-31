@@ -806,6 +806,7 @@ export async function runBuildAttempt({
           data: {
             buildLog: finalBuildResult.log,
             buildStatus: finalBuildResult.ok ? "passed" : "failed",
+            ...(finalBuildResult.ok ? { workspaceCard: { type: "none" } } : {}),
             ...(finalBuildResult.ok && acceptedHandoff
               ? {
                   activeHandoffId: acceptedHandoff.id,

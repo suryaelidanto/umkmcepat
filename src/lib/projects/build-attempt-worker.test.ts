@@ -377,6 +377,7 @@ describe("runBuildAttempt — tool-loop generation", () => {
         data: expect.objectContaining({
           activeHandoffId: "handoff-1",
           brief: acceptedHandoff.briefSnapshot,
+          workspaceCard: { type: "none" },
         }),
       }),
     );
