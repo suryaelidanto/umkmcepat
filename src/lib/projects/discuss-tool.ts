@@ -2,6 +2,8 @@ import { tool } from "ai";
 import { z } from "zod";
 
 import { getSettingSync } from "@/lib/config/app-settings";
+import { parseCanonicalBrief } from "@/lib/projects/canonical-brief";
+import { getUnresolvedDiscussionDomains } from "@/lib/projects/discussion-domains";
 import { unstringifyJsonObject } from "@/lib/projects/json-unstringify";
 import { DISCUSS_SYSTEM_PROMPT } from "@/lib/projects/prompts/discuss-system";
 import {
@@ -300,13 +302,17 @@ export function buildOneCallSystemPrompt({
   const photoRule = photoEnabled
     ? '\nPHOTO FEATURE ON: Photo uploads are enabled. For businesses with visual products (food, fashion, craft, salon, cafe), you can emit type="image_upload" with purpose="business-image" to ask the owner for photos of their storefront, menu, or products. The UI allows them to upload or easily skip with a button.'
     : "\nPHOTO FEATURE OFF: Photo uploads are disabled via /admin/settings (feature.composer_uploads_enabled=false). NEVER mention, suggest, or ask photo/image upload questions in chat or option cards. Focus strictly on text, typography, color palette, trust points, and content details.";
+  const unresolvedDomains = getUnresolvedDiscussionDomains(
+    parseCanonicalBrief(brief),
+  );
+  const domainRule = `\nADAPTIVE DISCUSSION DOMAINS: Track six areas without repeating answered questions: identity_transaction, selling_angle, audience_decision, operations, proof_assets, visual_direction. Still unresolved: ${unresolvedDomains.length ? unresolvedDomains.join(", ") : "none"}. Choose the next question with the highest value for the owner's next decision; accept an explicit omission and record it instead of asking again.`;
 
   if (hasBuiltSite) {
     const syncStateDirective = hasPendingChanges
       ? '\nSYNC STATE (DIRTY): New changes have been discussed/updated that are NOT yet rendered in the preview. When the user confirms or wants to see them applied, emit type="build_recommendation" with a title and a short summary of the changes.'
       : '\nSYNC STATE (CLEAN): The website in preview is already 100% up-to-date with all agreed details. DO NOT blindly rebuild. If the user asks to update or build with no new changes, warmly ask in assistantText what specific part they want to refine, and emit type="question" with relevant refinement options or type="none".';
 
-    return `${buildChatSystemPrompt({ brief, context, hasBuiltSite })}${photoRule}${syncStateDirective}
+    return `${buildChatSystemPrompt({ brief, context, hasBuiltSite })}${domainRule}${photoRule}${syncStateDirective}
 
 ${UNSLOP_SYSTEM_INSTRUCTION}
 
@@ -318,7 +324,7 @@ Choose a build recommendation when changes are ready, a question when clarificat
 This is an edit request, not an interview. Never put type at the top level without workspaceCard. Never put JSON in free chat text. Put the user-visible reply in assistantText.`;
   }
 
-  return `${buildChatSystemPrompt({ brief, context, hasBuiltSite })}${photoRule}
+  return `${buildChatSystemPrompt({ brief, context, hasBuiltSite })}${domainRule}${photoRule}
 
 ${UNSLOP_SYSTEM_INSTRUCTION}
 
@@ -338,7 +344,7 @@ INTERVIEW DISCIPLINE — one question per turn:
 - The question sets recommendedOptionLabel (your default) — user can accept in one click.
 - Do not ask fields inferable from brief/chat. Walk the decision tree, resolve the deepest open dependency first.
 - NEVER re-ask a question id that already appears in brief.facts/decisions. Skip answered fields and pick the next unfilled applicable field. Re-asking the same id wastes a turn and will be blocked by the server.
-- Keep asking one question per turn until every structural decision (offer/primary offer, visitor job + CTA, local-vs-online, media strategy, visual direction) is answered or explicitly declined. The server authorizes the build recommendation; model confidence alone never does. Never expose confidence percentages or answered-field counts to the user.
+- Cover the six adaptive domains (identity/transaction, selling angle, audience/decision, operations, proof/assets, visual direction) one decision at a time. Prioritize the highest-information unresolved domain, skip what the brief already proves, and accept explicit omissions. The server authorizes the build recommendation; model confidence alone never does. Never expose confidence percentages or answered-field counts to the user.
 
 Never put JSON in free chat text. Put the user-visible reply in assistantText.
 Use type="question" with a single question and a stable string question.id, or type="image_upload" when asking for photos.
@@ -383,7 +389,7 @@ Rules:
 - assistantText and workspaceCard.question MUST ask the SAME question. Acknowledge the last answer, then ask exactly the card's question — never a different one, and never a second question the card does not carry
 - NEVER re-ask a question id that already appears in brief.facts/decisions — pick the next unfilled applicable field; re-asking the same id will be blocked
 - Set confidence to 95+ only when genuinely build-ready
-- RELENTLESS PROBING: Probe through all Tier 1 (name, offers, contact) and Tier 2 fields (pricing, USP, location, photos) before recommending build. If the user skips photos, accept immediately and NEVER ask for photos again. Use "build_recommendation" when all Tier 2 fields have been asked/resolved or skipped, or when the user explicitly commands an immediate build. Keep asking the next missing question otherwise. Never emit premature build recommendations on early turns. The server authorizes build readiness; model confidence does not. Never surface confidence percentages or field counts to the user.
+- ADAPTIVE PROBING: Cover identity/transaction, selling angle, audience/decision, operations, proof/assets, and visual direction. Ask one high-information question at a time, skip fields inferable from the brief, and record explicit omissions so they are not repeated. Tier 1 (name, offers, contact) remains required; Tier 2 asks pricing, USP, location, and photos when applicable. If the user skips photos, accept immediately and NEVER ask for photos again. Use "build_recommendation" only when the server says the core is ready or the user explicitly commands an immediate build. Never emit premature build recommendations. The server authorizes build readiness; model confidence does not. Never surface confidence percentages or field counts to the user.
 - briefPatch and workspaceCard MUST be JSON objects (nested inside the tool call), NOT JSON-encoded strings. Never put a stringified JSON blob where an object belongs.
 
 Output valid JSON only. Put the user-visible reply in assistantText, not as free chat prose.
