@@ -46,7 +46,7 @@ export function WhatsAppCommunityInvite({
   const invitation = content.homepage;
   const invitationContent = (
     <div className="mx-auto max-w-6xl">
-      <div className="flex flex-col items-start justify-between gap-spacing-7 rounded-radius-2xl border border-black/10 bg-black/[0.02] px-spacing-7 py-spacing-8 transition-colors dark:border-surface-warm-white/12 dark:bg-surface-warm-white/[0.04] sm:flex-row sm:items-center sm:px-spacing-9">
+      <div className="flex flex-col items-start justify-between gap-spacing-7 rounded-radius-2xl border border-black/10 bg-black/[0.02] px-spacing-7 py-spacing-7 transition-colors dark:border-surface-warm-white/12 dark:bg-surface-warm-white/[0.04] sm:flex-row sm:items-center sm:px-spacing-9 sm:py-spacing-8">
         <div className="max-w-2xl">
           <h2 className="text-2xl font-semibold tracking-[-0.04em] text-[#1c1c1c] dark:text-surface-warm-white sm:text-3xl">
             {invitation.heading}
@@ -75,7 +75,7 @@ export function WhatsAppCommunityInvite({
   return (
     <section
       aria-label="Grup diskusi UMKM"
-      className="bg-[#eceae4] px-4 pb-spacing-14 dark:bg-[#151515] sm:px-spacing-9 lg:px-spacing-10"
+      className="bg-[#eceae4] px-4 pt-spacing-6 pb-spacing-14 dark:bg-[#151515] sm:px-spacing-9 sm:pt-spacing-8 sm:pb-spacing-16 lg:px-spacing-10"
     >
       {invitationContent}
     </section>

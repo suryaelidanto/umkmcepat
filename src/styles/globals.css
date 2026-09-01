@@ -668,6 +668,50 @@ html {
     animation-play-state: paused;
   }
 
+  @keyframes panel-step-in {
+    from {
+      opacity: 0;
+      transform: translateY(12px) scale(0.99);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  .panel-step-in {
+    animation: panel-step-in 0.4s ease-out both;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .panel-step-in {
+      animation: none;
+    }
+  }
+
+  @keyframes logo-marquee-scroll {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  .logo-marquee-track {
+    animation: logo-marquee-scroll 32s linear infinite;
+  }
+
+  .logo-marquee-mask:hover .logo-marquee-track {
+    animation-play-state: paused;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .logo-marquee-track {
+      animation: none;
+    }
+  }
+
   .type-display-hero {
     font-size: clamp(3.6rem, 9.4vw, 8.25rem);
     font-weight: 480;

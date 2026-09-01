@@ -5,11 +5,13 @@ import { useState, type CSSProperties } from "react";
 
 import { WhatsAppCommunityInvite } from "@/components/community/WhatsAppCommunityInvite";
 import { CommunitySection } from "@/components/home/CommunitySection";
+import { EcosystemSection } from "@/components/home/EcosystemSection";
 import { HeroAuroraBackground } from "@/components/home/HeroAuroraBackground";
 import {
   HeroContentMotion,
   HeroMotionItem,
 } from "@/components/home/HeroContentMotion";
+import { HowItWorksSection } from "@/components/home/HowItWorksSection";
 import { ResetCursorOnMount } from "@/components/home/ResetCursorOnMount";
 import { ScrollReveal } from "@/components/home/ScrollReveal";
 import { HomePromptForm } from "@/components/projects/dashboard/HomePromptForm";
@@ -78,6 +80,9 @@ const loadHome = createServerFn({ method: "GET" }).handler(async () => {
       : 0;
     const projectLimit = getProjectLimit();
     const overProjectLimit = isAtOrOverProjectLimit(projectCount, projectLimit);
+    const publishedSiteCount = await prisma.project.count({
+      where: { buildStatus: "succeeded" },
+    });
 
     const email = session?.user?.email ?? null;
     const isAdmin = email ? isAdminEmail(email) : false;
@@ -109,6 +114,7 @@ const loadHome = createServerFn({ method: "GET" }).handler(async () => {
       overProjectLimit,
       projectCount,
       projectLimit,
+      publishedSiteCount,
     };
   } catch (error) {
     console.warn(
@@ -124,6 +130,7 @@ const loadHome = createServerFn({ method: "GET" }).handler(async () => {
       overProjectLimit: false,
       projectCount: 0,
       projectLimit: getProjectLimit(),
+      publishedSiteCount: 0,
     };
   }
 });
@@ -185,71 +192,6 @@ function HeroSubline() {
   return "Tanpa coding, tanpa desainer, tanpa ribet.";
 }
 
-function CaraKerjaSection() {
-  return (
-    <section
-      className="border-t-0 bg-[#eceae4] px-4 py-20 text-[#1c1c1c] dark:border-t dark:border-white/[0.07] dark:bg-[#151515] dark:text-surface-warm-white sm:px-spacing-9 lg:px-spacing-10"
-      id="cara-kerja"
-    >
-      <div className="mx-auto max-w-5xl">
-        <div className="text-center">
-          <h2 className="text-3xl font-semibold tracking-[-0.04em] text-[#1c1c1c] dark:text-surface-warm-white sm:text-4xl">
-            Tiga langkah mudah
-          </h2>
-          <p className="mt-3 text-base text-[#5f5f5d] dark:text-surface-warm-white/60">
-            Tanpa perlu paham koding. Ceritakan usahamu, kami yang siapkan
-            sisanya.
-          </p>
-        </div>
-
-        <div className="mt-14 grid grid-cols-1 gap-8 md:grid-cols-3">
-          {/* Step 1 */}
-          <div className="flex flex-col rounded-2xl border border-black/10 bg-[#fcfbf8] p-8 shadow-sm transition-colors dark:border-white/10 dark:bg-[#1c1c1a] dark:shadow-none">
-            <span className="font-mono text-2xl font-bold text-accent-orange">
-              01
-            </span>
-            <h3 className="mt-4 text-lg font-bold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white">
-              Ceritakan usaha
-            </h3>
-            <p className="mt-2 text-sm leading-relaxed text-[#5f5f5d] dark:text-surface-warm-white/60">
-              Tulis nama toko, menu atau jasa yang kamu tawarkan, serta kontak
-              WhatsApp.
-            </p>
-          </div>
-
-          {/* Step 2 */}
-          <div className="flex flex-col rounded-2xl border border-black/10 bg-[#fcfbf8] p-8 shadow-sm transition-colors dark:border-white/10 dark:bg-[#1c1c1a] dark:shadow-none">
-            <span className="font-mono text-2xl font-bold text-accent-orange">
-              02
-            </span>
-            <h3 className="mt-4 text-lg font-bold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white">
-              AI bikin websitenya
-            </h3>
-            <p className="mt-2 text-sm leading-relaxed text-[#5f5f5d] dark:text-surface-warm-white/60">
-              Dalam beberapa menit, teks penawaran, susunan menu, dan tombol
-              order langsung siap.
-            </p>
-          </div>
-
-          {/* Step 3 */}
-          <div className="flex flex-col rounded-2xl border border-black/10 bg-[#fcfbf8] p-8 shadow-sm transition-colors dark:border-white/10 dark:bg-[#1c1c1a] dark:shadow-none">
-            <span className="font-mono text-2xl font-bold text-accent-orange">
-              03
-            </span>
-            <h3 className="mt-4 text-lg font-bold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white">
-              Bagikan ke pembeli
-            </h3>
-            <p className="mt-2 text-sm leading-relaxed text-[#5f5f5d] dark:text-surface-warm-white/60">
-              Sebar tautan ke bio Instagram atau Google Maps agar calon
-              pelanggan bisa chat dan pesan langsung ke WhatsApp.
-            </p>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 export const Route = createFileRoute("/_main/")({
   loader: async () => loadHome(),
   component: HomePage,
@@ -265,6 +207,7 @@ function HomePage() {
     overProjectLimit: _overProjectLimit,
     projectCount: _projectCount,
     projectLimit: _projectLimit,
+    publishedSiteCount,
   } = Route.useLoaderData();
 
   const [promptFocused, setPromptFocused] = useState(false);
@@ -378,7 +321,8 @@ function HomePage() {
 
       {!hasUser ? (
         <>
-          <CaraKerjaSection />
+          <HowItWorksSection />
+          <EcosystemSection publishedSiteCount={publishedSiteCount} />
           <CommunitySection />
           <WhatsAppCommunityInvite variant="homepage" />
         </>
