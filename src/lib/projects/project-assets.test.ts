@@ -6,6 +6,7 @@ import {
   deleteProjectAssetById,
   detectImageFormat,
   filterOwnedBusinessAssetIds,
+  listProjectBusinessImagesForDiscussion,
   listProjectAssetsWithUsage,
   parseProjectAssetRef,
   readProjectAsset,
@@ -362,6 +363,24 @@ describe("project assets", () => {
         isUsed: true,
       });
       expect(result.assets[1].isUsed).toBe(false);
+    });
+  });
+
+  describe("listProjectBusinessImagesForDiscussion", () => {
+    it("returns owner-scoped image metadata in creation order", async () => {
+      const findMany = vi.fn(async () => [
+        { id: "asset-1", contentType: "image/webp" },
+      ]);
+      const result = await listProjectBusinessImagesForDiscussion("p1", "u1", {
+        projectAsset: { findMany },
+      } as never);
+
+      expect(result).toEqual([{ id: "asset-1", contentType: "image/webp" }]);
+      expect(findMany).toHaveBeenCalledWith({
+        orderBy: { createdAt: "asc" },
+        select: { contentType: true, id: true },
+        where: { projectId: "p1", purpose: "business-image", userId: "u1" },
+      });
     });
   });
 

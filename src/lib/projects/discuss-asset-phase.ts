@@ -40,6 +40,64 @@ type TempImagePartRef = {
   partUrl: string;
 };
 
+export type PersistedProjectImage = {
+  contentType: string;
+  id: string;
+};
+
+function persistedAssetIdFromUrl(url: string): string | null {
+  for (const prefix of ["/api/media/", "/media/"]) {
+    if (url.startsWith(prefix)) {
+      const assetId = url.slice(prefix.length);
+      return assetId || null;
+    }
+  }
+  return null;
+}
+
+export function attachPersistedProjectAssets(
+  messages: UIMessage[],
+  assets: PersistedProjectImage[],
+): UIMessage[] {
+  const firstUserIndex = latestUserMessageIndex(messages);
+  if (firstUserIndex === -1 || assets.length === 0) {
+    return messages;
+  }
+
+  const existingAssetIds = new Set(
+    messages.flatMap((message) =>
+      message.role === "user"
+        ? message.parts
+            .filter((part) => part.type === "file")
+            .map((part) => persistedAssetIdFromUrl(part.url))
+            .filter((assetId): assetId is string => Boolean(assetId))
+        : [],
+    ),
+  );
+  const missingParts = assets
+    .filter(
+      (asset) =>
+        asset.id &&
+        asset.contentType.toLowerCase().startsWith("image/") &&
+        !existingAssetIds.has(asset.id),
+    )
+    .map((asset) => ({
+      type: "file" as const,
+      url: `/api/media/${asset.id}`,
+      mediaType: asset.contentType,
+    }));
+
+  if (missingParts.length === 0) {
+    return messages;
+  }
+
+  return messages.map((message, index) =>
+    index === firstUserIndex
+      ? { ...message, parts: [...message.parts, ...missingParts] }
+      : message,
+  );
+}
+
 function decodeTempAssetId(partUrl: string): string | null {
   const raw = partUrl.slice(TEMP_URL_PREFIX.length);
   try {

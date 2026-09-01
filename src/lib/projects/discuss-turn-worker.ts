@@ -63,6 +63,7 @@ import {
   parseProjectMemoryFacts,
 } from "@/lib/projects/chat-memory";
 import {
+  attachPersistedProjectAssets,
   prepareDiscussTurnAssets,
   rewriteTempImageParts,
 } from "@/lib/projects/discuss-asset-phase";
@@ -87,7 +88,10 @@ import {
 import { evaluateAdaptiveDiscussionReadiness } from "@/lib/projects/discussion-domains";
 import { isImageUploadBoilerplateText } from "@/lib/projects/image-upload-copy";
 import { inlineChatAssetFileParts } from "@/lib/projects/inline-chat-asset-file-parts";
-import { filterOwnedBusinessAssetIds } from "@/lib/projects/project-assets";
+import {
+  filterOwnedBusinessAssetIds,
+  listProjectBusinessImagesForDiscussion,
+} from "@/lib/projects/project-assets";
 import { stripTransportDiagnosticMessages } from "@/lib/projects/strip-transport-diagnostic-messages";
 import { TextDeltaCoalescer } from "@/lib/projects/text-delta-coalescer";
 import { unslopUserFacingText } from "@/lib/projects/unslop-policy";
@@ -188,6 +192,12 @@ export async function runDiscussTurn({
     // Moderation + asset persistence run here so the sent message persists first.
     publishProgress(turnId, { type: "activity", phase: "moderating" });
 
+    const persistedAssets = await listProjectBusinessImagesForDiscussion(
+      project.id,
+      userId,
+    );
+    messages = attachPersistedProjectAssets(messages, persistedAssets);
+
     const assetPhase = await prepareDiscussTurnAssets({
       messages,
       projectId: project.id,
@@ -268,10 +278,7 @@ export async function runDiscussTurn({
     }
     const effectiveChatContext: ReturnType<typeof buildProjectChatContext> = {
       ...chatContext,
-      messages: rewriteTempImageParts(
-        chatContext.messages,
-        assetPhase.urlRewrites,
-      ),
+      messages: rewriteTempImageParts(messages, assetPhase.urlRewrites),
     };
 
     // Extract any user-attached media assets from messages and sync into brief

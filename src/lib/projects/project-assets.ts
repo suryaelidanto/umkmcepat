@@ -304,6 +304,18 @@ export type ProjectAssetItem = {
   isUsed: boolean;
 };
 
+export async function listProjectBusinessImagesForDiscussion(
+  projectId: string,
+  userId: string,
+  client = defaultPrisma,
+) {
+  return client.projectAsset.findMany({
+    orderBy: { createdAt: "asc" },
+    select: { contentType: true, id: true },
+    where: { projectId, purpose: "business-image", userId },
+  });
+}
+
 export async function filterOwnedBusinessAssetIds(
   assetIds: string[],
   projectId: string,

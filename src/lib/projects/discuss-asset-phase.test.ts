@@ -32,7 +32,10 @@ vi.mock("@/lib/projects/project-asset-upload", () => ({
   uploadProjectAsset: uploadProjectAssetMock,
 }));
 
-import { prepareDiscussTurnAssets } from "./discuss-asset-phase";
+import {
+  attachPersistedProjectAssets,
+  prepareDiscussTurnAssets,
+} from "./discuss-asset-phase";
 
 import type { UIMessage } from "ai";
 
@@ -46,6 +49,55 @@ function userMessage(parts: unknown[]): UIMessage {
 function filePart(url: string): unknown {
   return { filename: "gambar.jpg", mediaType: "image/jpeg", type: "file", url };
 }
+
+describe("attachPersistedProjectAssets", () => {
+  it("adds stored business images to the first user message without duplicating media parts", () => {
+    const messages = [
+      userMessage([{ type: "text", text: "buat website laundry" }]),
+      {
+        id: "a1",
+        parts: [{ type: "text", text: "Siap" }],
+        role: "assistant",
+      } as UIMessage,
+    ];
+
+    const result = attachPersistedProjectAssets(messages, [
+      { contentType: "image/webp", id: "asset_new" },
+      { contentType: "image/png", id: "asset_existing" },
+    ]);
+    const firstParts = result[0]!.parts;
+
+    expect(firstParts).toEqual([
+      { type: "text", text: "buat website laundry" },
+      {
+        type: "file",
+        url: "/api/media/asset_new",
+        mediaType: "image/webp",
+      },
+      {
+        type: "file",
+        url: "/api/media/asset_existing",
+        mediaType: "image/png",
+      },
+    ]);
+    expect(result[1]).toEqual(messages[1]);
+
+    const withExisting = attachPersistedProjectAssets(
+      [
+        userMessage([
+          { type: "text", text: "buat website laundry" },
+          {
+            type: "file",
+            url: "/api/media/asset_existing",
+            mediaType: "image/png",
+          },
+        ]),
+      ],
+      [{ contentType: "image/png", id: "asset_existing" }],
+    );
+    expect(withExisting[0]!.parts).toHaveLength(2);
+  });
+});
 
 describe("prepareDiscussTurnAssets", () => {
   beforeEach(() => {

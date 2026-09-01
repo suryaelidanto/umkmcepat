@@ -23,9 +23,13 @@ const {
   deleteTempImageMock,
   uploadProjectAssetMock,
   filterOwnedBusinessAssetIdsMock,
+  listProjectBusinessImagesForDiscussionMock,
+  readProjectAssetByIdMock,
 } = vi.hoisted(() => ({
   streamTextMock: vi.fn(),
-  convertToModelMessagesMock: vi.fn(async () => []),
+  convertToModelMessagesMock: vi.fn<
+    (messages: unknown[]) => Promise<unknown[]>
+  >(async () => []),
   generateTextMock: vi.fn(),
   prismaExecuteRawMock: vi.fn(),
   finalizeDiscussTurnMock: vi.fn(async () => undefined),
@@ -69,6 +73,13 @@ const {
       userId?: string,
     ) => Promise<string[]>
   >(async () => []),
+  listProjectBusinessImagesForDiscussionMock: vi.fn<
+    (
+      projectId: string,
+      userId: string,
+    ) => Promise<Array<{ contentType: string; id: string }>>
+  >(async () => []),
+  readProjectAssetByIdMock: vi.fn(),
   normalizeWorkspaceTurnMock: vi.fn(() => ({
     brief: { prompt: "p", confidence: 0 },
     projectTitle: "t",
@@ -191,9 +202,12 @@ vi.mock("@/lib/storage/uploads/temp-image-storage", () => ({
 
 vi.mock("@/lib/projects/project-assets", () => ({
   filterOwnedBusinessAssetIds: filterOwnedBusinessAssetIdsMock,
+  listProjectBusinessImagesForDiscussion:
+    listProjectBusinessImagesForDiscussionMock,
 }));
 
 vi.mock("@/lib/projects/project-asset-upload", () => ({
+  readProjectAssetById: readProjectAssetByIdMock,
   uploadProjectAsset: uploadProjectAssetMock,
 }));
 
@@ -1145,6 +1159,7 @@ describe("runDiscussTurn asset + moderation phase", () => {
   afterEach(() => {
     vi.clearAllMocks();
     filterOwnedBusinessAssetIdsMock.mockResolvedValue([]);
+    listProjectBusinessImagesForDiscussionMock.mockResolvedValue([]);
   });
 
   function mockAllowedModeration() {
@@ -1191,6 +1206,57 @@ describe("runDiscussTurn asset + moderation phase", () => {
       ]),
     );
   }
+
+  it("hydrates a home-uploaded project asset into the model context", async () => {
+    mockSuccessfulCardTurn();
+    listProjectBusinessImagesForDiscussionMock.mockResolvedValue([
+      { contentType: "image/webp", id: "asset_from_home" },
+    ]);
+    readProjectAssetByIdMock.mockResolvedValue({
+      body: Buffer.from("image-bytes"),
+      contentType: "image/webp",
+      projectId: "p1",
+      userId: "u1",
+    });
+    const messages: UIMessage[] = [
+      {
+        id: "m_home",
+        parts: [{ text: "buat website laundry", type: "text" }],
+        role: "user",
+      } as never,
+    ];
+
+    await runDiscussTurn({
+      turnId: "ct_home_asset",
+      project: baseProject,
+      chatContext: { messages, systemContext: "" },
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages,
+      summary: baseSummary,
+      userId: "u1",
+    });
+
+    expect(listProjectBusinessImagesForDiscussionMock).toHaveBeenCalledWith(
+      "p1",
+      "u1",
+    );
+    expect(readProjectAssetByIdMock).toHaveBeenCalledWith("asset_from_home", {
+      projectId: "p1",
+      userId: "u1",
+    });
+    const modelCall = convertToModelMessagesMock.mock.calls[0] as
+      [unknown[]] | undefined;
+    const modelMessages = modelCall?.[0] as UIMessage[] | undefined;
+    const hydratedPart = modelMessages?.[0]?.parts.find(
+      (part) => part.type === "file",
+    );
+    expect(hydratedPart).toMatchObject({
+      mediaType: "image/webp",
+      type: "file",
+      url: "data:image/webp;base64,aW1hZ2UtYnl0ZXM=",
+    });
+  });
 
   it("moderates + saves attached images before the model call and persists permanent media URLs", async () => {
     mockSuccessfulCardTurn();
