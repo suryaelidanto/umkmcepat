@@ -33,8 +33,8 @@ vi.mock("@/lib/ai/ai-timeouts", () => ({
 }));
 
 import {
-  CHAT_COMPACTION_BATCH_MESSAGES,
-  CHAT_COMPACTION_TRIGGER_MESSAGES,
+  CHAT_COMPACTION_RETAIN_TOKENS,
+  CHAT_COMPACTION_TRIGGER_TOKENS,
   createFallbackProjectChatCompaction,
   getProjectChatCompactionWindow,
   maybeCompactProjectChat,
@@ -43,54 +43,46 @@ import {
 import {
   createEmptyChatSummary,
   createEmptyMemoryFacts,
+  estimateUIMessageTokens,
   parseProjectChatSummary,
   type ProjectChatSummary,
 } from "./chat-memory";
 
 describe("project chat compaction", () => {
-  it("does not compact short chats", () => {
-    expect(
-      shouldCompactProjectChat({
-        lastCompactedMessageCount: 0,
-        messageCount: CHAT_COMPACTION_TRIGGER_MESSAGES - 1,
-      }),
-    ).toBe(false);
-  });
-
-  it("compacts after enough new messages arrive", () => {
-    expect(
-      shouldCompactProjectChat({
-        lastCompactedMessageCount: 0,
-        messageCount: CHAT_COMPACTION_TRIGGER_MESSAGES,
-      }),
-    ).toBe(true);
-
-    expect(
-      shouldCompactProjectChat({
-        lastCompactedMessageCount: CHAT_COMPACTION_TRIGGER_MESSAGES,
-        messageCount:
-          CHAT_COMPACTION_TRIGGER_MESSAGES + CHAT_COMPACTION_BATCH_MESSAGES - 1,
-      }),
-    ).toBe(false);
-
-    expect(
-      shouldCompactProjectChat({
-        lastCompactedMessageCount: CHAT_COMPACTION_TRIGGER_MESSAGES,
-        messageCount:
-          CHAT_COMPACTION_TRIGGER_MESSAGES + CHAT_COMPACTION_BATCH_MESSAGES,
-      }),
-    ).toBe(true);
-  });
-
-  it("restarts from retained messages when the old compaction marker was evicted", () => {
-    const messages = Array.from({ length: 200 }, (_, index) => ({
-      id: `retained-${index}`,
+  it("does not compact a session under the token trigger", () => {
+    const messages = Array.from({ length: 40 }, (_, index) => ({
+      id: `m${index}`,
       role: "user" as const,
       parts: [{ type: "text" as const, text: `pesan ${index}` }],
     }));
+
+    expect(shouldCompactProjectChat({ messages })).toBe(false);
+  });
+
+  it("compacts once the session passes the token trigger", () => {
+    const bigMessage = "x".repeat(20_000);
+    const messages = Array.from({ length: 80 }, (_, index) => ({
+      id: `m${index}`,
+      role: "user" as const,
+      parts: [{ type: "text" as const, text: bigMessage }],
+    }));
+
+    expect(estimateUIMessageTokens(messages)).toBeGreaterThan(
+      CHAT_COMPACTION_TRIGGER_TOKENS,
+    );
+    expect(shouldCompactProjectChat({ messages })).toBe(true);
+  });
+
+  it("restarts from retained messages when the old compaction marker was evicted", () => {
+    const bigMessage = "x".repeat(8_000);
+    const messages = Array.from({ length: 300 }, (_, index) => ({
+      id: `retained-${index}`,
+      role: "user" as const,
+      parts: [{ type: "text" as const, text: bigMessage }],
+    }));
     const summary: ProjectChatSummary = {
       ...createEmptyChatSummary(),
-      compactedMessageCount: 188,
+      compactedMessageCount: 288,
       compactedThroughMessageId: "evicted-message",
     };
 
@@ -98,8 +90,18 @@ describe("project chat compaction", () => {
 
     expect(window).not.toBeNull();
     expect(window?.start).toBe(0);
-    expect(window?.end).toBe(188);
     expect(window?.messages[0]?.id).toBe("retained-0");
+    expect(messages.length - (window?.end ?? 0)).toBeLessThan(messages.length);
+    const retainedTokens = messages
+      .slice(window?.end ?? 0)
+      .reduce(
+        (total, message) =>
+          total + Math.ceil(JSON.stringify(message.parts).length / 4),
+        0,
+      );
+    expect(retainedTokens).toBeLessThanOrEqual(
+      CHAT_COMPACTION_RETAIN_TOKENS + 2_000,
+    );
   });
 
   it("preserves owner statements in fallback memory when AI compaction is unavailable", () => {
@@ -151,10 +153,11 @@ describe("project chat compaction", () => {
 
   it("advances with owner memory when the compaction model fails", async () => {
     generateObjectMock.mockRejectedValueOnce(new Error("provider unavailable"));
-    const messages = Array.from({ length: 28 }, (_, index) => ({
+    const bigMessage = "x".repeat(20_000);
+    const messages = Array.from({ length: 80 }, (_, index) => ({
       id: `message-${index}`,
       role: "user" as const,
-      parts: [{ type: "text" as const, text: `owner answer ${index}` }],
+      parts: [{ type: "text" as const, text: `${bigMessage} ${index}` }],
     }));
 
     const result = await maybeCompactProjectChat({
@@ -163,8 +166,9 @@ describe("project chat compaction", () => {
       summary: parseProjectChatSummary(null),
     });
 
-    expect(result?.compactedMessageCount).toBe(16);
-    expect(result?.memoryFacts.ownerNotes).toContain("owner answer 0");
+    expect(result).not.toBeNull();
+    expect(result?.compactedMessageCount).toBeGreaterThan(0);
+    expect(result?.memoryFacts.ownerNotes.length).toBeGreaterThan(0);
     expect(result?.usage).toEqual({ inputTokens: 0, outputTokens: 0 });
   });
 });

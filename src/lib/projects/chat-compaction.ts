@@ -13,6 +13,7 @@ import { getAiTimeoutMs } from "@/lib/ai/ai-timeouts";
 import {
   createEmptyChatSummary,
   createEmptyMemoryFacts,
+  estimateUIMessageTokens,
   getTextFromUIMessage,
   MAX_OWNER_MEMORY_MESSAGES,
   type ProjectChatSummary,
@@ -23,9 +24,8 @@ import {
   unslopUserFacingText,
 } from "@/lib/projects/unslop-policy";
 
-export const CHAT_COMPACTION_TRIGGER_MESSAGES = 28;
-export const CHAT_COMPACTION_BATCH_MESSAGES = 12;
-export const CHAT_COMPACTION_KEEP_RECENT_MESSAGES = 12;
+export const CHAT_COMPACTION_TRIGGER_TOKENS = 300_000;
+export const CHAT_COMPACTION_RETAIN_TOKENS = 100_000;
 
 export type ProjectChatCompactionResult = {
   compactedMessageCount: number;
@@ -72,19 +72,28 @@ const compactionJsonSchema = {
 };
 
 export function shouldCompactProjectChat({
-  lastCompactedMessageCount,
-  messageCount,
+  messages,
 }: {
-  lastCompactedMessageCount: number;
-  messageCount: number;
+  messages: UIMessage[];
 }) {
-  if (messageCount < CHAT_COMPACTION_TRIGGER_MESSAGES) {
-    return false;
-  }
+  return estimateUIMessageTokens(messages) > CHAT_COMPACTION_TRIGGER_TOKENS;
+}
 
-  return (
-    messageCount - lastCompactedMessageCount >= CHAT_COMPACTION_BATCH_MESSAGES
-  );
+function getRetainedStart(messages: UIMessage[]): number {
+  let retainedTokens = 0;
+  let start = messages.length;
+  while (start > 0) {
+    const cost = estimateUIMessageTokens([messages[start - 1]!]);
+    if (
+      retainedTokens > 0 &&
+      retainedTokens + cost > CHAT_COMPACTION_RETAIN_TOKENS
+    ) {
+      break;
+    }
+    retainedTokens += cost;
+    start -= 1;
+  }
+  return start;
 }
 
 export function getProjectChatCompactionWindow({
@@ -94,10 +103,7 @@ export function getProjectChatCompactionWindow({
   messages: UIMessage[];
   summary: ProjectChatSummary;
 }): ProjectChatCompactionWindow | null {
-  const end = Math.max(
-    0,
-    messages.length - CHAT_COMPACTION_KEEP_RECENT_MESSAGES,
-  );
+  const end = getRetainedStart(messages);
   const markerIndex = summary.compactedThroughMessageId
     ? messages.findIndex(
         (message) => message.id === summary.compactedThroughMessageId,
@@ -111,12 +117,7 @@ export function getProjectChatCompactionWindow({
         ? 0
         : legacyStart;
 
-  if (
-    !shouldCompactProjectChat({
-      lastCompactedMessageCount: start,
-      messageCount: messages.length,
-    })
-  ) {
+  if (!shouldCompactProjectChat({ messages })) {
     return null;
   }
 

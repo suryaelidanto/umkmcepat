@@ -5,7 +5,6 @@ import {
   dedupeUiMessages,
   getProjectChatContext,
   getProjectChatPage,
-  MAX_CONTEXT_MESSAGES,
   parseProjectChatMessages,
   parseProjectChatSummary,
   parseProjectMemoryFacts,
@@ -136,30 +135,44 @@ describe("project chat memory", () => {
   });
 
   it("keeps a larger bounded stored history", () => {
-    const messages = Array.from({ length: 205 }, (_, index) => ({
+    const messages = Array.from({ length: 2005 }, (_, index) => ({
       id: `m${index}`,
       role: "user" as const,
       parts: [{ type: "text" as const, text: `${index}` }],
     }));
-
     const result = parseProjectChatMessages(messages);
 
-    expect(result).toHaveLength(200);
+    expect(result).toHaveLength(2000);
     expect(result[0]?.id).toBe("m5");
   });
 
-  it("uses a bounded recent context window", () => {
-    const messages = Array.from(
-      { length: MAX_CONTEXT_MESSAGES + 2 },
-      (_, index) => ({
-        id: `m${index}`,
-        role: "user" as const,
-        parts: [{ type: "text" as const, text: `${index}` }],
-      }),
-    );
+  it("keeps every message that fits the token budget", () => {
+    const messages = Array.from({ length: 50 }, (_, index) => ({
+      id: `m${index}`,
+      role: "user" as const,
+      parts: [{ type: "text" as const, text: `pesan ${index}` }],
+    }));
 
-    expect(getProjectChatContext(messages)).toHaveLength(MAX_CONTEXT_MESSAGES);
-    expect(getProjectChatContext(messages)[0].id).toBe("m2");
+    const context = getProjectChatContext(messages);
+
+    expect(context).toHaveLength(50);
+    expect(context[0]?.id).toBe("m0");
+  });
+
+  it("drops only the oldest messages once the token budget is exceeded", () => {
+    const bigMessage = "x".repeat(24_000);
+    const messages = Array.from({ length: 60 }, (_, index) => ({
+      id: `m${index}`,
+      role: "user" as const,
+      parts: [{ type: "text" as const, text: bigMessage }],
+    }));
+
+    const context = getProjectChatContext(messages);
+
+    expect(context.length).toBeGreaterThan(0);
+    expect(context.length).toBeLessThan(60);
+    expect(context.at(-1)?.id).toBe("m59");
+    expect(context[0]?.id).not.toBe("m0");
   });
 
   it("does not start active model context with an assistant message", () => {
@@ -174,7 +187,7 @@ describe("project chat memory", () => {
         role: "assistant" as const,
         parts: [{ type: "text" as const, text: "Pertanyaan AI" }],
       },
-      ...Array.from({ length: MAX_CONTEXT_MESSAGES - 1 }, (_, index) => ({
+      ...Array.from({ length: 20 }, (_, index) => ({
         id: `m${index + 1}`,
         role: index % 2 === 0 ? ("user" as const) : ("assistant" as const),
         parts: [{ type: "text" as const, text: `pesan ${index + 1}` }],
@@ -184,20 +197,21 @@ describe("project chat memory", () => {
     const context = getProjectChatContext(messages);
 
     expect(context[0]?.role).toBe("user");
-    expect(context.length).toBeLessThanOrEqual(MAX_CONTEXT_MESSAGES);
+    expect(context.length).toBeLessThanOrEqual(messages.length);
   });
 
-  it("keeps older owner statements in hidden context when the active window is bounded", () => {
+  it("keeps older owner statements in hidden context when the budget is exceeded", () => {
+    const bigAssistantText = "x".repeat(24_000);
     const messages = [
       {
         id: "old-owner",
         role: "user" as const,
         parts: [{ type: "text" as const, text: "Nama usaha: Kedai Pagi" }],
       },
-      ...Array.from({ length: MAX_CONTEXT_MESSAGES + 1 }, (_, index) => ({
+      ...Array.from({ length: 60 }, (_, index) => ({
         id: `recent-${index}`,
         role: "user" as const,
-        parts: [{ type: "text" as const, text: `jawaban ${index}` }],
+        parts: [{ type: "text" as const, text: bigAssistantText }],
       })),
     ];
 
@@ -207,11 +221,12 @@ describe("project chat memory", () => {
       summary: parseProjectChatSummary(null),
     });
 
-    expect(context.messages).toHaveLength(MAX_CONTEXT_MESSAGES);
+    expect(context.messages[0]?.id).not.toBe("old-owner");
     expect(context.systemContext).toContain("Nama usaha: Kedai Pagi");
   });
 
   it("serializes bounded discussion context with older owner statements", () => {
+    const bigAssistantText = "x".repeat(24_000);
     const messages = [
       {
         id: "old-owner",
@@ -220,10 +235,10 @@ describe("project chat memory", () => {
           { type: "text" as const, text: "Pemilik memilih pesan WhatsApp" },
         ],
       },
-      ...Array.from({ length: MAX_CONTEXT_MESSAGES + 1 }, (_, index) => ({
+      ...Array.from({ length: 60 }, (_, index) => ({
         id: `recent-${index}`,
         role: "assistant" as const,
-        parts: [{ type: "text" as const, text: `Pesan terbaru ${index}` }],
+        parts: [{ type: "text" as const, text: bigAssistantText }],
       })),
     ];
 
@@ -241,19 +256,16 @@ describe("project chat memory", () => {
       expect.arrayContaining(["Pemilik memilih pesan WhatsApp", "Owner note"]),
     );
     expect(parsed.recentMessages.map((message) => message.id)).toContain(
-      "recent-10",
+      "recent-59",
     );
   });
 
-  it("builds a hidden summary context with recent messages only", () => {
-    const messages = Array.from(
-      { length: MAX_CONTEXT_MESSAGES + 2 },
-      (_, index) => ({
-        id: `m${index}`,
-        role: "user" as const,
-        parts: [{ type: "text" as const, text: `${index}` }],
-      }),
-    );
+  it("builds a hidden summary context with the full recent session", () => {
+    const messages = Array.from({ length: 12 }, (_, index) => ({
+      id: `m${index}`,
+      role: "user" as const,
+      parts: [{ type: "text" as const, text: `${index}` }],
+    }));
 
     const context = buildProjectChatContext({
       messages,
@@ -268,8 +280,8 @@ describe("project chat memory", () => {
       }),
     });
 
-    expect(context.messages).toHaveLength(MAX_CONTEXT_MESSAGES);
-    expect(context.messages[0]?.id).toBe("m2");
+    expect(context.messages).toHaveLength(12);
+    expect(context.messages[0]?.id).toBe("m0");
     expect(context.systemContext).toContain("User memilih gaya premium");
     expect(context.systemContext).toContain("CTA utama WhatsApp");
     expect(context.systemContext).toContain("Usaha sate");

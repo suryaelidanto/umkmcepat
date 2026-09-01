@@ -8,8 +8,8 @@ import {
   type FactLedger,
 } from "@/lib/projects/fact-ledger";
 
-const MAX_STORED_MESSAGES = 200;
-export const MAX_CONTEXT_MESSAGES = 10;
+const MAX_STORED_MESSAGES = 2000;
+export const CHAT_CONTEXT_TOKEN_BUDGET = 300_000;
 export const MAX_OWNER_MEMORY_MESSAGES = 24;
 export const CHAT_PAGE_SIZE = 20;
 
@@ -46,8 +46,26 @@ export function parseProjectChatMessages(value: unknown): UIMessage[] {
     .slice(-MAX_STORED_MESSAGES);
 }
 
+export function estimateUIMessageTokens(messages: UIMessage[]): number {
+  let characters = 8;
+  for (const message of messages) {
+    characters += JSON.stringify(message.parts ?? []).length;
+  }
+  return Math.ceil(characters / 4);
+}
+
 export function getProjectChatContext(messages: UIMessage[]) {
-  const recent = messages.slice(-MAX_CONTEXT_MESSAGES);
+  let keptTokens = 0;
+  let start = messages.length;
+  while (start > 0) {
+    const cost = estimateUIMessageTokens([messages[start - 1]!]);
+    if (keptTokens > 0 && keptTokens + cost > CHAT_CONTEXT_TOKEN_BUDGET) {
+      break;
+    }
+    keptTokens += cost;
+    start -= 1;
+  }
+  const recent = messages.slice(start);
   return recent[0]?.role === "assistant" ? recent.slice(1) : recent;
 }
 
