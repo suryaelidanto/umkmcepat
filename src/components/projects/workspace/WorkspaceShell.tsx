@@ -1560,6 +1560,7 @@ export function WorkspaceShell({
     preparingPollRef.current = null;
     setIsPreparingNextQuestion(false);
     setWorkspaceCardError(false);
+    setIsRetrying(false);
 
     if (isResponding) {
       stop();
@@ -1979,6 +1980,7 @@ export function WorkspaceShell({
       switch (result.kind) {
         case "reload":
           await reloadLatestChat();
+          setIsRetrying(false);
           // A later turn succeeded, so a stale failure banner must not survive
           setResumeError(null);
           if (
