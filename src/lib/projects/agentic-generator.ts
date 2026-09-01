@@ -66,6 +66,15 @@ import {
   readProjectSkill,
 } from "@/lib/projects/skills/skill-registry";
 
+export function resolveInitialSkillsRead(
+  isRevisionMode: boolean,
+  fullRebuild: boolean,
+): Set<ProjectSkillName> {
+  return new Set(
+    isRevisionMode && !fullRebuild ? PROJECT_CORE_SKILL_NAMES : [],
+  );
+}
+
 export type AgenticGeneratedSourceResult = {
   files: GeneratedProjectFile[];
   generationMode: "agentic";
@@ -340,7 +349,10 @@ export default site;
   };
   const touched = new Set<string>();
   const operationTrace: AgenticGeneratedSourceResult["operationTrace"] = [];
-  const skillsRead = new Set<ProjectSkillName>();
+  const skillsRead = resolveInitialSkillsRead(
+    isRevisionMode,
+    Boolean(input.fullRebuild),
+  );
   if (!isRevisionMode || input.fullRebuild) {
     emitProductDoc();
   }

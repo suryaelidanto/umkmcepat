@@ -7,7 +7,22 @@ const { generateTextMock } = vi.hoisted(() => ({
   })),
 }));
 
-import { runAgenticGenerate } from "./agentic-generator";
+import {
+  resolveInitialSkillsRead,
+  runAgenticGenerate,
+} from "./agentic-generator";
+
+describe("resolveInitialSkillsRead", () => {
+  it("starts a first build empty so the agent must read every skill", () => {
+    expect(resolveInitialSkillsRead(false, false).size).toBe(0);
+    expect(resolveInitialSkillsRead(false, true).size).toBe(0);
+  });
+
+  it("treats revision skills as already read so files are not re-read", () => {
+    expect(resolveInitialSkillsRead(true, false).size).toBeGreaterThan(0);
+    expect(resolveInitialSkillsRead(true, true).size).toBe(0);
+  });
+});
 
 vi.mock("ai", () => ({
   generateText: generateTextMock,
