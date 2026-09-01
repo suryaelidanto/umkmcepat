@@ -19,6 +19,7 @@ const {
   moderateProjectRequestMock,
   readTempImageMock,
   claimTempImageMock,
+  deleteTempImageMock,
   uploadProjectAssetMock,
   filterOwnedBusinessAssetIdsMock,
 } = vi.hoisted(() => ({
@@ -57,6 +58,7 @@ const {
   })),
   readTempImageMock: vi.fn(),
   claimTempImageMock: vi.fn(),
+  deleteTempImageMock: vi.fn(),
   uploadProjectAssetMock: vi.fn(),
   filterOwnedBusinessAssetIdsMock: vi.fn<
     (
@@ -181,6 +183,7 @@ vi.mock("@/lib/ai/ai-moderation", () => ({
 vi.mock("@/lib/storage/uploads/temp-image-storage", () => ({
   readTempImage: readTempImageMock,
   claimTempImage: claimTempImageMock,
+  deleteTempImage: deleteTempImageMock,
 }));
 
 vi.mock("@/lib/projects/project-assets", () => ({
@@ -1099,11 +1102,7 @@ describe("runDiscussTurn asset + moderation phase", () => {
       body: Buffer.from("image-bytes"),
       contentType: "image/jpeg",
     });
-    claimTempImageMock.mockResolvedValue({
-      body: Buffer.from("image-bytes"),
-      contentType: "image/jpeg",
-      sizeBytes: 11,
-    });
+    deleteTempImageMock.mockResolvedValue(undefined);
     uploadProjectAssetMock.mockResolvedValue({ id: "asset_saved" });
   }
 
@@ -1135,7 +1134,7 @@ describe("runDiscussTurn asset + moderation phase", () => {
     );
   }
 
-  it("moderates + claims attached images before the model call and persists permanent media URLs", async () => {
+  it("moderates + saves attached images before the model call and persists permanent media URLs", async () => {
     mockSuccessfulCardTurn();
     mockAllowedModeration();
     mockReadableTempImage();
@@ -1154,10 +1153,10 @@ describe("runDiscussTurn asset + moderation phase", () => {
     });
 
     const order = moderateProjectRequestMock.mock.invocationCallOrder[0]!;
-    const claimOrder = claimTempImageMock.mock.invocationCallOrder[0]!;
+    const saveOrder = uploadProjectAssetMock.mock.invocationCallOrder[0]!;
     const modelOrder = streamTextMock.mock.invocationCallOrder[0]!;
-    expect(order).toBeLessThan(claimOrder);
-    expect(claimOrder).toBeLessThan(modelOrder);
+    expect(order).toBeLessThan(saveOrder);
+    expect(saveOrder).toBeLessThan(modelOrder);
     expect(moderateProjectRequestMock).toHaveBeenCalledTimes(1);
     expect(moderateProjectRequestMock).toHaveBeenCalledWith(
       "",
@@ -1168,6 +1167,7 @@ describe("runDiscussTurn asset + moderation phase", () => {
     expect(uploadProjectAssetMock).toHaveBeenCalledWith(
       expect.objectContaining({ purpose: "business-image" }),
     );
+    expect(deleteTempImageMock).toHaveBeenCalledWith("u1", "tok_1");
     expect(filterOwnedBusinessAssetIdsMock).toHaveBeenCalledWith(
       ["asset_saved"],
       "p1",
@@ -1181,6 +1181,127 @@ describe("runDiscussTurn asset + moderation phase", () => {
     expect(finalizeDiscussTurnMock).toHaveBeenCalledWith(
       expect.objectContaining({ turnId: "ct_img_ok", status: "succeeded" }),
     );
+  });
+
+  it("persists successful image rewrites when a later image promotion fails", async () => {
+    prismaExecuteRawMock.mockResolvedValue(1);
+    mockAllowedModeration();
+    mockReadableTempImage();
+    uploadProjectAssetMock
+      .mockResolvedValueOnce({ id: "asset_a" })
+      .mockRejectedValueOnce(new Error("asset store unavailable"));
+    const messages: UIMessage[] = [
+      {
+        id: "m_img_partial",
+        parts: [
+          {
+            filename: "gambar-a.jpg",
+            mediaType: "image/jpeg",
+            type: "file",
+            url: TEMP_URL("tok_a"),
+          },
+          {
+            filename: "gambar-b.jpg",
+            mediaType: "image/jpeg",
+            type: "file",
+            url: TEMP_URL("tok_b"),
+          },
+        ],
+        role: "user",
+      } as never as UIMessage,
+    ];
+
+    await runDiscussTurn({
+      turnId: "ct_img_partial",
+      project: baseProject,
+      chatContext: { messages, systemContext: "" },
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages,
+      summary: baseSummary,
+      userId: "u1",
+    });
+
+    const persistedValues = prismaExecuteRawMock.mock.calls
+      .flatMap((call) => call.slice(1))
+      .join("\n");
+    expect(persistedValues).toContain("/api/media/asset_a");
+    expect(persistedValues).toContain(TEMP_URL("tok_b"));
+    expect(finalizeDiscussTurnMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        errorMessage: "Gambar belum berhasil disimpan. Coba lagi sebentar.",
+        status: "failed",
+        turnId: "ct_img_partial",
+      }),
+    );
+    expect(streamTextMock).not.toHaveBeenCalled();
+  });
+
+  it("persists promoted media before a later text moderation failure", async () => {
+    prismaExecuteRawMock.mockResolvedValue(1);
+    mockReadableTempImage();
+    moderateProjectRequestMock.mockImplementation(
+      async (_prompt: string, images?: unknown[]) => {
+        if (images?.length) {
+          return {
+            allowed: true,
+            modelId: "vision-model",
+            usage: { inputTokens: 10, outputTokens: 1 },
+          };
+        }
+        throw new Error("moderation unavailable");
+      },
+    );
+    const messages = imageMessage("halo");
+
+    await runDiscussTurn({
+      turnId: "ct_img_text_moderation_down",
+      project: baseProject,
+      chatContext: { messages, systemContext: "" },
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages,
+      summary: baseSummary,
+      userId: "u1",
+    });
+
+    const persistedValues = prismaExecuteRawMock.mock.calls
+      .flatMap((call) => call.slice(1))
+      .join("\n");
+    expect(persistedValues).toContain("/api/media/asset_saved");
+    expect(persistedValues).toContain("business-image");
+    expect(persistedValues).not.toContain("temp-images");
+    expect(finalizeDiscussTurnMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        errorMessage:
+          "Pemeriksaan keamanan belum berhasil. Coba lagi sebentar.",
+        status: "failed",
+        turnId: "ct_img_text_moderation_down",
+      }),
+    );
+    expect(streamTextMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps the temp source when rewritten chat persistence fails", async () => {
+    prismaExecuteRawMock.mockRejectedValueOnce(
+      new Error("database unavailable"),
+    );
+    mockAllowedModeration();
+    mockReadableTempImage();
+    const messages = imageMessage("1 gambar diunggah.");
+
+    await runDiscussTurn({
+      turnId: "ct_img_persist_down",
+      project: baseProject,
+      chatContext: { messages, systemContext: "" },
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages,
+      summary: baseSummary,
+      userId: "u1",
+    });
+
+    expect(deleteTempImageMock).not.toHaveBeenCalled();
   });
 
   it("fails the turn without calling the model when an attached image is blocked", async () => {
@@ -1220,7 +1341,7 @@ describe("runDiscussTurn asset + moderation phase", () => {
       }),
     );
     expect(streamTextMock).not.toHaveBeenCalled();
-    expect(claimTempImageMock).not.toHaveBeenCalled();
+    expect(deleteTempImageMock).not.toHaveBeenCalled();
     expect(uploadProjectAssetMock).not.toHaveBeenCalled();
     expect(prismaExecuteRawMock).not.toHaveBeenCalled();
   });

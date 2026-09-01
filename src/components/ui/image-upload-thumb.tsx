@@ -1,6 +1,7 @@
 "use client";
 
-import { Loader2, X } from "lucide-react";
+import { ImageOff, Loader2, X } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -21,18 +22,42 @@ export function ImageUploadThumb({
   onClick,
   className,
 }: ImageUploadThumbProps) {
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  useEffect(() => {
+    setLoadFailed(false);
+  }, [src]);
+
+  const canOpen = !uploading && !loadFailed && Boolean(onClick);
+
   return (
     <div
-      onClick={uploading ? undefined : onClick}
+      onClick={canOpen ? onClick : undefined}
       className={cn(
         "group relative shrink-0 overflow-hidden rounded-xl border border-black/10 bg-black/5 dark:border-white/12 dark:bg-white/5",
-        onClick &&
-          !uploading &&
-          "cursor-pointer transition hover:opacity-90 active:scale-98",
+        canOpen && "cursor-pointer transition hover:opacity-90 active:scale-98",
         className,
       )}
     >
-      <img alt={alt} className="size-full object-cover" src={src} />
+      {loadFailed ? (
+        <div
+          aria-label={alt ? `${alt} tidak tersedia` : "Gambar tidak tersedia"}
+          className="flex size-full min-h-0 flex-col items-center justify-center gap-1 p-2 text-center text-muted-foreground"
+          role="img"
+        >
+          <ImageOff aria-hidden className="size-5" />
+          <span className="text-[10px] leading-tight">
+            Gambar tidak tersedia
+          </span>
+        </div>
+      ) : (
+        <img
+          alt={alt}
+          className="size-full object-cover"
+          onError={() => setLoadFailed(true)}
+          src={src}
+        />
+      )}
       {uploading ? (
         <div
           className="absolute inset-0 flex items-center justify-center bg-black/45 backdrop-blur-[1px]"

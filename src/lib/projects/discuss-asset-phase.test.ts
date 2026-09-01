@@ -3,11 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   readTempImageMock,
   claimTempImageMock,
+  deleteTempImageMock,
   moderateProjectRequestMock,
   uploadProjectAssetMock,
 } = vi.hoisted(() => ({
   readTempImageMock: vi.fn(),
   claimTempImageMock: vi.fn(),
+  deleteTempImageMock: vi.fn(),
   moderateProjectRequestMock: vi.fn(),
   uploadProjectAssetMock: vi.fn(),
 }));
@@ -15,6 +17,7 @@ const {
 vi.mock("@/lib/storage/uploads/temp-image-storage", () => ({
   readTempImage: readTempImageMock,
   claimTempImage: claimTempImageMock,
+  deleteTempImage: deleteTempImageMock,
 }));
 
 vi.mock("@/lib/ai/ai-moderation", () => ({
@@ -83,7 +86,7 @@ describe("prepareDiscussTurnAssets", () => {
     expect(claimTempImageMock).not.toHaveBeenCalled();
   });
 
-  it("moderates first, claims after, and rewrites temp URLs to permanent media URLs", async () => {
+  it("moderates first, saves after, and rewrites temp URLs to permanent media URLs", async () => {
     const order: string[] = [];
     moderateProjectRequestMock.mockImplementation(async () => {
       order.push("moderate");
@@ -93,13 +96,12 @@ describe("prepareDiscussTurnAssets", () => {
         usage: { inputTokens: 10, outputTokens: 1 },
       };
     });
-    claimTempImageMock.mockImplementation(async () => {
-      order.push("claim");
-      return {
-        body: Buffer.from("image-bytes"),
-        contentType: "image/jpeg",
-        sizeBytes: 11,
-      };
+    uploadProjectAssetMock.mockImplementation(async () => {
+      order.push("save");
+      return { id: "asset_saved" };
+    });
+    deleteTempImageMock.mockImplementation(async () => {
+      order.push("cleanup");
     });
     const messages = [
       userMessage([
@@ -115,7 +117,7 @@ describe("prepareDiscussTurnAssets", () => {
       userId: "u1",
     });
 
-    expect(order).toEqual(["moderate", "claim"]);
+    expect(order).toEqual(["moderate", "save"]);
     expect(result.status).toBe("ok");
     if (result.status !== "ok") {
       return;
@@ -132,14 +134,65 @@ describe("prepareDiscussTurnAssets", () => {
         bytes: Buffer.from("image-bytes"),
         projectId: "p1",
         purpose: "business-image",
+        sourceTempAssetId: "tok_1",
         userId: "u1",
       }),
     );
+    expect(deleteTempImageMock).not.toHaveBeenCalled();
     expect(moderateProjectRequestMock).toHaveBeenCalledWith(
       "",
       [expect.objectContaining({ bytes: Buffer.from("image-bytes") })],
       expect.any(Number),
       { projectId: "p1", turnId: "ct_1" },
+    );
+  });
+
+  it("does not consume a temp image before its project asset is saved", async () => {
+    uploadProjectAssetMock.mockRejectedValue(
+      new Error("asset store unavailable"),
+    );
+    const messages = [userMessage([filePart(TEMP_URL("tok_1"))])];
+
+    const result = await prepareDiscussTurnAssets({
+      messages,
+      projectId: "p1",
+      turnId: "ct_1",
+      userId: "u1",
+    });
+
+    expect(result.status).toBe("unavailable");
+    expect(claimTempImageMock).not.toHaveBeenCalled();
+    expect(deleteTempImageMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps successful promotions visible when a later image save fails", async () => {
+    uploadProjectAssetMock
+      .mockResolvedValueOnce({ id: "asset_a" })
+      .mockRejectedValueOnce(new Error("asset store unavailable"));
+    const messages = [
+      userMessage([filePart(TEMP_URL("tok_1")), filePart(TEMP_URL("tok_2"))]),
+    ];
+
+    const result = await prepareDiscussTurnAssets({
+      messages,
+      projectId: "p1",
+      turnId: "ct_1",
+      userId: "u1",
+    });
+
+    expect(result).toMatchObject({
+      assetIds: ["asset_a"],
+      status: "unavailable",
+    });
+    if (result.status !== "unavailable") {
+      return;
+    }
+    expect(result.messages?.[0]?.parts).toEqual([
+      filePart("/api/media/asset_a"),
+      filePart(TEMP_URL("tok_2")),
+    ]);
+    expect(result.urlRewrites?.get(TEMP_URL("tok_1"))).toBe(
+      "/api/media/asset_a",
     );
   });
 
@@ -226,7 +279,7 @@ describe("prepareDiscussTurnAssets", () => {
     expect(first.url).toBe("/api/media/asset_a");
     expect(secondFirst.url).toBe("/api/media/asset_a");
     expect(secondSecond.url).toBe("/api/media/asset_b");
-    expect(claimTempImageMock).toHaveBeenCalledTimes(2);
+    expect(deleteTempImageMock).not.toHaveBeenCalled();
     expect(moderateProjectRequestMock).toHaveBeenCalledTimes(2);
   });
 

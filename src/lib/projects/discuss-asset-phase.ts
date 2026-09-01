@@ -5,10 +5,7 @@ import {
   moderateProjectRequest,
 } from "@/lib/ai/ai-moderation";
 import { uploadProjectAsset } from "@/lib/projects/project-asset-upload";
-import {
-  claimTempImage,
-  readTempImage,
-} from "@/lib/storage/uploads/temp-image-storage";
+import { readTempImage } from "@/lib/storage/uploads/temp-image-storage";
 
 const TEMP_URL_PREFIX = "/api/uploads/temp-images/";
 
@@ -18,11 +15,17 @@ export type DiscussAssetPhaseResult =
       assetIds: string[];
       imageCount: number;
       messages: UIMessage[];
+      tempAssetIds: string[];
       urlRewrites: Map<string, string>;
     }
-  | { status: "blocked"; message: string }
-  | { status: "stale"; message: string }
-  | { status: "unavailable"; message: string };
+  | {
+      status: "blocked" | "stale" | "unavailable";
+      message: string;
+      assetIds?: string[];
+      messages?: UIMessage[];
+      tempAssetIds?: string[];
+      urlRewrites?: Map<string, string>;
+    };
 
 const MODERATION_UNAVAILABLE_MESSAGE =
   "Pemeriksaan keamanan belum berhasil. Coba lagi sebentar.";
@@ -86,11 +89,6 @@ export function rewriteTempImageParts(
   });
 }
 
-/**
- * Moderates and persists the latest user message's attached temp images
- * before the discuss model runs. Moderation always happens before the temp
- * object is claimed, so a failed check never destroys the upload.
- */
 export async function prepareDiscussTurnAssets({
   messages,
   projectId,
@@ -109,6 +107,7 @@ export async function prepareDiscussTurnAssets({
       imageCount: 0,
       messages,
       status: "ok",
+      tempAssetIds: [],
       urlRewrites: new Map(),
     };
   }
@@ -137,6 +136,7 @@ export async function prepareDiscussTurnAssets({
       imageCount: 0,
       messages,
       status: "ok",
+      tempAssetIds: [],
       urlRewrites: new Map(),
     };
   }
@@ -180,32 +180,39 @@ export async function prepareDiscussTurnAssets({
     }
   }
 
-  const claimedAssets: Array<{ assetId: string; partUrl: string }> = [];
+  const promotedAssets: Array<{ assetId: string; partUrl: string }> = [];
+  const promotedTempAssetIds: string[] = [];
+  const urlRewrites = new Map<string, string>();
   for (const entry of readImages) {
     try {
-      const claimed = await claimTempImage(userId, entry!.ref.assetId);
       const asset = await uploadProjectAsset({
-        bytes: claimed.body,
+        bytes: entry!.stored.body,
         projectId,
         purpose: "business-image",
+        sourceTempAssetId: entry!.ref.assetId,
         userId,
       });
-      claimedAssets.push({ assetId: asset.id, partUrl: entry!.ref.partUrl });
+      promotedTempAssetIds.push(entry!.ref.assetId);
+      promotedAssets.push({ assetId: asset.id, partUrl: entry!.ref.partUrl });
+      urlRewrites.set(entry!.ref.partUrl, `/api/media/${asset.id}`);
     } catch {
-      return { status: "unavailable", message: IMAGE_SAVE_FAILED_MESSAGE };
+      return {
+        assetIds: promotedAssets.map((asset) => asset.assetId),
+        message: IMAGE_SAVE_FAILED_MESSAGE,
+        messages: rewriteTempImageParts(messages, urlRewrites),
+        status: "unavailable",
+        tempAssetIds: promotedTempAssetIds,
+        urlRewrites,
+      };
     }
   }
 
-  const urlRewrites = new Map<string, string>();
-  for (const claimed of claimedAssets) {
-    urlRewrites.set(claimed.partUrl, `/api/media/${claimed.assetId}`);
-  }
-
   return {
-    assetIds: claimedAssets.map((claimed) => claimed.assetId),
+    assetIds: promotedAssets.map((asset) => asset.assetId),
     imageCount,
     messages: rewriteTempImageParts(messages, urlRewrites),
     status: "ok",
+    tempAssetIds: promotedTempAssetIds,
     urlRewrites,
   };
 }

@@ -91,6 +91,36 @@ import { filterOwnedBusinessAssetIds } from "@/lib/projects/project-assets";
 import { stripTransportDiagnosticMessages } from "@/lib/projects/strip-transport-diagnostic-messages";
 import { TextDeltaCoalescer } from "@/lib/projects/text-delta-coalescer";
 import { unslopUserFacingText } from "@/lib/projects/unslop-policy";
+import { deleteTempImage } from "@/lib/storage/uploads/temp-image-storage";
+
+async function cleanupPromotedTempImages(
+  userId: string,
+  assetIds: string[],
+): Promise<void> {
+  await Promise.all(
+    assetIds.map((assetId) =>
+      deleteTempImage(userId, assetId).catch(() => undefined),
+    ),
+  );
+}
+
+function addBusinessImages(
+  brief: ReturnType<typeof parseProjectBrief>,
+  assetIds: string[],
+): ReturnType<typeof parseProjectBrief> {
+  const existingIds = new Set(
+    (brief.businessImages ?? []).map((image) => image.id),
+  );
+  const newImages = assetIds
+    .filter((assetId) => !existingIds.has(assetId))
+    .map((id) => ({ id, purpose: "business-image" as const }));
+  return newImages.length > 0
+    ? {
+        ...brief,
+        businessImages: [...(brief.businessImages ?? []), ...newImages],
+      }
+    : brief;
+}
 
 export async function runDiscussTurn({
   turnId,
@@ -165,6 +195,37 @@ export async function runDiscussTurn({
       userId,
     });
     if (assetPhase.status !== "ok") {
+      let rewritesPersisted = false;
+      if (assetPhase.messages && assetPhase.urlRewrites?.size) {
+        const partialBrief = addBusinessImages(
+          effectiveBrief,
+          assetPhase.assetIds ?? [],
+        );
+        try {
+          await persistProjectChatTurnRaw({
+            brief: scrubBriefForStorage(
+              partialBrief,
+              partialBrief.readyForBuild,
+              project.id,
+            ),
+            discussionContext: {
+              memoryFacts: _memoryFacts,
+              summary: _summary,
+            },
+            messages: assetPhase.messages,
+            projectId: project.id,
+            title: project.title,
+            userId,
+            workspaceCard: previousWorkspaceCard ?? null,
+          });
+          rewritesPersisted = true;
+        } catch {
+          // Keep the source upload while the failed turn remains retryable.
+        }
+      }
+      if (rewritesPersisted && assetPhase.tempAssetIds) {
+        await cleanupPromotedTempImages(userId, assetPhase.tempAssetIds);
+      }
       await finalizeDiscussTurn({
         turnId,
         status: "failed",
@@ -177,6 +238,34 @@ export async function runDiscussTurn({
       return;
     }
     messages = assetPhase.messages;
+    effectiveBrief = addBusinessImages(effectiveBrief, assetPhase.assetIds);
+    if (assetPhase.urlRewrites.size > 0) {
+      let rewritesPersisted = false;
+      try {
+        await persistProjectChatTurnRaw({
+          brief: scrubBriefForStorage(
+            effectiveBrief,
+            effectiveBrief.readyForBuild,
+            project.id,
+          ),
+          discussionContext: {
+            memoryFacts: _memoryFacts,
+            summary: _summary,
+          },
+          messages,
+          projectId: project.id,
+          title: project.title,
+          userId,
+          workspaceCard: previousWorkspaceCard ?? null,
+        });
+        rewritesPersisted = true;
+      } catch {
+        // Keep the source upload while the rewritten message is not durable.
+      }
+      if (rewritesPersisted) {
+        await cleanupPromotedTempImages(userId, assetPhase.tempAssetIds);
+      }
+    }
     const effectiveChatContext: ReturnType<typeof buildProjectChatContext> = {
       ...chatContext,
       messages: rewriteTempImageParts(
