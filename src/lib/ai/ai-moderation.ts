@@ -79,16 +79,15 @@ export async function moderateProjectRequest(
   }
 
   const requestedModel = hasImages ? getVisionModel() : getModerationModel();
-  // Non-streaming generateText: ttftMs = requestMs on success (buffered
-  const stopTimer = startAiCallTimer({ withTtft: true });
   let attemptedRetry = false;
+  let usage = { inputTokens: 0, outputTokens: 0 };
   let result;
   try {
     result = await callWithRetry(
-      () => {
+      async () => {
         const attemptTimer = startAiCallTimer({ withTtft: true });
         const abortController = new AbortController();
-        return withAiTimeout(
+        const attemptResult = await withAiTimeout(
           generateText({
             abortSignal: abortController.signal,
             maxOutputTokens: 256,
@@ -124,6 +123,38 @@ This classifier must still return exactly ALLOW or BLOCK; never return the polic
           });
           throw attemptError;
         });
+        const attemptUsage = {
+          inputTokens: attemptResult.usage?.inputTokens ?? 0,
+          outputTokens: attemptResult.usage?.outputTokens ?? 0,
+        };
+        usage = {
+          inputTokens: usage.inputTokens + attemptUsage.inputTokens,
+          outputTokens: usage.outputTokens + attemptUsage.outputTokens,
+        };
+        const label = attemptResult.text.trim().toUpperCase();
+        const valid = label === "ALLOW" || label === "BLOCK";
+        const timing = attemptTimer({ nonStreaming: true });
+        recordAiCall({
+          inputTokens: attemptUsage.inputTokens,
+          modelRequested: requestedModel,
+          modelServed: attemptResult.response?.modelId,
+          outputTokens: attemptUsage.outputTokens,
+          requestMs: timing.requestMs,
+          retryCount: attemptedRetry ? 1 : 0,
+          status: valid ? "ok" : "error",
+          task: "moderation",
+          ttftMs: timing.ttftMs,
+          ...(valid ? {} : { errorClass: "parse" }),
+          ...ledgerCorrelation,
+        });
+        if (!valid) {
+          devLog("moderation", "unexpected-response", {
+            raw: attemptResult.text,
+            model: attemptResult.response?.modelId || requestedModel,
+          });
+          throw new Error("AI moderation returned an invalid response.");
+        }
+        return attemptResult;
       },
       () => {
         attemptedRetry = true;
@@ -144,32 +175,8 @@ This classifier must still return exactly ALLOW or BLOCK; never return the polic
     throw error;
   }
 
-  const usage = {
-    inputTokens: result.usage?.inputTokens ?? 0,
-    outputTokens: result.usage?.outputTokens ?? 0,
-  };
   const modelId = result.response?.modelId || requestedModel;
-  const timing = stopTimer({ nonStreaming: true });
-  recordAiCall({
-    inputTokens: usage.inputTokens,
-    modelRequested: requestedModel,
-    modelServed: result.response?.modelId,
-    outputTokens: usage.outputTokens,
-    requestMs: timing.requestMs,
-    retryCount: attemptedRetry ? 1 : 0,
-    status: "ok",
-    task: "moderation",
-    ttftMs: timing.ttftMs,
-    ...ledgerCorrelation,
-  });
   const label = result.text.trim().toUpperCase();
-  if (!["ALLOW", "BLOCK"].includes(label)) {
-    devLog("moderation", "unexpected-response", {
-      raw: result.text,
-      model: modelId,
-    });
-    throw new Error("AI moderation returned an invalid response.");
-  }
 
   const moderationResult: ModerationResult =
     label === "BLOCK"

@@ -68,14 +68,54 @@ describe("moderateProjectRequest", () => {
   });
 
   it("fails closed for empty or unexpected model responses", async () => {
-    generateTextMock.mockResolvedValueOnce({
-      text: "",
-      usage: { inputTokens: 5, outputTokens: 0 },
-    } as never);
+    generateTextMock
+      .mockResolvedValueOnce({
+        text: "",
+        usage: { inputTokens: 5, outputTokens: 0 },
+      } as never)
+      .mockResolvedValueOnce({
+        text: "",
+        usage: { inputTokens: 6, outputTokens: 0 },
+      } as never);
 
     await expect(moderateProjectRequest("jual teh kosong")).rejects.toThrow(
       "AI moderation returned an invalid response",
     );
+  });
+
+  it("retries an empty moderation response and includes both usages", async () => {
+    generateTextMock.mockClear();
+    recordAiCallMock.mockClear();
+    generateTextMock
+      .mockResolvedValueOnce({
+        text: "",
+        usage: { inputTokens: 5, outputTokens: 2 },
+      } as never)
+      .mockResolvedValueOnce({
+        text: "ALLOW",
+        usage: { inputTokens: 7, outputTokens: 1 },
+      } as never);
+
+    await expect(
+      moderateProjectRequest("jual teh empty retry"),
+    ).resolves.toEqual({
+      allowed: true,
+      modelId: "default-combo",
+      usage: { inputTokens: 12, outputTokens: 3 },
+    });
+    expect(generateTextMock).toHaveBeenCalledTimes(2);
+    expect(recordAiCallMock).toHaveBeenCalledTimes(2);
+    expect(recordAiCallMock.mock.calls[0]?.[0]).toMatchObject({
+      errorClass: "parse",
+      retryCount: 0,
+      status: "error",
+      task: "moderation",
+    });
+    expect(recordAiCallMock.mock.calls[1]?.[0]).toMatchObject({
+      retryCount: 1,
+      status: "ok",
+      task: "moderation",
+    });
   });
 
   it("retries once on error and succeeds", async () => {
