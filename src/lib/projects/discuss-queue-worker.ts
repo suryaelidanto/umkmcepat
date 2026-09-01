@@ -8,9 +8,7 @@ import { parseCanonicalBrief } from "@/lib/projects/canonical-brief";
 import {
   buildProjectChatContext,
   dedupeUiMessages,
-  parseProjectChatMessages,
-  parseProjectChatSummary,
-  parseProjectMemoryFacts,
+  resolveProjectChatState,
 } from "@/lib/projects/chat-memory";
 import { finalizeDiscussTurn } from "@/lib/projects/discuss-turn";
 import { publishProgress } from "@/lib/projects/discuss-turn-pubsub";
@@ -59,21 +57,26 @@ export async function runQueuedDiscussTurn(
     return;
   }
 
-  const messages = await validateUIMessages({
-    messages: dedupeUiMessages(parseProjectChatMessages(row.chatMessages)),
+  const canonicalBrief = parseCanonicalBrief(row.brief, job.projectPrompt);
+  const chatState = resolveProjectChatState({
+    chatMessages: row.chatMessages,
+    chatSummary: row.chatSummary,
+    memoryFacts: row.memoryFacts,
+    fallback: canonicalBrief.discussionContext,
   });
-  const summary = parseProjectChatSummary(row.chatSummary);
-  const memoryFacts = parseProjectMemoryFacts(row.memoryFacts);
-  const effectiveBrief = parseProjectBrief(
-    parseCanonicalBrief(row.brief, job.projectPrompt),
-    job.projectPrompt,
-  );
+  const messages = await validateUIMessages({
+    messages: dedupeUiMessages(chatState.messages),
+  });
+  const summary = chatState.summary;
+  const memoryFacts = chatState.memoryFacts;
+  const effectiveBrief = parseProjectBrief(canonicalBrief, job.projectPrompt);
   const previousWorkspaceCard: WorkspaceCard | undefined = row.workspaceCard
     ? parseWorkspaceCard(row.workspaceCard, effectiveBrief)
     : undefined;
 
   const chatContext = buildProjectChatContext({
-    fieldState: {},
+    factLedger: canonicalBrief.factLedger,
+    fieldState: effectiveBrief.fieldState,
     memoryFacts,
     messages: messages as UIMessage[],
     summary,

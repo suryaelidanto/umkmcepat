@@ -2,12 +2,20 @@ import { type UIMessage } from "ai";
 
 import type { SoftFieldId } from "@/lib/projects/brief-rich-fields";
 
+import {
+  getRenderableFactEntries,
+  normalizeFactLedger,
+  type FactLedger,
+} from "@/lib/projects/fact-ledger";
+
 const MAX_STORED_MESSAGES = 200;
 export const MAX_CONTEXT_MESSAGES = 10;
+export const MAX_OWNER_MEMORY_MESSAGES = 24;
 export const CHAT_PAGE_SIZE = 20;
 
 export type ProjectChatSummary = {
   compactedMessageCount: number;
+  compactedThroughMessageId: string;
   text: string;
   updatedAt: string;
   version: 1;
@@ -16,6 +24,7 @@ export type ProjectChatSummary = {
 export type ProjectMemoryFacts = {
   decisions: string[];
   facts: string[];
+  ownerNotes: string[];
   preferences: string[];
   updatedAt: string;
   version: 1;
@@ -38,7 +47,8 @@ export function parseProjectChatMessages(value: unknown): UIMessage[] {
 }
 
 export function getProjectChatContext(messages: UIMessage[]) {
-  return messages.slice(-MAX_CONTEXT_MESSAGES);
+  const recent = messages.slice(-MAX_CONTEXT_MESSAGES);
+  return recent[0]?.role === "assistant" ? recent.slice(1) : recent;
 }
 
 export function parseProjectChatSummary(value: unknown): ProjectChatSummary {
@@ -51,6 +61,7 @@ export function parseProjectChatSummary(value: unknown): ProjectChatSummary {
     version: 1,
     text: stringValue(input.text),
     compactedMessageCount: numberValue(input.compactedMessageCount),
+    compactedThroughMessageId: stringValue(input.compactedThroughMessageId),
     updatedAt: stringValue(input.updatedAt),
   };
 }
@@ -65,31 +76,86 @@ export function parseProjectMemoryFacts(value: unknown): ProjectMemoryFacts {
     version: 1,
     facts: stringArrayValue(input.facts, 24),
     decisions: stringArrayValue(input.decisions, 24),
+    ownerNotes: stringArrayValue(
+      input.ownerNotes,
+      MAX_OWNER_MEMORY_MESSAGES,
+      480,
+    ),
     preferences: stringArrayValue(input.preferences, 24),
     updatedAt: stringValue(input.updatedAt),
   };
 }
 
+export type ProjectChatState = {
+  memoryFacts: ProjectMemoryFacts;
+  messages: UIMessage[];
+  summary: ProjectChatSummary;
+};
+
+export function resolveProjectChatState({
+  chatMessages,
+  chatSummary,
+  memoryFacts,
+  fallback,
+}: {
+  chatMessages: unknown;
+  chatSummary: unknown;
+  memoryFacts: unknown;
+  fallback?: {
+    messages?: unknown;
+    summary?: unknown;
+    memoryFacts?: unknown;
+  };
+}): ProjectChatState {
+  const messages = parseProjectChatMessages(chatMessages);
+  const fallbackMessages = parseProjectChatMessages(fallback?.messages);
+  const summary = parseProjectChatSummary(chatSummary);
+  const fallbackSummary = parseProjectChatSummary(fallback?.summary);
+  const currentFacts = parseProjectMemoryFacts(memoryFacts);
+  const fallbackFacts = parseProjectMemoryFacts(fallback?.memoryFacts);
+
+  return {
+    messages: messages.length ? messages : fallbackMessages,
+    summary: hasSummaryData(summary) ? summary : fallbackSummary,
+    memoryFacts: mergeProjectMemoryFacts(currentFacts, fallbackFacts),
+  };
+}
+
 export function buildProjectChatContext({
+  factLedger,
   fieldState,
   memoryFacts,
   messages,
   summary,
 }: {
+  factLedger?: FactLedger;
   fieldState?: FieldStateMap;
   memoryFacts: ProjectMemoryFacts;
   messages: UIMessage[];
   summary: ProjectChatSummary;
 }): ProjectChatContext {
   const recentMessages = getProjectChatContext(messages);
+  const olderOwnerMessages = getOlderOwnerMessages(messages, recentMessages);
+  const ownerNotes = dedupeStrings(
+    [...memoryFacts.ownerNotes, ...olderOwnerMessages],
+    MAX_OWNER_MEMORY_MESSAGES * 2,
+    480,
+  ).slice(-MAX_OWNER_MEMORY_MESSAGES);
   const fieldStateBlock = buildFieldStateBlock(fieldState ?? {});
+  const confirmedFacts = formatConfirmedFactLedger(factLedger);
   const systemContext = [
     summary.text
       ? `Hidden previous chat summary:\n${summary.text}`
       : "Hidden previous chat summary: none.",
+    confirmedFacts
+      ? `Owner-confirmed facts (authoritative):\n${confirmedFacts}`
+      : "Owner-confirmed facts (authoritative): none.",
+    ownerNotes.length
+      ? `Earlier owner statements (context, not a fact ledger):\n${formatBullets(ownerNotes)}`
+      : "Earlier owner statements: none.",
     memoryFacts.facts.length
-      ? `Important facts:\n${formatBullets(memoryFacts.facts)}`
-      : "Important facts: none.",
+      ? `Important facts from prior memory (verify against the brief):\n${formatBullets(memoryFacts.facts)}`
+      : "Important facts from prior memory: none.",
     memoryFacts.decisions.length
       ? `Agreed decisions:\n${formatBullets(memoryFacts.decisions)}`
       : "Agreed decisions: none.",
@@ -97,10 +163,55 @@ export function buildProjectChatContext({
       ? `User preferences:\n${formatBullets(memoryFacts.preferences)}`
       : "User preferences: none.",
     fieldStateBlock ? `Field state:\n${fieldStateBlock}` : "Field state: none.",
-    "Use this hidden context to keep the conversation coherent. Do not mention internal summaries/facts to the user unless naturally relevant.",
+    "Use this hidden context to keep the conversation coherent. The owner-confirmed facts and current brief outrank prior memory. Do not mention internal summaries or ledgers to the user unless naturally relevant.",
   ].join("\n\n");
 
   return { messages: recentMessages, systemContext };
+}
+
+export function formatProjectDiscussionContext(value: unknown): string {
+  const source = isRecord(value) ? value : {};
+  return buildCompactDiscussionContext({
+    memoryFacts: parseProjectMemoryFacts(source.memoryFacts),
+    messages: parseProjectChatMessages(source.messages),
+    summary: parseProjectChatSummary(source.summary),
+  });
+}
+
+export function buildCompactDiscussionContext({
+  factLedger,
+  memoryFacts,
+  messages,
+  summary,
+}: {
+  factLedger?: FactLedger;
+  memoryFacts: ProjectMemoryFacts;
+  messages: UIMessage[];
+  summary: ProjectChatSummary;
+}): string {
+  const recentMessages =
+    getProjectChatContext(messages).flatMap(compactMessage);
+  const ownerMessages = dedupeStrings(
+    [
+      ...memoryFacts.ownerNotes,
+      ...getOlderOwnerMessages(messages, getProjectChatContext(messages)),
+    ],
+    MAX_OWNER_MEMORY_MESSAGES * 2,
+    480,
+  ).slice(-MAX_OWNER_MEMORY_MESSAGES);
+  const confirmedFacts = formatConfirmedFactLedger(factLedger);
+
+  return JSON.stringify({
+    confirmedFacts: confirmedFacts || null,
+    memory: {
+      decisions: memoryFacts.decisions,
+      facts: memoryFacts.facts,
+      preferences: memoryFacts.preferences,
+    },
+    ownerMessages,
+    recentMessages,
+    summary: summary.text || null,
+  });
 }
 
 export function getProjectChatPage(
@@ -124,6 +235,7 @@ export function createEmptyChatSummary(): ProjectChatSummary {
     version: 1,
     text: "",
     compactedMessageCount: 0,
+    compactedThroughMessageId: "",
     updatedAt: "",
   };
 }
@@ -133,6 +245,7 @@ export function createEmptyMemoryFacts(): ProjectMemoryFacts {
     version: 1,
     facts: [],
     decisions: [],
+    ownerNotes: [],
     preferences: [],
     updatedAt: "",
   };
@@ -223,6 +336,10 @@ function sanitizeStoredUiMessage(value: unknown): unknown {
   return { ...message, parts };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
 function isUiMessage(value: unknown): value is UIMessage {
   if (!value || typeof value !== "object") {
     return false;
@@ -239,6 +356,113 @@ function isUiMessage(value: unknown): value is UIMessage {
   );
 }
 
+function hasSummaryData(summary: ProjectChatSummary): boolean {
+  return Boolean(
+    summary.text ||
+    summary.compactedMessageCount ||
+    summary.compactedThroughMessageId ||
+    summary.updatedAt,
+  );
+}
+
+function mergeProjectMemoryFacts(
+  current: ProjectMemoryFacts,
+  fallback: ProjectMemoryFacts,
+): ProjectMemoryFacts {
+  return {
+    version: 1,
+    facts: mergeMemoryStrings(current.facts, fallback.facts, 24, 280),
+    decisions: mergeMemoryStrings(
+      current.decisions,
+      fallback.decisions,
+      24,
+      280,
+    ),
+    ownerNotes: mergeMemoryStrings(
+      current.ownerNotes,
+      fallback.ownerNotes,
+      MAX_OWNER_MEMORY_MESSAGES,
+      480,
+    ),
+    preferences: mergeMemoryStrings(
+      current.preferences,
+      fallback.preferences,
+      24,
+      280,
+    ),
+    updatedAt: current.updatedAt || fallback.updatedAt,
+  };
+}
+
+function mergeMemoryStrings(
+  current: string[],
+  fallback: string[],
+  maxItems: number,
+  maxLength: number,
+): string[] {
+  return dedupeStrings([...current, ...fallback], maxItems, maxLength);
+}
+
+function compactMessage(message: UIMessage): {
+  id: string;
+  role: UIMessage["role"];
+  text: string;
+}[] {
+  const text = getTextFromUIMessage(message);
+  return text ? [{ id: message.id, role: message.role, text }] : [];
+}
+
+function getOlderOwnerMessages(
+  messages: UIMessage[],
+  recentMessages: UIMessage[],
+): string[] {
+  const recentIds = new Set(recentMessages.map((message) => message.id));
+  return messages
+    .filter((message) => message.role === "user" && !recentIds.has(message.id))
+    .map(getTextFromUIMessage)
+    .filter(Boolean)
+    .slice(-MAX_OWNER_MEMORY_MESSAGES);
+}
+
+function formatConfirmedFactLedger(factLedger: FactLedger | undefined): string {
+  return getRenderableFactEntries(normalizeFactLedger(factLedger))
+    .map((entry) => `- ${entry.label}: ${formatFactValue(entry.value)}`)
+    .join("\n");
+}
+
+function formatFactValue(value: unknown): string {
+  if (typeof value === "string") {
+    return value;
+  }
+  try {
+    return JSON.stringify(value) ?? "(empty)";
+  } catch {
+    return "(unavailable)";
+  }
+}
+
+function dedupeStrings(
+  items: string[],
+  maxItems: number,
+  maxLength: number,
+): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const item of items) {
+    const value = item.trim().replace(/\s+/g, " ").slice(0, maxLength);
+    const key = value.toLocaleLowerCase("id-ID");
+    if (!value || seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    result.push(value);
+    if (result.length >= maxItems) {
+      break;
+    }
+  }
+  return result;
+}
+
 function stringValue(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -249,14 +473,14 @@ function numberValue(value: unknown) {
     : 0;
 }
 
-function stringArrayValue(value: unknown, maxItems: number) {
+function stringArrayValue(value: unknown, maxItems: number, maxLength = 280) {
   if (!Array.isArray(value)) {
     return [];
   }
 
   return value
     .filter((item): item is string => typeof item === "string")
-    .map((item) => item.trim().replace(/\s+/g, " "))
+    .map((item) => item.trim().replace(/\s+/g, " ").slice(0, maxLength))
     .filter(Boolean)
     .slice(0, maxItems);
 }

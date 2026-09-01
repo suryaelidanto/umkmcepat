@@ -55,6 +55,7 @@ import {
 import { hashCanonicalBriefContent } from "@/lib/projects/canonical-brief-hash";
 import { ensureQuestionCardRichness } from "@/lib/projects/card-richness";
 import {
+  buildCompactDiscussionContext,
   buildProjectChatContext,
   dedupeUiMessages,
   getTextFromUIMessage,
@@ -78,7 +79,7 @@ import {
 import { finalizeDiscussTurn } from "@/lib/projects/discuss-turn";
 import { publishProgress } from "@/lib/projects/discuss-turn-pubsub";
 import {
-  persistProjectChatTurn,
+  persistProjectChatTurn as persistProjectChatTurnRaw,
   repairDiscussCardWithTool,
   repairToolCallInTurn,
   scrubBriefForStorage,
@@ -272,9 +273,33 @@ export async function runDiscussTurn({
       summary: _summary,
       memoryFacts: _memoryFacts,
     });
+    const persistProjectChatTurn = (
+      input: Parameters<typeof persistProjectChatTurnRaw>[0],
+    ) => {
+      const brief = parseProjectBrief(
+        input.brief === undefined ? effectiveBrief : input.brief,
+        project.prompt,
+      );
+      return persistProjectChatTurnRaw({
+        ...input,
+        brief: scrubBriefForStorage(brief, brief.readyForBuild, project.id),
+        discussionContext: {
+          summary: _summary,
+          memoryFacts: _memoryFacts,
+        },
+        title: input.title ?? project.title,
+      });
+    };
     const systemPrompt = buildOneCallSystemPrompt({
       brief: effectiveBrief,
-      context: `${chatContext.systemContext}\n\nFact ledger:\n${JSON.stringify(effectiveBrief.factLedger)}\n\nRaw discussion context:\n${JSON.stringify(discussionContext)}`,
+      context: `${effectiveChatContext.systemContext}\n\nFact ledger:\n${JSON.stringify(effectiveBrief.factLedger)}\n\nProject discussion context:\n${buildCompactDiscussionContext(
+        {
+          factLedger: effectiveBrief.factLedger,
+          memoryFacts: _memoryFacts,
+          messages,
+          summary: _summary,
+        },
+      )}`,
       hasBuiltSite,
       hasPendingChanges,
     });

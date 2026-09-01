@@ -10,9 +10,7 @@ import { parseCanonicalBrief } from "@/lib/projects/canonical-brief";
 import { maybeCompactProjectChat } from "@/lib/projects/chat-compaction";
 import {
   dedupeUiMessages,
-  parseProjectChatMessages,
-  parseProjectChatSummary,
-  parseProjectMemoryFacts,
+  resolveProjectChatState,
 } from "@/lib/projects/chat-memory";
 import { persistProjectChatCompaction } from "@/lib/projects/discuss-turn-shared";
 
@@ -23,11 +21,12 @@ export async function runQueuedProjectCompaction(
     Array<{
       chatMessages: unknown;
       chatSummary: unknown;
+      lastCompactedMessageCount: unknown;
       memoryFacts: unknown;
       brief: unknown;
     }>
   >`
-    SELECT "chatMessages", "chatSummary", "memoryFacts", "brief"
+    SELECT "chatMessages", "chatSummary", "lastCompactedMessageCount", "memoryFacts", "brief"
     FROM "Project"
     WHERE id = ${job.projectId} AND "userId" = ${job.userId}
   `;
@@ -36,12 +35,27 @@ export async function runQueuedProjectCompaction(
     return;
   }
 
-  const messages = await validateUIMessages({
-    messages: dedupeUiMessages(parseProjectChatMessages(row.chatMessages)),
+  const canonicalBrief = parseCanonicalBrief(row.brief);
+  const chatState = resolveProjectChatState({
+    chatMessages: row.chatMessages,
+    chatSummary: row.chatSummary,
+    memoryFacts: row.memoryFacts,
+    fallback: canonicalBrief.discussionContext,
   });
-  const summary = parseProjectChatSummary(row.chatSummary);
-  const memoryFacts = parseProjectMemoryFacts(row.memoryFacts);
-  const factLedger = parseCanonicalBrief(row.brief).factLedger;
+  const messages = await validateUIMessages({
+    messages: dedupeUiMessages(chatState.messages),
+  });
+  const summary = {
+    ...chatState.summary,
+    compactedMessageCount: Math.max(
+      chatState.summary.compactedMessageCount,
+      typeof row.lastCompactedMessageCount === "number"
+        ? row.lastCompactedMessageCount
+        : 0,
+    ),
+  };
+  const memoryFacts = chatState.memoryFacts;
+  const factLedger = canonicalBrief.factLedger;
 
   try {
     const compaction = await maybeCompactProjectChat({

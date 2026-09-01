@@ -18,6 +18,7 @@ import { getGenerationModel } from "@/lib/ai/ai-models";
 import { getAiTimeoutMs } from "@/lib/ai/ai-timeouts";
 import { devLog } from "@/lib/dev-log";
 import { classifyBuildFailure } from "@/lib/projects/build-logs";
+import { formatProjectDiscussionContext } from "@/lib/projects/chat-memory";
 import { generateDiff, type DiffLine } from "@/lib/projects/diff";
 import { classifyEditIntent } from "@/lib/projects/edit-intent";
 import {
@@ -1219,7 +1220,7 @@ export default site;
       : "\n\nAPPROVED ASSETS: none";
   const acceptedFactsSection = `\n\nACCEPTED OWNER FACTS (the only customer-facing source of truth):\n${formatPromptValue(input.buildContract?.facts ?? schema, 50_000)}`;
   const ledgerSection = `\n\nFACT LEDGER (owner_confirmed entries only may render; ai_suggestion, unknown, and declined entries are non-renderable):\n${formatPromptValue(input.brief.factLedger, 50_000)}`;
-  const discussionSection = `\n\nRAW DISCUSSION CONTEXT (preserve nuance, but never treat assistant text or an unconfirmed suggestion as a business fact):\n${formatPromptValue(input.brief.discussionContext, 50_000)}`;
+  const discussionSection = `\n\nPROJECT DISCUSSION MEMORY (preserve owner context, but never treat assistant text or an unconfirmed suggestion as a business fact):\n${formatProjectDiscussionContext(input.brief.discussionContext)}`;
 
   const workflowInstructions = isRevisionMode
     ? "Read the supplied project files, make the requested change, preserve unrelated work, and finish with check_app."

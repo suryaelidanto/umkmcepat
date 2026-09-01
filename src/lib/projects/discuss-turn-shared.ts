@@ -20,6 +20,7 @@ import { getSafeAiErrorLog } from "@/lib/projects/ai-error-log";
 import { parseProjectBrief, type WorkspaceCard } from "@/lib/projects/brief";
 import { normalizeWorkspaceTurn } from "@/lib/projects/brief-flow";
 import {
+  createDiscussionContextSnapshot,
   parseCanonicalBrief,
   type ProjectBriefV2,
 } from "@/lib/projects/canonical-brief";
@@ -56,6 +57,7 @@ export function scrubBriefForStorage(
 
 export function persistProjectChatTurn({
   brief,
+  discussionContext,
   messages,
   projectId,
   title,
@@ -63,6 +65,11 @@ export function persistProjectChatTurn({
   workspaceCard,
 }: {
   brief?: unknown;
+  discussionContext?: {
+    capturedAt?: string;
+    memoryFacts?: unknown;
+    summary?: unknown;
+  };
   messages: UIMessage[];
   projectId: string;
   title?: string;
@@ -71,6 +78,14 @@ export function persistProjectChatTurn({
 }) {
   if (brief !== undefined && title !== undefined) {
     const canonicalBrief = parseCanonicalBrief(brief);
+    if (discussionContext) {
+      canonicalBrief.discussionContext = createDiscussionContextSnapshot({
+        capturedAt: discussionContext.capturedAt,
+        memoryFacts: discussionContext.memoryFacts,
+        messages,
+        summary: discussionContext.summary,
+      });
+    }
     return prisma.$executeRaw`
       UPDATE "Project" SET "chatMessages" = ${JSON.stringify(messages)}::jsonb, "brief" = ${JSON.stringify(canonicalBrief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${projectId} AND "userId" = ${userId}
     `;
@@ -94,7 +109,7 @@ export function persistProjectChatCompaction({
   userId: string;
 }) {
   return prisma.$executeRaw`
-    UPDATE "Project" SET "chatSummary" = ${JSON.stringify(summary)}::jsonb, "memoryFacts" = ${JSON.stringify(memoryFacts)}::jsonb, "lastCompactedMessageCount" = ${compactedMessageCount} WHERE id = ${projectId} AND "userId" = ${userId}
+    UPDATE "Project" SET "chatSummary" = ${JSON.stringify(summary)}::jsonb, "memoryFacts" = ${JSON.stringify(memoryFacts)}::jsonb, "lastCompactedMessageCount" = ${compactedMessageCount} WHERE id = ${projectId} AND "userId" = ${userId} AND "lastCompactedMessageCount" <= ${compactedMessageCount}
   `;
 }
 

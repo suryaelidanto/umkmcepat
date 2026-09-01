@@ -43,10 +43,15 @@ export type DiscussionContextMessage = {
 export type DiscussionContextSnapshot = {
   version: 1;
   messages: DiscussionContextMessage[];
-  summary: { text: string; compactedMessageCount: number };
+  summary: {
+    text: string;
+    compactedMessageCount: number;
+    compactedThroughMessageId: string;
+  };
   memoryFacts: {
     facts: string[];
     decisions: string[];
+    ownerNotes: string[];
     preferences: string[];
   };
   capturedAt: string;
@@ -169,8 +174,17 @@ export function createDiscussionContextSnapshot(input: {
     }) ?? {
       version: 1,
       messages: [],
-      summary: { text: "", compactedMessageCount: 0 },
-      memoryFacts: { facts: [], decisions: [], preferences: [] },
+      summary: {
+        text: "",
+        compactedMessageCount: 0,
+        compactedThroughMessageId: "",
+      },
+      memoryFacts: {
+        facts: [],
+        decisions: [],
+        ownerNotes: [],
+        preferences: [],
+      },
       capturedAt: input.capturedAt ?? new Date().toISOString(),
     }
   );
@@ -736,21 +750,29 @@ function parseDiscussionContext(
     summary: {
       text: cleanText(summary?.text).slice(0, 4000),
       compactedMessageCount: finiteCount(summary?.compactedMessageCount),
+      compactedThroughMessageId: cleanText(
+        summary?.compactedThroughMessageId,
+      ).slice(0, 120),
     },
     memoryFacts: {
       facts: parseStringList(memoryFacts?.facts, 24),
       decisions: parseStringList(memoryFacts?.decisions, 24),
+      ownerNotes: parseStringList(memoryFacts?.ownerNotes, 24, 480),
       preferences: parseStringList(memoryFacts?.preferences, 24),
     },
     capturedAt: cleanText(source.capturedAt).slice(0, 80),
   };
 }
 
-function parseStringList(value: unknown, max: number): string[] {
+function parseStringList(
+  value: unknown,
+  max: number,
+  maxLength = 280,
+): string[] {
   return Array.isArray(value)
     ? value
         .filter((item): item is string => typeof item === "string")
-        .map((item) => cleanText(item).slice(0, 280))
+        .map((item) => cleanText(item).slice(0, maxLength))
         .filter(Boolean)
         .slice(0, max)
     : [];

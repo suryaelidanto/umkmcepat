@@ -30,6 +30,7 @@ import {
   parseProjectChatMessages,
   parseProjectChatSummary,
   parseProjectMemoryFacts,
+  resolveProjectChatState,
 } from "@/lib/projects/chat-memory";
 import { buildCardSystemPrompt } from "@/lib/projects/discuss-tool";
 import {
@@ -188,18 +189,24 @@ async function handlePreviewPost(request: Request) {
   >`
     SELECT "chatMessages", "chatSummary", "memoryFacts", "lastCompactedMessageCount", "brief", "workspaceCard" FROM "Project" WHERE id = ${project.id} AND "userId" = ${userId}
   `;
-  const storedMessages = parseProjectChatMessages(chatRow?.chatMessages);
-  const parsedChatSummary = parseProjectChatSummary(chatRow?.chatSummary);
+  const canonicalBrief = parseCanonicalBrief(chatRow?.brief, project.prompt);
+  const chatState = resolveProjectChatState({
+    chatMessages: chatRow?.chatMessages,
+    chatSummary: chatRow?.chatSummary,
+    memoryFacts: chatRow?.memoryFacts,
+    fallback: canonicalBrief.discussionContext,
+  });
+  const storedMessages = chatState.messages;
   const chatSummary = {
-    ...parsedChatSummary,
+    ...chatState.summary,
     compactedMessageCount: Math.max(
-      parsedChatSummary.compactedMessageCount,
+      chatState.summary.compactedMessageCount,
       typeof chatRow?.lastCompactedMessageCount === "number"
         ? chatRow.lastCompactedMessageCount
         : 0,
     ),
   };
-  const memoryFacts = parseProjectMemoryFacts(chatRow?.memoryFacts);
+  const memoryFacts = chatState.memoryFacts;
   const incoming = body.message ? [body.message] : (body.messages ?? []);
 
   if (incoming.length > 1) {
@@ -270,10 +277,7 @@ async function handlePreviewPost(request: Request) {
     latestUserText = summary;
   }
 
-  const currentBrief = parseProjectBrief(
-    parseCanonicalBrief(chatRow?.brief, project.prompt),
-    project.prompt,
-  );
+  const currentBrief = parseProjectBrief(canonicalBrief, project.prompt);
   const storedWorkspaceCard = parseWorkspaceCard(
     chatRow?.workspaceCard,
     currentBrief,
@@ -312,8 +316,10 @@ async function handlePreviewPost(request: Request) {
   if (body.mode === "repair_card") {
     return repairWorkspaceCard({
       brief: effectiveBrief,
+      memoryFacts,
       messages: storedMessages,
       project,
+      summary: chatSummary,
       userId,
     });
   }
@@ -331,7 +337,8 @@ async function handlePreviewPost(request: Request) {
     ),
   });
   const chatContext = buildProjectChatContext({
-    fieldState: {},
+    factLedger: canonicalBrief.factLedger,
+    fieldState: currentBrief.fieldState,
     memoryFacts,
     messages,
     summary: chatSummary,
@@ -405,6 +412,10 @@ async function handleDiscussTurnOneCall({
       groundedEffectiveBrief.readyForBuild,
       project.id,
     ),
+    discussionContext: {
+      memoryFacts: _memoryFacts,
+      summary: _summary,
+    },
     messages,
     projectId: project.id,
     title: project.title,
@@ -534,13 +545,17 @@ async function handleDiscussTurnOneCall({
 
 async function repairWorkspaceCard({
   brief,
+  memoryFacts,
   messages,
   project,
+  summary,
   userId,
 }: {
   brief: ReturnType<typeof parseProjectBrief>;
+  memoryFacts: ReturnType<typeof parseProjectMemoryFacts>;
   messages: UIMessage[];
   project: { id: string; prompt: string; status: string; title: string };
+  summary: ReturnType<typeof parseProjectChatSummary>;
   userId: string;
 }) {
   if (!messages.length) {
@@ -613,7 +628,7 @@ async function repairWorkspaceCard({
       userId,
       engine: "contract",
       brief: turn.brief,
-      discussionContext: { messages },
+      discussionContext: { messages, memoryFacts, summary },
     });
     if (prepared.state === "ready") {
       const base = finalWorkspaceCard as {
@@ -643,6 +658,7 @@ async function repairWorkspaceCard({
   const title = turn.projectTitle || project.title;
   await persistProjectChatTurn({
     brief: scrubBriefForStorage(turn.brief, turn.readyForBuild, project.id),
+    discussionContext: { memoryFacts, summary },
     messages,
     projectId: project.id,
     title,

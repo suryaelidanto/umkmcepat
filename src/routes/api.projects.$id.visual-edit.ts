@@ -12,7 +12,8 @@ import { checkEnergy, getEnergyConfig } from "@/lib/payment/user-credits";
 import { prisma } from "@/lib/prisma";
 import { enqueueAttemptJob } from "@/lib/projects/attempt-queue";
 import { createReadStreamFromChannel } from "@/lib/projects/build-attempt-pubsub";
-import { parseProjectChatMessages } from "@/lib/projects/chat-memory";
+import { parseCanonicalBrief } from "@/lib/projects/canonical-brief";
+import { resolveProjectChatState } from "@/lib/projects/chat-memory";
 import {
   isProjectDeploymentForProject,
   selectActivePreviewDeployment,
@@ -123,10 +124,13 @@ export async function handleVisualEditPost(request: Request, routeId: string) {
   const project = await prisma.project.findFirst({
     where: { id, userId: session.user.id },
     select: {
+      brief: true,
       buildStatus: true,
       chatMessages: true,
+      chatSummary: true,
       generationEngine: true,
       id: true,
+      memoryFacts: true,
       prompt: true,
       siteSchema: true,
       status: true,
@@ -279,6 +283,8 @@ export async function handleVisualEditPost(request: Request, routeId: string) {
     if (summary) {
       await persistVisualSummaryMessage({
         attemptId: attempt.id,
+        fallback: parseCanonicalBrief(project.brief, project.prompt)
+          .discussionContext,
         messages: project.chatMessages,
         projectId: project.id,
         summary,
@@ -434,16 +440,27 @@ export async function handleVisualEditPost(request: Request, routeId: string) {
 
 async function persistVisualSummaryMessage({
   attemptId,
+  fallback,
   messages,
   projectId,
   summary,
 }: {
   attemptId: string;
+  fallback?: {
+    messages?: unknown;
+    summary?: unknown;
+    memoryFacts?: unknown;
+  };
   messages: unknown;
   projectId: string;
   summary: string;
 }) {
-  const current = parseProjectChatMessages(messages);
+  const current = resolveProjectChatState({
+    chatMessages: messages,
+    chatSummary: null,
+    memoryFacts: null,
+    fallback,
+  }).messages;
   const exists = current.some((message) => message.id === attemptId);
 
   if (exists) {

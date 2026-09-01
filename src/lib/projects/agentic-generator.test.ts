@@ -703,6 +703,49 @@ describe("runAgenticGenerate", () => {
     expect(result).toMatchObject({ generationMode: "agentic" });
   });
 
+  it("passes persisted discussion memory to the generation system prompt", async () => {
+    let capturedSystem = "";
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      capturedSystem = (args as { system?: string }).system ?? "";
+      return { text: "Done", steps: [] };
+    });
+
+    await expect(
+      runAgenticGenerate(
+        createInput({
+          brief: {
+            prompt: "buat website usaha",
+            discussionContext: {
+              version: 1,
+              messages: [
+                {
+                  id: "owner-memory",
+                  role: "user",
+                  parts: [{ type: "text", text: "Owner memory marker" }],
+                },
+                ...Array.from({ length: 11 }, (_, index) => ({
+                  id: `recent-${index}`,
+                  role: "assistant",
+                  parts: [{ type: "text", text: `recent ${index}` }],
+                })),
+              ],
+              summary: { text: "Summary marker", compactedMessageCount: 1 },
+              memoryFacts: {
+                facts: [],
+                decisions: [],
+                preferences: [],
+              },
+            },
+          },
+        }),
+      ),
+    ).rejects.toThrow();
+
+    expect(capturedSystem).toContain('"ownerMessages"');
+    expect(capturedSystem).toContain("Owner memory marker");
+    expect(capturedSystem).toContain("Summary marker");
+  });
+
   it("builds a fact-grounded system and user prompt", async () => {
     let captured: { prompt?: string; system?: string } | undefined;
     generateTextMock.mockImplementationOnce(async (args: unknown) => {

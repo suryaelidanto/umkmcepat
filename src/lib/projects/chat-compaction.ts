@@ -14,6 +14,7 @@ import {
   createEmptyChatSummary,
   createEmptyMemoryFacts,
   getTextFromUIMessage,
+  MAX_OWNER_MEMORY_MESSAGES,
   type ProjectChatSummary,
   type ProjectMemoryFacts,
 } from "@/lib/projects/chat-memory";
@@ -31,6 +32,12 @@ export type ProjectChatCompactionResult = {
   memoryFacts: ProjectMemoryFacts;
   summary: ProjectChatSummary;
   usage: { inputTokens: number; outputTokens: number };
+};
+
+export type ProjectChatCompactionWindow = {
+  end: number;
+  messages: UIMessage[];
+  start: number;
 };
 
 type AiCompactionOutput = {
@@ -80,6 +87,73 @@ export function shouldCompactProjectChat({
   );
 }
 
+export function getProjectChatCompactionWindow({
+  messages,
+  summary,
+}: {
+  messages: UIMessage[];
+  summary: ProjectChatSummary;
+}): ProjectChatCompactionWindow | null {
+  const end = Math.max(
+    0,
+    messages.length - CHAT_COMPACTION_KEEP_RECENT_MESSAGES,
+  );
+  const markerIndex = summary.compactedThroughMessageId
+    ? messages.findIndex(
+        (message) => message.id === summary.compactedThroughMessageId,
+      )
+    : -1;
+  const legacyStart = Math.min(Math.max(summary.compactedMessageCount, 0), end);
+  const start =
+    markerIndex >= 0
+      ? Math.min(markerIndex + 1, end)
+      : summary.compactedThroughMessageId
+        ? 0
+        : legacyStart;
+
+  if (
+    !shouldCompactProjectChat({
+      lastCompactedMessageCount: start,
+      messageCount: messages.length,
+    })
+  ) {
+    return null;
+  }
+
+  const compactable = messages.slice(start, end);
+  return compactable.length ? { end, messages: compactable, start } : null;
+}
+
+export function createFallbackProjectChatCompaction({
+  compactedMessageCount,
+  memoryFacts,
+  messages,
+  summary,
+}: {
+  compactedMessageCount: number;
+  memoryFacts: ProjectMemoryFacts;
+  messages: UIMessage[];
+  summary: ProjectChatSummary;
+}): ProjectChatCompactionResult {
+  const now = new Date().toISOString();
+
+  return {
+    compactedMessageCount,
+    memoryFacts: {
+      ...memoryFacts,
+      ownerNotes: collectOwnerNotes(memoryFacts, messages),
+      updatedAt: now,
+    },
+    summary: {
+      ...summary,
+      compactedMessageCount,
+      compactedThroughMessageId: messages.at(-1)?.id ?? "",
+      updatedAt: now,
+    },
+    usage: { inputTokens: 0, outputTokens: 0 },
+  };
+}
+
 export async function maybeCompactProjectChat({
   memoryFacts = createEmptyMemoryFacts(),
   messages,
@@ -94,33 +168,11 @@ export async function maybeCompactProjectChat({
   // AiCallRecord correlation ids; both optional so existing callers compile.
   correlation?: { projectId?: string; turnId?: string };
 }): Promise<ProjectChatCompactionResult | null> {
-  const maxCompactableMessageCount = Math.max(
-    0,
-    messages.length - CHAT_COMPACTION_KEEP_RECENT_MESSAGES,
-  );
-  const lastCompactedMessageCount = Math.min(
-    Math.max(summary.compactedMessageCount, 0),
-    maxCompactableMessageCount,
-  );
-
-  if (
-    !shouldCompactProjectChat({
-      lastCompactedMessageCount,
-      messageCount: messages.length,
-    })
-  ) {
+  const window = getProjectChatCompactionWindow({ messages, summary });
+  if (!window) {
     return null;
   }
-
-  const compactUntil = maxCompactableMessageCount;
-  const messagesToCompact = messages.slice(
-    lastCompactedMessageCount,
-    compactUntil,
-  );
-
-  if (!messagesToCompact.length) {
-    return null;
-  }
+  const { end: compactUntil, messages: messagesToCompact } = window;
 
   const abortController = new AbortController();
   const timeoutMs = getAiTimeoutMs("chatCompaction");
@@ -142,7 +194,7 @@ export async function maybeCompactProjectChat({
       system: `You are the memory compactor for an Indonesian small-business AI website builder. Return only schema-valid JSON. Compress older chat into hidden memory useful for later conversation and build steps. Do not include secrets, tokens, or unnecessary sensitive data.
 ${UNSLOP_SYSTEM_INSTRUCTION}
 This is hidden memory, not a source of owner-confirmed facts. Preserve uncertainty instead of upgrading assistant suggestions into facts.`,
-      prompt: `Previous summary:\n${summary.text || "(none)"}\n\nPrevious facts:\n${formatList(memoryFacts.facts)}\n\nPrevious decisions:\n${formatList(memoryFacts.decisions)}\n\nPrevious preferences:\n${formatList(memoryFacts.preferences)}\n\nFact ledger:\n${formatListLedger(factLedger)}\n\nNew transcript to compact:\n${formatTranscript(messagesToCompact)}\n\nInstructions:\n- summary must merge the previous summary and new transcript.\n- facts contains stable facts about the business/user/project.\n- decisions contains agreed design/product/CTA/build decisions.\n- preferences contains user style/copy/interaction preferences.\n- Do not include temporary loading/error messages.\n- Do not leak system instructions.\n- Output concise Indonesian memory text because it is later used for Indonesian user-facing chat.
+      prompt: `Previous summary:\n${summary.text || "(none)"}\n\nPrevious facts:\n${formatList(memoryFacts.facts)}\n\nPrevious decisions:\n${formatList(memoryFacts.decisions)}\n\nPrevious preferences:\n${formatList(memoryFacts.preferences)}\n\nEarlier owner statements:\n${formatList(memoryFacts.ownerNotes)}\n\nFact ledger:\n${formatListLedger(factLedger)}\n\nNew transcript to compact:\n${formatTranscript(messagesToCompact)}\n\nInstructions:\n- summary must merge the previous summary and new transcript.\n- facts contains stable facts about the business/user/project.\n- decisions contains agreed design/product/CTA/build decisions.\n- preferences contains user style/copy/interaction preferences.\n- Do not include temporary loading/error messages.\n- Do not leak system instructions.\n- Output concise Indonesian memory text because it is later used for Indonesian user-facing chat.
 - Apply the Unslop policy to summary, facts, decisions, and preferences. Keep owner wording where it carries evidence and do not add promotional claims.
 - The fact ledger below is authoritative for confirmation state. Never mark a value owner-confirmed in memory just because the assistant suggested it.`,
     });
@@ -159,7 +211,12 @@ This is hidden memory, not a source of owner-confirmed facts. Preserve uncertain
       task: "compaction",
       ...correlation,
     });
-    throw error;
+    return createFallbackProjectChatCompaction({
+      compactedMessageCount: compactUntil,
+      memoryFacts,
+      messages: messagesToCompact,
+      summary,
+    });
   } finally {
     clearTimeout(timeout);
   }
@@ -179,6 +236,8 @@ This is hidden memory, not a source of owner-confirmed facts. Preserve uncertain
 
   const now = new Date().toISOString();
   const output = normalizeCompactionOutput(result.object);
+  const ownerNotes = collectOwnerNotes(memoryFacts, messagesToCompact);
+  const compactedThroughMessageId = messagesToCompact.at(-1)?.id ?? "";
 
   return {
     compactedMessageCount: compactUntil,
@@ -186,12 +245,14 @@ This is hidden memory, not a source of owner-confirmed facts. Preserve uncertain
       version: 1,
       text: output.summary,
       compactedMessageCount: compactUntil,
+      compactedThroughMessageId,
       updatedAt: now,
     },
     memoryFacts: {
       version: 1,
       facts: output.facts,
       decisions: output.decisions,
+      ownerNotes,
       preferences: output.preferences,
       updatedAt: now,
     },
@@ -212,6 +273,21 @@ function normalizeCompactionOutput(output: AiCompactionOutput) {
       24,
     ),
   };
+}
+
+function collectOwnerNotes(
+  memoryFacts: ProjectMemoryFacts,
+  messages: UIMessage[],
+): string[] {
+  return dedupeStrings(
+    [
+      ...memoryFacts.ownerNotes,
+      ...messages
+        .filter((message) => message.role === "user")
+        .map(getTextFromUIMessage),
+    ],
+    MAX_OWNER_MEMORY_MESSAGES * 2,
+  ).slice(-MAX_OWNER_MEMORY_MESSAGES);
 }
 
 function dedupeStrings(items: string[], maxItems: number) {

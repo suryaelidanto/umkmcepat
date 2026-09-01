@@ -3,16 +3,13 @@ import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
 import { runAgenticGenerate } from "@/lib/projects/agentic-generator";
 import { enqueueAndWaitEditBuild } from "@/lib/projects/attempt-queue";
+import { parseProjectBrief } from "@/lib/projects/brief";
 import { publishBuildProgress } from "@/lib/projects/build-attempt-pubsub";
 import {
   createDiscussionContextSnapshot,
   parseCanonicalBrief,
 } from "@/lib/projects/canonical-brief";
-import {
-  parseProjectChatMessages,
-  parseProjectChatSummary,
-  parseProjectMemoryFacts,
-} from "@/lib/projects/chat-memory";
+import { resolveProjectChatState } from "@/lib/projects/chat-memory";
 import {
   isProjectDeploymentForProject,
   selectActivePreviewDeployment,
@@ -320,19 +317,26 @@ export async function runEditAttempt({
       onFilesChanged([...merged.values()]);
     };
 
-    const storedMessages = parseProjectChatMessages(project.chatMessages);
     const storedBrief = parseCanonicalBrief(project.brief, project.prompt);
+    const chatState = resolveProjectChatState({
+      chatMessages: project.chatMessages,
+      chatSummary: project.chatSummary,
+      memoryFacts: project.memoryFacts,
+      fallback: storedBrief.discussionContext,
+    });
+    const storedMessages = chatState.messages;
     const agenticResult = await runAgenticGenerate({
       abortSignal,
       attemptId: attempt.id,
       brief: {
+        ...parseProjectBrief(storedBrief, project.prompt),
         prompt: instruction,
         businessName: storedBrief.business.name || project.title,
         factLedger: storedBrief.factLedger,
         discussionContext: createDiscussionContextSnapshot({
           messages: storedMessages,
-          summary: parseProjectChatSummary(project.chatSummary),
-          memoryFacts: parseProjectMemoryFacts(project.memoryFacts),
+          summary: chatState.summary,
+          memoryFacts: chatState.memoryFacts,
         }),
       },
       initialFiles: baseFiles,

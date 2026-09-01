@@ -32,8 +32,17 @@ describe("canonical brief context", () => {
             parts: [{ type: "text", text: "Beras Putih Premium" }],
           },
         ],
-        summary: { text: "", compactedMessageCount: 0 },
-        memoryFacts: { facts: [], decisions: [], preferences: [] },
+        summary: {
+          text: "",
+          compactedMessageCount: 0,
+          compactedThroughMessageId: "m0",
+        },
+        memoryFacts: {
+          facts: [],
+          decisions: [],
+          ownerNotes: ["Pemilik memilih tampilan tenang."],
+          preferences: [],
+        },
         capturedAt: "2026-08-30T00:00:00.000Z",
       },
     });
@@ -42,5 +51,11 @@ describe("canonical brief context", () => {
     expect(brief.factLedger?.entries[0]?.state).toBe("owner_confirmed");
     expect(brief.discussionContext?.messages).toHaveLength(1);
     expect(brief.discussionContext?.messages[0]?.id).toBe("message-1");
+    expect(brief.discussionContext?.summary.compactedThroughMessageId).toBe(
+      "m0",
+    );
+    expect(brief.discussionContext?.memoryFacts.ownerNotes).toEqual([
+      "Pemilik memilih tampilan tenang.",
+    ]);
   });
 });

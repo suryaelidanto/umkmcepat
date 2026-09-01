@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { chargeMock, generateTextMock } = vi.hoisted(() => ({
+const { chargeMock, executeRawMock, generateTextMock } = vi.hoisted(() => ({
   chargeMock: vi.fn(async (..._args: unknown[]) => null),
+  executeRawMock: vi.fn(async (..._args: unknown[]) => 1),
   generateTextMock: vi.fn(),
 }));
 
@@ -17,6 +18,10 @@ vi.mock("@/lib/payment/user-credits", () => ({
   chargeEnergyForAiUsage: (...args: unknown[]) => chargeMock(...args),
 }));
 
+vi.mock("@/lib/prisma", () => ({
+  prisma: { $executeRaw: (...args: unknown[]) => executeRawMock(...args) },
+}));
+
 vi.mock("@/lib/ai/ai", () => ({
   getAiTelemetry: () => undefined,
   getNoReasoningCallOptions: () => ({}),
@@ -28,7 +33,11 @@ vi.mock("@/lib/ai/ai-timeouts", () => ({
   getAiTimeoutMs: () => 5_000,
 }));
 
-import { repairDiscussCardWithTool } from "./discuss-turn-shared";
+import {
+  persistProjectChatCompaction,
+  persistProjectChatTurn,
+  repairDiscussCardWithTool,
+} from "./discuss-turn-shared";
 
 const baseInput = {
   brief: { businessName: "Toko" },
@@ -75,6 +84,74 @@ function noneResponse(usage: { inputTokens: number; outputTokens: number }) {
     toolCalls: [{ input: { workspaceCard: { type: "none" } } }],
   };
 }
+
+describe("persistProjectChatTurn context checkpoint", () => {
+  beforeEach(() => {
+    executeRawMock.mockClear();
+  });
+
+  it("writes the latest discussion context into the canonical brief", async () => {
+    await persistProjectChatTurn({
+      brief: {
+        version: 2,
+        business: { name: "Kedai Pagi", type: "fnb" },
+        offers: [{ name: "Sarapan", isPrimary: true }],
+      },
+      discussionContext: {
+        memoryFacts: {
+          facts: ["Usaha sarapan"],
+          decisions: [],
+          ownerNotes: ["Buka pagi"],
+          preferences: [],
+        },
+        summary: {
+          text: "Pemilik membuka kedai pagi.",
+          compactedMessageCount: 4,
+          compactedThroughMessageId: "m4",
+        },
+      },
+      messages: [
+        {
+          id: "m5",
+          role: "user",
+          parts: [{ type: "text", text: "Tampilkan menu sarapan" }],
+        },
+      ] as never,
+      projectId: "p1",
+      title: "Kedai Pagi",
+      userId: "u1",
+      workspaceCard: null,
+    });
+
+    const serialized = executeRawMock.mock.calls[0]
+      ?.map((part) => String(part))
+      .join(" ");
+    expect(serialized).toContain('"compactedThroughMessageId":"m4"');
+    expect(serialized).toContain('"ownerNotes":["Buka pagi"]');
+    expect(serialized).toContain("Tampilkan menu sarapan");
+  });
+});
+
+describe("persistProjectChatCompaction concurrency", () => {
+  beforeEach(() => {
+    executeRawMock.mockClear();
+  });
+
+  it("only advances the compaction checkpoint", async () => {
+    await persistProjectChatCompaction({
+      compactedMessageCount: 40,
+      memoryFacts: { version: 1 },
+      projectId: "p1",
+      summary: { version: 1, compactedMessageCount: 40 },
+      userId: "u1",
+    });
+
+    const query = executeRawMock.mock.calls[0]
+      ?.map((part) => String(part))
+      .join(" ");
+    expect(query).toContain('"lastCompactedMessageCount" <= ');
+  });
+});
 
 describe("repairDiscussCardWithTool energy accounting", () => {
   beforeEach(() => {
