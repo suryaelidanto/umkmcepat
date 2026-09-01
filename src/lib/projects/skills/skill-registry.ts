@@ -181,8 +181,10 @@ class DynamicSkillEngine {
       return { ok: false, error: `Skill "${skillName}" not found.` };
     }
 
-    const normalized = scriptId
-      .trim()
+    const scriptTokens = scriptId.trim().split(/\s+/u).filter(Boolean);
+    const primaryScript = scriptTokens[0] ?? "";
+    const inlineCliArgs = scriptTokens.slice(1);
+    const normalized = primaryScript
       .replaceAll("\\", "/")
       .replace(/^\.\//u, "")
       .replace(/^\/+/u, "")
@@ -206,9 +208,11 @@ class DynamicSkillEngine {
 
     const timeoutMs = options?.timeoutMs ?? SCRIPT_TIMEOUT_MS;
     const cliArgs =
-      typeof args === "string"
-        ? args.split(/\s+/).filter(Boolean)
-        : argsToCli(args);
+      args == null
+        ? inlineCliArgs
+        : typeof args === "string"
+          ? args.split(/\s+/).filter(Boolean)
+          : argsToCli(args);
     try {
       const { stdout, stderr } = await execFileAsync(
         process.execPath,

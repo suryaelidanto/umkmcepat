@@ -424,7 +424,12 @@ export default site;
         "Run a bundled Impeccable or shadcn skill script when the skill documents call for it.",
       inputSchema: z.object({
         skill: z.enum(PROJECT_SCRIPT_SKILL_NAMES),
-        script: z.string().min(1),
+        script: z
+          .string()
+          .min(1)
+          .describe(
+            "Entrypoint name only, e.g. concept-seed. Pass CLI flags via args, never inside this name.",
+          ),
         args: z.unknown().optional(),
       }),
       execute: async ({

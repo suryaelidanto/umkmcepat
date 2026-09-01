@@ -202,8 +202,70 @@ describe("sandboxed script spawning", () => {
       expect(spawned.ok).toBe(true);
       const { existsSync } = await import("node:fs");
       expect(existsSync(markerPath)).toBe(true);
-      expect(spawned.ok).toBe(true);
-      expect(existsSync(markerPath)).toBe(true);
+    } finally {
+      clearFixtures();
+    }
+  });
+
+  it("splits inline CLI flags embedded in the script id", async () => {
+    writeFixture(
+      "__sandbox-argv.mjs",
+      "console.log(JSON.stringify(process.argv.slice(2)));\n",
+    );
+    skillEngine.refresh();
+    try {
+      const result = await executeSkillScript(
+        "impeccable",
+        "__sandbox-argv.mjs --scope direction --mode persuade",
+      );
+      expect(result.ok).toBe(true);
+      expect(JSON.parse(String(result.output))).toEqual([
+        "--scope",
+        "direction",
+        "--mode",
+        "persuade",
+      ]);
+    } finally {
+      clearFixtures();
+    }
+  });
+
+  it("lets explicit args win over inline script-id flags", async () => {
+    writeFixture(
+      "__sandbox-argv.mjs",
+      "console.log(JSON.stringify(process.argv.slice(2)));\n",
+    );
+    skillEngine.refresh();
+    try {
+      const result = await executeSkillScript(
+        "impeccable",
+        "__sandbox-argv.mjs --stale flag",
+        { mode: "persuade" },
+      );
+      expect(result.ok).toBe(true);
+      expect(JSON.parse(String(result.output))).toEqual(["--mode", "persuade"]);
+    } finally {
+      clearFixtures();
+    }
+  });
+
+  it("treats null args as absent and keeps inline script-id flags", async () => {
+    writeFixture(
+      "__sandbox-argv.mjs",
+      "console.log(JSON.stringify(process.argv.slice(2)));\n",
+    );
+    skillEngine.refresh();
+    try {
+      const result = await executeSkillScript(
+        "impeccable",
+        "__sandbox-argv.mjs --scope direction",
+        null,
+      );
+      expect(result.ok).toBe(true);
+      expect(JSON.parse(String(result.output))).toEqual([
+        "--scope",
+        "direction",
+      ]);
     } finally {
       clearFixtures();
     }
