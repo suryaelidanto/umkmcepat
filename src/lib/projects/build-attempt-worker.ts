@@ -12,6 +12,7 @@ import {
   classifyBuildFailure,
   getIndonesianBuildFailureSummary,
 } from "@/lib/projects/build-logs";
+import { appendBuildSessionLog } from "@/lib/projects/build-session-log";
 import { createStepCharger } from "@/lib/projects/energy-step-charger";
 import { formatGeneratedSource } from "@/lib/projects/format-generated-source";
 import {
@@ -213,6 +214,9 @@ export async function runBuildAttempt({
     },
   });
 
+  let agenticResult: Awaited<ReturnType<typeof runAgenticGenerate>> | null =
+    null;
+
   try {
     const persistedSourceFiles = await loadPersistedProjectSourceFiles({
       projectId,
@@ -399,6 +403,14 @@ export async function runBuildAttempt({
       runtimeBuildFinalized = true;
 
       if (buildOk) {
+        await appendBuildSessionLog({
+          attemptId,
+          failed: false,
+          projectId,
+          skillsRead: [],
+          touchedFiles: sourceFiles.map((file) => file.path),
+          userId,
+        }).catch(() => undefined);
         send("done", {
           message: "Website siap dilihat.",
           projectId,
@@ -510,8 +522,6 @@ export async function runBuildAttempt({
     } | null = null;
     let repairRounds = 0;
     let transientRetries = 0;
-    let agenticResult: Awaited<ReturnType<typeof runAgenticGenerate>> | null =
-      null;
     let buildResult = {
       distFiles: [] as Awaited<
         ReturnType<typeof buildGeneratedProject>
@@ -924,6 +934,14 @@ export async function runBuildAttempt({
       label: "Website siap dilihat",
       detail: "Website sudah selesai dibuat dan siap ditinjau.",
     });
+    await appendBuildSessionLog({
+      attemptId,
+      failed: false,
+      projectId,
+      skillsRead: agenticResult?.skillsRead ?? [],
+      touchedFiles: agenticResult?.touchedFiles ?? [],
+      userId,
+    }).catch(() => undefined);
     devLog("generate", "done", { projectId: projectId });
     send("done", { finalSchema });
   } catch (error) {
@@ -980,6 +998,14 @@ export async function runBuildAttempt({
       /invalid source|home route was not written|home route is still the starter|did not edit any|did not edit enough/i.test(
         rawErrorMessage,
       );
+    await appendBuildSessionLog({
+      attemptId,
+      failed: true,
+      projectId,
+      skillsRead: agenticResult?.skillsRead ?? [],
+      touchedFiles: agenticResult?.touchedFiles ?? [],
+      userId,
+    }).catch(() => undefined);
     send("error", {
       message: emptyAgent
         ? "Website belum selesai dibuat."
