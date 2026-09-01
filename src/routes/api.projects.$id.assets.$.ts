@@ -92,28 +92,33 @@ async function getAssetResponse({
       updatedAt: true,
     },
   });
-  const deployment = selectActivePreviewDeployment(
-    deployments.filter((candidate) =>
-      isProjectDeploymentForProject(candidate, id),
-    ),
+  const projectDeployments = deployments.filter((candidate) =>
+    isProjectDeploymentForProject(candidate, id),
   );
+  const activeDeployment = selectActivePreviewDeployment(projectDeployments);
   const requestUrl = new URL(request.url);
   const assetToken = requestUrl.searchParams.get(PREVIEW_ASSET_TOKEN_PARAM);
-
-  const hasValidToken =
-    deployment?.build?.artifactRef &&
-    (verifyPreviewAssetToken({
-      deploymentId: deployment.id,
-      projectId: id,
-      token: assetToken,
-    }) ||
+  const tokenDeployment = projectDeployments.find(
+    (candidate) =>
+      Boolean(candidate.build?.artifactRef) &&
+      verifyPreviewAssetToken({
+        deploymentId: candidate.id,
+        projectId: id,
+        token: assetToken,
+      }),
+  );
+  const deployment = tokenDeployment ?? activeDeployment;
+  const hasValidToken = Boolean(
+    tokenDeployment?.build?.artifactRef ||
+    (activeDeployment?.build?.artifactRef &&
       verifyPreviewAssetToken({
         deploymentId: "stored",
         projectId: id,
         token: assetToken,
-      }));
+      })),
+  );
 
-  if (hasValidToken) {
+  if (hasValidToken && deployment) {
     const response = await proxyDeploymentRequest({
       deploymentId: deployment.id,
       deploymentStatus: deployment.status,
@@ -163,7 +168,7 @@ async function getAssetResponse({
     return sandboxJson({ message: "Proyek tidak ditemukan." }, { status: 404 });
   }
 
-  if (deployment?.build?.artifactRef) {
+  if (deployment && deployment.build?.artifactRef) {
     const response = await proxyDeploymentRequest({
       deploymentId: deployment.id,
       deploymentStatus: deployment.status,

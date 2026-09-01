@@ -115,6 +115,82 @@ describe("project assets route", () => {
     await expect(response.text()).resolves.toContain("background: red");
   });
 
+  it("selects the deployment named by a valid historical preview token", async () => {
+    const historicalDeployment = {
+      build: {
+        artifactRef: "project-artifact:s3:dist:historical_build",
+        createdAt: new Date("2026-01-01T00:00:00.000Z"),
+        id: "historical_build",
+        projectId: "project_1",
+        snapshot: { id: "historical_snapshot", projectId: "project_1" },
+        snapshotId: "historical_snapshot",
+        status: "succeeded",
+        updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+      },
+      buildId: "historical_build",
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      id: "historical_deployment",
+      kind: "preview",
+      projectId: "project_1",
+      snapshot: { id: "historical_snapshot", projectId: "project_1" },
+      snapshotId: "historical_snapshot",
+      status: "stopped",
+      updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+    };
+    const latestDeployment = {
+      ...historicalDeployment,
+      build: {
+        ...historicalDeployment.build,
+        artifactRef: "project-artifact:s3:dist:latest_build",
+        createdAt: new Date("2026-01-02T00:00:00.000Z"),
+        id: "latest_build",
+        snapshot: { id: "latest_snapshot", projectId: "project_1" },
+        snapshotId: "latest_snapshot",
+        updatedAt: new Date("2026-01-02T00:00:00.000Z"),
+      },
+      buildId: "latest_build",
+      createdAt: new Date("2026-01-02T00:00:00.000Z"),
+      id: "latest_deployment",
+      snapshot: { id: "latest_snapshot", projectId: "project_1" },
+      snapshotId: "latest_snapshot",
+      status: "running",
+      updatedAt: new Date("2026-01-02T00:00:00.000Z"),
+    };
+
+    prismaProjectDeploymentFindManyMock.mockResolvedValue([
+      latestDeployment,
+      historicalDeployment,
+    ]);
+    proxyDeploymentRequestMock.mockResolvedValue(null);
+    readProjectDistArtifactMock.mockResolvedValue([
+      {
+        content: "historical",
+        contentType: "text/css",
+        path: "assets/index.css",
+      },
+    ]);
+
+    const token = createPreviewAssetToken({
+      deploymentId: "historical_deployment",
+      projectId: "project_1",
+    });
+    const response = await GET(
+      new Request(
+        `http://localhost/assets/index.css?assetToken=${encodeURIComponent(token)}`,
+      ),
+      { id: "project_1", _splat: "index.css" },
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe("historical");
+    expect(proxyDeploymentRequestMock).toHaveBeenCalledWith(
+      expect.objectContaining({ deploymentId: "historical_deployment" }),
+    );
+    expect(readProjectDistArtifactMock).toHaveBeenCalledWith(
+      "project-artifact:s3:dist:historical_build",
+    );
+  });
+
   it("does not fall back to an unrelated successful build for a selected deployment", async () => {
     const deployment = {
       build: {
