@@ -373,6 +373,10 @@ export async function runBuildAttempt({
         where: { id: snapshot.id },
         data: { sourceRef },
       });
+      await prisma.projectEditAttempt.update({
+        where: { id: attemptId },
+        data: { snapshotId: snapshot.id },
+      });
 
       if (runtimeBuildId) {
         await prisma.projectBuild.update({
@@ -395,12 +399,12 @@ export async function runBuildAttempt({
         });
       }
 
-      await prisma.$transaction(
+      const retryDeployment = await prisma.$transaction(
         async (transaction) => {
           const finalized = await finalizeProjectOperation({
             data: {
               buildLog: finalBuildResult.log ?? "",
-              buildStatus: buildOk ? "ready" : "failed",
+              buildStatus: buildOk ? "passed" : "failed",
               ...(buildOk ? { builtAt: new Date() } : {}),
               ...(buildOk && acceptedHandoff
                 ? {
@@ -443,7 +447,7 @@ export async function runBuildAttempt({
           });
 
           if (buildOk) {
-            await transaction.projectDeployment.create({
+            return transaction.projectDeployment.create({
               data: {
                 buildId: runtimeBuildId,
                 kind: PREVIEW_DEPLOYMENT_KIND,
@@ -451,12 +455,23 @@ export async function runBuildAttempt({
                 snapshotId: snapshot.id,
                 status: "running" satisfies ProjectDeploymentStatus,
               },
+              select: { id: true },
             });
           }
+
+          return null;
         },
         { timeout: 30_000 },
       );
       runtimeBuildFinalized = true;
+      if (retryDeployment?.id) {
+        await Promise.allSettled([
+          stopSupersededPreviewDeployments({
+            activeDeploymentId: retryDeployment.id,
+            projectId,
+          }),
+        ]);
+      }
       sessionFailed = !buildOk;
       sessionTouchedFiles = sourceFiles.map((file) => file.path);
 

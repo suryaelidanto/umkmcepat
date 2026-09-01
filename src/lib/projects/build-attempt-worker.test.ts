@@ -10,6 +10,7 @@ const {
   prismaMock,
   resolveGenerateModeMock,
   chargeEnergyForStepMock,
+  stopSupersededPreviewDeploymentsMock,
 } = vi.hoisted(() => {
   const pMock = {
     $executeRaw: vi.fn(async () => 1),
@@ -161,6 +162,7 @@ const {
       energyUsed: 100,
       remaining: 9_000,
     })),
+    stopSupersededPreviewDeploymentsMock: vi.fn(async () => undefined),
   };
 });
 
@@ -233,7 +235,7 @@ vi.mock("@/lib/projects/project-thumbnail", () => ({
 }));
 
 vi.mock("@/lib/projects/runtime-supervisor", () => ({
-  stopSupersededPreviewDeployments: vi.fn(async () => undefined),
+  stopSupersededPreviewDeployments: stopSupersededPreviewDeploymentsMock,
 }));
 
 vi.mock("@/lib/ai/ai", () => ({
@@ -294,10 +296,15 @@ describe("runBuildAttempt — tool-loop generation", () => {
     expect(finalizeProjectOperationMock).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
+          buildStatus: "passed",
           builtAt: expect.any(Date),
         }),
       }),
     );
+    expect(stopSupersededPreviewDeploymentsMock).toHaveBeenCalledWith({
+      activeDeploymentId: "deployment-1",
+      projectId: "project-1",
+    });
   });
 
   it("links a retry snapshot to the latest successful source snapshot", async () => {
@@ -319,6 +326,37 @@ describe("runBuildAttempt — tool-loop generation", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           parentSnapshotId: "snapshot-good",
+        }),
+      }),
+    );
+    expect(prismaMock.projectEditAttempt.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ snapshotId: "snap-1" }),
+      }),
+    );
+  });
+
+  it("keeps a successful retry when old runtime cleanup fails", async () => {
+    resolveGenerateModeMock.mockReturnValue("retry_build");
+    stopSupersededPreviewDeploymentsMock.mockRejectedValueOnce(
+      new Error("runtime unavailable"),
+    );
+
+    await runBuildAttempt({
+      ...baseContext(),
+      generateMode: "retry_build",
+      project: {
+        ...baseContext().project,
+        generationEngine: "legacy",
+      },
+    });
+
+    expect(finalizeProjectOperationMock).toHaveBeenCalledTimes(1);
+    expect(finalizeProjectOperationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          buildStatus: "passed",
+          status: "ready",
         }),
       }),
     );
