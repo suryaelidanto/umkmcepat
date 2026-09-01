@@ -1,14 +1,18 @@
 import { describe, expect, it, vi } from "vitest";
 
-const { executeRawMock, queryRawMock } = vi.hoisted(() => ({
+const { executeRawMock, queryRawMock, transactionMock } = vi.hoisted(() => ({
   executeRawMock: vi.fn(async () => 1),
   queryRawMock: vi.fn(async (): Promise<Array<Record<string, unknown>>> => []),
+  transactionMock: vi.fn(async (callback: (database: unknown) => unknown) =>
+    callback({ $executeRaw: executeRawMock, $queryRaw: queryRawMock }),
+  ),
 }));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     $executeRaw: executeRawMock,
     $queryRaw: queryRawMock,
+    $transaction: transactionMock,
   },
 }));
 
@@ -23,6 +27,15 @@ describe("build session log", () => {
       attemptId: "att1",
       failed: false,
       projectId: "p1",
+      operations: [
+        {
+          detail: "Membaca kebutuhan",
+          id: "op-1",
+          state: "succeeded",
+          title: "Melihat struktur proyek",
+          type: "list_files",
+        },
+      ],
       skillsRead: ["impeccable", "unslop"],
       touchedFiles: ["src/routes/index.tsx", "src/content/site.ts"],
       userId: "u1",
@@ -37,9 +50,33 @@ describe("build session log", () => {
     expect(textPart.text).toContain("2 bagian");
     const dataPart = message.parts.find(
       (part) => part.type === "data-buildSessionLog",
-    ) as { data: { skillsRead: string[]; touchedFiles: string[] } };
+    ) as {
+      data: {
+        operations: unknown[];
+        skillsRead: string[];
+        touchedFiles: string[];
+      };
+    };
     expect(dataPart.data.skillsRead).toEqual(["impeccable", "unslop"]);
     expect(dataPart.data.touchedFiles).toHaveLength(2);
+    expect(dataPart.data.operations).toHaveLength(1);
+  });
+
+  it("labels edit outcomes separately from initial builds", () => {
+    const message = buildBuildSessionLogMessage({
+      attemptId: "edit1",
+      failed: false,
+      kind: "edit",
+      projectId: "p1",
+      skillsRead: [],
+      touchedFiles: ["src/routes/index.tsx"],
+      userId: "u1",
+    });
+
+    const dataPart = message.parts.find(
+      (part) => part.type === "data-buildSessionLog",
+    ) as { data: { kind: string } };
+    expect(dataPart.data.kind).toBe("edit");
   });
 
   it("writes a failure entry that keeps the history attachable", () => {

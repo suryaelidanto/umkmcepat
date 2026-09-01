@@ -17,12 +17,11 @@ import {
   recordAiCall,
   startAiCallTimer,
 } from "@/lib/ai/ai-call-record";
+import { getDiscussModel, getVisionModel } from "@/lib/ai/ai-models";
 import {
-  getDiscussModel,
-  getModerationModel,
-  getVisionModel,
-} from "@/lib/ai/ai-models";
-import { moderateProjectRequest } from "@/lib/ai/ai-moderation";
+  chargeModerationEnergy,
+  moderateProjectRequest,
+} from "@/lib/ai/ai-moderation";
 import { writeAiRequestLog } from "@/lib/ai/ai-request-log";
 import { getAiTimeoutMs } from "@/lib/ai/ai-timeouts";
 import { getSettingSync } from "@/lib/config/app-settings";
@@ -427,15 +426,9 @@ export async function runDiscussTurn({
         publishProgress(turnId, { type: "error", errorText: errorMessage });
         return;
       }
-      if (moderation.usage) {
-        await chargeEnergyForAiUsage({
-          userId,
-          modelId: moderation.modelId || getModerationModel(),
-          inputTokens: moderation.usage.inputTokens,
-          outputTokens: moderation.usage.outputTokens,
-          reason: "moderation",
-        });
-      }
+      await chargeModerationEnergy(userId, moderation, {
+        projectId: project.id,
+      });
       if (!moderation.allowed) {
         await finalizeDiscussTurn({
           turnId,
@@ -509,6 +502,7 @@ export async function runDiscussTurn({
           userId,
           projectId: project.id,
           toolCall,
+          turnId,
         }),
       temperature: 0.25,
       maxOutputTokens: 1024,

@@ -8,19 +8,39 @@ const { generateTextMock } = vi.hoisted(() => ({
 }));
 
 import {
-  resolveInitialSkillsRead,
+  resolveAgentMaxSteps,
+  resolveProjectSkillContext,
   runAgenticGenerate,
 } from "./agentic-generator";
+import { classifyEditIntent } from "./edit-intent";
 
-describe("resolveInitialSkillsRead", () => {
-  it("starts a first build empty so the agent must read every skill", () => {
-    expect(resolveInitialSkillsRead(false, false).size).toBe(0);
-    expect(resolveInitialSkillsRead(false, true).size).toBe(0);
+describe("resolveAgentMaxSteps", () => {
+  it("uses the classified micro-edit budget without removing the final check", () => {
+    const intent = classifyEditIntent({ instruction: "ganti warna tombol" });
+
+    expect(resolveAgentMaxSteps(40, intent)).toBe(2);
+    expect(resolveAgentMaxSteps(40, null)).toBe(40);
+  });
+});
+
+describe("resolveProjectSkillContext", () => {
+  it("leaves first builds without a preloaded skill context", () => {
+    expect(resolveProjectSkillContext(false, false)).toEqual({
+      availableSkillNames: new Set(),
+      digest: null,
+    });
+    expect(resolveProjectSkillContext(false, true).digest).toBeNull();
   });
 
-  it("treats revision skills as already read so files are not re-read", () => {
-    expect(resolveInitialSkillsRead(true, false).size).toBeGreaterThan(0);
-    expect(resolveInitialSkillsRead(true, true).size).toBe(0);
+  it("preloads a versioned trusted digest only for partial revisions", () => {
+    const context = resolveProjectSkillContext(true, false);
+
+    expect(context.digest?.version).toMatch(/^project-skills-v1:/u);
+    expect(context.digest?.entries.length).toBeGreaterThan(0);
+    expect(context.availableSkillNames.size).toBe(
+      context.digest?.entries.length,
+    );
+    expect(resolveProjectSkillContext(true, true).digest).toBeNull();
   });
 });
 
@@ -265,6 +285,38 @@ describe("runAgenticGenerate", () => {
     );
     expect(seededSite).toMatch(/export const site/);
     expect(seededSite).toMatch(/export default site/);
+  });
+
+  it("uses the versioned skill digest instead of pretending tools read revision skills", async () => {
+    let capturedSystem = "";
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      capturedSystem = (args as { system?: string }).system ?? "";
+      const tools = getTools(args);
+      const write = await tools.write_file.execute({
+        content:
+          "export const generated = true;\n/* authored entrance: @keyframes umkm-entrance */",
+        path: "src/routes/generated.tsx",
+      });
+      expect(write).toMatchObject({ success: true });
+      await tools.check_app.execute({});
+      return { text: "Done", steps: [] };
+    });
+
+    const result = await runAgenticGenerate(
+      createInput({
+        initialFiles: [
+          {
+            content: "export default function ExistingHome() { return null; }",
+            path: "src/routes/index.tsx",
+          },
+        ],
+        revisionBrief: "Perbarui hero tanpa mengubah data usaha.",
+      }),
+    );
+
+    expect(result.skillsRead).toEqual([]);
+    expect(result.skillDigest?.version).toMatch(/^project-skills-v1:/u);
+    expect(capturedSystem).toContain("<project-skill-digest>");
   });
 
   it("preserves the accepted protected site data during revisions", async () => {

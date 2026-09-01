@@ -17,6 +17,7 @@ const {
   primeSettingCacheMock,
   prepareBuildHandoffMock,
   moderateProjectRequestMock,
+  chargeModerationEnergyMock,
   readTempImageMock,
   claimTempImageMock,
   deleteTempImageMock,
@@ -39,6 +40,7 @@ const {
   }),
   primeSettingCacheMock: vi.fn(async () => undefined),
   prepareBuildHandoffMock: vi.fn(),
+  chargeModerationEnergyMock: vi.fn(async () => undefined),
   moderateProjectRequestMock: vi.fn<
     (
       prompt: string,
@@ -176,6 +178,7 @@ vi.mock("@/lib/projects/ai-error-log", () => ({
 }));
 
 vi.mock("@/lib/ai/ai-moderation", () => ({
+  chargeModerationEnergy: chargeModerationEnergyMock,
   getModerationTimeoutMs: () => 2500,
   moderateProjectRequest: moderateProjectRequestMock,
 }));

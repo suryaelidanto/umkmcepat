@@ -220,6 +220,7 @@ export function getModerationTimeoutMs() {
 export async function chargeModerationEnergy(
   userId: string | null | undefined,
   result: ModerationResult,
+  options: { projectId?: string | null } = {},
 ): Promise<void> {
   if (!userId || !result.usage) {
     return;
@@ -229,6 +230,7 @@ export async function chargeModerationEnergy(
     modelId: result.modelId || getModerationModel(),
     inputTokens: result.usage.inputTokens,
     outputTokens: result.usage.outputTokens,
+    ...(options.projectId ? { projectId: options.projectId } : {}),
     reason: "moderation",
   });
 }

@@ -6,6 +6,10 @@ import { enqueueAndWaitEditBuild } from "@/lib/projects/attempt-queue";
 import { parseProjectBrief } from "@/lib/projects/brief";
 import { publishBuildProgress } from "@/lib/projects/build-attempt-pubsub";
 import {
+  appendBuildSessionLog,
+  type BuildSessionLogOperation,
+} from "@/lib/projects/build-session-log";
+import {
   createDiscussionContextSnapshot,
   parseCanonicalBrief,
 } from "@/lib/projects/canonical-brief";
@@ -145,6 +149,29 @@ export async function runEditAttempt({
     return;
   }
 
+  const appendEditSessionLog = (input: {
+    failed: boolean;
+    skillDigestVersion?: string;
+    skillsRead?: string[];
+    stopped?: boolean;
+    touchedFiles?: string[];
+    operations?: Awaited<
+      ReturnType<typeof runAgenticGenerate>
+    >["operationTrace"];
+  }) =>
+    appendBuildSessionLog({
+      attemptId,
+      failed: input.failed,
+      kind: "edit",
+      projectId: project.id,
+      skillDigestVersion: input.skillDigestVersion,
+      skillsRead: input.skillsRead ?? [],
+      stopped: input.stopped,
+      touchedFiles: input.touchedFiles ?? [],
+      operations: input.operations,
+      userId,
+    }).catch(() => undefined);
+
   const instruction = attempt.instruction;
   const operation = { token: operationToken };
 
@@ -190,6 +217,7 @@ export async function runEditAttempt({
       finishedAt: new Date(),
       status: "failed",
     });
+    await appendEditSessionLog({ failed: true });
     await restoreProjectReadyState(project.id, userId, operation.token);
     publishBuildProgress(attemptId, {
       type: "error",
@@ -216,6 +244,7 @@ export async function runEditAttempt({
       finishedAt: new Date(),
       status: "failed",
     });
+    await appendEditSessionLog({ failed: true });
     await restoreProjectReadyState(project.id, userId, operation.token);
     publishBuildProgress(attemptId, {
       type: "error",
@@ -227,6 +256,45 @@ export async function runEditAttempt({
   let activeBuildId: string | null = null;
   let lastProgressLabel: string | null = null;
   let sendProgress: (label: string, detail?: string) => void = () => {};
+  let sessionFailed = true;
+  let sessionSkillDigestVersion: string | undefined;
+  let sessionSkillsRead: string[] = [];
+  let sessionTouchedFiles: string[] = [];
+  let sessionOperations: BuildSessionLogOperation[] = [];
+
+  function captureSessionOperation(data: Record<string, unknown>): void {
+    const state = data.state;
+    if (
+      typeof data.detail !== "string" ||
+      typeof data.id !== "string" ||
+      typeof data.title !== "string" ||
+      typeof data.type !== "string" ||
+      (state !== "succeeded" && state !== "failed" && state !== "active")
+    ) {
+      return;
+    }
+    const touchedPath =
+      data.type === "set_design_system"
+        ? "src/index.css"
+        : data.type === "set_design_direction"
+          ? "DESIGN.md"
+          : data.type === "write_file" || data.type === "copy_component"
+            ? data.path
+            : undefined;
+    if (typeof touchedPath === "string" && touchedPath.trim()) {
+      sessionTouchedFiles = [
+        ...new Set([...sessionTouchedFiles, touchedPath.trim()]),
+      ];
+    }
+    sessionOperations.push({
+      detail: data.detail,
+      id: `edit-${data.id}`,
+      ...(typeof data.path === "string" ? { path: data.path } : {}),
+      state,
+      title: data.title,
+      type: data.type,
+    });
+  }
 
   // Durable per-tool-call progress so refresh can rehydrate the edit
   function persistEditProgress(operation: {
@@ -341,6 +409,9 @@ export async function runEditAttempt({
       },
       initialFiles: baseFiles,
       onEvent(type: string, data: unknown) {
+        if (type === "operation" && typeof data === "object" && data !== null) {
+          captureSessionOperation(data as Record<string, unknown>);
+        }
         send(type, data as Record<string, unknown>);
       },
       onFileStaged: persistBatchedStage,
@@ -350,6 +421,16 @@ export async function runEditAttempt({
       stepCharger: editStepCharger,
       userId: project.userId,
     });
+
+    sessionSkillDigestVersion = agenticResult.skillDigest?.version;
+    sessionSkillsRead = agenticResult.skillsRead;
+    sessionTouchedFiles = agenticResult.touchedFiles;
+    if (sessionOperations.length === 0) {
+      sessionOperations = agenticResult.operationTrace.map((operation) => ({
+        ...operation,
+        id: `edit-${operation.id}`,
+      }));
+    }
 
     const editResult = {
       check: null,
@@ -472,6 +553,8 @@ export async function runEditAttempt({
             mode: "batched-edit",
             operationTrace: editResult.operations,
             editValidation,
+            skillDigestVersion: sessionSkillDigestVersion,
+            skillsRead: sessionSkillsRead,
             touchedFiles,
           },
           sideEffects: editResult.sideEffects,
@@ -556,6 +639,7 @@ export async function runEditAttempt({
     });
     const buildStatus: ProjectBuildStatus = buildResult.status;
     const artifactRef = buildResult.artifactRef;
+    sessionFailed = buildStatus !== "succeeded";
 
     const deploymentStatus: ProjectDeploymentStatus =
       buildResult.status === "succeeded" ? "created" : "failed";
@@ -680,6 +764,7 @@ export async function runEditAttempt({
       snapshotId: snapshot.id,
     });
   } catch (error) {
+    sessionFailed = true;
     devLog("edit", "unexpected-failure", {
       error: error instanceof Error ? error.name : "unknown",
       projectId: project.id,
@@ -714,6 +799,15 @@ export async function runEditAttempt({
       attemptId: attempt.id,
       code: "edit_failed_retryable",
       message: failUserMessage,
+    });
+  } finally {
+    await appendEditSessionLog({
+      failed: sessionFailed,
+      skillDigestVersion: sessionSkillDigestVersion,
+      skillsRead: sessionSkillsRead,
+      stopped: abortSignal.aborted,
+      touchedFiles: sessionTouchedFiles,
+      operations: sessionOperations,
     });
   }
 }

@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { chargeMock, executeRawMock, generateTextMock } = vi.hoisted(() => ({
-  chargeMock: vi.fn(async (..._args: unknown[]) => null),
-  executeRawMock: vi.fn(async (..._args: unknown[]) => 1),
-  generateTextMock: vi.fn(),
-}));
+const { chargeMock, executeRawMock, generateTextMock, recordAiCallMock } =
+  vi.hoisted(() => ({
+    chargeMock: vi.fn(async (..._args: unknown[]) => null),
+    executeRawMock: vi.fn(async (..._args: unknown[]) => 1),
+    generateTextMock: vi.fn(),
+    recordAiCallMock: vi.fn(),
+  }));
 
 vi.mock("ai", async (importOriginal) => {
   const actual = await importOriginal<typeof import("ai")>();
@@ -16,6 +18,11 @@ vi.mock("ai", async (importOriginal) => {
 
 vi.mock("@/lib/payment/user-credits", () => ({
   chargeEnergyForAiUsage: (...args: unknown[]) => chargeMock(...args),
+}));
+
+vi.mock("@/lib/ai/ai-call-record", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/ai/ai-call-record")>()),
+  recordAiCall: (...args: unknown[]) => recordAiCallMock(...args),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -157,6 +164,7 @@ describe("repairDiscussCardWithTool energy accounting", () => {
   beforeEach(() => {
     chargeMock.mockClear();
     generateTextMock.mockReset();
+    recordAiCallMock.mockClear();
   });
 
   it("charges exactly once with summed usage when every attempt fails", async () => {
@@ -179,6 +187,17 @@ describe("repairDiscussCardWithTool energy accounting", () => {
       outputTokens: 2,
       reason: "discuss:repair",
     });
+    expect(recordAiCallMock).toHaveBeenCalledTimes(2);
+    expect(recordAiCallMock).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        inputTokens: 3,
+        outputTokens: 1,
+        projectId: "p1",
+        status: "ok",
+        task: "discuss-repair",
+      }),
+    );
   });
 
   it("charges exactly once with summed usage on success after a failed attempt", async () => {
@@ -201,5 +220,15 @@ describe("repairDiscussCardWithTool energy accounting", () => {
       outputTokens: 2,
       reason: "discuss:repair",
     });
+    expect(recordAiCallMock).toHaveBeenCalledTimes(2);
+    expect(recordAiCallMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        inputTokens: 4,
+        outputTokens: 1,
+        projectId: "p1",
+        status: "ok",
+        task: "discuss-repair",
+      }),
+    );
   });
 });

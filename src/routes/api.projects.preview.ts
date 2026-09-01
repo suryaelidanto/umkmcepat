@@ -128,15 +128,13 @@ async function handlePreviewPost(request: Request) {
     return Response.json({ message: "Proyek tidak valid." }, { status: 400 });
   }
 
-  if (body.mode !== "repair_card") {
-    const energy = await checkEnergy(userId, getEnergyConfig().minDiscuss);
-    if (!energy.allowed) {
-      return sseError({
-        message: "Energi kamu sudah habis. Tambah energi untuk lanjut.",
-        code: "energy_exhausted",
-        remaining: energy.remaining,
-      });
-    }
+  const energy = await checkEnergy(userId, getEnergyConfig().minDiscuss);
+  if (!energy.allowed) {
+    return sseError({
+      message: "Energi kamu sudah habis. Tambah energi untuk lanjut.",
+      code: "energy_exhausted",
+      remaining: energy.remaining,
+    });
   }
 
   const project = await prisma.project.findFirst({

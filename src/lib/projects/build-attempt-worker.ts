@@ -12,7 +12,10 @@ import {
   classifyBuildFailure,
   getIndonesianBuildFailureSummary,
 } from "@/lib/projects/build-logs";
-import { appendBuildSessionLog } from "@/lib/projects/build-session-log";
+import {
+  appendBuildSessionLog,
+  type BuildSessionLogOperation,
+} from "@/lib/projects/build-session-log";
 import { createStepCharger } from "@/lib/projects/energy-step-charger";
 import { formatGeneratedSource } from "@/lib/projects/format-generated-source";
 import {
@@ -216,6 +219,49 @@ export async function runBuildAttempt({
 
   let agenticResult: Awaited<ReturnType<typeof runAgenticGenerate>> | null =
     null;
+  let sessionFailed = true;
+  let sessionStopped = false;
+  let sessionSkillsRead: string[] = [];
+  let sessionSkillDigestVersion: string | undefined;
+  let sessionTouchedFiles: string[] = [];
+  const sessionOperations: BuildSessionLogOperation[] = [];
+
+  function captureSessionOperation(
+    data: Record<string, unknown>,
+    idPrefix: string,
+  ): void {
+    const state = data.state;
+    if (
+      typeof data.detail !== "string" ||
+      typeof data.id !== "string" ||
+      typeof data.title !== "string" ||
+      typeof data.type !== "string" ||
+      (state !== "succeeded" && state !== "failed" && state !== "active")
+    ) {
+      return;
+    }
+    const touchedPath =
+      data.type === "set_design_system"
+        ? "src/index.css"
+        : data.type === "set_design_direction"
+          ? "DESIGN.md"
+          : data.type === "write_file" || data.type === "copy_component"
+            ? data.path
+            : undefined;
+    if (typeof touchedPath === "string" && touchedPath.trim()) {
+      sessionTouchedFiles = [
+        ...new Set([...sessionTouchedFiles, touchedPath.trim()]),
+      ];
+    }
+    sessionOperations.push({
+      detail: data.detail,
+      id: `${idPrefix}-${data.id}`,
+      ...(typeof data.path === "string" ? { path: data.path } : {}),
+      state,
+      title: data.title,
+      type: data.type,
+    });
+  }
 
   try {
     const persistedSourceFiles = await loadPersistedProjectSourceFiles({
@@ -401,16 +447,10 @@ export async function runBuildAttempt({
         { timeout: 30_000 },
       );
       runtimeBuildFinalized = true;
+      sessionFailed = !buildOk;
+      sessionTouchedFiles = sourceFiles.map((file) => file.path);
 
       if (buildOk) {
-        await appendBuildSessionLog({
-          attemptId,
-          failed: false,
-          projectId,
-          skillsRead: [],
-          touchedFiles: sourceFiles.map((file) => file.path),
-          userId,
-        }).catch(() => undefined);
         send("done", {
           message: "Website siap dilihat.",
           projectId,
@@ -546,7 +586,12 @@ export async function runBuildAttempt({
           buildPlan: acceptedHandoff?.plan,
           initialFiles:
             existingSourceFiles.length > 0 ? existingSourceFiles : undefined,
-          onEvent: (type, data) => send(type, data),
+          onEvent: (type, data) => {
+            if (type === "operation") {
+              captureSessionOperation(data, `round-${round}`);
+            }
+            send(type, data);
+          },
           onFileStaged: persistBatchedStage,
           operationToken,
           projectId,
@@ -567,6 +612,26 @@ export async function runBuildAttempt({
         throw error;
       }
       agenticResult = roundResult;
+      sessionSkillsRead = [
+        ...new Set([...sessionSkillsRead, ...roundResult.skillsRead]),
+      ];
+      sessionSkillDigestVersion =
+        roundResult.skillDigest?.version ?? sessionSkillDigestVersion;
+      sessionTouchedFiles = [
+        ...new Set([...sessionTouchedFiles, ...roundResult.touchedFiles]),
+      ];
+      if (
+        !sessionOperations.some((operation) =>
+          operation.id.startsWith(`round-${round}-`),
+        )
+      ) {
+        sessionOperations.push(
+          ...roundResult.operationTrace.map((operation) => ({
+            ...operation,
+            id: `round-${round}-${operation.id}`,
+          })),
+        );
+      }
       repairRounds = round;
       buildResult = await buildGeneratedProject(agenticResult.files, {
         workspaceKey: projectId,
@@ -614,6 +679,9 @@ export async function runBuildAttempt({
       generationMode: "agentic" as const,
       operationTrace: agenticResult.operationTrace,
       repairRounds,
+      skillDigest: agenticResult.skillDigest,
+      skillDigestVersion: sessionSkillDigestVersion,
+      skillsRead: sessionSkillsRead,
       summary: agenticResult.summary,
       touchedFiles: agenticResult.touchedFiles,
     };
@@ -727,6 +795,7 @@ export async function runBuildAttempt({
     const finalBuildResult = buildResult;
     const finalBuildOk =
       finalBuildResult.ok && finalBuildResult.distFiles.length > 0;
+    sessionFailed = !finalBuildOk;
     devLog("generate", "timings", {
       projectId,
       agentMs,
@@ -784,6 +853,8 @@ export async function runBuildAttempt({
         { timeout: 30_000 },
       );
       runtimeBuildFinalized = true;
+      sessionFailed = true;
+      sessionStopped = true;
       await prisma.runtimeEvent
         .create({
           data: createRuntimeEventData({
@@ -934,17 +1005,11 @@ export async function runBuildAttempt({
       label: "Website siap dilihat",
       detail: "Website sudah selesai dibuat dan siap ditinjau.",
     });
-    await appendBuildSessionLog({
-      attemptId,
-      failed: false,
-      projectId,
-      skillsRead: agenticResult?.skillsRead ?? [],
-      touchedFiles: agenticResult?.touchedFiles ?? [],
-      userId,
-    }).catch(() => undefined);
+    sessionFailed = false;
     devLog("generate", "done", { projectId: projectId });
     send("done", { finalSchema });
   } catch (error) {
+    sessionFailed = true;
     const rawErrorMessage =
       error instanceof Error ? error.message : String(error);
     devLog("generate", "error", {
@@ -998,14 +1063,6 @@ export async function runBuildAttempt({
       /invalid source|home route was not written|home route is still the starter|did not edit any|did not edit enough/i.test(
         rawErrorMessage,
       );
-    await appendBuildSessionLog({
-      attemptId,
-      failed: true,
-      projectId,
-      skillsRead: agenticResult?.skillsRead ?? [],
-      touchedFiles: agenticResult?.touchedFiles ?? [],
-      userId,
-    }).catch(() => undefined);
     send("error", {
       message: emptyAgent
         ? "Website belum selesai dibuat."
@@ -1015,5 +1072,18 @@ export async function runBuildAttempt({
         ? "Belum ada bagian website yang berhasil ditulis. Coba buat ulang website — biasanya berhasil di percobaan berikutnya."
         : "Coba buat ulang website.",
     });
+  } finally {
+    await appendBuildSessionLog({
+      attemptId,
+      failed: sessionFailed,
+      kind: "build",
+      projectId,
+      skillDigestVersion: sessionSkillDigestVersion,
+      skillsRead: sessionSkillsRead,
+      stopped: sessionStopped || abortSignal.aborted,
+      touchedFiles: sessionTouchedFiles,
+      operations: sessionOperations,
+      userId,
+    }).catch(() => undefined);
   }
 }

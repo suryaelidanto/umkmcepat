@@ -5,6 +5,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   executeSkillScript,
+  formatProjectSkillDigest,
+  getProjectSkillDigest,
   PROJECT_CORE_SKILL_NAMES,
   PROJECT_SCRIPT_SKILL_NAMES,
   PROJECT_SKILL_NAMES,
@@ -26,6 +28,21 @@ describe("DynamicSkillEngine", () => {
   it("loads the project Unslop skill as an exact copy of the source skill", () => {
     const source = readFileSync(".agents/skills/unslop/SKILL.md", "utf8");
     expect(readProjectSkill("unslop").content).toBe(source);
+  });
+
+  it("builds one stable, versioned digest from the required skill documents", () => {
+    const first = getProjectSkillDigest(PROJECT_CORE_SKILL_NAMES);
+    const second = getProjectSkillDigest(PROJECT_CORE_SKILL_NAMES);
+
+    expect(second).toEqual(first);
+    expect(first.version).toMatch(/^project-skills-v1:/u);
+    expect(first.hash).toMatch(/^[a-f0-9]{64}$/u);
+    expect(first.entries.map((entry) => entry.name)).toEqual([
+      ...PROJECT_CORE_SKILL_NAMES,
+    ]);
+    expect(formatProjectSkillDigest(first)).toContain(
+      "### impeccable/reference/new-work",
+    );
   });
 
   it("indexes all nested markdown documents with clean slug access", () => {

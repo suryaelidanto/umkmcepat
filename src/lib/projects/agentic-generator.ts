@@ -6,7 +6,10 @@ import type { BuildPlanV1 } from "@/lib/projects/build-plan";
 import type { StepCharger } from "@/lib/projects/energy-step-charger";
 import type { GeneratedProjectFile } from "@/lib/projects/generated-types";
 import type { ProjectSiteSchema } from "@/lib/projects/site-schema";
-import type { ProjectSkillName } from "@/lib/projects/skills/skill-registry";
+import type {
+  ProjectSkillDigest,
+  ProjectSkillName,
+} from "@/lib/projects/skills/skill-registry";
 
 import {
   getAiModel,
@@ -60,19 +63,46 @@ import {
 import { normalizeSiteSchemaForEmit } from "@/lib/projects/scaffold/vite-tanstack-shadcn-starter";
 import {
   executeSkillScript,
+  formatProjectSkillDigest,
+  getProjectSkillDigest,
   PROJECT_CORE_SKILL_NAMES,
   PROJECT_SCRIPT_SKILL_NAMES,
   PROJECT_SKILL_NAMES,
   readProjectSkill,
 } from "@/lib/projects/skills/skill-registry";
 
-export function resolveInitialSkillsRead(
+export type ProjectSkillContext = {
+  availableSkillNames: Set<ProjectSkillName>;
+  digest: ProjectSkillDigest | null;
+};
+
+export function resolveAgentMaxSteps(
+  configuredMaxSteps: number,
+  intent: { suggestedMaxSteps: number } | null,
+): number {
+  if (!intent || !Number.isFinite(intent.suggestedMaxSteps)) {
+    return configuredMaxSteps;
+  }
+
+  return Math.min(
+    configuredMaxSteps,
+    Math.max(2, Math.floor(intent.suggestedMaxSteps)),
+  );
+}
+
+export function resolveProjectSkillContext(
   isRevisionMode: boolean,
   fullRebuild: boolean,
-): Set<ProjectSkillName> {
-  return new Set(
-    isRevisionMode && !fullRebuild ? PROJECT_CORE_SKILL_NAMES : [],
-  );
+): ProjectSkillContext {
+  if (!isRevisionMode || fullRebuild) {
+    return { availableSkillNames: new Set(), digest: null };
+  }
+
+  const digest = getProjectSkillDigest(PROJECT_CORE_SKILL_NAMES);
+  return {
+    availableSkillNames: new Set(digest.entries.map((entry) => entry.name)),
+    digest,
+  };
 }
 
 export type AgenticGeneratedSourceResult = {
@@ -90,6 +120,11 @@ export type AgenticGeneratedSourceResult = {
     state: "succeeded" | "failed" | "active";
   }>;
   skillsRead: ProjectSkillName[];
+  skillDigest?: {
+    hash: string;
+    skillNames: string[];
+    version: string;
+  };
 };
 
 const MAX_PROMPT_VALUE_LENGTH = 12_000;
@@ -307,6 +342,7 @@ export async function runAgenticGenerate(input: {
           !f.content.includes("data-generated-site-starter")),
     ),
   );
+  const isPartialRevisionMode = isRevisionMode && !input.fullRebuild;
   const baseStarterFiles = createGeneratedViteTanStackStarterFiles(
     projectId,
     schema,
@@ -349,16 +385,18 @@ export default site;
   };
   const touched = new Set<string>();
   const operationTrace: AgenticGeneratedSourceResult["operationTrace"] = [];
-  const skillsRead = resolveInitialSkillsRead(
+  const skillContext = resolveProjectSkillContext(
     isRevisionMode,
     Boolean(input.fullRebuild),
   );
+  const skillsRead = new Set<ProjectSkillName>();
+  const availableSkills = new Set(skillContext.availableSkillNames);
   if (!isRevisionMode || input.fullRebuild) {
     emitProductDoc();
   }
   let checkAppCalls = 0;
   let lastCheckOk: boolean | null = null;
-  let designSystemAccepted = isRevisionMode;
+  let designSystemAccepted = isPartialRevisionMode;
   let designDirectionState: DesignDirectionInput | null = null;
   let designSystemState: GeneratedDesignSystemProposalV1 | null = null;
 
@@ -374,13 +412,28 @@ export default site;
     touched.add(DESIGN_DOC_PATH);
     onFileStaged?.({ content: designMd, path: DESIGN_DOC_PATH });
   }
-  let designDirectionAccepted = isRevisionMode;
-  let paletteScriptRun = isRevisionMode;
-  let conceptSeedScriptRun = isRevisionMode;
+  let designDirectionAccepted = isPartialRevisionMode;
+  let paletteScriptRun = isPartialRevisionMode;
+  let conceptSeedScriptRun = isPartialRevisionMode;
   let opSeq = 0;
 
+  if (skillContext.digest) {
+    opSeq++;
+    const operation = {
+      detail: `Menggunakan ${skillContext.digest.entries.length} panduan tersimpan (${skillContext.digest.version})`,
+      id: `op-${opSeq}`,
+      state: "succeeded" as const,
+      title: "Memakai panduan desain tersimpan",
+      type: "skill_digest" as const,
+    };
+    operationTrace.push(operation);
+    onEvent?.("operation", operation);
+  }
+
   function missingCoreSkills() {
-    return PROJECT_CORE_SKILL_NAMES.filter((name) => !skillsRead.has(name));
+    return PROJECT_CORE_SKILL_NAMES.filter(
+      (name) => !availableSkills.has(name),
+    );
   }
 
   const tools = {
@@ -412,6 +465,7 @@ export default site;
         detail?: string;
       }) => {
         const skill = readProjectSkill(name);
+        availableSkills.add(name);
         if (!skillsRead.has(name)) {
           skillsRead.add(name);
           opSeq++;
@@ -1168,7 +1222,7 @@ export default site;
           };
         }
 
-        if (!isRevisionMode && !input.motionOptOut) {
+        if ((!isRevisionMode || input.fullRebuild) && !input.motionOptOut) {
           const customSourceHasMotion = Array.from(fileMap.entries()).some(
             ([file, content]) =>
               (file.startsWith("src/routes/") ||
@@ -1211,8 +1265,8 @@ export default site;
             (buildResult.ok
               ? "Build sukses dan terverifikasi"
               : "Menyesuaikan kode website"),
-          state: (buildResult.ok ? "succeeded" : "active") as
-            "succeeded" | "active",
+          state: (buildResult.ok ? "succeeded" : "failed") as
+            "succeeded" | "failed",
         };
         operationTrace.push(op);
         if (onEvent) {
@@ -1239,9 +1293,14 @@ export default site;
   const ledgerSection = `\n\nFACT LEDGER (owner_confirmed entries only may render; ai_suggestion, unknown, and declined entries are non-renderable):\n${formatPromptValue(input.brief.factLedger, 50_000)}`;
   const discussionSection = `\n\nPROJECT DISCUSSION MEMORY (preserve owner context, but never treat assistant text or an unconfirmed suggestion as a business fact):\n${formatProjectDiscussionContext(input.brief.discussionContext)}`;
 
-  const workflowInstructions = isRevisionMode
-    ? "Read the supplied project files, make the requested change, preserve unrelated work, and finish with check_app."
+  const workflowInstructions = isPartialRevisionMode
+    ? skillContext.digest
+      ? "Use the supplied versioned skill digest and the existing project files, make the requested change, preserve unrelated work, and finish with check_app. Do not reread those required skills unless a missing detail requires it."
+      : "Read the supplied project files, make the requested change, preserve unrelated work, and finish with check_app."
     : "Read every required skill, run the applicable design workflow, commit a direction, write the required source, and finish with check_app.";
+  const skillDigestSection = skillContext.digest
+    ? `\n\n<project-skill-digest>\n${formatProjectSkillDigest(skillContext.digest)}\n</project-skill-digest>`
+    : "";
 
   const hueDiversityLine = buildHueDiversityPromptLine(
     await readRecentHueFamilies(input.userId).catch(() => [] as string[]),
@@ -1255,7 +1314,7 @@ Use the tools to read skills, inspect or write source, and run check_app before 
 
 For a new site, read the Unslop skill and every listed Impeccable reference, run the concept-seed entrypoint with args { scope: "direction", mode: "persuade" } and the palette entrypoint, then call set_design_direction with a specific thesis, conversion thesis, own-world concept, content architecture, first-viewport intent, responsive intent, sparse-data strategy, and motion intent. Call set_design_system before writing. Sparse facts constrain claims, not craft: avoid generic SaaS cards, default gradients, stock imagery, and filler copy. Use typography, composition, hierarchy, CSS texture, and deliberate responsive form to make a distinctive world when owner evidence is sparse. Use the business facts to make the world specific without inventing benefits, proof, prices, places, or capabilities. Use Unslop rules on every customer-facing string and progress label.
 
-${workflowInstructions}${acceptedFactsSection}${ledgerSection}${discussionSection}${availableImagesSection}
+${workflowInstructions}${skillDigestSection}${acceptedFactsSection}${ledgerSection}${discussionSection}${availableImagesSection}
 
 Protected files are read-only: src/content/site.ts, src/index.css, src/main.tsx, src/router.tsx, src/routes/__root.tsx, src/routes/not-found.tsx, src/lib/preview-ready.ts, src/lib/utils.ts, src/components/ui/button.tsx, and src/components/ui/card.tsx.
 
@@ -1284,10 +1343,9 @@ Progress labels and details must be plain Indonesian. Do not expose file names, 
     ),
   );
 
-  const editIntent = isRevisionMode
+  const editIntent = isPartialRevisionMode
     ? classifyEditIntent({
         existingFiles: Array.from(fileMap.keys()),
-        hasUploadedImages: Boolean(schema.images && schema.images.length > 0),
         instruction:
           input.brief.prompt ||
           (typeof input.revisionBrief === "string" ? input.revisionBrief : ""),
@@ -1295,7 +1353,7 @@ Progress labels and details must be plain Indonesian. Do not expose file names, 
     : null;
 
   let targetFilesPreload = "";
-  if (isRevisionMode && editIntent) {
+  if (isPartialRevisionMode && editIntent) {
     const preloadedBlocks: string[] = [];
     for (const targetPath of editIntent.targetFiles) {
       const content = fileMap.get(targetPath);
@@ -1328,7 +1386,11 @@ Progress labels and details must be plain Indonesian. Do not expose file names, 
       .join("\n") || "";
 
   const executionContext = hasExistingComponents
-    ? `EXISTING SITE FILES:\n${existingFileList}${targetFilesPreload}\n\nEDIT CATEGORY: ${editIntent?.category ?? "site update"}\nPreserve unrelated files, behavior, facts, routes, and working component boundaries.`
+    ? `EXISTING SITE FILES:\n${existingFileList}${targetFilesPreload}\n\nEDIT CATEGORY: ${editIntent?.category ?? "site update"}\n${
+        editIntent
+          ? `ROUTING BUDGET: no more than ${editIntent.suggestedMaxSteps} agent steps before the mandatory check_app.\n${editIntent.guidelines.map((guideline) => `- ${guideline}`).join("\n")}`
+          : ""
+      }\nPreserve unrelated files, behavior, facts, routes, and working component boundaries.`
     : "Create the source required by the accepted routes and facts. Choose the composition and component boundaries yourself.";
 
   const contractContext = input.buildContract
@@ -1368,7 +1430,10 @@ ${formatPromptValue(schema)}
 ${executionContext}`;
 
   const requestedModel = getGenerationModel();
-  const maxSteps = getAgentMaxSteps("generate");
+  const maxSteps = resolveAgentMaxSteps(
+    getAgentMaxSteps("generate"),
+    editIntent,
+  );
 
   if (onEvent) {
     onEvent("progress", {
@@ -1450,7 +1515,7 @@ ${executionContext}`;
   ensureAllShadcnImportsResolved(fileMap, touched);
 
   const engineEmittedDocs = new Set([PRODUCT_DOC_PATH, DESIGN_DOC_PATH]);
-  const customFilesWritten = isRevisionMode
+  const customFilesWritten = isPartialRevisionMode
     ? Array.from(touched).some((p) => !engineEmittedDocs.has(p))
     : Array.from(touched).some(
         (p) => p !== "src/index.css" && !engineEmittedDocs.has(p),
@@ -1509,5 +1574,12 @@ ${executionContext}`;
     touchedFiles: Array.from(touched),
     operationTrace,
     skillsRead: PROJECT_SKILL_NAMES.filter((name) => skillsRead.has(name)),
+    skillDigest: skillContext.digest
+      ? {
+          hash: skillContext.digest.hash,
+          skillNames: skillContext.digest.entries.map((entry) => entry.name),
+          version: skillContext.digest.version,
+        }
+      : undefined,
   };
 }

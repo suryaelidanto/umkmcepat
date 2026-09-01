@@ -29,6 +29,8 @@ export function createGeneratedSourceSnapshotMetadata(
       title: string;
       type: string;
     }>;
+    skillDigestVersion?: string;
+    skillsRead?: string[];
     summary?: string;
     touchedFiles?: string[];
   },
@@ -43,6 +45,8 @@ export function createGeneratedSourceSnapshotMetadata(
       ? {
           mode: generation.generationMode,
           operationTrace: generation.operationTrace ?? [],
+          skillDigestVersion: generation.skillDigestVersion,
+          skillsRead: generation.skillsRead ?? [],
           summary: generation.summary,
           touchedFiles: generation.touchedFiles ?? [],
         }

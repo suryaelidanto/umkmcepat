@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -24,8 +25,26 @@ export interface SkillExecutionResult {
   error?: string;
 }
 
+export type ProjectSkillDigestEntry = {
+  content: string;
+  hash: string;
+  name: string;
+};
+
+export type ProjectSkillDigest = {
+  entries: ProjectSkillDigestEntry[];
+  hash: string;
+  version: string;
+};
+
 const SKILLS_ROOT_DIR = path.resolve(process.cwd(), "src/lib/projects/skills");
 const execFileAsync = promisify(execFile);
+let skillRegistryRevision = 0;
+let skillDigestCache: {
+  digest: ProjectSkillDigest;
+  key: string;
+  revision: number;
+} | null = null;
 
 function argsToCli(value: unknown): string[] {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -56,6 +75,8 @@ class DynamicSkillEngine {
   }
 
   public refresh(): void {
+    skillRegistryRevision += 1;
+    skillDigestCache = null;
     this.skills.clear();
     this.markdownMap.clear();
 
@@ -274,6 +295,47 @@ export const PROJECT_SCRIPT_SKILL_NAMES = skillEngine.getScriptSkillNames() as [
 ];
 
 export type ProjectSkillName = string;
+
+export function getProjectSkillDigest(
+  names: readonly string[] = PROJECT_CORE_SKILL_NAMES,
+): ProjectSkillDigest {
+  const key = names.join("\u0000");
+  if (
+    skillDigestCache?.revision === skillRegistryRevision &&
+    skillDigestCache.key === key
+  ) {
+    return skillDigestCache.digest;
+  }
+
+  const entries = names.map((name) => {
+    const content = readProjectSkill(name).content;
+    const hash = createHash("sha256").update(content, "utf8").digest("hex");
+    return { content, hash, name };
+  });
+  const hash = createHash("sha256")
+    .update(
+      entries.map((entry) => `${entry.name}\u0000${entry.hash}`).join("\u0000"),
+      "utf8",
+    )
+    .digest("hex");
+  const digest = {
+    entries,
+    hash,
+    version: `project-skills-v1:${hash.slice(0, 16)}`,
+  };
+  skillDigestCache = { digest, key, revision: skillRegistryRevision };
+  return digest;
+}
+
+export function formatProjectSkillDigest(digest: ProjectSkillDigest): string {
+  return [
+    `PROJECT SKILL DIGEST ${digest.version}`,
+    "The following trusted local skill documents are already available in this context. Apply them before writing source; do not claim that a read_skill tool call happened unless you actually make one.",
+    ...digest.entries.map(
+      (entry) => `### ${entry.name}\n${entry.content.trim()}`,
+    ),
+  ].join("\n\n");
+}
 
 export function readProjectSkill(name: string): {
   content: string;

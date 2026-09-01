@@ -1,8 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { moderateProjectRequest } from "@/lib/ai/ai-moderation";
+import {
+  chargeModerationEnergy,
+  moderateProjectRequest,
+} from "@/lib/ai/ai-moderation";
 import { auth } from "@/lib/auth/auth";
 import { getSetting } from "@/lib/config/app-settings";
+import { checkEnergy, getEnergyConfig } from "@/lib/payment/user-credits";
 import {
   isAllowedAssetPurpose,
   uploadProjectAsset,
@@ -46,6 +50,21 @@ export const Route = createFileRoute("/api/projects/$id/assets/upload")({
           return new Response("Not Found", { status: 404 });
         }
 
+        const energy = await checkEnergy(
+          session.user.id,
+          getEnergyConfig().minModeration,
+        );
+        if (!energy.allowed) {
+          return Response.json(
+            {
+              code: "energy_exhausted",
+              message: "Energi kamu sudah habis. Tambah energi untuk lanjut.",
+              remaining: energy.remaining,
+            },
+            { status: 429 },
+          );
+        }
+
         const form = await request.formData().catch(() => null);
         if (!form) {
           return Response.json(
@@ -78,6 +97,9 @@ export const Route = createFileRoute("/api/projects/$id/assets/upload")({
                 2500,
                 { projectId: id },
               );
+              await chargeModerationEnergy(session.user.id, moderation, {
+                projectId: id,
+              });
               if (!moderation.allowed) {
                 return Response.json(
                   {
@@ -150,6 +172,9 @@ export const Route = createFileRoute("/api/projects/$id/assets/upload")({
               undefined,
               { projectId: id },
             );
+            await chargeModerationEnergy(session.user.id, moderation, {
+              projectId: id,
+            });
             if (!moderation.allowed) {
               return Response.json(
                 {

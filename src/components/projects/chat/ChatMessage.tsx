@@ -18,6 +18,25 @@ export const chatBubbleClass = (
       : "border border-black/8 bg-[#f5f3ec] text-[#1c1c1c] shadow-xs dark:border-surface-warm-white/10 dark:bg-[#242421] dark:text-surface-warm-white/80"
   }`;
 
+type BuildSessionLogOperation = {
+  detail: string;
+  id: string;
+  path?: string;
+  state: "succeeded" | "failed" | "active";
+  title: string;
+  type: string;
+};
+
+type BuildSessionLogData = {
+  failed: boolean;
+  kind: "build" | "edit";
+  operations: BuildSessionLogOperation[];
+  skillDigestVersion: string;
+  skillsRead: string[];
+  stopped: boolean;
+  touchedFiles: string[];
+};
+
 export function ChatMessages({ messages }: { messages: UIMessage[] }) {
   const [lightboxImages, setLightboxImages] = useState<LightboxImage[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -62,8 +81,9 @@ export function ChatMessages({ messages }: { messages: UIMessage[] }) {
               { type: "file" }
             > => part.type === "file" && Boolean(part.url),
           );
+          const sessionLog = readBuildSessionLog(message);
 
-          if (!textParts.length && !fileParts.length) {
+          if (!textParts.length && !fileParts.length && !sessionLog) {
             return null;
           }
 
@@ -108,6 +128,7 @@ export function ChatMessages({ messages }: { messages: UIMessage[] }) {
                 {textParts.map((part, index) => (
                   <MessageText key={index} text={part.text} />
                 ))}
+                {sessionLog ? <BuildSessionDetails data={sessionLog} /> : null}
               </div>
             </div>
           );
@@ -121,6 +142,156 @@ export function ChatMessages({ messages }: { messages: UIMessage[] }) {
         initialIndex={lightboxIndex}
       />
     </>
+  );
+}
+
+function readBuildSessionLog(message: UIMessage): BuildSessionLogData | null {
+  for (const part of message.parts) {
+    const partRecord = asRecord(part);
+    if (partRecord?.type !== "data-buildSessionLog") {
+      continue;
+    }
+
+    const data = asRecord(partRecord.data);
+    if (!data) {
+      return null;
+    }
+
+    return {
+      failed: data.failed === true,
+      kind: data.kind === "edit" ? "edit" : "build",
+      operations: readSessionOperations(data.operations),
+      skillDigestVersion:
+        typeof data.skillDigestVersion === "string"
+          ? data.skillDigestVersion
+          : "",
+      skillsRead: readStringList(data.skillsRead, 20),
+      stopped: data.stopped === true,
+      touchedFiles: readStringList(data.touchedFiles, 40),
+    };
+  }
+
+  return null;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function readStringList(value: unknown, limit: number): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, limit);
+}
+
+function readSessionOperations(value: unknown): BuildSessionLogOperation[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((item) => {
+    const operation = asRecord(item);
+    const state = operation?.state;
+    if (
+      typeof operation?.detail !== "string" ||
+      typeof operation.id !== "string" ||
+      typeof operation.title !== "string" ||
+      typeof operation.type !== "string" ||
+      (state !== "succeeded" && state !== "failed" && state !== "active")
+    ) {
+      return [];
+    }
+
+    return [
+      {
+        detail: operation.detail.trim(),
+        id: operation.id.trim(),
+        ...(typeof operation.path === "string"
+          ? { path: operation.path.trim() }
+          : {}),
+        state,
+        title: operation.title.trim(),
+        type: operation.type.trim(),
+      },
+    ];
+  });
+}
+
+function BuildSessionDetails({ data }: { data: BuildSessionLogData }) {
+  const status = data.stopped
+    ? "Dihentikan"
+    : data.failed
+      ? "Belum selesai"
+      : "Selesai";
+  const operation = data.kind === "edit" ? "Perubahan" : "Pembuatan";
+
+  return (
+    <div className="mt-spacing-4 space-y-spacing-3 border-t border-black/10 pt-spacing-3 text-sm dark:border-surface-warm-white/10">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-surface-warm-white/65">
+        <span className="font-medium">{operation} website</span>
+        <span>{status}</span>
+      </div>
+      {data.operations.length ? (
+        <details className="text-surface-warm-white/65">
+          <summary className="cursor-pointer select-none">
+            {data.operations.length} langkah tercatat
+          </summary>
+          <ol className="mt-2 space-y-2 pl-5 text-xs">
+            {data.operations.map((operation, index) => (
+              <li key={`${operation.id}-${index}`}>
+                <span className="font-medium text-surface-warm-white/80">
+                  {operation.title}
+                </span>
+                {operation.path ? (
+                  <span className="ml-1 break-all font-mono">
+                    {operation.path}
+                  </span>
+                ) : null}
+                {operation.detail && operation.detail !== operation.title ? (
+                  <span className="block text-surface-warm-white/50">
+                    {operation.detail}
+                  </span>
+                ) : null}
+              </li>
+            ))}
+          </ol>
+        </details>
+      ) : null}
+      {data.touchedFiles.length ? (
+        <details className="text-surface-warm-white/65">
+          <summary className="cursor-pointer select-none">
+            {data.touchedFiles.length} bagian diperbarui
+          </summary>
+          <ul
+            className="mt-2 space-y-1 pl-4 text-xs"
+            aria-label="Bagian website yang diperbarui"
+          >
+            {data.touchedFiles.map((path) => (
+              <li key={path} className="break-all font-mono">
+                {path}
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+      {data.skillsRead.length ? (
+        <p className="text-xs text-surface-warm-white/55">
+          Panduan dibaca: {data.skillsRead.join(", ")}
+        </p>
+      ) : data.skillDigestVersion ? (
+        <p className="text-xs text-surface-warm-white/55">
+          Panduan tersimpan digunakan
+        </p>
+      ) : null}
+    </div>
   );
 }
 

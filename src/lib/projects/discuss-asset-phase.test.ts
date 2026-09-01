@@ -5,12 +5,14 @@ const {
   claimTempImageMock,
   deleteTempImageMock,
   moderateProjectRequestMock,
+  chargeModerationEnergyMock,
   uploadProjectAssetMock,
 } = vi.hoisted(() => ({
   readTempImageMock: vi.fn(),
   claimTempImageMock: vi.fn(),
   deleteTempImageMock: vi.fn(),
   moderateProjectRequestMock: vi.fn(),
+  chargeModerationEnergyMock: vi.fn(async () => undefined),
   uploadProjectAssetMock: vi.fn(),
 }));
 
@@ -21,6 +23,7 @@ vi.mock("@/lib/storage/uploads/temp-image-storage", () => ({
 }));
 
 vi.mock("@/lib/ai/ai-moderation", () => ({
+  chargeModerationEnergy: chargeModerationEnergyMock,
   getModerationTimeoutMs: () => 2500,
   moderateProjectRequest: moderateProjectRequestMock,
 }));
@@ -47,6 +50,7 @@ function filePart(url: string): unknown {
 describe("prepareDiscussTurnAssets", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    chargeModerationEnergyMock.mockImplementation(async () => undefined);
     readTempImageMock.mockResolvedValue({
       body: Buffer.from("image-bytes"),
       contentType: "image/jpeg",
@@ -144,6 +148,15 @@ describe("prepareDiscussTurnAssets", () => {
       [expect.objectContaining({ bytes: Buffer.from("image-bytes") })],
       expect.any(Number),
       { projectId: "p1", turnId: "ct_1" },
+    );
+    expect(chargeModerationEnergyMock).toHaveBeenCalledWith(
+      "u1",
+      {
+        allowed: true,
+        modelId: "vision-model",
+        usage: { inputTokens: 10, outputTokens: 1 },
+      },
+      { projectId: "p1" },
     );
   });
 

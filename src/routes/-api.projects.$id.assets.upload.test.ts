@@ -8,6 +8,9 @@ const {
   claimTempImageMock,
   uploadProjectAssetMock,
   moderateProjectRequestMock,
+  chargeModerationEnergyMock,
+  checkEnergyMock,
+  getEnergyConfigMock,
 } = vi.hoisted(() => ({
   authMock: vi.fn(),
   getSettingMock: vi.fn(async (_key: string, fallback: boolean) => fallback),
@@ -16,6 +19,9 @@ const {
   claimTempImageMock: vi.fn(),
   uploadProjectAssetMock: vi.fn(),
   moderateProjectRequestMock: vi.fn(),
+  chargeModerationEnergyMock: vi.fn(async () => undefined),
+  checkEnergyMock: vi.fn(async () => ({ allowed: true, remaining: 10_000 })),
+  getEnergyConfigMock: vi.fn(() => ({ minModeration: 500 })),
 }));
 
 vi.mock("@/lib/auth/auth", () => ({ auth: authMock }));
@@ -32,7 +38,12 @@ vi.mock("@/lib/projects/project-asset-upload", () => ({
   uploadProjectAsset: uploadProjectAssetMock,
 }));
 vi.mock("@/lib/ai/ai-moderation", () => ({
+  chargeModerationEnergy: chargeModerationEnergyMock,
   moderateProjectRequest: moderateProjectRequestMock,
+}));
+vi.mock("@/lib/payment/user-credits", () => ({
+  checkEnergy: checkEnergyMock,
+  getEnergyConfig: getEnergyConfigMock,
 }));
 
 import { getHandler } from "../../tests/support/route-handler";
@@ -50,6 +61,15 @@ describe("POST /api/projects/$id/assets/upload", () => {
     claimTempImageMock.mockReset();
     uploadProjectAssetMock.mockReset();
     moderateProjectRequestMock.mockReset();
+    chargeModerationEnergyMock.mockReset();
+    chargeModerationEnergyMock.mockImplementation(async () => undefined);
+    checkEnergyMock.mockReset();
+    checkEnergyMock.mockImplementation(async () => ({
+      allowed: true,
+      remaining: 10_000,
+    }));
+    getEnergyConfigMock.mockReset();
+    getEnergyConfigMock.mockImplementation(() => ({ minModeration: 500 }));
     getSettingMock.mockImplementation(
       async (_key: string, fallback: boolean) => fallback,
     );
@@ -81,6 +101,33 @@ describe("POST /api/projects/$id/assets/upload", () => {
 
     expect(response.status).toBe(503);
     expect(response.headers.get("Retry-After")).toBe("3");
+    expect(uploadProjectAssetMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects an image moderation request without spending energy", async () => {
+    authMock.mockResolvedValue({ user: { id: "u1" } });
+    verifyProjectOwnershipMock.mockResolvedValue(true);
+    checkEnergyMock.mockResolvedValue({ allowed: false, remaining: 100 });
+
+    const form = new FormData();
+    form.append("purpose", "business-image");
+    form.append(
+      "file",
+      new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], "business.png", {
+        type: "image/png",
+      }),
+    );
+
+    const response = await POST(
+      new Request("http://localhost/api/projects/project_1/assets/upload", {
+        body: form,
+        method: "POST",
+      }),
+      { id: "project_1" },
+    );
+
+    expect(response.status).toBe(429);
+    expect(moderateProjectRequestMock).not.toHaveBeenCalled();
     expect(uploadProjectAssetMock).not.toHaveBeenCalled();
   });
 
@@ -149,6 +196,16 @@ describe("POST /api/projects/$id/assets/upload", () => {
     expect(response.status).toBe(201);
     expect(moderateProjectRequestMock.mock.invocationCallOrder[0]).toBeLessThan(
       claimTempImageMock.mock.invocationCallOrder[0]!,
+    );
+    expect(checkEnergyMock).toHaveBeenCalledWith("u1", 500);
+    expect(chargeModerationEnergyMock).toHaveBeenCalledWith(
+      "u1",
+      {
+        allowed: true,
+        modelId: "vision",
+        usage: { inputTokens: 1, outputTokens: 1 },
+      },
+      { projectId: "project_1" },
     );
     expect(uploadProjectAssetMock).toHaveBeenCalledWith(
       expect.objectContaining({ projectId: "project_1", userId: "u1" }),

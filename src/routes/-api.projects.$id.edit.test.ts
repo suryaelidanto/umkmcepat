@@ -19,6 +19,7 @@ const {
   prismaProjectUpdateMock,
   prismaRuntimeEventCreateMock,
   prismaExecuteRawMock,
+  prismaQueryRawMock,
   readProjectDistArtifactMock,
   stopSupersededPreviewDeploymentsMock,
   writeProjectDistArtifactMock,
@@ -43,6 +44,7 @@ const {
   prismaProjectUpdateMock: vi.fn(),
   prismaRuntimeEventCreateMock: vi.fn(),
   prismaExecuteRawMock: vi.fn(),
+  prismaQueryRawMock: vi.fn(),
   readProjectDistArtifactMock: vi.fn(),
   stopSupersededPreviewDeploymentsMock: vi.fn(async () => []),
   writeProjectDistArtifactMock: vi.fn(),
@@ -60,6 +62,7 @@ vi.mock("@/lib/config/app-settings", () => ({ getSetting: getSettingMock }));
 vi.mock("@/lib/prisma", () => {
   const prisma = {
     $executeRaw: prismaExecuteRawMock,
+    $queryRaw: prismaQueryRawMock,
     $transaction: prismaTransactionMock,
     project: {
       findFirst: prismaProjectFindFirstMock,
@@ -297,6 +300,7 @@ describe("project edit route", () => {
     ]);
     prismaProjectBuildUpdateManyMock.mockResolvedValue({ count: 0 });
     prismaExecuteRawMock.mockResolvedValue(1);
+    prismaQueryRawMock.mockResolvedValue([{ chatMessages: [] }]);
     prismaProjectUpdateManyMock.mockResolvedValue({ count: 1 });
     prismaProjectSnapshotCreateMock.mockResolvedValue({ id: "snapshot_edit" });
     writeProjectSourceArtifactMock.mockResolvedValue(

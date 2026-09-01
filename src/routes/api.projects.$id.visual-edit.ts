@@ -280,16 +280,14 @@ export async function handleVisualEditPost(request: Request, routeId: string) {
   } | null;
 
   try {
-    if (summary) {
-      await persistVisualSummaryMessage({
-        attemptId: attempt.id,
-        fallback: parseCanonicalBrief(project.brief, project.prompt)
-          .discussionContext,
-        messages: project.chatMessages,
-        projectId: project.id,
-        summary,
-      });
-    }
+    await persistVisualSummaryMessage({
+      attemptId: attempt.id,
+      fallback: parseCanonicalBrief(project.brief, project.prompt)
+        .discussionContext,
+      messages: project.chatMessages,
+      projectId: project.id,
+      summary: summary || instruction,
+    });
 
     await markStaleProjectBuilds(project.id);
 
@@ -455,30 +453,30 @@ async function persistVisualSummaryMessage({
   projectId: string;
   summary: string;
 }) {
-  const current = resolveProjectChatState({
-    chatMessages: messages,
-    chatSummary: null,
-    memoryFacts: null,
-    fallback,
-  }).messages;
-  const exists = current.some((message) => message.id === attemptId);
+  await prisma.$transaction(async (transaction) => {
+    const [row] = await transaction.$queryRaw<Array<{ chatMessages: unknown }>>`
+      SELECT "chatMessages" FROM "Project" WHERE id = ${projectId} FOR UPDATE
+    `;
+    const current = resolveProjectChatState({
+      chatMessages: row?.chatMessages ?? messages,
+      chatSummary: null,
+      memoryFacts: null,
+      fallback,
+    }).messages;
+    if (current.some((message) => message.id === attemptId)) {
+      return;
+    }
 
-  if (exists) {
-    return;
-  }
-
-  await prisma.project.update({
-    where: { id: projectId },
-    data: {
-      chatMessages: [
+    await transaction.$executeRaw`
+      UPDATE "Project" SET "chatMessages" = ${JSON.stringify([
         ...current,
         {
           id: attemptId,
           parts: [{ text: summary, type: "text" }],
           role: "user",
         },
-      ] as Prisma.InputJsonValue,
-    },
+      ])}::jsonb WHERE id = ${projectId}
+    `;
   });
 }
 

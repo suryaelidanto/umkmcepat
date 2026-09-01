@@ -10,6 +10,11 @@ import {
 
 import { getAiTelemetry, getNoReasoningCallOptions } from "@/lib/ai/ai";
 import {
+  classifyAiError,
+  recordAiCall,
+  startAiCallTimer,
+} from "@/lib/ai/ai-call-record";
+import {
   DISCUSS_CARD_SEMANTIC_ATTEMPTS,
   DISCUSS_CARD_SERVER_DEADLINE_MS,
   getAiTimeoutMs,
@@ -159,6 +164,8 @@ export async function repairDiscussCardWithTool({
       semanticAttempt < DISCUSS_CARD_SEMANTIC_ATTEMPTS;
       semanticAttempt += 1
     ) {
+      const stopRepairTimer = startAiCallTimer({ withTtft: true });
+      let repairRecorded = false;
       try {
         const repaired = await generateText({
           abortSignal: abortController.signal,
@@ -203,6 +210,22 @@ Prefer 2-5 options per choice question and set recommendedOptionLabel.`,
           }),
         });
 
+        const repairTiming = stopRepairTimer({ nonStreaming: true });
+        recordAiCall({
+          inputTokens: repaired.usage?.inputTokens ?? undefined,
+          modelRequested: modelName,
+          modelServed: repaired.response?.modelId,
+          outputTokens: repaired.usage?.outputTokens ?? undefined,
+          phase: semanticAttempt === 0 ? "repair" : "repair-retry",
+          projectId,
+          requestMs: repairTiming.requestMs,
+          retryCount: semanticAttempt,
+          status: "ok",
+          task: "discuss-repair",
+          ttftMs: repairTiming.ttftMs,
+          turnId: sourceTurnId,
+        });
+        repairRecorded = true;
         totalInputTokens += repaired.usage?.inputTokens ?? 0;
         totalOutputTokens += repaired.usage?.outputTokens ?? 0;
 
@@ -231,6 +254,24 @@ Prefer 2-5 options per choice question and set recommendedOptionLabel.`,
           break;
         }
       } catch (error) {
+        if (!repairRecorded) {
+          const repairTiming = stopRepairTimer({ nonStreaming: true });
+          recordAiCall({
+            errorClass: classifyAiError(error),
+            modelRequested: modelName,
+            phase: semanticAttempt === 0 ? "repair" : "repair-retry",
+            projectId,
+            requestMs: repairTiming.requestMs,
+            retryCount: semanticAttempt,
+            status:
+              error instanceof Error && /abort|timed out/i.test(error.message)
+                ? "aborted"
+                : "error",
+            task: "discuss-repair",
+            ttftMs: repairTiming.ttftMs,
+            turnId: sourceTurnId,
+          });
+        }
         console.error(
           "[preview-chat] one-call repair error",
           getSafeAiErrorLog(error),
@@ -238,7 +279,7 @@ Prefer 2-5 options per choice question and set recommendedOptionLabel.`,
       }
     }
     // Every attempt's tokens are billed once, including failed legs.
-    void chargeEnergyForAiUsage({
+    await chargeEnergyForAiUsage({
       userId,
       projectId,
       modelId: modelName,
@@ -274,6 +315,7 @@ export async function repairToolCallInTurn({
   modelName,
   projectId,
   toolCall,
+  turnId,
   userId,
 }: {
   error: unknown;
@@ -282,6 +324,7 @@ export async function repairToolCallInTurn({
   modelName: string;
   projectId: string;
   toolCall: { toolCallId: string; toolName: string; input?: unknown };
+  turnId?: string;
   userId: string;
 }): Promise<RepairedToolCall | null> {
   console.error("[preview-chat] invalid tool args, attempting in-turn repair", {
@@ -291,6 +334,8 @@ export async function repairToolCallInTurn({
     failedToolName: toolCall.toolName,
     error: getSafeAiErrorLog(error),
   });
+  const stopRepairTimer = startAiCallTimer({ withTtft: true });
+  let repairRecorded = false;
   try {
     const result = await generateText({
       model,
@@ -302,7 +347,21 @@ export async function repairToolCallInTurn({
       maxOutputTokens: 1024,
       timeout: getAiTimeoutMs("discussCard"),
     });
-    void chargeEnergyForAiUsage({
+    const repairTiming = stopRepairTimer({ nonStreaming: true });
+    recordAiCall({
+      inputTokens: result.usage?.inputTokens ?? undefined,
+      modelRequested: modelName,
+      modelServed: result.response?.modelId,
+      outputTokens: result.usage?.outputTokens ?? undefined,
+      projectId,
+      requestMs: repairTiming.requestMs,
+      status: "ok",
+      task: "discuss-repair",
+      ttftMs: repairTiming.ttftMs,
+      turnId,
+    });
+    repairRecorded = true;
+    await chargeEnergyForAiUsage({
       userId,
       projectId,
       modelId: modelName,
@@ -324,6 +383,23 @@ export async function repairToolCallInTurn({
           : JSON.stringify(repaired.input ?? {}),
     };
   } catch (repairError) {
+    if (!repairRecorded) {
+      const repairTiming = stopRepairTimer({ nonStreaming: true });
+      recordAiCall({
+        errorClass: classifyAiError(repairError),
+        modelRequested: modelName,
+        projectId,
+        requestMs: repairTiming.requestMs,
+        status:
+          repairError instanceof Error &&
+          /abort|timed out/i.test(repairError.message)
+            ? "aborted"
+            : "error",
+        task: "discuss-repair",
+        ttftMs: repairTiming.ttftMs,
+        turnId,
+      });
+    }
     console.error("[preview-chat] in-turn repair failed", {
       projectId,
       model: modelName,

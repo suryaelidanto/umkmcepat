@@ -257,13 +257,23 @@ describe("generated project source", () => {
     });
     const files = createGeneratedProjectFiles("project_snapshot", schema);
 
-    expect(createGeneratedSourceSnapshotMetadata(files, schema)).toMatchObject({
+    const metadata = createGeneratedSourceSnapshotMetadata(files, schema, {
+      generationMode: "agentic",
+      skillDigestVersion: "project-skills-v1:test",
+      skillsRead: ["unslop"],
+    });
+    expect(metadata).toMatchObject({
+      generation: {
+        mode: "agentic",
+        skillDigestVersion: "project-skills-v1:test",
+        skillsRead: ["unslop"],
+      },
       manifest: {
         runtimeProfile: "vite-react-tanstack-v1",
         schemaVersion: "1",
       },
       origin: {
-        generator: "site-schema",
+        generator: "agentic",
         sourceType: "generated",
       },
       sourceFileCount: files.length,

@@ -1,6 +1,7 @@
 import type { UIMessage } from "ai";
 
 import {
+  chargeModerationEnergy,
   getModerationTimeoutMs,
   moderateProjectRequest,
 } from "@/lib/ai/ai-moderation";
@@ -160,12 +161,14 @@ export async function prepareDiscussTurnAssets({
   const moderationResults = await Promise.all(
     readImages.map(async (entry) => {
       try {
-        return await moderateProjectRequest(
+        const result = await moderateProjectRequest(
           "",
           [{ bytes: entry!.stored.body, mediaType: entry!.stored.contentType }],
           getModerationTimeoutMs(),
           { projectId, turnId },
         );
+        await chargeModerationEnergy(userId, result, { projectId });
+        return result;
       } catch {
         return null;
       }
