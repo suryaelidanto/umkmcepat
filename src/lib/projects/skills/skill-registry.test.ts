@@ -118,6 +118,7 @@ describe("sandboxed script spawning", () => {
       "__sandbox-flood.mjs",
       "__sandbox-marker.mjs",
       "__sandbox-marker.txt",
+      "__sandbox-argv.mjs",
     ]) {
       rmSync(path.join(scriptsDir, name), { force: true });
     }
