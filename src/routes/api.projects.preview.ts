@@ -25,7 +25,7 @@ import { describeBuildRecommendation } from "@/lib/projects/build-recommendation
 import { parseCanonicalBrief } from "@/lib/projects/canonical-brief";
 import {
   buildProjectChatContext,
-  dedupeUiMessages,
+  dedupeUiMessagesForPersistence,
   getTextFromUIMessage,
   parseProjectChatMessages,
   parseProjectChatSummary,
@@ -330,7 +330,7 @@ async function handlePreviewPost(request: Request) {
   }
 
   const messages = await validateUIMessages({
-    messages: dedupeUiMessages(
+    messages: dedupeUiMessagesForPersistence(
       parseProjectChatMessages([...storedMessages, ...incoming]),
     ),
   });

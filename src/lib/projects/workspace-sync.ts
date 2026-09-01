@@ -485,6 +485,22 @@ export function getWorkspaceCardFromMessages(messages: UIMessage[]): {
       continue;
     }
 
+    const sessionLogPart = message.parts.find((part) => {
+      const candidate = part as { type?: string };
+      return candidate.type === "data-buildSessionLog";
+    }) as
+      | {
+          data?: { failed?: unknown; stopped?: unknown };
+          type?: string;
+        }
+      | undefined;
+    if (
+      sessionLogPart?.data?.failed === false &&
+      sessionLogPart.data.stopped !== true
+    ) {
+      return null;
+    }
+
     for (
       let partIndex = message.parts.length - 1;
       partIndex >= 0;

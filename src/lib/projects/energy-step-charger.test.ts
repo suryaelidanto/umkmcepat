@@ -10,6 +10,10 @@ vi.mock("@/lib/payment/user-credits", () => ({
 }));
 
 vi.mock("@/lib/ai/ai-call-record", () => ({
+  classifyAiError: (error: unknown) =>
+    error instanceof Error && /timeout/i.test(error.message)
+      ? "timeout"
+      : "unknown",
   recordAiCall: recordAiCallMock,
 }));
 
@@ -144,6 +148,36 @@ describe("createStepCharger", () => {
 
     await expect(charger.onStepFinish(step(5, 5))).resolves.toBeUndefined();
     expect(charger.isExhausted()).toBe(false);
+  });
+
+  it("records a failed provider step when generation times out", () => {
+    vi.useFakeTimers();
+    try {
+      const charger = createStepCharger({
+        userId: "u1",
+        reason: "build:step",
+        modelId: "requested-model",
+        projectId: "p1",
+        recordMeta: { attemptId: "a1" },
+      });
+
+      vi.advanceTimersByTime(180_000);
+      charger.onStepError(new Error("Step timeout of 180000ms exceeded"));
+
+      expect(recordAiCallMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          attemptId: "a1",
+          errorClass: "timeout",
+          modelRequested: "requested-model",
+          requestMs: 180_000,
+          status: "timeout",
+          stepIndex: 0,
+          task: "build-step",
+        }),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("exposes userId, modelId, and onCharge for child chargers", () => {

@@ -61,6 +61,30 @@ describe("classifyEditIntent", () => {
     expect(result.targetFiles).toContain("src/content/site.ts");
   });
 
+  it("includes the route source for visible copy changes", () => {
+    const result = classifyEditIntent({
+      instruction: "ubah teks tombol utama",
+      existingFiles: MOCK_FILES,
+    });
+
+    expect(result.category).toBe("copy_content");
+    expect(result.targetFiles).toContain("src/routes/index.tsx");
+  });
+
+  it("does not misclassify a copy request that forbids image changes", () => {
+    const result = classifyEditIntent({
+      instruction:
+        "Ubah teks semua tombol ajakan utama menjadi 'Hubungi via WhatsApp'. Hanya ubah teks tombol, jangan ubah tata letak, warna, gambar, isi lain, atau file lain.",
+      existingFiles: MOCK_FILES,
+    });
+
+    expect(result.category).toBe("copy_content");
+    expect(result.targetFiles).toEqual([
+      "src/content/site.ts",
+      "src/routes/index.tsx",
+    ]);
+  });
+
   it("classifies full restructure only when explicit command is given", () => {
     const result = classifyEditIntent({
       instruction: "tolong rombak total website ini dari awal",

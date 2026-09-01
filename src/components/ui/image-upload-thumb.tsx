@@ -3,6 +3,7 @@
 import { ImageOff, Loader2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { isExpiredTempImageUrl } from "@/lib/storage/uploads/temp-image-url";
 import { cn } from "@/lib/utils";
 
 export type ImageUploadThumbProps = {
@@ -22,10 +23,12 @@ export function ImageUploadThumb({
   onClick,
   className,
 }: ImageUploadThumbProps) {
-  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(() =>
+    isExpiredTempImageUrl(src),
+  );
 
   useEffect(() => {
-    setLoadFailed(false);
+    setLoadFailed(isExpiredTempImageUrl(src));
   }, [src]);
 
   const canOpen = !uploading && !loadFailed && Boolean(onClick);

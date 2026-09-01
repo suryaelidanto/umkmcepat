@@ -8,6 +8,8 @@ import {
   WorkspaceShell,
   canStartBuild,
   chatBubbleClass,
+  resolveBuildAction,
+  resolveBuildRequestMode,
 } from "./WorkspaceShell";
 
 import type { ProjectBrief } from "@/lib/projects/brief";
@@ -89,6 +91,42 @@ describe("canStartBuild", () => {
   it("returns false when card is null or undefined", () => {
     expect(canStartBuild(null)).toBe(false);
     expect(canStartBuild(undefined)).toBe(false);
+  });
+});
+
+describe("resolveBuildAction", () => {
+  it("routes a post-build update to the source-preserving edit worker", () => {
+    expect(
+      resolveBuildAction({
+        buildComplete: true,
+        buildStatus: "ready",
+        hasPendingChatEdit: false,
+        hasPostBuildUpdate: true,
+      }),
+    ).toBe("edit");
+  });
+
+  it("keeps failed builds on the generate retry path", () => {
+    expect(
+      resolveBuildAction({
+        buildComplete: false,
+        buildStatus: "failed",
+        hasPendingChatEdit: false,
+        hasPostBuildUpdate: false,
+      }),
+    ).toBe("generate");
+  });
+});
+
+describe("resolveBuildRequestMode", () => {
+  it("requests source-preserving retry after a failed build", () => {
+    expect(resolveBuildRequestMode("failed")).toBe("retry_build");
+  });
+
+  it("starts a fresh generation for non-failed states", () => {
+    expect(resolveBuildRequestMode("discussing")).toBe("first_generate");
+    expect(resolveBuildRequestMode("building")).toBe("first_generate");
+    expect(resolveBuildRequestMode("ready")).toBe("first_generate");
   });
 });
 

@@ -1164,6 +1164,43 @@ describe("normalizeWorkspaceTurn", () => {
     expect(turn.workspaceCard.type).toBe("none");
   });
 
+  it("promotes a model clarification to an update card for an explicit post-build edit", () => {
+    const brief = parseProjectBrief(
+      {
+        businessName: "Kopi Senja Roastery",
+        businessType: "Kopi Senja Roastery",
+        offer: "Biji kopi roasting",
+        targetCustomer: "Pecinta kopi lokal",
+        contactOrCta: "WhatsApp 08123456789",
+        stylePreference: "Warm and cozy",
+      },
+      "jualan kopi",
+    );
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "question",
+          question: {
+            id: "refinement",
+            question: "Bagian mana yang ingin kamu perbaiki?",
+          },
+        },
+      },
+      brief,
+      {
+        hasBuiltSite: true,
+        lastUserText:
+          "Ubah teks semua tombol ajakan utama menjadi 'Hubungi via WhatsApp'. Hanya ubah teks tombol, jangan ubah tata letak, warna, gambar, isi lain, atau file lain.",
+      },
+    );
+
+    expect(turn.workspaceCard.type).toBe("build_recommendation");
+    if (turn.workspaceCard.type === "build_recommendation") {
+      expect(turn.workspaceCard.postBuildUpdate).toBe(true);
+      expect(turn.workspaceCard.title).toBe("Perbarui website");
+    }
+  });
+
   it("allows a build_recommendation card post-build when user asks to update or rebuild", () => {
     const brief = parseProjectBrief(
       {

@@ -555,6 +555,61 @@ describe("runDiscussTurn worker", () => {
     );
   });
 
+  it("keeps a tool-only post-build card instead of dropping it as none", async () => {
+    normalizeWorkspaceTurnMock.mockReturnValue({
+      brief: baseBrief,
+      projectTitle: "T",
+      workspaceCard: {
+        type: "question",
+        question: {
+          id: "refinement",
+          question: "Bagian mana yang ingin kamu perbaiki?",
+          answerMode: "text",
+          options: [],
+        },
+      },
+      readyForBuild: false,
+    } as never);
+    streamTextMock.mockReturnValueOnce(
+      makeStreamResult([
+        {
+          type: "tool-call",
+          toolCallId: "tc-built-tool-only",
+          toolName: "presentWorkspaceCard",
+          input: { workspaceCard: { type: "question" } },
+        },
+      ]),
+    );
+
+    await runDiscussTurn({
+      turnId: "ct_built_tool_only",
+      project: { ...baseProject, status: "ready" },
+      chatContext: baseChatContext,
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages: baseMessages,
+      summary: baseSummary,
+      userId: "u1",
+      modelOverride: "test-model" as never,
+    });
+
+    expect(publishProgressMock).toHaveBeenCalledWith(
+      "ct_built_tool_only",
+      expect.objectContaining({
+        type: "tool-output-available",
+        output: expect.objectContaining({
+          workspaceCard: expect.objectContaining({ type: "question" }),
+        }),
+      }),
+    );
+    expect(finalizeDiscussTurnMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        turnId: "ct_built_tool_only",
+        status: "succeeded",
+      }),
+    );
+  });
+
   it("forced tool-only: streams assistantText incrementally from tool-input-delta", async () => {
     const card = {
       type: "question",

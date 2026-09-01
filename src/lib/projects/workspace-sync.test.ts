@@ -768,4 +768,23 @@ describe("getWorkspaceCardFromMessages", () => {
       ])?.workspaceCard,
     ).toEqual(next);
   });
+
+  it("treats a successful build session log as terminal", () => {
+    const card: WorkspaceCard = {
+      type: "build_recommendation",
+      title: "Old recommendation",
+      summary: ["x"],
+    };
+    const sessionLog = {
+      data: { failed: false, kind: "edit", stopped: false },
+      type: "data-buildSessionLog",
+    } as unknown as UIMessage["parts"][number];
+
+    expect(
+      getWorkspaceCardFromMessages([
+        assistant("a1", [present(card)]),
+        assistant("a2", [sessionLog]),
+      ]),
+    ).toBeNull();
+  });
 });

@@ -57,6 +57,7 @@ import {
   buildCompactDiscussionContext,
   buildProjectChatContext,
   dedupeUiMessages,
+  dedupeUiMessagesForPersistence,
   getTextFromUIMessage,
   parseProjectChatSummary,
   parseProjectMemoryFacts,
@@ -393,7 +394,7 @@ export async function runDiscussTurn({
     });
     const cardSystemPrompt = buildCardSystemPrompt();
     const modelMessages = await convertToModelMessages(
-      chatContextWithInlineAssets.messages,
+      dedupeUiMessages(chatContextWithInlineAssets.messages),
     );
 
     // Fail closed: blocked or unverifiable text never reaches the model.
@@ -760,7 +761,7 @@ export async function runDiscussTurn({
           ],
         };
         const safeMessages = stripTransportDiagnosticMessages(
-          dedupeUiMessages([...messages, assistantMessage]),
+          dedupeUiMessagesForPersistence([...messages, assistantMessage]),
         );
         await writeAiRequestLog({
           event: "discuss:finish",
@@ -816,208 +817,146 @@ export async function runDiscussTurn({
       });
     }
     if (!chatText) {
-      // Post-build: none is a legal card. Do not repair for interview cards
       if (hasBuiltSite) {
-        const fallbackText = unslopUserFacingText(
-          "Siap, perubahannya sudah aku catat.",
-        );
-        publishProgress(turnId, {
-          type: "text-delta",
-          id: textPartId,
-          delta: fallbackText,
-        });
-        const resolvedToolCallId = streamToolCallId || toolCallId;
-        publishProgress(turnId, {
-          type: "tool-input-available",
-          toolCallId: resolvedToolCallId,
-          toolName: PRESENT_WORKSPACE_CARD_TOOL_NAME,
-          input: {},
-        });
-        publishProgress(turnId, {
-          type: "tool-output-available",
-          toolCallId: resolvedToolCallId,
-          output: {
-            workspaceCard: { type: "none" },
-            projectTitle: project.title,
-            repairsUsed: 0,
-          },
-        });
-        const assistantMessage: UIMessage = {
-          id: messageId,
-          role: "assistant",
-          parts: [
-            { type: "text", text: fallbackText, state: "done" },
-            {
-              type: `tool-${PRESENT_WORKSPACE_CARD_TOOL_NAME}`,
-              toolCallId: resolvedToolCallId,
-              state: "output-available",
-              input: {},
-              output: {
-                workspaceCard: { type: "none" },
-                projectTitle: project.title,
-              },
-            } as UIMessage["parts"][number],
-          ],
-        };
-        const safeMessages = stripTransportDiagnosticMessages(
-          dedupeUiMessages([...messages, assistantMessage]),
-        );
-        await writeAiRequestLog({
-          event: "discuss:finish",
-          model: modelName,
-          mode: "one_call_tools",
-          projectId: project.id,
-          didWorkspaceToolUpdate: true,
-          primaryToolFailed: false,
-          repairsUsed: 0,
-          workspaceCard: { type: "none" },
-        });
-        await persistProjectChatTurn({
-          messages: safeMessages,
+        chatText = unslopUserFacingText("Siap, perubahannya sudah aku catat.");
+      } else {
+        const repairStartedAt = Date.now();
+        const repaired = await repairDiscussCardWithTool({
+          brief: effectiveBrief,
+          cardSystemPrompt,
+          chatText: "",
+          hasBuiltSite,
+          lastUserText: lastUserTextValue,
+          ownerTexts: handoffNormalizeOptions.ownerTexts,
+          previousWorkspaceCard,
+          sourceTurnId: turnId,
+          model,
+          modelMessages,
+          modelName,
           projectId: project.id,
           userId,
-          workspaceCard: { type: "none" },
         });
-        await chargeDiscussEnergy();
-        publishProgress(turnId, { type: "finish" });
-        await finalizeDiscussTurn({ turnId, status: "succeeded" });
-        return;
-      }
-
-      // ponytail: tool-only response (no prose). Retry the card via
-      const repairStartedAt = Date.now();
-      const repaired = await repairDiscussCardWithTool({
-        brief: effectiveBrief,
-        cardSystemPrompt,
-        chatText: "",
-        hasBuiltSite,
-        lastUserText: lastUserTextValue,
-        ownerTexts: handoffNormalizeOptions.ownerTexts,
-        previousWorkspaceCard,
-        sourceTurnId: turnId,
-        model,
-        modelMessages,
-        modelName,
-        projectId: project.id,
-        userId,
-      });
-      const repairMs = Date.now() - repairStartedAt;
-      devLog("discuss", "timings", {
-        primaryMs,
-        repairMs,
-        textOnly: false,
-        repaired: Boolean(repaired),
-        projectId: project.id,
-      });
-      totalInputTokens += repaired?.usage.inputTokens ?? 0;
-      totalOutputTokens += repaired?.usage.outputTokens ?? 0;
-      primaryOwnInputTokens += repaired?.usage.inputTokens ?? 0;
-      primaryOwnOutputTokens += repaired?.usage.outputTokens ?? 0;
-
-      if (repaired) {
-        const repairedCard = repaired.workspaceCard;
-        const repairedToolCallId = streamToolCallId || toolCallId;
-        const repairedText = repaired.assistantText;
-        if (repairedText) {
-          const repairTextPartId = `${textPartId}-repair`;
-          publishProgress(turnId, {
-            type: "text-start",
-            id: repairTextPartId,
-          });
-          publishProgress(turnId, {
-            type: "text-delta",
-            id: repairTextPartId,
-            delta: repairedText,
-          });
-          publishProgress(turnId, {
-            type: "text-end",
-            id: repairTextPartId,
-          });
-        }
-        publishProgress(turnId, {
-          type: "tool-input-available",
-          toolCallId: repairedToolCallId,
-          toolName: PRESENT_WORKSPACE_CARD_TOOL_NAME,
-          input: {},
+        const repairMs = Date.now() - repairStartedAt;
+        devLog("discuss", "timings", {
+          primaryMs,
+          repairMs,
+          textOnly: false,
+          repaired: Boolean(repaired),
+          projectId: project.id,
         });
-        publishProgress(turnId, {
-          type: "tool-output-available",
-          toolCallId: repairedToolCallId,
-          output: {
-            workspaceCard: repairedCard,
-            projectTitle: repaired.projectTitle || project.title,
+        totalInputTokens += repaired?.usage.inputTokens ?? 0;
+        totalOutputTokens += repaired?.usage.outputTokens ?? 0;
+        primaryOwnInputTokens += repaired?.usage.inputTokens ?? 0;
+        primaryOwnOutputTokens += repaired?.usage.outputTokens ?? 0;
+
+        if (repaired) {
+          const repairedCard = repaired.workspaceCard;
+          const repairedToolCallId = streamToolCallId || toolCallId;
+          const repairedText = repaired.assistantText;
+          if (repairedText) {
+            const repairTextPartId = `${textPartId}-repair`;
+            publishProgress(turnId, {
+              type: "text-start",
+              id: repairTextPartId,
+            });
+            publishProgress(turnId, {
+              type: "text-delta",
+              id: repairTextPartId,
+              delta: repairedText,
+            });
+            publishProgress(turnId, {
+              type: "text-end",
+              id: repairTextPartId,
+            });
+          }
+          publishProgress(turnId, {
+            type: "tool-input-available",
+            toolCallId: repairedToolCallId,
+            toolName: PRESENT_WORKSPACE_CARD_TOOL_NAME,
+            input: {},
+          });
+          publishProgress(turnId, {
+            type: "tool-output-available",
+            toolCallId: repairedToolCallId,
+            output: {
+              workspaceCard: repairedCard,
+              projectTitle: repaired.projectTitle || project.title,
+              repairsUsed: repaired.repairsUsed,
+            },
+          });
+          const repairedAssistantMessage: UIMessage = {
+            id: messageId,
+            role: "assistant",
+            parts: [
+              ...(repairedText
+                ? [
+                    {
+                      type: "text" as const,
+                      text: repairedText,
+                      state: "done" as const,
+                    },
+                  ]
+                : []),
+              {
+                type: `tool-${PRESENT_WORKSPACE_CARD_TOOL_NAME}`,
+                toolCallId: repairedToolCallId,
+                state: "output-available",
+                input: {},
+                output: {
+                  workspaceCard: repairedCard,
+                  projectTitle: repaired.projectTitle || project.title,
+                },
+              } as UIMessage["parts"][number],
+            ],
+          };
+          const safeMessages = stripTransportDiagnosticMessages(
+            dedupeUiMessagesForPersistence([
+              ...messages,
+              repairedAssistantMessage,
+            ]),
+          );
+          await writeAiRequestLog({
+            event: "discuss:finish",
+            model: modelName,
+            mode: "one_call_tools",
+            projectId: project.id,
+            didWorkspaceToolUpdate: true,
+            primaryToolFailed: true,
             repairsUsed: repaired.repairsUsed,
-          },
-        });
-        const repairedAssistantMessage: UIMessage = {
-          id: messageId,
-          role: "assistant",
-          parts: [
-            ...(repairedText
-              ? [
-                  {
-                    type: "text" as const,
-                    text: repairedText,
-                    state: "done" as const,
-                  },
-                ]
-              : []),
-            {
-              type: `tool-${PRESENT_WORKSPACE_CARD_TOOL_NAME}`,
-              toolCallId: repairedToolCallId,
-              state: "output-available",
-              input: {},
-              output: {
-                workspaceCard: repairedCard,
-                projectTitle: repaired.projectTitle || project.title,
-              },
-            } as UIMessage["parts"][number],
-          ],
-        };
-        const safeMessages = stripTransportDiagnosticMessages(
-          dedupeUiMessages([...messages, repairedAssistantMessage]),
-        );
-        await writeAiRequestLog({
-          event: "discuss:finish",
-          model: modelName,
-          mode: "one_call_tools",
-          projectId: project.id,
-          didWorkspaceToolUpdate: true,
-          primaryToolFailed: true,
-          repairsUsed: repaired.repairsUsed,
-          workspaceCard: repairedCard,
-        });
-        await persistProjectChatTurn({
-          brief: scrubBriefForStorage(
-            repaired.brief,
-            repaired.readyForBuild,
-            project.id,
-          ),
-          messages: safeMessages,
-          projectId: project.id,
-          title: repaired.projectTitle || project.title,
-          userId,
-          workspaceCard: repairedCard,
-        });
+            workspaceCard: repairedCard,
+          });
+          await persistProjectChatTurn({
+            brief: scrubBriefForStorage(
+              repaired.brief,
+              repaired.readyForBuild,
+              project.id,
+            ),
+            messages: safeMessages,
+            projectId: project.id,
+            title: repaired.projectTitle || project.title,
+            userId,
+            workspaceCard: repairedCard,
+          });
+          await chargeDiscussEnergy();
+          publishProgress(turnId, { type: "finish" });
+          await finalizeDiscussTurn({ turnId, status: "succeeded" });
+          return;
+        }
+
+        // All repair attempts failed. Charge once, surface a clean error.
         await chargeDiscussEnergy();
-        publishProgress(turnId, { type: "finish" });
-        await finalizeDiscussTurn({ turnId, status: "succeeded" });
+        const repairFailMessage = "AI lagi gangguan. Coba lagi sebentar.";
+        publishProgress(turnId, {
+          type: "error",
+          errorText: repairFailMessage,
+        });
+        await finalizeDiscussTurn({
+          turnId,
+          status: "failed",
+          errorMessage: repairFailMessage,
+        });
         return;
       }
-
-      // All repair attempts failed. Charge once, surface a clean error.
-      await chargeDiscussEnergy();
-      const repairFailMessage = "AI lagi gangguan. Coba lagi sebentar.";
-      publishProgress(turnId, {
-        type: "error",
-        errorText: repairFailMessage,
-      });
-      await finalizeDiscussTurn({
-        turnId,
-        status: "failed",
-        errorMessage: repairFailMessage,
-      });
-      return;
     }
 
     let workspaceTurn = normalizeWorkspaceTurn(
@@ -1284,7 +1223,7 @@ export async function runDiscussTurn({
     if (!chatText.trim()) {
       chatText = unslopUserFacingText(
         hasBuiltSite
-          ? "Siap, perubahannya sudah aku catat. Klik Perbarui Website untuk menerapkan ke websitemu."
+          ? "Siap, perubahannya sudah aku catat. Klik Perbarui website untuk menerapkan ke websitemu."
           : "Ada yang bisa aku bantu lagi?",
       );
     } else {
@@ -1318,7 +1257,7 @@ export async function runDiscussTurn({
     };
 
     const safeMessages = stripTransportDiagnosticMessages(
-      dedupeUiMessages([...messages, assistantMessage]),
+      dedupeUiMessagesForPersistence([...messages, assistantMessage]),
     );
 
     if (hasCard) {

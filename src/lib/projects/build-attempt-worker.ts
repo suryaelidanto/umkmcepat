@@ -60,9 +60,11 @@ export const MAX_CLEAN_REBUILDS = 1;
 const MAX_TRANSIENT_RETRIES = 2;
 
 function isTransientGenerationError(error: unknown): boolean {
-  return /fetch failed|econn|socket|network|timed out|timeout|rate limit|429/i.test(
-    error instanceof Error ? error.message : String(error),
-  );
+  const message = error instanceof Error ? error.message : String(error);
+  if (/timed out|timeout/i.test(message)) {
+    return false;
+  }
+  return /fetch failed|econn|socket|network|rate limit|429/i.test(message);
 }
 
 function extractFailingFiles(log: string): string[] {
@@ -339,6 +341,11 @@ export async function runBuildAttempt({
       // Deterministic heal: rewrite unregistered <Link to="/x"> to hash
       sourceFiles = ensureRegisteredRouteLinks(sourceFiles);
 
+      const latestSuccessfulBuild = await prisma.projectBuild.findFirst({
+        where: { projectId, status: "succeeded" },
+        orderBy: { createdAt: "desc" },
+        select: { snapshotId: true },
+      });
       const snapshot = await prisma.projectSnapshot.create({
         data: {
           files: sourceFiles,
@@ -351,6 +358,9 @@ export async function runBuildAttempt({
             },
           ),
           projectId,
+          ...(latestSuccessfulBuild?.snapshotId
+            ? { parentSnapshotId: latestSuccessfulBuild.snapshotId }
+            : {}),
           sourceType: GENERATED_SNAPSHOT_SOURCE_TYPE,
         },
         select: { id: true },

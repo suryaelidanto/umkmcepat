@@ -18,6 +18,9 @@ const STYLE_KEYWORDS =
 const COPY_KEYWORDS =
   /\b(?:teks|text|copy|tulisan|nama|nomor|no\b|whatsapp|wa\b|telepon|phone|alamat|address|lokasi|location|jam\s+buka|hours|harga|price|tarif|menu|produk|product|layanan|service|slogan|tagline|deskripsi|description|faq|testimoni)\b/i;
 
+const EXPLICIT_COPY_DIRECTIVE_KEYWORDS =
+  /\b(?:teks|text|copy|tulisan|label|cta)\b/i;
+
 const FULL_RESTRUCTURE_KEYWORDS =
   /\b(?:rombak\s+total|bikin\s+ulang|buat\s+ulang|redesign\s+total|redesign\s+from\s+scratch|ganti\s+semua|reset\s+semua|rombak\s+semua)\b/i;
 
@@ -52,7 +55,10 @@ export function classifyEditIntent({
   }
 
   // 2. Media replacement (attachments uploaded or media keywords)
-  if (hasUploadedImages || MEDIA_KEYWORDS.test(text)) {
+  if (
+    hasUploadedImages ||
+    (MEDIA_KEYWORDS.test(text) && !EXPLICIT_COPY_DIRECTIVE_KEYWORDS.test(text))
+  ) {
     const targets = ["src/content/site.ts"];
     const heroFile = existingFiles.find((f) => f.includes("Hero.tsx"));
     if (heroFile) {
@@ -80,7 +86,10 @@ export function classifyEditIntent({
   }
 
   // 3. Style / Color Palette update
-  if (STYLE_KEYWORDS.test(text)) {
+  if (
+    STYLE_KEYWORDS.test(text) &&
+    !EXPLICIT_COPY_DIRECTIVE_KEYWORDS.test(text)
+  ) {
     return {
       category: "style_palette",
       confidence: 0.94,
@@ -96,6 +105,14 @@ export function classifyEditIntent({
 
   // 4. Text / Copy content update
   if (COPY_KEYWORDS.test(text)) {
+    const targetFiles = ["src/content/site.ts"];
+    if (
+      /\b(?:tombol|button|label|teks|text|tulisan|cta)\b/i.test(text) &&
+      existingFiles.includes("src/routes/index.tsx")
+    ) {
+      targetFiles.push("src/routes/index.tsx");
+    }
+
     return {
       category: "copy_content",
       confidence: 0.93,
@@ -105,7 +122,7 @@ export function classifyEditIntent({
         "Call check_app immediately after updating site data.",
       ],
       suggestedMaxSteps: 2,
-      targetFiles: ["src/content/site.ts"],
+      targetFiles,
     };
   }
 

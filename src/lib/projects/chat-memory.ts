@@ -278,6 +278,19 @@ export function getTextFromUIMessage(message: UIMessage) {
 }
 
 export function dedupeUiMessages(messages: UIMessage[]): UIMessage[] {
+  return dedupeUiMessagesInternal(messages, true);
+}
+
+export function dedupeUiMessagesForPersistence(
+  messages: UIMessage[],
+): UIMessage[] {
+  return dedupeUiMessagesInternal(messages, false);
+}
+
+function dedupeUiMessagesInternal(
+  messages: UIMessage[],
+  normalizeRoles: boolean,
+): UIMessage[] {
   const seen = new Set<string>();
   const deduped = messages.filter((message) => {
     const text = getTextFromUIMessage(message);
@@ -291,7 +304,7 @@ export function dedupeUiMessages(messages: UIMessage[]): UIMessage[] {
     return true;
   });
 
-  return normalizeModelMessages(deduped);
+  return normalizeRoles ? normalizeModelMessages(deduped) : deduped;
 }
 
 function normalizeModelMessages(messages: UIMessage[]): UIMessage[] {

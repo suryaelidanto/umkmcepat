@@ -7,7 +7,7 @@ import { parseWorkspaceCard } from "@/lib/projects/brief-flow";
 import { parseCanonicalBrief } from "@/lib/projects/canonical-brief";
 import {
   buildProjectChatContext,
-  dedupeUiMessages,
+  dedupeUiMessagesForPersistence,
   resolveProjectChatState,
 } from "@/lib/projects/chat-memory";
 import { finalizeDiscussTurn } from "@/lib/projects/discuss-turn";
@@ -65,7 +65,7 @@ export async function runQueuedDiscussTurn(
     fallback: canonicalBrief.discussionContext,
   });
   const messages = await validateUIMessages({
-    messages: dedupeUiMessages(chatState.messages),
+    messages: dedupeUiMessagesForPersistence(chatState.messages),
   });
   const summary = chatState.summary;
   const memoryFacts = chatState.memoryFacts;

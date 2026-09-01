@@ -93,7 +93,7 @@ import {
   reduceBuildStreamEvent,
 } from "@/lib/projects/build-stream-event";
 import { createUploadedImageFilePart } from "@/lib/projects/chat-file-parts";
-import { dedupeUiMessages } from "@/lib/projects/chat-memory";
+import { dedupeUiMessagesForPersistence } from "@/lib/projects/chat-memory";
 import {
   hasUploadingAttachments,
   MAX_COMPOSER_IMAGES,
@@ -395,6 +395,7 @@ export function WorkspaceShell({
   const preparingPollRef = useRef<(() => void) | null>(null);
   const loadWorkspaceStateRequestIdRef = useRef(0);
   const submitInFlightRef = useRef(false);
+  const pendingChatEditInstructionRef = useRef<string | null>(null);
 
   const isDesktop = useIsDesktopViewport();
   const [resumeError, setResumeError] = useState<{
@@ -1009,8 +1010,7 @@ export function WorkspaceShell({
     buildAbortRef.current = abortController;
 
     try {
-      // Mode follows real persisted source only — failed status alone must not
-      const generateMode = "first_generate" as const;
+      const generateMode = resolveBuildRequestMode(buildStatus);
       const messageCard = getWorkspaceCardFromMessages(
         allMessagesRef.current,
       )?.workspaceCard;
@@ -1248,7 +1248,7 @@ export function WorkspaceShell({
   const isResponding = status === "submitted" || status === "streaming";
   const isBuilding = buildStatus === "building";
   const allMessages = useMemo(
-    () => dedupeUiMessages([...olderMessages, ...messages]),
+    () => dedupeUiMessagesForPersistence([...olderMessages, ...messages]),
     [messages, olderMessages],
   );
   const allMessagesRef = useRef(allMessages);
@@ -2418,6 +2418,8 @@ export function WorkspaceShell({
     if (readOnly || isProcessing) {
       return false;
     }
+    setBuildStatus("building");
+    setMode("build");
     setIsEditingPreview(true);
     setBuildStartedAt(Date.now());
     setBuildProgress((current) =>
@@ -2483,6 +2485,7 @@ export function WorkspaceShell({
       }
 
       if (!response.ok || result?.buildStatus !== "succeeded") {
+        setBuildStatus("ready");
         setBuildProgress((current) =>
           appendBuildProgressStep(current, {
             detail:
@@ -2492,6 +2495,7 @@ export function WorkspaceShell({
             status: "error",
           }),
         );
+        void loadRuntimeState();
         return false;
       }
 
@@ -2764,6 +2768,10 @@ export function WorkspaceShell({
         scrollChatToBottom({ force: true, behavior: "smooth" }),
       );
 
+      if (buildComplete && trimmed) {
+        pendingChatEditInstructionRef.current = trimmed;
+      }
+
       // Post-build "Chat dengan AI" is discuss-only. Rebuilds use the
       sendMessage(
         {
@@ -2786,6 +2794,7 @@ export function WorkspaceShell({
     },
     [
       authStatus,
+      buildComplete,
       clearError,
       composerState,
       isProcessing,
@@ -2857,6 +2866,38 @@ export function WorkspaceShell({
       return;
     }
 
+    const hasPostBuildUpdate =
+      workspaceCard.type === "build_recommendation" &&
+      workspaceCard.postBuildUpdate === true;
+    const action = resolveBuildAction({
+      buildComplete,
+      buildStatus,
+      hasPendingChatEdit: Boolean(pendingChatEditInstructionRef.current),
+      hasPostBuildUpdate,
+    });
+    if (action === "edit") {
+      const instruction =
+        pendingChatEditInstructionRef.current ??
+        [...allMessagesRef.current]
+          .reverse()
+          .find((message) => message.role === "user")
+          ?.parts.filter((part) => part.type === "text")
+          .map((part) => part.text)
+          .join(" ")
+          .trim();
+      if (!instruction) {
+        return;
+      }
+      const succeeded = await submitDirectEdit({
+        instruction,
+        summary: instruction,
+      });
+      if (succeeded) {
+        pendingChatEditInstructionRef.current = null;
+      }
+      return;
+    }
+
     let handoffBrief = latestBrief;
     if (!handoffBrief) {
       try {
@@ -2890,12 +2931,16 @@ export function WorkspaceShell({
 
     await startBuild();
   }, [
+    allMessagesRef,
     buildComplete,
+    buildStatus,
     latestBrief,
     loadWorkspaceState,
     messages.length,
     readOnly,
     startBuild,
+    submitDirectEdit,
+    workspaceCard,
   ]);
 
   const handlePrimaryComposerAction = useCallback(async () => {
@@ -3779,7 +3824,7 @@ export function WorkspaceShell({
                               className="h-8 rounded-lg border-black/15 bg-white px-3 text-xs font-medium text-foreground hover:bg-black/5 hover:text-foreground active:scale-95 dark:border-white/15 dark:bg-white/5 dark:hover:bg-white/10 cursor-pointer"
                             >
                               {buildComplete
-                                ? "Perbarui Website"
+                                ? "Perbarui website"
                                 : "Buat Website"}
                             </Button>
                             <div className="flex items-center gap-1.5">
@@ -3968,7 +4013,7 @@ export function WorkspaceShell({
                           disabled={isBuilding || readOnly}
                           className="h-8 rounded-lg border-black/15 bg-white px-3 text-xs font-medium text-foreground hover:bg-black/5 hover:text-foreground active:scale-95 dark:border-white/15 dark:bg-white/5 dark:hover:bg-white/10 cursor-pointer"
                         >
-                          {buildComplete ? "Perbarui Website" : "Buat Website"}
+                          {buildComplete ? "Perbarui website" : "Buat Website"}
                         </Button>
                         <div className="flex items-center gap-1.5">
                           {composerUploadsEnabled ? (
@@ -4668,6 +4713,33 @@ function writeHandoffProof(storageKey: string, proof: HandoffProof): void {
   } catch {
     // Non-fatal: a retry without persisted proof falls back to the server's
   }
+}
+
+export function resolveBuildAction({
+  buildComplete,
+  buildStatus,
+  hasPendingChatEdit,
+  hasPostBuildUpdate,
+}: {
+  buildComplete: boolean;
+  buildStatus: string;
+  hasPendingChatEdit: boolean;
+  hasPostBuildUpdate: boolean;
+}): "edit" | "generate" {
+  if (
+    buildComplete &&
+    buildStatus !== "failed" &&
+    (hasPendingChatEdit || hasPostBuildUpdate)
+  ) {
+    return "edit";
+  }
+  return "generate";
+}
+
+export function resolveBuildRequestMode(
+  buildStatus: string,
+): "first_generate" | "retry_build" {
+  return buildStatus === "failed" ? "retry_build" : "first_generate";
 }
 
 // Proof-carrying gate: every build_recommendation must carry a valid handoff

@@ -300,6 +300,30 @@ describe("runBuildAttempt — tool-loop generation", () => {
     );
   });
 
+  it("links a retry snapshot to the latest successful source snapshot", async () => {
+    resolveGenerateModeMock.mockReturnValue("retry_build");
+    prismaMock.projectBuild.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ snapshotId: "snapshot-good" } as never);
+
+    await runBuildAttempt({
+      ...baseContext(),
+      generateMode: "retry_build",
+      project: {
+        ...baseContext().project,
+        generationEngine: "legacy",
+      },
+    });
+
+    expect(prismaMock.projectSnapshot.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          parentSnapshotId: "snapshot-good",
+        }),
+      }),
+    );
+  });
+
   it("passes the accepted handoff directly to the writer without a planning call", async () => {
     const acceptedHandoff = {
       id: "handoff-1",
@@ -536,5 +560,23 @@ describe("runBuildAttempt — bounded self-repair loop", () => {
     expect(generationArg?.repairRounds).toBe(1);
     expect(prismaMock.projectDeployment.create).toHaveBeenCalledTimes(1);
     expect(publishedEvents().filter((e) => e.type === "error")).toHaveLength(0);
+  });
+
+  it("does not replay the whole generation after a step timeout", async () => {
+    runAgenticGenerateMock.mockRejectedValue(
+      new Error("Step timeout of 180000ms exceeded"),
+    );
+
+    await runBuildAttempt({
+      ...baseContext(),
+      project: { ...baseContext().project, generationEngine: "legacy" },
+    });
+
+    expect(runAgenticGenerateMock).toHaveBeenCalledTimes(1);
+    expect(prismaMock.projectEditAttempt.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: "failed" }),
+      }),
+    );
   });
 });

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildProjectChatContext,
   dedupeUiMessages,
+  dedupeUiMessagesForPersistence,
   getProjectChatContext,
   getProjectChatPage,
   parseProjectChatMessages,
@@ -68,6 +69,27 @@ describe("project chat memory", () => {
     expect(result[2].parts).toEqual([
       { type: "text", text: "Ganti warna" },
       { type: "text", text: "Warna biru ya" },
+    ]);
+  });
+
+  it("preserves a new user-turn boundary after a prior turn has no assistant reply", () => {
+    const result = dedupeUiMessagesForPersistence([
+      {
+        id: "failed-user-turn",
+        role: "user" as const,
+        parts: [{ type: "text" as const, text: "Lewati." }],
+      },
+      {
+        id: "retry-user-turn",
+        role: "user" as const,
+        parts: [{ type: "text" as const, text: "Lewati." }],
+      },
+    ]);
+
+    expect(result).toHaveLength(2);
+    expect(result.map((message) => message.id)).toEqual([
+      "failed-user-turn",
+      "retry-user-turn",
     ]);
   });
 

@@ -9,7 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { parseCanonicalBrief } from "@/lib/projects/canonical-brief";
 import { maybeCompactProjectChat } from "@/lib/projects/chat-compaction";
 import {
-  dedupeUiMessages,
+  dedupeUiMessagesForPersistence,
   resolveProjectChatState,
 } from "@/lib/projects/chat-memory";
 import { persistProjectChatCompaction } from "@/lib/projects/discuss-turn-shared";
@@ -43,7 +43,7 @@ export async function runQueuedProjectCompaction(
     fallback: canonicalBrief.discussionContext,
   });
   const messages = await validateUIMessages({
-    messages: dedupeUiMessages(chatState.messages),
+    messages: dedupeUiMessagesForPersistence(chatState.messages),
   });
   const summary = {
     ...chatState.summary,

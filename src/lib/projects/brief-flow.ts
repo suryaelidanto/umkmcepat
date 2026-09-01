@@ -393,20 +393,17 @@ export function normalizeWorkspaceTurn(
       ) ||
       (Array.isArray(brief.businessImages) && brief.businessImages.length > 0);
 
-    if (
-      workspaceCard.type === "build_recommendation" ||
-      originalCardType === "build_recommendation" ||
-      originalCardType === "brief_review"
-    ) {
-      if (!isUpdateRequested) {
+    if (!isUpdateRequested) {
+      if (
+        workspaceCard.type === "build_recommendation" ||
+        originalCardType === "build_recommendation" ||
+        originalCardType === "brief_review"
+      ) {
         workspaceCard = { type: "none" };
-      } else if (workspaceCard.type === "build_recommendation") {
-        workspaceCard = { ...workspaceCard, postBuildUpdate: true };
       }
-    } else if (
-      isUpdateRequested &&
-      (workspaceCard.type === "none" || !workspaceCard.type)
-    ) {
+    } else if (workspaceCard.type === "build_recommendation") {
+      workspaceCard = { ...workspaceCard, postBuildUpdate: true };
+    } else {
       workspaceCard = {
         type: "build_recommendation",
         postBuildUpdate: true,

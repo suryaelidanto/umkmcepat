@@ -134,6 +134,11 @@ const ARBITRARY_INLINE_COLOR_PATTERN =
   /(?:^|["'`=:(,\s])#[0-9a-fA-F]{3,8}(?:["'`),;\s]|$)/;
 const DATA_IMAGE_PATTERN = /data:image\//i;
 const HASH_CTA_FALLBACK_PATTERN = /href\s*=\s*["'`]#\/?["'`]/i;
+const MAX_GENERATION_CONTINUATIONS = 3;
+
+function normalizeGeneratedPath(path: string): string {
+  return path.replaceAll("\\\\", "/").replace(/^\.\//u, "");
+}
 
 function collectUnresolvedImports(
   content: string,
@@ -436,6 +441,7 @@ export default site;
     );
   }
 
+  const preloadedRevisionContents = new Map<string, string>();
   const tools = {
     read_skill: tool({
       description:
@@ -615,14 +621,20 @@ export default site;
         label?: string;
         detail?: string;
       }) => {
+        const normalizedPath = normalizeGeneratedPath(path);
+        const preloadedContent = preloadedRevisionContents.get(normalizedPath);
+        if (isPartialRevisionMode && preloadedContent !== undefined) {
+          return { content: preloadedContent };
+        }
+
         opSeq++;
-        const filename = path.split("/").pop() || path;
+        const filename = normalizedPath.split("/").pop() || normalizedPath;
         const op = {
           id: `op-${opSeq}`,
           type: "read_file",
           title: label?.trim() || `Membaca ${filename}`,
           detail: detail?.trim() || `Melihat isi ${path}`,
-          path,
+          path: normalizedPath,
           state: "succeeded" as const,
         };
         operationTrace.push(op);
@@ -630,11 +642,11 @@ export default site;
           onEvent("operation", op);
         }
 
-        if (fileMap.has(path)) {
-          return { content: fileMap.get(path)! };
+        if (fileMap.has(normalizedPath)) {
+          return { content: fileMap.get(normalizedPath)! };
         }
-        if (path.startsWith("src/components/ui/")) {
-          const compName = path
+        if (normalizedPath.startsWith("src/components/ui/")) {
+          const compName = normalizedPath
             .replace("src/components/ui/", "")
             .replace(/\.tsx?$/, "");
           if (SHADCN_COMPONENT_BY_NAME.has(compName)) {
@@ -1357,11 +1369,11 @@ Progress labels and details must be plain Indonesian. Do not expose file names, 
     const preloadedBlocks: string[] = [];
     for (const targetPath of editIntent.targetFiles) {
       const content = fileMap.get(targetPath);
-      if (
-        content &&
-        targetPath !== "src/content/site.ts" &&
-        targetPath !== "src/index.css"
-      ) {
+      if (content) {
+        preloadedRevisionContents.set(
+          normalizeGeneratedPath(targetPath),
+          content,
+        );
         preloadedBlocks.push(
           `=== CURRENT CODE: ${targetPath} ===\n${content}\n=== END OF ${targetPath} ===`,
         );
@@ -1442,75 +1454,146 @@ ${executionContext}`;
     });
   }
 
-  await generateText({
-    model: getAiModel(requestedModel),
-    system: systemPrompt,
-    prompt: userPrompt,
-    tools,
-    toolChoice: "required",
-    stopWhen: (step) => lastCheckOk === true || isStepCount(maxSteps)(step),
-    abortSignal,
-    ...getNoReasoningCallOptions(),
-    timeout: {
-      chunkMs: getAiTimeoutMs("agenticGenerate"),
-      firstChunkMs: getAiTimeoutMs("agenticGenerate"),
-      stepMs: getAiTimeoutMs("agenticGenerate"),
-    },
-    onStepFinish: async (step) => {
-      devLog("generate", "step.detail", {
-        toolCallsCount: step.toolCalls?.length,
-        toolNames: step.toolCalls?.map((t) => t.toolName),
-        text: step.text?.slice(0, 200),
-      });
-      if (stepCharger && step.usage) {
-        const servedModelId = (
-          await Promise.resolve(step.response).catch(() => null)
-        )?.modelId;
-
-        // Derive specific reason from tool execution
-        let toolReason: string | undefined;
-        const toolCall = step.toolCalls?.[0] as
-          { toolName?: string; args?: Record<string, unknown> } | undefined;
-        if (toolCall) {
-          if (
-            toolCall.toolName === "write_file" &&
-            typeof toolCall.args?.path === "string"
-          ) {
-            const fileName = toolCall.args.path.split("/").pop() || "komponen";
-            toolReason = `build:write:${fileName}`;
-          } else if (toolCall.toolName === "check_app") {
-            toolReason = "build:check_app";
-          } else if (
-            toolCall.toolName === "copy_shadcn_component" &&
-            typeof toolCall.args?.name === "string"
-          ) {
-            toolReason = `build:shadcn:${toolCall.args.name}`;
-          } else if (
-            toolCall.toolName === "read_skill" &&
-            typeof toolCall.args?.name === "string"
-          ) {
-            toolReason = `build:skill:${toolCall.args.name}`;
-          }
-        }
-
-        await stepCharger.onStepFinish({
-          usage: step.usage,
-          response: { modelId: servedModelId },
-          reason: toolReason,
-        });
-
-        if (stepCharger.isExhausted()) {
-          throw new Error(
-            "Energi akun telah habis. Silakan isi ulang energi untuk melanjutkan pembuatan website.",
-          );
-        }
+  let modelStepCount = 0;
+  let continuationAttempts = 0;
+  const hasCustomSource = (): boolean => {
+    const engineEmittedDocs = new Set([PRODUCT_DOC_PATH, DESIGN_DOC_PATH]);
+    return isPartialRevisionMode
+      ? Array.from(touched).some((p) => !engineEmittedDocs.has(p))
+      : Array.from(touched).some(
+          (p) => p !== "src/index.css" && !engineEmittedDocs.has(p),
+        );
+  };
+  const unfinishedRequirements = (): string[] => {
+    const requirements: string[] = [];
+    if (!isPartialRevisionMode) {
+      const missing = missingCoreSkills();
+      if (missing.length > 0) {
+        requirements.push(`Read every required skill: ${missing.join(", ")}.`);
       }
-    },
-    telemetry: getAiTelemetry("project-agentic-generate", {
-      projectId,
-      userId: input.userId,
-    }),
-  });
+      if (!conceptSeedScriptRun) {
+        requirements.push(
+          'Run the impeccable concept-seed entrypoint with args { scope: "direction", mode: "persuade" }.',
+        );
+      }
+      if (!paletteScriptRun) {
+        requirements.push("Run the impeccable palette entrypoint.");
+      }
+      if (!designDirectionAccepted) {
+        requirements.push(
+          "Call set_design_direction with the required direction fields.",
+        );
+      }
+      if (!designSystemAccepted) {
+        requirements.push("Call set_design_system before writing source.");
+      }
+    }
+    if (!hasCustomSource()) {
+      requirements.push("Write the required custom source file now.");
+    }
+    if (!checkAppCalls || lastCheckOk !== true) {
+      requirements.push("Call check_app and keep working until it passes.");
+    }
+    return requirements;
+  };
+
+  while (true) {
+    const requirements = unfinishedRequirements();
+    const continuationPrompt =
+      continuationAttempts === 0
+        ? userPrompt
+        : `Continue the same build using the in-memory project state. Do not stop with a conversational response. Complete these remaining requirements with tools now:\n${requirements.map((requirement) => `- ${requirement}`).join("\n")}`;
+
+    try {
+      await generateText({
+        model: getAiModel(requestedModel),
+        system: systemPrompt,
+        prompt: continuationPrompt,
+        tools,
+        toolChoice: "required",
+        stopWhen: (step) => lastCheckOk === true || isStepCount(maxSteps)(step),
+        abortSignal,
+        ...getNoReasoningCallOptions(),
+        timeout: {
+          chunkMs: getAiTimeoutMs("agenticGenerate"),
+          firstChunkMs: getAiTimeoutMs("agenticGenerate"),
+          stepMs: getAiTimeoutMs("agenticGenerate"),
+        },
+        onStepFinish: async (step) => {
+          modelStepCount += 1;
+          devLog("generate", "step.detail", {
+            toolCallsCount: step.toolCalls?.length,
+            toolNames: step.toolCalls?.map((t) => t.toolName),
+            text: step.text?.slice(0, 200),
+          });
+          if (stepCharger && step.usage) {
+            const servedModelId = (
+              await Promise.resolve(step.response).catch(() => null)
+            )?.modelId;
+
+            // Derive specific reason from tool execution
+            let toolReason: string | undefined;
+            const toolCall = step.toolCalls?.[0] as
+              { toolName?: string; args?: Record<string, unknown> } | undefined;
+            if (toolCall) {
+              if (
+                toolCall.toolName === "write_file" &&
+                typeof toolCall.args?.path === "string"
+              ) {
+                const fileName =
+                  toolCall.args.path.split("/").pop() || "komponen";
+                toolReason = `build:write:${fileName}`;
+              } else if (toolCall.toolName === "check_app") {
+                toolReason = "build:check_app";
+              } else if (
+                toolCall.toolName === "copy_shadcn_component" &&
+                typeof toolCall.args?.name === "string"
+              ) {
+                toolReason = `build:shadcn:${toolCall.args.name}`;
+              } else if (
+                toolCall.toolName === "read_skill" &&
+                typeof toolCall.args?.name === "string"
+              ) {
+                toolReason = `build:skill:${toolCall.args.name}`;
+              }
+            }
+
+            await stepCharger.onStepFinish({
+              usage: step.usage,
+              response: { modelId: servedModelId },
+              reason: toolReason,
+            });
+
+            if (stepCharger.isExhausted()) {
+              throw new Error(
+                "Energi akun telah habis. Silakan isi ulang energi untuk melanjutkan pembuatan website.",
+              );
+            }
+          }
+        },
+        telemetry: getAiTelemetry("project-agentic-generate", {
+          projectId,
+          userId: input.userId,
+        }),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (stepCharger && !message.includes("Energi akun telah habis")) {
+        stepCharger.onStepError(error);
+      }
+      throw error;
+    }
+
+    const remainingRequirements = unfinishedRequirements();
+    if (
+      remainingRequirements.length === 0 ||
+      modelStepCount >= maxSteps ||
+      continuationAttempts >= MAX_GENERATION_CONTINUATIONS
+    ) {
+      break;
+    }
+    continuationAttempts += 1;
+  }
 
   ensureAllShadcnImportsResolved(fileMap, touched);
 

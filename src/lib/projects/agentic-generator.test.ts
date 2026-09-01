@@ -222,6 +222,46 @@ describe("runAgenticGenerate", () => {
     });
   });
 
+  it("reports upstream generation failures to the step charger", async () => {
+    const onStepError = vi.fn();
+    const stepCharger = {
+      isExhausted: () => false,
+      modelId: "default-combo",
+      onStepError,
+      onStepFinish: vi.fn(async () => undefined),
+      totals: () => ({ inputTokens: 0, outputTokens: 0, energyUsed: 0 }),
+      userId: "user-1",
+    } satisfies NonNullable<
+      Parameters<typeof runAgenticGenerate>[0]["stepCharger"]
+    >;
+    const failure = new Error("Step timeout of 180000ms exceeded");
+    generateTextMock.mockRejectedValueOnce(failure);
+
+    await expect(
+      runAgenticGenerate(createInput({ stepCharger })),
+    ).rejects.toThrow(failure.message);
+
+    expect(onStepError).toHaveBeenCalledWith(failure);
+  });
+
+  it("continues after an early model stop until the required workflow is complete", async () => {
+    let calls = 0;
+    generateTextMock.mockImplementation(async (args: unknown) => {
+      calls += 1;
+      if (calls === 1) {
+        return { text: "", steps: [] };
+      }
+      await completeAgentWorkflow(getTools(args));
+      return { text: "Done", steps: [] };
+    });
+
+    await expect(runAgenticGenerate(createInput())).resolves.toMatchObject({
+      generationMode: "agentic",
+    });
+
+    expect(calls).toBe(2);
+  });
+
   it("initializes starter files and produces agentic result", async () => {
     generateTextMock.mockImplementationOnce(async (args: unknown) => {
       await completeAgentWorkflow(getTools(args));
@@ -317,6 +357,41 @@ describe("runAgenticGenerate", () => {
     expect(result.skillsRead).toEqual([]);
     expect(result.skillDigest?.version).toMatch(/^project-skills-v1:/u);
     expect(capturedSystem).toContain("<project-skill-digest>");
+  });
+
+  it("serves a preloaded revision file without recording a file reread", async () => {
+    let revisionTools: Record<string, AgentTool> | null = null;
+    let result: Awaited<ReturnType<typeof runAgenticGenerate>> | null = null;
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      revisionTools = getTools(args);
+      const current = await revisionTools.read_file.execute({
+        path: "./src/routes/index.tsx",
+      });
+      expect(current).toMatchObject({ content: "existing route" });
+      await revisionTools.write_file.execute({
+        content:
+          "export const generated = true;\n/* authored entrance: @keyframes umkm-entrance */",
+        path: "src/routes/generated.tsx",
+      });
+      await revisionTools.check_app.execute({});
+      return { text: "Done", steps: [] };
+    });
+
+    result = await runAgenticGenerate(
+      createInput({
+        initialFiles: [
+          { path: "src/routes/index.tsx", content: "existing route" },
+        ],
+        revisionBrief: "Ubah teks tombol utama",
+      }),
+    );
+
+    expect(revisionTools).not.toBeNull();
+    expect(
+      result.operationTrace.filter(
+        (operation) => operation.type === "read_file",
+      ),
+    ).toHaveLength(0);
   });
 
   it("preserves the accepted protected site data during revisions", async () => {
