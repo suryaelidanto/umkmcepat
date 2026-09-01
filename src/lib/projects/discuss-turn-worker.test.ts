@@ -777,6 +777,81 @@ describe("runDiscussTurn worker", () => {
     expect(persistedValues).toContain(repairText);
   });
 
+  it("applies the contract gate after card repair before persisting a recommendation", async () => {
+    const incompleteBrief = {
+      businessName: "Fresh Clean Laundry",
+      businessType: "jasa_lokal",
+      productOrService: [{ name: "Jasa laundry", isPrimary: true }],
+      targetCustomer: "Keluarga dan Anak Kos",
+      contact: {
+        channel: "whatsapp",
+        value: "08123456789",
+      },
+      contactOrCta: "Chat WhatsApp",
+      stylePreference: "Minimalis & Praktis",
+      address: "Jl. Kenanga No. 12",
+      usp: ["Antar jemput gratis"],
+    };
+    normalizeWorkspaceTurnMock.mockReturnValueOnce({
+      brief: incompleteBrief,
+      projectTitle: "Website Fresh Clean Laundry",
+      workspaceCard: {
+        type: "build_recommendation",
+        title: "Website siap dibuat",
+        summary: ["Fresh Clean Laundry"],
+      },
+      readyForBuild: true,
+    } as never);
+    streamTextMock.mockReturnValueOnce(makeStreamResult([]));
+    generateTextMock.mockResolvedValueOnce({
+      response: { modelId: "test-model" },
+      text: "",
+      toolCalls: [
+        {
+          input: {
+            assistantText: "Data lengkap",
+            workspaceCard: {
+              type: "build_recommendation",
+              title: "Website siap dibuat",
+              summary: ["Fresh Clean Laundry"],
+            },
+          },
+          toolCallId: "repair-card",
+          toolName: "presentWorkspaceCard",
+        },
+      ],
+      usage: { inputTokens: 11, outputTokens: 4 },
+    } as never);
+
+    await runDiscussTurn({
+      turnId: "ct_repair_tiered_intercept",
+      project: { ...baseProject, generationEngine: "contract-v1" },
+      chatContext: baseChatContext,
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages: baseMessages,
+      summary: baseSummary,
+      userId: "u1",
+      modelOverride: "test-model" as never,
+    });
+
+    const cardEvent = publishProgressMock.mock.calls
+      .filter(
+        ([publishedTurnId, event]) =>
+          publishedTurnId === "ct_repair_tiered_intercept" &&
+          event.type === "tool-output-available",
+      )
+      .map(([, event]) => event.output.workspaceCard)[0] as {
+      type: "question";
+      question: { id: string };
+    };
+    expect(cardEvent).toMatchObject({
+      type: "question",
+      question: { id: "price_range" },
+    });
+    expect(prepareBuildHandoffMock).not.toHaveBeenCalled();
+  });
+
   it("contract gate demotes the HP Surya recommendation while required canonical fields are missing", async () => {
     normalizeWorkspaceTurnMock.mockReturnValue({
       brief: {
