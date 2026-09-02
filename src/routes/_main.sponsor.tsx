@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Check, Copy, Mail } from "lucide-react";
+import { Check, Copy, Mail, Megaphone, Sparkles, Users } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -11,19 +11,19 @@ export const Route = createFileRoute("/_main/sponsor")({
 });
 
 const SPONSOR_EMAIL = "sponsor@umkmcepat.com";
-const EMAIL_SUBJECT = "Sponsorship UMKM Cepat - [Nama Perusahaan]";
+const EMAIL_SUBJECT = "Sponsorship UMKM Cepat - [Nama Brand / Perusahaan]";
 const EMAIL_BODY_TEMPLATE = `Halo Tim UMKM Cepat,
 
-Kami ingin mengajukan sponsorship untuk mendukung operasional UMKM Cepat.
+Kami tertarik untuk menjadi sponsor di platform UMKM Cepat.
 
 - Nama Brand / Perusahaan: 
 - Website / Media Sosial: 
 - Kontak PIC (Nama & WhatsApp): 
-- Bentuk Dukungan: [Dana Operasional / Layanan Server / Lainnya]
-- Nominal atau Rencana Dukungan: 
+- Bentuk Ketertarikan: [Penempatan Logo / Slot Iklan / Promo Komunitas / Lainnya]
+- Rencana Dukungan / Anggaran: 
 - Catatan Tambahan: 
 
-Mohon informasi langkah selanjutnya. Terima kasih.`;
+Mohon informasi terkait penempatan dan langkah selanjutnya. Terima kasih.`;
 
 function SponsorPage() {
   const [copied, setCopied] = useState(false);
@@ -55,25 +55,67 @@ function SponsorPage() {
           </Link>
         </div>
 
-        <div className="space-y-3 text-left">
+        <div className="space-y-2 text-left">
           <h1 className="text-2xl font-bold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white sm:text-3xl">
             Sponsorship UMKM Cepat
           </h1>
           <p className="text-sm leading-relaxed text-[#5f5f5d] dark:text-surface-warm-white/70 sm:text-base">
-            UMKM Cepat menyediakan landing page instan dengan tombol WhatsApp
-            gratis untuk pemilik usaha kecil. Dukungan sponsorship dipakai
-            langsung untuk biaya server dan kuota AI.
+            Kenalkan brand dan produk Anda langsung ke ribuan pemilik usaha
+            aktif di Indonesia.
           </p>
         </div>
 
+        {/* 3 Main Benefits for Sponsor */}
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-xl border border-black/10 bg-white p-4.5 dark:border-white/10 dark:bg-[#1c1c1a]">
+            <div className="flex size-8 items-center justify-center rounded-lg bg-orange-500/10 text-orange-600 dark:bg-orange-400/15 dark:text-orange-300">
+              <Sparkles className="size-4" />
+            </div>
+            <h2 className="mt-3 text-sm font-semibold text-[#1c1c1c] dark:text-surface-warm-white">
+              Logo di Beranda Utama
+            </h2>
+            <p className="mt-1.5 text-xs leading-relaxed text-[#5f5f5d] dark:text-surface-warm-white/70">
+              Nama dan tautan bisnis Anda tampil permanen di section
+              &ldquo;Didukung oleh&rdquo; pada beranda utama.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-black/10 bg-white p-4.5 dark:border-white/10 dark:bg-[#1c1c1a]">
+            <div className="flex size-8 items-center justify-center rounded-lg bg-orange-500/10 text-orange-600 dark:bg-orange-400/15 dark:text-orange-300">
+              <Megaphone className="size-4" />
+            </div>
+            <h2 className="mt-3 text-sm font-semibold text-[#1c1c1c] dark:text-surface-warm-white">
+              Slot Iklan Pengguna Gratis
+            </h2>
+            <p className="mt-1.5 text-xs leading-relaxed text-[#5f5f5d] dark:text-surface-warm-white/70">
+              Banner promosi layanan Anda menjangkau langsung pemilik toko yang
+              sedang aktif membuat dan mengedit landing page.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-black/10 bg-white p-4.5 dark:border-white/10 dark:bg-[#1c1c1a]">
+            <div className="flex size-8 items-center justify-center rounded-lg bg-orange-500/10 text-orange-600 dark:bg-orange-400/15 dark:text-orange-300">
+              <Users className="size-4" />
+            </div>
+            <h2 className="mt-3 text-sm font-semibold text-[#1c1c1c] dark:text-surface-warm-white">
+              Akses Promosi Komunitas
+            </h2>
+            <p className="mt-1.5 text-xs leading-relaxed text-[#5f5f5d] dark:text-surface-warm-white/70">
+              Peluang membagikan penawaran khusus atau voucher langsung ke grup
+              komunitas WhatsApp pemilik bisnis.
+            </p>
+          </div>
+        </div>
+
+        {/* Action & Template */}
         <div className="rounded-2xl border border-black/10 bg-white p-6 dark:border-white/10 dark:bg-[#1c1c1a]">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-base font-semibold text-[#1c1c1c] dark:text-surface-warm-white">
-                Format Email Sponsorship
+                Format Email Pengajuan
               </h2>
               <p className="text-xs text-[#5f5f5d] dark:text-surface-warm-white/60">
-                Salin format ini lalu kirim ke email kami.
+                Salin format ini lalu kirimkan ke tim kami.
               </p>
             </div>
 
