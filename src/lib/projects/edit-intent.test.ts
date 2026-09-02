@@ -43,6 +43,18 @@ describe("classifyEditIntent", () => {
     expect(result.targetFiles).toContain("src/content/site.ts");
   });
 
+  it("ignores denied photos when classifying a palette-only edit", () => {
+    const result = classifyEditIntent({
+      instruction:
+        "Ubah palet warna menjadi lebih hangat. Jangan ubah layout, foto, atau isi.",
+      existingFiles: MOCK_FILES,
+    });
+
+    expect(result.dimensions).toEqual(["style"]);
+    expect(result.allowedOperations).toEqual(["update_style"]);
+    expect(result.targetFiles).toEqual(["src/index.css"]);
+  });
+
   it("classifies style palette change from color keywords", () => {
     const result = classifyEditIntent({
       instruction: "ganti warnanya jadi tema hitam putih monokrom minimalis",

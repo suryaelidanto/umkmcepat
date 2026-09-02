@@ -97,8 +97,10 @@ export function classifyEditIntent({
   const explicitCopy = EXPLICIT_COPY_DIRECTIVE_KEYWORDS.test(text);
   const hasCopy = explicitCopy;
   const hasContent = COPY_KEYWORDS.test(text) && !explicitCopy;
+  const mediaInstructionText = stripDeniedMediaMentions(text);
   const hasMedia =
-    hasUploadedImages || (MEDIA_KEYWORDS.test(text) && !explicitCopy);
+    hasUploadedImages ||
+    (MEDIA_KEYWORDS.test(mediaInstructionText) && !explicitCopy);
   const hasStyle = STYLE_KEYWORDS.test(text) && !explicitCopy;
   const layoutDenied = hasExplicitLayoutDenial(text);
   const hasLayout =
@@ -416,6 +418,13 @@ function getPresentationFiles(existingFiles: string[]): string[] {
       file.startsWith("src/components/site/") ||
       file === "src/routes/index.tsx" ||
       file === "src/index.css",
+  );
+}
+
+function stripDeniedMediaMentions(text: string): string {
+  return text.replace(
+    /\b(?:jangan|tanpa|tidak|nggak|gak|ga)\b[^.]{0,80}\b(?:gambar|foto|photo|image|logo|galeri|gallery|banner|suasana)\b/giu,
+    "",
   );
 }
 
