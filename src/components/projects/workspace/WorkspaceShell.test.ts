@@ -10,6 +10,7 @@ import {
   chatBubbleClass,
   resolveBuildAction,
   resolveBuildRequestMode,
+  resolvePendingEditInstruction,
   resolvePrimaryComposerIntent,
   sanitizeWorkspaceCard,
 } from "./WorkspaceShell";
@@ -181,6 +182,27 @@ describe("resolvePrimaryComposerIntent", () => {
         hasPendingQuestion: true,
       }),
     ).toBeNull();
+  });
+});
+
+describe("resolvePendingEditInstruction", () => {
+  it("keeps the requested edit when the next message only confirms it", () => {
+    expect(
+      resolvePendingEditInstruction(
+        "aku pengin jadi lebih premium",
+        "ya silahkan buat",
+      ),
+    ).toBe("aku pengin jadi lebih premium");
+    expect(resolvePendingEditInstruction(null, "ya silahkan buat")).toBeNull();
+  });
+
+  it("replaces an older edit when the owner gives a new explicit request", () => {
+    expect(
+      resolvePendingEditInstruction(
+        "aku pengin jadi lebih premium",
+        "ubah warna jadi merah",
+      ),
+    ).toBe("ubah warna jadi merah");
   });
 });
 

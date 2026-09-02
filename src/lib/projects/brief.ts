@@ -34,6 +34,39 @@ import {
   type VisitorJob,
 } from "@/lib/projects/visitor-jobs";
 
+const VISUAL_PREFERENCE_TERMS = new Set([
+  "berani",
+  "bold",
+  "ceria",
+  "clean",
+  "elegan",
+  "emas",
+  "gelap",
+  "gaya",
+  "hangat",
+  "hijau",
+  "klasik",
+  "kuning",
+  "mewah",
+  "merah",
+  "minimal",
+  "minimalis",
+  "modern",
+  "navy",
+  "natural",
+  "premium",
+  "praktis",
+  "sederhana",
+  "simple",
+  "santai",
+  "tegas",
+  "tema",
+  "terang",
+  "ungu",
+  "visual",
+  "warna",
+]);
+
 export type ProjectFact = {
   key: string;
   label: string;
@@ -384,6 +417,11 @@ export function groundProjectBriefToOwnerFacts(
     brief,
     factLedger,
   );
+  const explicitVisualPreference =
+    typeof brief.stylePreference === "string" &&
+    hasVisualPreferenceEvidence(brief.stylePreference, ownerTexts)
+      ? brief.stylePreference.trim()
+      : "";
   const next: ProjectBrief = {
     ...materializedBrief,
     factLedger,
@@ -436,14 +474,16 @@ export function groundProjectBriefToOwnerFacts(
       factLedger,
       ownerTexts,
     ),
-    stylePreference: context.preserveVisualPreference
-      ? materializedBrief.stylePreference
-      : groundString(
-          materializedBrief.stylePreference,
-          "visualDirection",
-          factLedger,
-          ownerTexts,
-        ),
+    stylePreference: explicitVisualPreference
+      ? explicitVisualPreference
+      : context.preserveVisualPreference
+        ? materializedBrief.stylePreference
+        : groundString(
+            materializedBrief.stylePreference,
+            "visualDirection",
+            factLedger,
+            ownerTexts,
+          ),
     businessName: groundString(
       materializedBrief.businessName,
       "businessName",
@@ -529,6 +569,13 @@ export function groundProjectBriefToOwnerFacts(
     createFactLedgerEntriesFromPatch(briefValuesForLedger(next)),
     context,
   );
+  if (explicitVisualPreference) {
+    factLedger = acceptVisualPreferenceInLedger(
+      factLedger,
+      explicitVisualPreference,
+      context.sourceTurnId,
+    );
+  }
   return { ...next, factLedger };
 }
 
@@ -950,6 +997,61 @@ function groundString(
   ownerTexts: string[],
 ): string {
   return groundedValue(value, field, ledger, ownerTexts) ? (value ?? "") : "";
+}
+
+function hasVisualPreferenceEvidence(value: string, ownerTexts: string[]) {
+  if (hasOwnerEvidence(value, ownerTexts)) {
+    return true;
+  }
+
+  const valueTerms = tokenizeVisualPreference(value).filter((term) =>
+    VISUAL_PREFERENCE_TERMS.has(term),
+  );
+  if (valueTerms.length === 0) {
+    return false;
+  }
+
+  const ownerTerms = new Set(ownerTexts.flatMap(tokenizeVisualPreference));
+  return valueTerms.some((term) => ownerTerms.has(term));
+}
+
+function tokenizeVisualPreference(value: string) {
+  return value.toLocaleLowerCase("id-ID").match(/[\p{L}\p{N}]+/gu) ?? [];
+}
+
+function acceptVisualPreferenceInLedger(
+  ledger: FactLedger,
+  value: string,
+  sourceTurnId?: string,
+): FactLedger {
+  const entries = [...ledger.entries];
+  for (let index = entries.length - 1; index >= 0; index -= 1) {
+    const entry = entries[index];
+    if (entry?.field !== "visualDirection") {
+      continue;
+    }
+    entries[index] = {
+      ...entry,
+      origin: "accepted_decision",
+      source: "owner",
+      sourceTurnId: sourceTurnId ?? entry.sourceTurnId,
+      state: "owner_confirmed",
+      value,
+    };
+    return { version: 1, entries };
+  }
+
+  entries.push({
+    field: "visualDirection",
+    id: "visualdirection-primary",
+    label: "Arah visual",
+    origin: "accepted_decision",
+    source: "owner",
+    sourceTurnId: sourceTurnId ?? null,
+    state: "owner_confirmed",
+    value,
+  });
+  return { version: 1, entries };
 }
 
 function groundedValue(

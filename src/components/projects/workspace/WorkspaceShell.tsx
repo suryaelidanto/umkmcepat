@@ -93,7 +93,10 @@ import {
   reduceBuildStreamEvent,
 } from "@/lib/projects/build-stream-event";
 import { createUploadedImageFilePart } from "@/lib/projects/chat-file-parts";
-import { dedupeUiMessagesForPersistence } from "@/lib/projects/chat-memory";
+import {
+  dedupeUiMessagesForPersistence,
+  getTextFromUIMessage,
+} from "@/lib/projects/chat-memory";
 import {
   hasUploadingAttachments,
   MAX_COMPOSER_IMAGES,
@@ -2822,7 +2825,10 @@ export function WorkspaceShell({
       );
 
       if (buildComplete && trimmed) {
-        pendingChatEditInstructionRef.current = trimmed;
+        pendingChatEditInstructionRef.current = resolvePendingEditInstruction(
+          pendingChatEditInstructionRef.current,
+          trimmed,
+        );
       }
 
       // Post-build "Chat dengan AI" is discuss-only. Rebuilds use the
@@ -2936,13 +2942,7 @@ export function WorkspaceShell({
     if (action === "edit") {
       const instruction =
         pendingChatEditInstructionRef.current ??
-        [...allMessagesRef.current]
-          .reverse()
-          .find((message) => message.role === "user")
-          ?.parts.filter((part) => part.type === "text")
-          .map((part) => part.text)
-          .join(" ")
-          .trim();
+        getLatestExplicitEditInstruction(allMessagesRef.current);
       if (!instruction) {
         return;
       }
@@ -4738,6 +4738,33 @@ export function resolvePrimaryComposerIntent(input: {
     return null;
   }
   return input.buildComplete ? "prepare_update" : "prepare_build";
+}
+
+const BUILD_CONFIRMATION_ONLY_RE =
+  /^(?:ya|iya|yoi|oke|ok|yes|yep|gas|lanjut|boleh|setuju|silakan|silahkan)(?:[\s,]+(?:silakan|silahkan|buat|bikin|bangun|build|website|sekarang|aja|langsung|lanjut))*[.!?]*$/iu;
+
+export function resolvePendingEditInstruction(
+  current: string | null,
+  next: string,
+): string | null {
+  const trimmed = next.trim();
+  if (!trimmed || BUILD_CONFIRMATION_ONLY_RE.test(trimmed)) {
+    return current;
+  }
+  return trimmed;
+}
+
+function getLatestExplicitEditInstruction(
+  messages: UIMessage[],
+): string | null {
+  return (
+    [...messages]
+      .reverse()
+      .filter((message) => message.role === "user")
+      .map(getTextFromUIMessage)
+      .map((text) => text.trim())
+      .find((text) => text && !BUILD_CONFIRMATION_ONLY_RE.test(text)) ?? null
+  );
 }
 
 export function resolveBuildAction({

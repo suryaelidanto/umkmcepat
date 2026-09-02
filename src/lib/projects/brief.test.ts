@@ -5,6 +5,7 @@ import {
   briefToBuildPrompt,
   createInitialBrief,
   getMissingBriefFields,
+  groundProjectBriefToOwnerFacts,
   mergeProjectBriefPatch,
   parseProjectBrief,
 } from "./brief";
@@ -135,6 +136,78 @@ describe("project brief", () => {
       hours: "declined",
       visuals: "explicitly_empty",
     });
+  });
+
+  it("keeps an owner-requested visual intent when the model expands its wording", () => {
+    const brief = parseProjectBrief({
+      version: 1,
+      businessName: "Fresh Clean Laundry",
+      businessType: "Laundry",
+      offer: "Cuci pakaian",
+      targetCustomer: "Keluarga",
+      contactOrCta: "Chat WhatsApp",
+      stylePreference: "Mewah & Premium (Elegan, Nuansa Emas/Navy Gelap)",
+      factLedger: {
+        version: 1,
+        entries: [
+          {
+            id: "visualdirection-primary",
+            field: "visualDirection",
+            label: "Arah visual",
+            value: "Minimalis & Praktis",
+            state: "owner_confirmed",
+            origin: "owner_message",
+            source: "owner",
+            sourceTurnId: "turn-old",
+          },
+        ],
+      },
+    });
+
+    const grounded = groundProjectBriefToOwnerFacts(brief, {
+      ownerTexts: ["aku pengin jadi lebih premium"],
+      preserveVisualPreference: true,
+    });
+
+    expect(grounded.stylePreference).toBe(
+      "Mewah & Premium (Elegan, Nuansa Emas/Navy Gelap)",
+    );
+    expect(
+      grounded.factLedger?.entries.find(
+        (entry) =>
+          entry.field === "visualDirection" &&
+          entry.state === "owner_confirmed",
+      )?.value,
+    ).toBe("Mewah & Premium (Elegan, Nuansa Emas/Navy Gelap)");
+  });
+
+  it("does not promote an unrequested visual expansion", () => {
+    const brief = parseProjectBrief({
+      businessName: "Fresh Clean Laundry",
+      stylePreference: "Mewah & Premium",
+      factLedger: {
+        version: 1,
+        entries: [
+          {
+            id: "visualdirection-primary",
+            field: "visualDirection",
+            label: "Arah visual",
+            value: "Minimalis & Praktis",
+            state: "owner_confirmed",
+            origin: "owner_message",
+            source: "owner",
+            sourceTurnId: "turn-old",
+          },
+        ],
+      },
+    });
+
+    expect(
+      groundProjectBriefToOwnerFacts(brief, {
+        ownerTexts: ["aku punya usaha laundry"],
+        preserveVisualPreference: true,
+      }).stylePreference,
+    ).toBe("Minimalis & Praktis");
   });
 
   it("keeps legacy fields available for prompts without authorizing readiness", () => {
