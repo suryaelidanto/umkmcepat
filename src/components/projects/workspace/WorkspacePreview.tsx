@@ -67,9 +67,10 @@ export function GeneratedPreviewFrame({
     comment: string;
     onCancel: () => void;
     onChange: (value: string) => void;
+    onDirectTextSubmit?: (newText: string) => void;
     onReplaceImage?: () => void;
     onSave: () => void;
-    target: Omit<VisualAnnotationDraft, "comment" | "id">;
+    target: PreviewEditTarget;
   } | null;
   projectId: string;
   reloadKey?: number;
@@ -230,6 +231,7 @@ export function GeneratedPreviewFrame({
             comment={pendingAnnotation.comment}
             onCancel={pendingAnnotation.onCancel}
             onChange={pendingAnnotation.onChange}
+            onDirectTextSubmit={pendingAnnotation.onDirectTextSubmit}
             onReplaceImage={pendingAnnotation.onReplaceImage}
             onSave={pendingAnnotation.onSave}
             target={pendingAnnotation.target}
@@ -330,6 +332,7 @@ function PreviewAnnotationPopover({
   comment,
   onCancel,
   onChange,
+  onDirectTextSubmit,
   onReplaceImage,
   onSave,
   target,
@@ -337,13 +340,19 @@ function PreviewAnnotationPopover({
   comment: string;
   onCancel: () => void;
   onChange: (value: string) => void;
+  onDirectTextSubmit?: (newText: string) => void;
   onReplaceImage?: () => void;
   onSave: () => void;
   target: PreviewEditTarget;
 }) {
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const isImage =
     target.target.tag === "img" || target.target.tag === "picture";
+  const [activeTab, setActiveTab] = useState<"direct" | "ai">(
+    isImage ? "direct" : target.target.text ? "direct" : "ai",
+  );
+  const [directText, setDirectText] = useState(target.target.text || "");
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   const breadcrumbs = formatHierarchyBreadcrumb({
     componentHierarchy: target.componentHierarchy,
@@ -358,8 +367,13 @@ function PreviewAnnotationPopover({
   });
 
   useEffect(() => {
-    textareaRef.current?.focus();
-  }, [target]);
+    if (activeTab === "direct" && !isImage) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    } else {
+      textareaRef.current?.focus();
+    }
+  }, [activeTab, isImage, target]);
 
   return (
     <div
@@ -398,70 +412,134 @@ function PreviewAnnotationPopover({
         </button>
       </div>
 
-      {isImage && target.target.src ? (
-        <div className="my-2 flex items-center gap-3 rounded-xl border border-surface-warm-white/8 bg-surface-warm-white/4 p-2.5">
-          <img
-            src={target.target.src}
-            alt="Preview"
-            className="size-12 rounded-lg object-cover border border-surface-warm-white/10"
+      <div className="mb-2 flex rounded-lg bg-surface-warm-white/6 p-0.5 text-[11px] font-medium text-surface-warm-white/60">
+        <button
+          type="button"
+          onClick={() => setActiveTab("direct")}
+          className={`flex-1 rounded-md py-1 text-center transition cursor-pointer ${
+            activeTab === "direct"
+              ? "bg-surface-warm-white/14 font-semibold text-white shadow-xs"
+              : "hover:text-surface-warm-white"
+          }`}
+        >
+          {isImage ? "Ganti Foto" : "Ubah Teks"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("ai")}
+          className={`flex-1 rounded-md py-1 text-center transition cursor-pointer ${
+            activeTab === "ai"
+              ? "bg-surface-warm-white/14 font-semibold text-white shadow-xs"
+              : "hover:text-surface-warm-white"
+          }`}
+        >
+          Minta AI
+        </button>
+      </div>
+
+      {activeTab === "direct" ? (
+        isImage && target.target.src ? (
+          <div className="my-1 flex items-center gap-3 rounded-xl border border-surface-warm-white/8 bg-surface-warm-white/4 p-2.5">
+            <img
+              src={target.target.src}
+              alt="Preview"
+              className="size-12 rounded-lg object-cover border border-surface-warm-white/10"
+            />
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] text-surface-warm-white/50">
+                Foto saat ini
+              </p>
+              <button
+                type="button"
+                onClick={onReplaceImage}
+                className="mt-1 inline-flex h-7 items-center gap-1.5 rounded-lg bg-surface-warm-white px-2.5 text-xs font-semibold text-foreground-primary shadow-xs hover:bg-surface-warm-white/90 active:scale-95 transition cursor-pointer"
+              >
+                <ImagePlus className="size-3" />
+                <span>Upload Foto Baru</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <input
+              ref={inputRef}
+              type="text"
+              value={directText}
+              onChange={(e) => setDirectText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  onCancel();
+                }
+                if (
+                  e.key === "Enter" &&
+                  directText.trim() &&
+                  directText !== target.target.text
+                ) {
+                  e.preventDefault();
+                  onDirectTextSubmit?.(directText.trim());
+                }
+              }}
+              placeholder="Ketik teks baru..."
+              className="w-full rounded-[10px] border border-surface-warm-white/10 bg-[#0d0d0c] px-3 py-2 text-xs leading-5 text-surface-warm-white outline-none placeholder:text-surface-warm-white/30 focus:border-sky-500/50"
+            />
+            <div className="flex items-center justify-between pt-1">
+              <span className="text-[10px] text-surface-warm-white/30">
+                Enter untuk simpan
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                disabled={
+                  !directText.trim() || directText === target.target.text
+                }
+                onClick={() => onDirectTextSubmit?.(directText.trim())}
+                className="h-7.5 rounded-[10px] bg-surface-warm-white px-3 text-xs font-medium text-foreground-primary hover:bg-surface-warm-white/90 disabled:opacity-40"
+              >
+                Simpan Teks
+              </Button>
+            </div>
+          </div>
+        )
+      ) : (
+        <div className="space-y-2">
+          <textarea
+            ref={textareaRef}
+            rows={2}
+            maxLength={1000}
+            value={comment}
+            onChange={(event) => onChange(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                onCancel();
+              }
+              if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                event.preventDefault();
+                onSave();
+              }
+            }}
+            placeholder={
+              isImage
+                ? "Contoh: Buat foto lebih terang atau bernuansa estetik..."
+                : `Instruksi untuk bagian ini (misal: buat lebih persuasif)...`
+            }
+            className="w-full resize-none rounded-[12px] border border-surface-warm-white/10 bg-[#0d0d0c] px-3 py-2 text-xs leading-5 text-surface-warm-white outline-none placeholder:text-surface-warm-white/30 focus:border-sky-500/50"
           />
-          <div className="flex-1 min-w-0">
-            <p className="text-[11px] text-surface-warm-white/50">
-              Foto saat ini
-            </p>
-            <button
+          <div className="flex items-center justify-between pt-1">
+            <span className="text-[10px] text-surface-warm-white/30 hidden sm:inline">
+              Ctrl/⌘ + Enter
+            </span>
+            <Button
               type="button"
-              onClick={onReplaceImage}
-              className="mt-1 inline-flex h-7 items-center gap-1.5 rounded-lg bg-surface-warm-white px-2.5 text-xs font-semibold text-foreground-primary shadow-xs hover:bg-surface-warm-white/90 active:scale-95 transition cursor-pointer"
+              size="sm"
+              disabled={!comment.trim()}
+              onClick={onSave}
+              className="h-7.5 rounded-[10px] bg-surface-warm-white px-3 text-xs font-medium text-foreground-primary hover:bg-surface-warm-white/90 disabled:opacity-40 ml-auto"
             >
-              <ImagePlus className="size-3" />
-              <span>Ganti Foto</span>
-            </button>
+              Kirim ke AI
+            </Button>
           </div>
         </div>
-      ) : null}
-
-      <textarea
-        ref={textareaRef}
-        rows={isImage ? 2 : 3}
-        maxLength={1000}
-        value={comment}
-        onChange={(event) => onChange(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            event.preventDefault();
-            onCancel();
-          }
-
-          if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-            event.preventDefault();
-            onSave();
-          }
-        }}
-        placeholder={
-          isImage
-            ? "Instruksi tambahan untuk foto ini (opsional)..."
-            : target.target.text
-              ? `Tulis perubahan untuk "${target.target.text.slice(0, 40)}${target.target.text.length > 40 ? "…" : ""}"...`
-              : "Tulis teks baru atau instruksi..."
-        }
-        className="w-full resize-none rounded-[12px] border border-surface-warm-white/10 bg-[#0d0d0c] px-3 py-2 text-xs leading-5 text-surface-warm-white outline-none placeholder:text-surface-warm-white/30 focus:border-sky-500/50"
-      />
-
-      <div className="mt-2.5 flex items-center justify-between gap-2">
-        <span className="text-[10px] text-surface-warm-white/30 hidden sm:inline">
-          Ctrl/⌘ + Enter
-        </span>
-        <Button
-          type="button"
-          size="sm"
-          disabled={!comment.trim() && !isImage}
-          onClick={onSave}
-          className="h-7.5 rounded-[10px] bg-surface-warm-white px-3 text-xs font-medium text-foreground-primary hover:bg-surface-warm-white/90 disabled:opacity-40 ml-auto"
-        >
-          Terapkan
-        </Button>
-      </div>
+      )}
     </div>
   );
 }

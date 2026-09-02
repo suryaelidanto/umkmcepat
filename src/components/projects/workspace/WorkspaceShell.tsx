@@ -4257,6 +4257,17 @@ export function WorkspaceShell({
                               setPendingAnnotationComment("");
                             },
                             onChange: setPendingAnnotationComment,
+                            onDirectTextSubmit: (newText: string) => {
+                              const oldText =
+                                pendingAnnotationTarget.target.text || "";
+                              const instruction = `Ubah teks "${oldText}" menjadi "${newText}". Pertahankan semua struktur, layout, dan warna lainnya.`;
+                              setPendingAnnotationTarget(null);
+                              setPendingAnnotationComment("");
+                              void submitDirectEdit({
+                                instruction,
+                                summary: `Ubah teks menjadi "${newText}".`,
+                              });
+                            },
                             onReplaceImage: () =>
                               openReplaceImage(pendingAnnotationTarget.target),
                             onSave: addPendingAnnotation,
