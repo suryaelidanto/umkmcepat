@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
+import { ArrowRight, Zap } from "lucide-react";
 import { useState, type CSSProperties } from "react";
 
 import { WhatsAppCommunityInvite } from "@/components/community/WhatsAppCommunityInvite";
@@ -233,20 +234,34 @@ function HomePage() {
   const waitlisted = homeAccessState === "waitlisted";
   const ownEntry = waitlistQuery.data?.own ?? null;
   const ownStatus = ownEntry?.status ?? null;
+  const energyGrant =
+    waitlistQuery.data?.signupEnergyGrant ??
+    initialWaitlistStatus?.signupEnergyGrant ??
+    500_000;
+  const formattedEnergy = new Intl.NumberFormat("id-ID").format(energyGrant);
+
+  const waitlistEnergyText =
+    energyGrant >= 1000 && energyGrant % 1000 === 0
+      ? `${energyGrant / 1000} ribu`
+      : formattedEnergy;
+
   const waitlistBanner =
     ownStatus === "rejected"
       ? {
-          body: "Pendaftaran kamu belum disetujui. Perbaiki data dan kirim ulang.",
-          cta: "Perbaiki pendaftaran",
+          cta: "Perbaiki Pendaftaran Antrean",
+          highlight: false,
+          label: "Pendaftaran belum disetujui",
         }
       : ownStatus === "pending" || ownStatus === "waitlisted"
         ? {
-            body: "Kamu masih dalam antrean. Kami hubungi lewat email.",
-            cta: "Cek status antrean",
+            cta: "Cek Status Antrean",
+            highlight: false,
+            label: "Pendaftaran sedang direview",
           }
         : {
-            body: "Isi formulir antrean dulu biar kami bisa review usahamu.",
-            cta: "Isi formulir antrean",
+            cta: `Isi Formulir Antrean · Dapatkan ${waitlistEnergyText} Energi Gratis`,
+            highlight: true,
+            label: null,
           };
   const siblingClass = promptFocused
     ? "transition-all duration-300 opacity-40 scale-[0.98]"
@@ -301,11 +316,36 @@ function HomePage() {
           </HeroMotionItem>
           {waitlisted ? (
             <HeroMotionItem className="w-full">
-              <div className="mx-auto mt-spacing-6 flex max-w-3xl flex-col items-center gap-spacing-3 rounded-[20px] border border-yellow-500/24 bg-yellow-500/[0.06] px-spacing-6 py-spacing-4 text-center text-sm text-[#1c1c1c] dark:text-surface-warm-white/82">
-                <p>{waitlistBanner.body}</p>
-                <Button asChild size="sm">
-                  <Link href="/waitlist">{waitlistBanner.cta}</Link>
-                </Button>
+              <div className="mx-auto mt-spacing-6 flex flex-col items-center justify-center">
+                {waitlistBanner.highlight ? (
+                  <Link
+                    href="/waitlist"
+                    className="group relative inline-flex h-13 items-center justify-center gap-3 overflow-hidden rounded-full bg-accent-orange px-8 text-sm sm:text-base font-semibold text-white shadow-lg shadow-accent-orange/25 transition-all duration-300 hover:scale-[1.02] hover:bg-accent-orange/90 hover:shadow-xl hover:shadow-accent-orange/35 active:scale-[0.99]"
+                  >
+                    {/* Shimmer light sweep */}
+                    <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-1000 group-hover:translate-x-full" />
+
+                    <div className="flex size-7 items-center justify-center rounded-full bg-white/20">
+                      <Zap className="size-4 fill-amber-200 text-amber-200" />
+                    </div>
+                    <span>{waitlistBanner.cta}</span>
+                    <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
+                  </Link>
+                ) : (
+                  <div className="flex flex-col items-center gap-2">
+                    <span className="text-xs text-[#5f5f5d] dark:text-surface-warm-white/60">
+                      {waitlistBanner.label}
+                    </span>
+                    <Button
+                      asChild
+                      size="default"
+                      variant="outline"
+                      className="rounded-full"
+                    >
+                      <Link href="/waitlist">{waitlistBanner.cta}</Link>
+                    </Button>
+                  </div>
+                )}
               </div>
             </HeroMotionItem>
           ) : (

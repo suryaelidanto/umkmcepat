@@ -55,6 +55,7 @@ export type WaitlistStatusResponse = {
   canUseDevTools?: boolean;
   status: string | null;
   own?: WaitlistOwnStatus | null;
+  signupEnergyGrant?: number;
 };
 
 export function waitlistPendingPollInterval(
