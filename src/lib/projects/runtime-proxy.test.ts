@@ -121,13 +121,28 @@ describe("runtime proxy", () => {
       ).toBe(1);
     });
 
-    it("selects an image directly", () => {
+    it("selects an image directly and ignores decorative backgrounds", () => {
       expect(
         pickPreviewAnnotationCandidateIndex([
+          { ignored: true, className: "decorative-gradient", tag: "div" },
           { tag: "img" },
           { tag: "section" },
         ]),
-      ).toBe(0);
+      ).toBe(1);
+    });
+
+    it("prioritizes interactive buttons when inner icons are present", () => {
+      expect(
+        pickPreviewAnnotationCandidateIndex([
+          { ignored: true, tag: "svg" },
+          { tag: "span", text: "Hubungi WhatsApp" },
+          {
+            className: "primary-action",
+            tag: "button",
+            text: "Hubungi WhatsApp",
+          },
+        ]),
+      ).toBe(2);
     });
 
     it("keeps the exact card padding element clicked", () => {
