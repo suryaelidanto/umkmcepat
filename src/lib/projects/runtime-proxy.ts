@@ -596,7 +596,16 @@ const UNIFIED_INSPECTOR_BRIDGE = String.raw`
 
     if (!isIgnorableDecoration(element) && hasDirectText(element)) return element;
 
-    return closestElement(element, 'article,header,footer,nav,section,[aria-label],[data-umkm-annotatable]') || element;
+    // Do NOT fallback to large outer sections or wrappers when clicking empty layout space.
+    if (element.matches('section,header,footer,nav,main,body') || element.offsetHeight > 400 || element.offsetWidth > 600) {
+      const innerTextLeaf = element.querySelector('h1,h2,h3,h4,h5,h6,p,button,a');
+      if (innerTextLeaf && !isIgnorableDecoration(innerTextLeaf)) {
+        return innerTextLeaf;
+      }
+      return null;
+    }
+
+    return closestElement(element, 'article,[data-umkm-annotatable]') || null;
   }
 
   function structuralElement(element) {
@@ -894,8 +903,11 @@ const UNIFIED_INSPECTOR_BRIDGE = String.raw`
   function handleMove(event) {
     if (!active) return;
     const target = targetAt(event.clientX, event.clientY);
-    if (target) setHoverBox(target.target.boundingBox, target);
-    else hideHoverBox();
+    if (target && target._element && target._element !== document.body && target._element !== document.documentElement) {
+      setHoverBox(target.target.boundingBox, target);
+    } else {
+      hideHoverBox();
+    }
     post('umkmcepat-edit-hover', target);
     post('umkmcepat-annotation-hover', target);
   }
