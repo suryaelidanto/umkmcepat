@@ -277,6 +277,22 @@ const autoSentProjectIds = new Set<string>();
 
 export { chatBubbleClass } from "@/components/projects/chat/ChatMessage";
 
+const READINESS_CHECK_MESSAGE =
+  "Cek dulu kelengkapan data website ini. Kalau masih ada yang wajib, tanyakan satu per satu dan jangan mulai membuat website dulu.";
+const READINESS_CHECK_METADATA = { ui: "readiness_check" as const };
+
+function ComposerNotice({ message }: { message: string }) {
+  return (
+    <div className="mb-2 flex items-start gap-2 rounded-xl border border-amber-500/20 bg-amber-500/8 px-3 py-2 text-xs text-foreground dark:border-amber-200/20 dark:bg-amber-200/8 dark:text-surface-warm-white">
+      <span
+        aria-hidden="true"
+        className="mt-1.5 size-1.5 shrink-0 rounded-full bg-amber-500"
+      />
+      <span>{message}</span>
+    </div>
+  );
+}
+
 const COMPOSER_TRANSITION = {
   initial: { opacity: 0, y: 12, scale: 0.985, filter: "blur(6px)" },
   animate: { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" },
@@ -302,6 +318,7 @@ export function WorkspaceShell({
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [viewport, setViewport] = useState<"desktop" | "mobile">("desktop");
   const [message, setMessage] = useState("");
+  const [composerNotice, setComposerNotice] = useState<string | null>(null);
   const [projectTitle, setProjectTitle] = useState(initialTitle);
   const [isRenaming, setIsRenaming] = useState(false);
   const [mobileRenameOpen, setMobileRenameOpen] = useState(false);
@@ -2675,6 +2692,7 @@ export function WorkspaceShell({
     async (
       text: string,
       options: {
+        metadata?: { ui?: "readiness_check" };
         workspaceAnswers?: WorkspaceAnswerPayload[];
         uploads?: Array<{ assetId: string; url: string }>;
       } = {},
@@ -2763,6 +2781,7 @@ export function WorkspaceShell({
       clearError(); // hide stale banner from the previous failed turn
       retryAttemptRef.current = 0;
       setMessage("");
+      setComposerNotice(null);
       setBuildProgress([]);
       requestAnimationFrame(() =>
         scrollChatToBottom({ force: true, behavior: "smooth" }),
@@ -2776,6 +2795,7 @@ export function WorkspaceShell({
       sendMessage(
         {
           files: fileParts.length ? fileParts : undefined,
+          metadata: options.metadata,
           text: trimmed,
         },
         {
@@ -2968,40 +2988,27 @@ export function WorkspaceShell({
       if (chatCollapsed) {
         openChatPanel();
       }
-      setMessages((current) => {
-        const guideText =
-          "Bagian apa yang ingin kamu perbarui? Tulis kebutuhanmu di bawah ya.";
-        const last = current[current.length - 1];
-        if (
-          last &&
-          last.role === "assistant" &&
-          last.parts?.some(
-            (p) => p.type === "text" && p.text.trim() === guideText.trim(),
-          )
-        ) {
-          return current;
-        }
-        return [
-          ...current,
-          {
-            id: `guide-${Date.now()}`,
-            metadata: undefined,
-            parts: [
-              {
-                text: guideText,
-                type: "text",
-              },
-            ],
-            role: "assistant",
-          },
-        ];
-      });
+      setComposerNotice(
+        "Tulis dulu bagian website yang ingin diperbarui, misalnya teks, warna, foto, atau tombol.",
+      );
       shouldStickToBottomRef.current = true;
       requestAnimationFrame(() => {
         const textarea = document.querySelector<HTMLTextAreaElement>(
           "textarea#workspace-message",
         );
         textarea?.focus();
+      });
+      return;
+    }
+
+    if (
+      shouldRequestReadinessCheck({
+        buildComplete,
+        card: workspaceCard,
+      })
+    ) {
+      void submitChatText(READINESS_CHECK_MESSAGE, {
+        metadata: READINESS_CHECK_METADATA,
       });
       return;
     }
@@ -3791,11 +3798,15 @@ export function WorkspaceShell({
                               }
                             />
                           ) : null}
+                          {composerNotice ? (
+                            <ComposerNotice message={composerNotice} />
+                          ) : null}
                           <textarea
                             id="workspace-message"
                             rows={2}
                             value={message}
                             onChange={(event) => {
+                              setComposerNotice(null);
                               setMessage(event.target.value);
                               const target = event.currentTarget;
                               target.style.height = "auto";
@@ -3979,11 +3990,15 @@ export function WorkspaceShell({
                           }
                         />
                       ) : null}
+                      {composerNotice ? (
+                        <ComposerNotice message={composerNotice} />
+                      ) : null}
                       <textarea
                         id="workspace-message"
                         rows={2}
                         value={message}
                         onChange={(event) => {
+                          setComposerNotice(null);
                           setMessage(event.target.value);
                           const target = event.currentTarget;
                           target.style.height = "auto";
@@ -4743,6 +4758,13 @@ export function resolveBuildRequestMode(
 }
 
 // Proof-carrying gate: every build_recommendation must carry a valid handoff
+export function shouldRequestReadinessCheck(input: {
+  buildComplete: boolean;
+  card: WorkspaceCard | null | undefined;
+}): boolean {
+  return !input.buildComplete && !canStartBuild(input.card);
+}
+
 export function canStartBuild(
   card: WorkspaceCard | null | undefined,
   _brief?: ProjectBrief | null | undefined,

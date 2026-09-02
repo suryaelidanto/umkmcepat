@@ -56,6 +56,33 @@ export function ChatMessages({ messages }: { messages: UIMessage[] }) {
     <>
       <div className="space-y-spacing-8">
         {messages.map((message, messageIndex) => {
+          if (isReadinessCheckMessage(message)) {
+            return (
+              <div
+                key={`${message.id || message.role}-${messageIndex}`}
+                className="flex max-w-full justify-end text-base leading-7"
+              >
+                <div
+                  className={`${chatBubbleClass("user")} flex items-center gap-2.5`}
+                  role="status"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="size-2 shrink-0 rounded-full bg-amber-500"
+                  />
+                  <span>
+                    <span className="block text-xs font-semibold leading-5">
+                      Memeriksa kelengkapan data
+                    </span>
+                    <span className="block text-xs leading-5 opacity-65">
+                      Website belum dibuat sampai data wajib siap.
+                    </span>
+                  </span>
+                </div>
+              </div>
+            );
+          }
+
           const rawTextParts = message.parts.filter(
             (
               part,
@@ -143,6 +170,27 @@ export function ChatMessages({ messages }: { messages: UIMessage[] }) {
       />
     </>
   );
+}
+
+function isReadinessCheckMessage(message: UIMessage): boolean {
+  const metadata = asRecord(message.metadata);
+  if (metadata?.ui === "readiness_check") {
+    return true;
+  }
+  if (message.role !== "user") {
+    return false;
+  }
+  return getMessageText(message)
+    .toLocaleLowerCase("id-ID")
+    .startsWith("cek dulu kelengkapan data website");
+}
+
+function getMessageText(message: UIMessage): string {
+  return message.parts
+    .filter((part) => part.type === "text")
+    .map((part) => part.text)
+    .join(" ")
+    .trim();
 }
 
 function readBuildSessionLog(message: UIMessage): BuildSessionLogData | null {

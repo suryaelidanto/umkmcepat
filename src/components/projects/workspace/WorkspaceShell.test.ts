@@ -10,6 +10,7 @@ import {
   chatBubbleClass,
   resolveBuildAction,
   resolveBuildRequestMode,
+  shouldRequestReadinessCheck,
 } from "./WorkspaceShell";
 
 import type { ProjectBrief } from "@/lib/projects/brief";
@@ -91,6 +92,43 @@ describe("canStartBuild", () => {
   it("returns false when card is null or undefined", () => {
     expect(canStartBuild(null)).toBe(false);
     expect(canStartBuild(undefined)).toBe(false);
+  });
+});
+
+describe("shouldRequestReadinessCheck", () => {
+  it("checks with the discussion instead of starting a build without a proof card", () => {
+    expect(
+      shouldRequestReadinessCheck({
+        buildComplete: false,
+        card: { type: "none" },
+      }),
+    ).toBe(true);
+  });
+
+  it("allows a first build only from a proof-carrying recommendation", () => {
+    expect(
+      shouldRequestReadinessCheck({
+        buildComplete: false,
+        card: {
+          type: "build_recommendation",
+          engine: "contract",
+          title: "Siap",
+          summary: [],
+          handoffId: "handoff-1",
+          reviewHash: "a".repeat(64),
+          reviewItems: [],
+        },
+      }),
+    ).toBe(false);
+  });
+
+  it("does not check readiness after a site is already built", () => {
+    expect(
+      shouldRequestReadinessCheck({
+        buildComplete: true,
+        card: { type: "none" },
+      }),
+    ).toBe(false);
   });
 });
 
