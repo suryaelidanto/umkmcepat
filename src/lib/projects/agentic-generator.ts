@@ -1359,8 +1359,9 @@ Progress labels and details must be plain Indonesian. Do not expose file names, 
     ? classifyEditIntent({
         existingFiles: Array.from(fileMap.keys()),
         instruction:
-          input.brief.prompt ||
-          (typeof input.revisionBrief === "string" ? input.revisionBrief : ""),
+          typeof input.revisionBrief === "string" && input.revisionBrief.trim()
+            ? input.revisionBrief
+            : input.brief.prompt,
       })
     : null;
 

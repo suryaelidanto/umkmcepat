@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { classifyEditIntent } from "@/lib/projects/edit-intent";
+import { ADAPTIVE_EDIT_SCENARIOS } from "./adaptive-edit-corpus";
+
+import {
+  classifyEditIntent,
+  editIntentSchema,
+} from "@/lib/projects/edit-intent";
 
 const MOCK_FILES = [
   "src/content/site.ts",
@@ -93,5 +98,66 @@ describe("classifyEditIntent", () => {
 
     expect(result.category).toBe("full_restructure");
     expect(result.suggestedMaxSteps).toBe(8);
+  });
+
+  it("returns a valid adaptive contract for every corpus scenario", () => {
+    for (const scenario of ADAPTIVE_EDIT_SCENARIOS) {
+      const result = classifyEditIntent({
+        instruction: scenario.instruction,
+        existingFiles: MOCK_FILES,
+      });
+
+      expect(editIntentSchema.safeParse(result).success, scenario.id).toBe(
+        true,
+      );
+    }
+  });
+
+  it("keeps palette-only edits from gaining layout permission", () => {
+    const result = classifyEditIntent({
+      instruction: "Ubah warna utama saja, jangan ubah layout atau isi.",
+      existingFiles: MOCK_FILES,
+    });
+
+    expect(result.dimensions).toEqual(["style"]);
+    expect(result.allowsLayout).toBe(false);
+    expect(result.magnitude).toBe("surgical");
+  });
+
+  it("grants layout permission to an explicit premium redesign", () => {
+    const result = classifyEditIntent({
+      instruction:
+        "Buat website terasa lebih premium dengan hierarki, komposisi, dan responsive layout yang lebih matang.",
+      existingFiles: MOCK_FILES,
+    });
+
+    expect(result.dimensions).toEqual(["style", "layout"]);
+    expect(result.allowsLayout).toBe(true);
+    expect(result.magnitude).toBe("structural");
+  });
+
+  it("requires explicit full-rebuild language", () => {
+    const regular = classifyEditIntent({
+      instruction: "Buat tampilannya lebih modern dan rapi.",
+      existingFiles: MOCK_FILES,
+    });
+    const rebuild = classifyEditIntent({
+      instruction: "Bangun ulang seluruh website dari awal.",
+      existingFiles: MOCK_FILES,
+    });
+
+    expect(regular.magnitude).not.toBe("full_rebuild");
+    expect(rebuild.magnitude).toBe("full_rebuild");
+  });
+
+  it("marks an unscoped request for one clarification instead of execution", () => {
+    const result = classifyEditIntent({
+      instruction: "Tolong bikin lebih bagus.",
+      existingFiles: MOCK_FILES,
+    });
+
+    expect(result.clarificationRequired).toBe(true);
+    expect(result.allowedOperations).toEqual([]);
+    expect(result.suggestedMaxSteps).toBe(0);
   });
 });

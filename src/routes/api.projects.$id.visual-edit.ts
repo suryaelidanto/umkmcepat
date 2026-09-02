@@ -18,6 +18,7 @@ import {
   isProjectDeploymentForProject,
   selectActivePreviewDeployment,
 } from "@/lib/projects/deployment-resolution";
+import { classifyEditIntent } from "@/lib/projects/edit-intent";
 import { classifyEditStructure } from "@/lib/projects/edit-structure";
 import { parseGeneratedProjectFiles } from "@/lib/projects/generated-source";
 import {
@@ -164,6 +165,18 @@ export async function handleVisualEditPost(request: Request, routeId: string) {
         message: "Instruksi edit belum valid.",
       },
       { status: 400 },
+    );
+  }
+
+  const editIntent = classifyEditIntent({ instruction });
+  if (editIntent.clarificationRequired) {
+    return Response.json(
+      {
+        code: "edit_scope_clarification_required",
+        message:
+          "Sebutkan bagian, isi, foto, atau arah visual yang ingin kamu ubah.",
+      },
+      { status: 409 },
     );
   }
 
