@@ -1206,6 +1206,42 @@ describe("normalizeWorkspaceTurn", () => {
     }
   });
 
+  it("keeps an AI-expanded visual preference grounded in the owner update", () => {
+    const brief = parseProjectBrief(
+      {
+        businessName: "Fresh Clean Laundry",
+        businessType: "Laundry",
+        offer: "Cuci pakaian",
+        targetCustomer: "Keluarga",
+        contactOrCta: "WhatsApp 08123456789",
+        stylePreference: "Minimalis & Praktis",
+      },
+      "laundry",
+    );
+    const turn = normalizeWorkspaceTurn(
+      {
+        briefPatch: {
+          stylePreference: "Mewah & Premium (Elegan, Nuansa Emas/Navy Gelap)",
+        },
+        workspaceCard: {
+          summary: ["Terapkan tema premium"],
+          title: "Terapkan tema premium",
+          type: "build_recommendation",
+        },
+      },
+      brief,
+      {
+        hasBuiltSite: true,
+        lastUserText: "aku pengin jadi lebih premium",
+        ownerTexts: ["aku pengin jadi lebih premium"],
+      },
+    );
+
+    expect(turn.brief.stylePreference).toBe(
+      "Mewah & Premium (Elegan, Nuansa Emas/Navy Gelap)",
+    );
+  });
+
   it("allows a pending update preflight to preserve a recommendation after a checkpoint", () => {
     const brief = parseProjectBrief(
       {

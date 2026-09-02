@@ -67,13 +67,19 @@ export function ensureUpdatePreflightCard(
 
 export function getDiscussPreflightInstruction(
   preflight: DiscussPreflight,
-  options: { hasPendingUpdate?: boolean } = {},
+  options: {
+    hasPendingUpdate?: boolean;
+    pendingUpdateInstructions?: string;
+  } = {},
 ): string {
   if (preflight === "update") {
+    const pendingContext = options.pendingUpdateInstructions?.trim()
+      ? `\nPermintaan pemilik setelah checkpoint:\n${options.pendingUpdateInstructions.trim()}`
+      : "";
     return options.hasPendingUpdate
       ? `
-PREFLIGHT UPDATE: Pemilik menekan Perbarui website tanpa menulis pesan baru.
-Gunakan permintaan perubahan yang muncul setelah checkpoint sukses terakhir untuk menyusun atau mengklarifikasi update. Ini hanya tahap persiapan, bukan menjalankan edit atau build. Jika permintaannya sudah jelas, keluarkan build_recommendation untuk dikonfirmasi user. Jika belum jelas, tanyakan satu hal dengan kartu question dan pilihan konkret. Jangan mengklaim perubahan sudah diterapkan.`
+PREFLIGHT UPDATE: Pemilik menekan Perbarui website tanpa menulis pesan baru.${pendingContext}
+Gunakan permintaan perubahan tersebut untuk menyusun atau mengklarifikasi update. Ini hanya tahap persiapan, bukan menjalankan edit atau build. Jika permintaannya sudah jelas, keluarkan build_recommendation untuk dikonfirmasi user. Sertakan briefPatch yang mencerminkan perubahan pemilik. Jika belum jelas, tanyakan satu hal dengan kartu question dan pilihan konkret. Jangan mengklaim perubahan sudah diterapkan.`
       : `
 PREFLIGHT UPDATE: Pemilik menekan Perbarui website tanpa menulis pesan baru.
 Ini hanya tahap memahami permintaan, bukan menjalankan edit atau build. Belum ada permintaan perubahan yang jelas setelah checkpoint sukses terakhir, jadi tanyakan satu hal tentang jenis perubahan dengan kartu question dan pilihan yang konkret. Gunakan single select. Jangan mengklaim perubahan sudah diterapkan dan jangan mengeluarkan build_recommendation pada pertanyaan pembuka ini.`;

@@ -571,6 +571,7 @@ export async function prepareBuildHandoff(input: {
     summary?: unknown;
     memoryFacts?: unknown;
   };
+  preserveVisualPreference?: boolean;
   turnId?: string;
 }): Promise<PrepareHandoffResult> {
   const discussionOwnerTexts = input.discussionContext
@@ -579,6 +580,7 @@ export async function prepareBuildHandoff(input: {
   const groundedBrief = discussionOwnerTexts.length
     ? groundProjectBriefToOwnerFacts(input.brief, {
         ownerTexts: discussionOwnerTexts,
+        preserveVisualPreference: input.preserveVisualPreference,
         sourceTurnId: input.turnId,
       })
     : input.brief;

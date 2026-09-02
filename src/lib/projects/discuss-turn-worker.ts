@@ -147,6 +147,7 @@ export async function runDiscussTurn({
   preflight,
   hasBuiltSite: hasBuiltSiteOverride,
   hasPendingUpdate: hasPendingUpdateOverride,
+  pendingUpdateInstructions,
   abortSignal,
 }: {
   turnId: string;
@@ -166,6 +167,7 @@ export async function runDiscussTurn({
   userId: string;
   hasBuiltSite?: boolean;
   hasPendingUpdate?: boolean;
+  pendingUpdateInstructions?: string;
   preflight?: DiscussPreflight;
   // ponytail: production omits → uses the real model via getAiModel(modelName).
   modelOverride?: LanguageModel;
@@ -414,7 +416,7 @@ export async function runDiscussTurn({
       )}`,
       hasBuiltSite,
       hasPendingChanges,
-    })}${preflight ? getDiscussPreflightInstruction(preflight, { hasPendingUpdate }) : ""}`;
+    })}${preflight ? getDiscussPreflightInstruction(preflight, { hasPendingUpdate, pendingUpdateInstructions }) : ""}`;
     const cardSystemPrompt = buildCardSystemPrompt();
     const modelMessages = await convertToModelMessages(
       dedupeUiMessages(chatContextWithInlineAssets.messages),
@@ -1098,6 +1100,7 @@ export async function runDiscussTurn({
         projectId: project.id,
         userId,
         engine: "contract",
+        preserveVisualPreference: hasBuiltSite,
         brief: workspaceTurn.brief,
         discussionContext,
         turnId,

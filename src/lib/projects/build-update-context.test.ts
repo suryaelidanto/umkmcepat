@@ -121,6 +121,22 @@ describe("build update context", () => {
     expect(result).toBe("Gunakan warna biru\n\nGanti jadi warna hijau");
   });
 
+  it("ignores the retired synthetic readiness request", () => {
+    const result = collectPendingUpdateInstructions(
+      [
+        message(
+          "legacy",
+          "user",
+          "Cek dulu kelengkapan data website ini. Kalau masih ada yang wajib, tanyakan satu per satu.",
+        ),
+        message("real", "user", "Buat tema premium"),
+      ],
+      "fallback",
+    );
+
+    expect(result).toBe("Buat tema premium");
+  });
+
   it("aggregates only distinct owner requests for the next update", () => {
     const result = collectPendingUpdateInstructions(
       [

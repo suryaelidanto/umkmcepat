@@ -23,7 +23,10 @@ import { parseWorkspaceCard } from "@/lib/projects/brief-flow";
 import { hasSuccessfulBuildEvidence } from "@/lib/projects/build-checkpoint";
 import { prepareBuildHandoff } from "@/lib/projects/build-planner";
 import { describeBuildRecommendation } from "@/lib/projects/build-recommendation-summary";
-import { resolveBuildUpdateContext } from "@/lib/projects/build-update-context";
+import {
+  collectPendingUpdateInstructions,
+  resolveBuildUpdateContext,
+} from "@/lib/projects/build-update-context";
 import { parseCanonicalBrief } from "@/lib/projects/canonical-brief";
 import {
   buildProjectChatContext,
@@ -345,11 +348,11 @@ async function handlePreviewPost(request: Request) {
     fallbackMessages: canonicalBrief.discussionContext?.messages,
     messages: storedMessages,
   });
-  const hasPendingUpdate = updateContext.pendingMessages.some(
-    (message) =>
-      message.role === "user" &&
-      getTextFromUIMessage(message).trim().length > 0,
+  const pendingUpdateInstructions = collectPendingUpdateInstructions(
+    updateContext.pendingMessages,
+    "",
   );
+  const hasPendingUpdate = pendingUpdateInstructions.length > 0;
 
   if (body.mode === "repair_card") {
     return repairWorkspaceCard({
@@ -390,6 +393,7 @@ async function handlePreviewPost(request: Request) {
     effectiveBrief,
     hasBuiltSite,
     hasPendingUpdate,
+    pendingUpdateInstructions,
     memoryFacts,
     messages,
     preflight,
@@ -404,6 +408,7 @@ async function handleDiscussTurnOneCall({
   effectiveBrief: _effectiveBrief,
   hasBuiltSite,
   hasPendingUpdate,
+  pendingUpdateInstructions,
   memoryFacts: _memoryFacts,
   messages,
   preflight,
@@ -415,6 +420,7 @@ async function handleDiscussTurnOneCall({
   effectiveBrief: ReturnType<typeof parseProjectBrief>;
   hasBuiltSite: boolean;
   hasPendingUpdate: boolean;
+  pendingUpdateInstructions: string;
   memoryFacts: ReturnType<typeof parseProjectMemoryFacts>;
   messages: UIMessage[];
   preflight?: "build" | "update";
@@ -506,6 +512,7 @@ async function handleDiscussTurnOneCall({
       generationEngine: project.generationEngine,
       hasBuiltSite,
       hasPendingUpdate,
+      pendingUpdateInstructions,
       preflight,
     });
   } catch (error) {

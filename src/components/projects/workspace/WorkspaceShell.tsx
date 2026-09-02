@@ -362,7 +362,6 @@ export function WorkspaceShell({
   const prompt = (initialPrompt ?? "").trim();
   const buildRecommendationStorageKey = `umkmcepat:build-recommendation-hold:${projectId}`;
   const buildRecommendationConsumedKey = `umkmcepat:build-recommendation-consumed:${projectId}`;
-  const handoffProofStorageKey = `umkmcepat:handoff-proof:${projectId}`;
   const visualAnnotationStorageKey = `umkmcepat:visual-comments:${projectId}`;
   const hasStartedChat = useRef(false);
   const hasStartedBuild = useRef(false);
@@ -1060,11 +1059,10 @@ export function WorkspaceShell({
               reviewHash: (activeCard as { reviewHash?: string }).reviewHash,
             }
           : null;
-      const persistedProof = readHandoffProof(handoffProofStorageKey);
       const proof: HandoffProof | null =
         cardProof?.handoffId && cardProof?.reviewHash
           ? { handoffId: cardProof.handoffId, reviewHash: cardProof.reviewHash }
-          : persistedProof;
+          : null;
       const handoffFields =
         proof?.handoffId && proof?.reviewHash
           ? {
@@ -1074,9 +1072,6 @@ export function WorkspaceShell({
               idempotencyKey: `build-${projectId}-${proof.handoffId}-${Date.now().toString(36)}`,
             }
           : undefined;
-      if (proof) {
-        writeHandoffProof(handoffProofStorageKey, proof);
-      }
       const response = await fetch(`/api/projects/${projectId}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -4702,39 +4697,6 @@ function readConsumedBuildRecommendationSignatures(
 }
 
 type HandoffProof = { handoffId: string; reviewHash: string };
-
-function readHandoffProof(storageKey: string): HandoffProof | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-  try {
-    const raw = window.localStorage.getItem(storageKey);
-    if (!raw) {
-      return null;
-    }
-    const parsed = JSON.parse(raw) as Partial<HandoffProof>;
-    if (
-      typeof parsed.handoffId === "string" &&
-      typeof parsed.reviewHash === "string"
-    ) {
-      return { handoffId: parsed.handoffId, reviewHash: parsed.reviewHash };
-    }
-  } catch {
-    // Ignore corrupt localStorage; the card proof still covers first builds.
-  }
-  return null;
-}
-
-function writeHandoffProof(storageKey: string, proof: HandoffProof): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-  try {
-    window.localStorage.setItem(storageKey, JSON.stringify(proof));
-  } catch {
-    // Non-fatal: a retry without persisted proof falls back to the server's
-  }
-}
 
 export function resolvePrimaryComposerIntent(input: {
   buildComplete: boolean;

@@ -58,6 +58,8 @@ export function resolveBuildUpdateContext({
   };
 }
 
+const LEGACY_READINESS_PREFIX = "cek dulu kelengkapan data website";
+
 export function collectPendingUpdateInstructions(
   pendingMessages: UIMessage[],
   fallbackInstruction: string,
@@ -66,7 +68,11 @@ export function collectPendingUpdateInstructions(
     .filter((message) => message.role === "user")
     .map(getTextFromUIMessage)
     .map((text) => text.trim())
-    .filter(Boolean);
+    .filter(
+      (text) =>
+        Boolean(text) &&
+        !text.toLocaleLowerCase("id-ID").startsWith(LEGACY_READINESS_PREFIX),
+    );
   return instructions.length > 0
     ? [...new Set(instructions)].join("\n\n")
     : fallbackInstruction;

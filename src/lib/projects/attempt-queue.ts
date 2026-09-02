@@ -63,6 +63,7 @@ export type DiscussAttemptJob = {
   generationEngine: string;
   hasBuiltSite?: boolean;
   hasPendingUpdate?: boolean;
+  pendingUpdateInstructions?: string;
   preflight?: "build" | "update";
 };
 

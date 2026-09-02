@@ -365,7 +365,11 @@ function projectCanonicalBriefForLegacyConsumers(
 
 export function groundProjectBriefToOwnerFacts(
   brief: ProjectBrief,
-  context: { ownerTexts: string[]; sourceTurnId?: string },
+  context: {
+    ownerTexts: string[];
+    preserveVisualPreference?: boolean;
+    sourceTurnId?: string;
+  },
 ): ProjectBrief {
   const ownerTexts = context.ownerTexts.filter(
     (text): text is string => typeof text === "string",
@@ -432,12 +436,14 @@ export function groundProjectBriefToOwnerFacts(
       factLedger,
       ownerTexts,
     ),
-    stylePreference: groundString(
-      materializedBrief.stylePreference,
-      "visualDirection",
-      factLedger,
-      ownerTexts,
-    ),
+    stylePreference: context.preserveVisualPreference
+      ? materializedBrief.stylePreference
+      : groundString(
+          materializedBrief.stylePreference,
+          "visualDirection",
+          factLedger,
+          ownerTexts,
+        ),
     businessName: groundString(
       materializedBrief.businessName,
       "businessName",

@@ -363,18 +363,16 @@ export function normalizeWorkspaceTurn(
 ) {
   const value =
     input && typeof input === "object" ? (input as WorkspaceTurnToolInput) : {};
+  const briefPatch = unstringifyJsonObject(value.briefPatch);
   // The combo model sometimes double-encodes briefPatch/workspaceCard as JSON
-  let brief = applyBriefPatch(
-    fallbackBrief,
-    unstringifyJsonObject(value.briefPatch),
-    {
-      ownerTexts: options.ownerTexts,
-      sourceTurnId: options.sourceTurnId,
-    },
-  );
+  let brief = applyBriefPatch(fallbackBrief, briefPatch, {
+    ownerTexts: options.ownerTexts,
+    sourceTurnId: options.sourceTurnId,
+  });
   if (options.ownerTexts !== undefined) {
     brief = groundProjectBriefToOwnerFacts(brief, {
       ownerTexts: options.ownerTexts,
+      preserveVisualPreference: options.hasBuiltSite === true,
       sourceTurnId: options.sourceTurnId,
     });
   }

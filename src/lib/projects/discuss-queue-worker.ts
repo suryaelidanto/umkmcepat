@@ -109,6 +109,7 @@ export async function runQueuedDiscussTurn(
       userId: job.userId,
       hasBuiltSite: job.hasBuiltSite,
       hasPendingUpdate: job.hasPendingUpdate,
+      pendingUpdateInstructions: job.pendingUpdateInstructions,
       preflight: job.preflight,
       abortSignal,
     });

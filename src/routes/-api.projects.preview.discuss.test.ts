@@ -337,6 +337,7 @@ describe("POST /api/projects/preview (discuss) — server-side turn flow", () =>
         preflight: "update",
         hasBuiltSite: true,
         hasPendingUpdate: true,
+        pendingUpdateInstructions: "Ubah warna tombol.",
       }),
     );
   });
