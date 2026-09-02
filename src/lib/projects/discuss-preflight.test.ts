@@ -4,9 +4,34 @@ import {
   createUpdateIntentQuestion,
   ensureUpdatePreflightCard,
   getDiscussPreflightInstruction,
+  resolvePreflightBuildReadiness,
 } from "./discuss-preflight";
 
 describe("discuss preflight", () => {
+  it("only blocks build readiness when an update still needs clarification", () => {
+    expect(
+      resolvePreflightBuildReadiness({
+        hasPendingUpdate: false,
+        preflight: "update",
+        readyForBuild: true,
+      }),
+    ).toBe(false);
+    expect(
+      resolvePreflightBuildReadiness({
+        hasPendingUpdate: true,
+        preflight: "update",
+        readyForBuild: true,
+      }),
+    ).toBe(true);
+    expect(
+      resolvePreflightBuildReadiness({
+        hasPendingUpdate: false,
+        preflight: "build",
+        readyForBuild: true,
+      }),
+    ).toBe(true);
+  });
+
   it("provides a single-select update intent question with a custom path", () => {
     const card = createUpdateIntentQuestion();
 

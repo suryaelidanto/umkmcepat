@@ -2,6 +2,18 @@ import type { BriefQuestion, WorkspaceCard } from "./brief";
 
 export type DiscussPreflight = "build" | "update";
 
+export function resolvePreflightBuildReadiness({
+  hasPendingUpdate,
+  preflight,
+  readyForBuild,
+}: {
+  hasPendingUpdate: boolean;
+  preflight?: DiscussPreflight;
+  readyForBuild: boolean;
+}): boolean {
+  return preflight === "update" && !hasPendingUpdate ? false : readyForBuild;
+}
+
 export function createUpdateIntentQuestion(): Extract<
   WorkspaceCard,
   { type: "question" }

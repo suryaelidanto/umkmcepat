@@ -71,6 +71,7 @@ import {
   ensureUpdatePreflightCard,
   getDiscussPreflightFallbackText,
   getDiscussPreflightInstruction,
+  resolvePreflightBuildReadiness,
   type DiscussPreflight,
 } from "@/lib/projects/discuss-preflight";
 import {
@@ -908,7 +909,11 @@ export async function runDiscussTurn({
     if (preflight === "update") {
       workspaceTurn = {
         ...workspaceTurn,
-        readyForBuild: false,
+        readyForBuild: resolvePreflightBuildReadiness({
+          hasPendingUpdate,
+          preflight,
+          readyForBuild: workspaceTurn.readyForBuild,
+        }),
         workspaceCard: ensureUpdatePreflightCard(workspaceTurn.workspaceCard, {
           allowRecommendation: hasPendingUpdate,
         }),

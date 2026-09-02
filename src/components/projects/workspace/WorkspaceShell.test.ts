@@ -11,6 +11,7 @@ import {
   resolveBuildAction,
   resolveBuildRequestMode,
   resolvePrimaryComposerIntent,
+  sanitizeWorkspaceCard,
 } from "./WorkspaceShell";
 
 import type { ProjectBrief } from "@/lib/projects/brief";
@@ -56,6 +57,29 @@ function makeBrief(overrides: Partial<ProjectBrief>): ProjectBrief {
     ...overrides,
   };
 }
+
+describe("sanitizeWorkspaceCard", () => {
+  it("hides legacy recommendations that cannot be confirmed", () => {
+    expect(
+      sanitizeWorkspaceCard({
+        summary: ["Ubah tema"],
+        title: "Perbarui website",
+        type: "build_recommendation",
+      }),
+    ).toEqual({ type: "none" });
+  });
+
+  it("keeps a proof-carrying recommendation actionable", () => {
+    const card = {
+      reviewHash: "a".repeat(64),
+      handoffId: "h1",
+      summary: ["Ubah tema"],
+      title: "Perbarui website",
+      type: "build_recommendation" as const,
+    };
+    expect(sanitizeWorkspaceCard(card)).toEqual(card);
+  });
+});
 
 describe("canStartBuild", () => {
   it("requires handoff proof for contract cards", () => {

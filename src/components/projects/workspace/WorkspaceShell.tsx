@@ -330,8 +330,9 @@ export function WorkspaceShell({
   const [publishedPath, setPublishedPath] = useState<string | null>(null);
   const [isCanceling, setIsCanceling] = useState(false);
   const [previewReloadKey, setPreviewReloadKey] = useState(0);
-  const [workspaceCard, setWorkspaceCard] =
-    useState<WorkspaceCard>(initialWorkspaceCard);
+  const [workspaceCard, setWorkspaceCard] = useState<WorkspaceCard>(() =>
+    sanitizeWorkspaceCard(initialWorkspaceCard),
+  );
   const [latestBrief, setLatestBrief] = useState<ProjectBrief | null>(
     initialBrief ?? null,
   );
@@ -451,15 +452,16 @@ export function WorkspaceShell({
   );
   const applyWorkspaceCard = useCallback(
     (card: WorkspaceCard) => {
+      const safeCard = sanitizeWorkspaceCard(card);
       if (
         isBuildRecommendationConsumed(
-          card,
+          safeCard,
           consumedBuildRecommendationSignatures,
         )
       ) {
         return false;
       }
-      setWorkspaceCard(card);
+      setWorkspaceCard(safeCard);
       return true;
     },
     [consumedBuildRecommendationSignatures],
@@ -4770,6 +4772,12 @@ export function resolveBuildRequestMode(
   buildStatus: string,
 ): "first_generate" | "retry_build" {
   return buildStatus === "failed" ? "retry_build" : "first_generate";
+}
+
+export function sanitizeWorkspaceCard(card: WorkspaceCard): WorkspaceCard {
+  return card.type === "build_recommendation" && !canStartBuild(card)
+    ? { type: "none" }
+    : card;
 }
 
 export function canStartBuild(

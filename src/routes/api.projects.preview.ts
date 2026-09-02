@@ -145,11 +145,13 @@ async function handlePreviewPost(request: Request) {
     select: {
       buildStatus: true,
       buildCheckpoints: {
+        orderBy: { createdAt: "desc" },
         where: { build: { status: "succeeded" } },
         take: 1,
         select: { chatMessageId: true, chatMessageIndex: true, id: true },
       },
       builds: {
+        orderBy: { createdAt: "desc" },
         where: { status: "succeeded" },
         take: 1,
         select: { id: true },
