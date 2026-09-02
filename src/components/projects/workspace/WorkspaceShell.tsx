@@ -2612,6 +2612,10 @@ export function WorkspaceShell({
     );
     if (intentInstruction) {
       setDirectEditMode(false);
+      setChatCollapsed(false);
+      window.requestAnimationFrame(() => {
+        chatPanelRef.current?.expand();
+      });
       await submitDirectEdit({
         instruction: intentInstruction,
         summary: intentInstruction,
@@ -2630,6 +2634,10 @@ export function WorkspaceShell({
       return;
     }
     setDirectEditMode(false);
+    setChatCollapsed(false);
+    window.requestAnimationFrame(() => {
+      chatPanelRef.current?.expand();
+    });
     await submitDirectEdit({ instruction, summary: instruction });
   }
 

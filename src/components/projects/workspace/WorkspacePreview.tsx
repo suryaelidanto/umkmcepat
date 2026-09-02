@@ -568,7 +568,7 @@ function PreviewAnnotationPopover({
                 onClick={() => onDirectTextSubmit?.(directText.trim())}
                 className="h-7.5 rounded-[10px] bg-surface-warm-white px-3 text-xs font-medium text-foreground-primary hover:bg-surface-warm-white/90 disabled:opacity-40"
               >
-                Simpan Teks
+                Terapkan di Layar
               </Button>
             </div>
           </div>
@@ -608,7 +608,7 @@ function PreviewAnnotationPopover({
               onClick={onSave}
               className="h-7.5 rounded-[10px] bg-surface-warm-white px-3 text-xs font-medium text-foreground-primary hover:bg-surface-warm-white/90 disabled:opacity-40 ml-auto"
             >
-              Kirim ke AI
+              Simpan Anotasi
             </Button>
           </div>
         </div>
