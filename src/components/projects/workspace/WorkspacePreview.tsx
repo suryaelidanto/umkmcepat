@@ -342,6 +342,9 @@ function PreviewAnnotationPopover({
   target: PreviewEditTarget;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const isImage =
+    target.target.tag === "img" || target.target.tag === "picture";
+
   const breadcrumbs = formatHierarchyBreadcrumb({
     componentHierarchy: target.componentHierarchy,
     label: target.label,
@@ -361,72 +364,66 @@ function PreviewAnnotationPopover({
   return (
     <div
       role="dialog"
-      aria-label={`Komentar untuk ${target.label}`}
-      className="absolute z-40 w-[min(24rem,calc(100%-1.5rem))] rounded-[18px] border border-surface-warm-white/14 bg-[#1b1b19] p-spacing-4 text-surface-warm-white shadow-[0_18px_60px_rgba(0,0,0,0.42)]"
+      aria-label={`Ubah ${target.label}`}
+      className="absolute z-40 w-[min(22rem,calc(100%-1rem))] rounded-[16px] border border-surface-warm-white/14 bg-[#141413] p-3 text-surface-warm-white shadow-[0_16px_48px_rgba(0,0,0,0.5)] transition-all max-sm:fixed max-sm:bottom-4 max-sm:left-4 max-sm:right-4 max-sm:top-auto max-sm:w-auto"
       style={{
         left: position.left,
         top: position.top,
       }}
     >
-      <div className="flex items-start justify-between gap-spacing-4">
-        <div className="min-w-0">
-          {breadcrumbs.length > 0 ? (
-            <div className="flex items-center gap-1 overflow-hidden pb-1 text-[11px] font-semibold text-sky-400">
-              {breadcrumbs.map((crumb, idx) => (
-                <span key={idx} className="flex items-center gap-1 truncate">
-                  {idx > 0 && (
-                    <span className="text-surface-warm-white/30">/</span>
-                  )}
-                  <span
-                    className={
-                      idx === breadcrumbs.length - 1
-                        ? "text-sky-300"
-                        : "text-surface-warm-white/60"
-                    }
-                  >
-                    {crumb.name}
-                  </span>
-                </span>
-              ))}
-            </div>
-          ) : null}
-          <p className="truncate text-xs font-semibold text-[#d6f0ff]">
-            {target.label}
-          </p>
-          {target.selectedText ? (
-            <p className="mt-spacing-1 line-clamp-2 text-xs leading-5 text-surface-warm-white/50">
-              Teks dipilih: {target.selectedText}
-            </p>
-          ) : target.target.text ? (
-            <p className="mt-spacing-1 line-clamp-2 text-xs leading-5 text-surface-warm-white/50">
-              Teks saat ini: &ldquo;{target.target.text}&rdquo;
-            </p>
-          ) : null}
-          {target.target.tag === "img" && target.target.src ? (
-            <div className="mt-spacing-3 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={onReplaceImage}
-                className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-surface-warm-white px-3 text-xs font-semibold text-foreground-primary shadow-xs hover:bg-surface-warm-white/90 active:scale-95 transition-all cursor-pointer"
+      <div className="flex items-center justify-between gap-2 pb-2">
+        <div className="flex items-center gap-1.5 overflow-hidden text-[11px] font-medium text-surface-warm-white/60">
+          {breadcrumbs.map((crumb, idx) => (
+            <span key={idx} className="flex items-center gap-1.5 truncate">
+              {idx > 0 && <span className="text-surface-warm-white/20">/</span>}
+              <span
+                className={
+                  idx === breadcrumbs.length - 1
+                    ? "font-semibold text-sky-400"
+                    : ""
+                }
               >
-                <ImagePlus className="size-3.5" />
-                <span>Upload Foto Pengganti</span>
-              </button>
-            </div>
-          ) : null}
+                {crumb.name}
+              </span>
+            </span>
+          ))}
         </div>
         <button
           type="button"
           onClick={onCancel}
-          className="grid size-9 shrink-0 place-items-center rounded-full text-surface-warm-white/52 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
-          aria-label="Batalkan komentar"
+          className="grid size-6 shrink-0 place-items-center rounded-full text-surface-warm-white/40 hover:bg-surface-warm-white/10 hover:text-surface-warm-white transition"
+          aria-label="Tutup"
         >
-          <X className="size-4" />
+          <X className="size-3.5" />
         </button>
       </div>
+
+      {isImage && target.target.src ? (
+        <div className="my-2 flex items-center gap-3 rounded-xl border border-surface-warm-white/8 bg-surface-warm-white/4 p-2.5">
+          <img
+            src={target.target.src}
+            alt="Preview"
+            className="size-12 rounded-lg object-cover border border-surface-warm-white/10"
+          />
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] text-surface-warm-white/50">
+              Foto saat ini
+            </p>
+            <button
+              type="button"
+              onClick={onReplaceImage}
+              className="mt-1 inline-flex h-7 items-center gap-1.5 rounded-lg bg-surface-warm-white px-2.5 text-xs font-semibold text-foreground-primary shadow-xs hover:bg-surface-warm-white/90 active:scale-95 transition cursor-pointer"
+            >
+              <ImagePlus className="size-3" />
+              <span>Ganti Foto</span>
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <textarea
         ref={textareaRef}
-        rows={3}
+        rows={isImage ? 2 : 3}
         maxLength={1000}
         value={comment}
         onChange={(event) => onChange(event.target.value)}
@@ -442,23 +439,27 @@ function PreviewAnnotationPopover({
           }
         }}
         placeholder={
-          target.target.tag === "img"
-            ? "Instruksi khusus untuk gambar ini (opsional)..."
-            : "Tulis teks baru atau instruksi perubahan..."
+          isImage
+            ? "Instruksi tambahan untuk foto ini (opsional)..."
+            : target.target.text
+              ? `Tulis perubahan untuk "${target.target.text.slice(0, 40)}${target.target.text.length > 40 ? "…" : ""}"...`
+              : "Tulis teks baru atau instruksi..."
         }
-        className="mt-spacing-3 w-full resize-none rounded-[14px] border border-surface-warm-white/10 bg-[#111110] px-spacing-4 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none placeholder:text-surface-warm-white/38 focus:border-surface-warm-white/30"
+        className="w-full resize-none rounded-[12px] border border-surface-warm-white/10 bg-[#0d0d0c] px-3 py-2 text-xs leading-5 text-surface-warm-white outline-none placeholder:text-surface-warm-white/30 focus:border-sky-500/50"
       />
-      <div className="mt-spacing-3 flex items-center justify-between gap-spacing-4">
-        <span className="text-xs text-surface-warm-white/38">
+
+      <div className="mt-2.5 flex items-center justify-between gap-2">
+        <span className="text-[10px] text-surface-warm-white/30 hidden sm:inline">
           Ctrl/⌘ + Enter
         </span>
         <Button
           type="button"
-          disabled={!comment.trim()}
+          size="sm"
+          disabled={!comment.trim() && !isImage}
           onClick={onSave}
-          className="h-9 rounded-[12px] bg-surface-warm-white px-spacing-4 text-xs text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-45"
+          className="h-7.5 rounded-[10px] bg-surface-warm-white px-3 text-xs font-medium text-foreground-primary hover:bg-surface-warm-white/90 disabled:opacity-40 ml-auto"
         >
-          Terapkan Perubahan
+          Terapkan
         </Button>
       </div>
     </div>
