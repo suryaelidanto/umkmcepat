@@ -753,6 +753,106 @@ describe("runAgenticGenerate", () => {
     });
   });
 
+  it("allows grounded content and one permanent project asset in an edit plan", async () => {
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      const tools = getTools(args);
+      await readCoreSkills(tools);
+      const result = await tools.write_file.execute({
+        content:
+          'export const site = { contact: "081234567890", images: [{ url: "/media/project-asset.webp" }] };\nexport default site;',
+        path: "src/content/site.ts",
+      });
+      expect(result).toMatchObject({ success: true });
+      await completeAgentWorkflow(tools);
+      return { text: "Done", steps: [] };
+    });
+
+    await expect(
+      runAgenticGenerate(
+        createInput({
+          brief: {
+            businessName: "Cuci Sepatu",
+            factLedger: {
+              version: 1,
+              entries: [
+                {
+                  field: "contact",
+                  id: "contact-1",
+                  label: "Nomor kontak",
+                  origin: "owner_message",
+                  source: "owner",
+                  sourceTurnId: "turn-1",
+                  state: "owner_confirmed",
+                  value: "081234567890",
+                },
+              ],
+            },
+            offer: "Cuci Sepatu Express",
+            prompt: "Cuci Sepatu Kilat",
+          },
+          editPlan: {
+            dimensions: ["content", "media"],
+            magnitude: "section",
+            operations: [{ kind: "update_content" }, { kind: "update_media" }],
+          },
+          initialFiles: [
+            {
+              content:
+                "export default function ExistingHome() { return null; }",
+              path: "src/routes/index.tsx",
+            },
+          ],
+          revisionBrief: "Tambahkan info kontak dan foto usaha.",
+        }),
+      ),
+    ).resolves.toMatchObject({ generationMode: "agentic" });
+  });
+
+  it("rejects temporary and remote image references during edits", async () => {
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      const tools = getTools(args);
+      await readCoreSkills(tools);
+      const temporary = await tools.write_file.execute({
+        content:
+          'export const site = { images: [{ url: "/api/uploads/temp-images/a" }] };\nexport default site;',
+        path: "src/content/site.ts",
+      });
+      expect(temporary).toMatchObject({
+        error: expect.stringContaining("permanent project asset"),
+      });
+      const remote = await tools.write_file.execute({
+        content:
+          'export const site = { images: [{ url: "https://cdn.example.com/shop.webp" }] };\nexport default site;',
+        path: "src/content/site.ts",
+      });
+      expect(remote).toMatchObject({
+        error: expect.stringContaining("permanent project asset"),
+      });
+      await completeAgentWorkflow(tools);
+      return { text: "Done", steps: [] };
+    });
+
+    await expect(
+      runAgenticGenerate(
+        createInput({
+          editPlan: {
+            dimensions: ["media"],
+            magnitude: "surgical",
+            operations: [{ kind: "update_media" }],
+          },
+          initialFiles: [
+            {
+              content:
+                "export default function ExistingHome() { return null; }",
+              path: "src/routes/index.tsx",
+            },
+          ],
+          revisionBrief: "Ganti foto usaha.",
+        }),
+      ),
+    ).resolves.toMatchObject({ generationMode: "agentic" });
+  });
+
   it("rejects unresolved module imports with the exact missing path", async () => {
     let importError = "";
     generateTextMock.mockImplementationOnce(async (args: unknown) => {

@@ -25,6 +25,10 @@ import { formatProjectDiscussionContext } from "@/lib/projects/chat-memory";
 import { generateDiff, type DiffLine } from "@/lib/projects/diff";
 import { classifyEditIntent } from "@/lib/projects/edit-intent";
 import {
+  getRenderableFactEntries,
+  normalizeFactLedger,
+} from "@/lib/projects/fact-ledger";
+import {
   buildDesignAnchorContext,
   buildDesignMarkdown,
   buildProductMarkdown,
@@ -186,7 +190,10 @@ function collectUnresolvedImports(
   return issues;
 }
 
-function extractAcceptedFactStrings(schema: ProjectSiteSchema): string[] {
+function extractAcceptedFactStrings(
+  schema: ProjectSiteSchema,
+  factLedger?: unknown,
+): string[] {
   const strings: string[] = [];
   const collect = (value: unknown): void => {
     if (typeof value === "string") {
@@ -208,7 +215,56 @@ function extractAcceptedFactStrings(schema: ProjectSiteSchema): string[] {
     }
   };
   collect(schema);
+  for (const entry of getRenderableFactEntries(
+    normalizeFactLedger(factLedger),
+  )) {
+    collect(entry.value);
+  }
   return [...new Set(strings)];
+}
+
+function canWriteEditableContentFile(
+  path: string,
+  isPartialRevisionMode: boolean,
+  editPlan: unknown,
+): boolean {
+  if (!isPartialRevisionMode || path !== "src/content/site.ts") {
+    return false;
+  }
+  if (!editPlan || typeof editPlan !== "object" || Array.isArray(editPlan)) {
+    return false;
+  }
+  const operations = (editPlan as { operations?: unknown }).operations;
+  if (!Array.isArray(operations)) {
+    return false;
+  }
+  return operations.some((operation) => {
+    if (!operation || typeof operation !== "object") {
+      return false;
+    }
+    const kind = (operation as { kind?: unknown }).kind;
+    return (
+      kind === "update_copy" ||
+      kind === "update_content" ||
+      kind === "update_media"
+    );
+  });
+}
+
+function hasStableSiteModuleShape(content: string): boolean {
+  return (
+    /export\s+const\s+site\b/u.test(content) &&
+    /export\s+default\s+site\s*;/u.test(content)
+  );
+}
+
+function hasDisallowedAssetReference(content: string): boolean {
+  return (
+    /\/api\/uploads\/temp-images\//iu.test(content) ||
+    /(?:src|poster|image|imageUrl|url)\s*[:=]\s*(?:\{\s*)?["'`]https?:\/\//iu.test(
+      content,
+    )
+  );
 }
 
 function resolveRelativeImport(filePath: string, spec: string): string {
@@ -881,12 +937,23 @@ export default site;
               "Design restriction: commit a design direction with set_design_direction before writing source.",
           };
         }
+        const canEditContentFile = canWriteEditableContentFile(
+          path,
+          isPartialRevisionMode,
+          input.editPlan,
+        );
         if (
-          isProtectedScaffoldPath(path) ||
+          (isProtectedScaffoldPath(path) && !canEditContentFile) ||
           path === "src/routes/not-found.tsx"
         ) {
           return {
             error: `Security restriction: Protected scaffold file cannot be written: ${path}.`,
+          };
+        }
+        if (canEditContentFile && !hasStableSiteModuleShape(content)) {
+          return {
+            error:
+              "Content restriction: preserve the named and default site exports when updating src/content/site.ts.",
           };
         }
         if (!path.startsWith("src/") && !path.startsWith("public/")) {
@@ -916,6 +983,15 @@ export default site;
             error: err,
           };
         }
+        if (hasDisallowedAssetReference(content)) {
+          const err =
+            "Asset restriction: use one approved permanent project asset or CSS-only decoration; temporary and remote image URLs are not allowed.";
+          devLog("generate", "write_file.rejected", {
+            path,
+            reason: "unapproved_asset_reference",
+          });
+          return { error: err };
+        }
         if (DATA_IMAGE_PATTERN.test(content)) {
           const err =
             "Asset restriction: do not embed data-image assets. Use approved media paths or CSS-only decoration.";
@@ -928,7 +1004,10 @@ export default site;
             error: err,
           };
         }
-        const acceptedFactStrings = extractAcceptedFactStrings(schema);
+        const acceptedFactStrings = extractAcceptedFactStrings(
+          schema,
+          input.brief.factLedger,
+        );
         const unsupportedClaims = scanSourceClaims(
           content,
           { file: path },
@@ -1166,7 +1245,10 @@ export default site;
             ],
           };
         }
-        const acceptedFactStrings = extractAcceptedFactStrings(schema);
+        const acceptedFactStrings = extractAcceptedFactStrings(
+          schema,
+          input.brief.factLedger,
+        );
         const hashCtaFiles = Array.from(fileMap.entries())
           .filter(
             ([file, content]) =>
@@ -1298,6 +1380,14 @@ export default site;
     }),
   };
 
+  const editableContentInstruction = canWriteEditableContentFile(
+    "src/content/site.ts",
+    isPartialRevisionMode,
+    input.editPlan,
+  )
+    ? "For this grounded content/media edit, src/content/site.ts may be updated only with owner-confirmed facts and approved permanent asset references. Do not change its module shape."
+    : "Protected files are read-only: src/content/site.ts, src/index.css, src/main.tsx, src/router.tsx, src/routes/__root.tsx, src/routes/not-found.tsx, src/lib/preview-ready.ts, src/lib/utils.ts, src/components/ui/button.tsx, and src/components/ui/card.tsx.";
+
   const availableImagesSection =
     schema.images && schema.images.length > 0
       ? `\n\nAPPROVED ASSETS:\n${formatPromptValue(schema.images)}`
@@ -1329,7 +1419,7 @@ For a new site, read the Unslop skill and every listed Impeccable reference, run
 
 ${workflowInstructions}${skillDigestSection}${acceptedFactsSection}${ledgerSection}${discussionSection}${availableImagesSection}
 
-Protected files are read-only: src/content/site.ts, src/index.css, src/main.tsx, src/router.tsx, src/routes/__root.tsx, src/routes/not-found.tsx, src/lib/preview-ready.ts, src/lib/utils.ts, src/components/ui/button.tsx, and src/components/ui/card.tsx.
+${editableContentInstruction}
 
 Keep customer-facing copy grounded in site data. Omit unknown facts. Use approved /media paths only. Never use href=\"#\" or href=\"#/\" as a business CTA fallback. Use site.primaryCtaTarget when it exists; otherwise omit the action or render it as non-interactive text. Do not add packages, APIs, remote assets, fake transactions, login, persistence, or unsupported interactions. Use semantic theme tokens and preserve keyboard access, readable contrast, reduced motion, and safe mobile overflow. Do not invent package sizes, quantities, dates, hours, addresses, ratings, certifications, guarantees, or promotional adjectives. Bind every price, phone number, delivery area, product fact, and USP directly from site; do not repeat those literals in JSX. If a source write is rejected for a fact restriction, remove the reported unsupported literal rather than moving the same claim to another file.
 
