@@ -1,7 +1,8 @@
-import { Globe } from "lucide-react";
+import { Globe, HeartHandshake } from "lucide-react";
 
 import { ScrollReveal } from "@/components/home/ScrollReveal";
 import { Image } from "@/components/ui/image";
+import { Link } from "@/components/ui/link";
 
 const MIN_PUBLISHED_SITES_SHOWN = 10;
 
@@ -140,8 +141,15 @@ export function EcosystemSection({
             <h2 className="text-3xl font-semibold tracking-[-0.04em] text-[#1c1c1c] dark:text-surface-warm-white sm:text-4xl">
               Didukung oleh
             </h2>
-            <div className="mt-spacing-5 flex justify-center">
+            <div className="mt-spacing-5 flex flex-wrap items-center justify-center gap-spacing-4">
               <SupporterChip />
+              <Link
+                href="/sponsor"
+                className="inline-flex items-center gap-2 rounded-2xl border border-dashed border-black/20 bg-black/[0.02] px-spacing-6 py-spacing-4 text-sm font-medium text-[#5f5f5d] transition-all hover:border-accent-orange hover:bg-black/[0.04] hover:text-[#1c1c1c] dark:border-white/20 dark:bg-white/[0.02] dark:text-surface-warm-white/60 dark:hover:border-accent-orange dark:hover:bg-white/[0.05] dark:hover:text-surface-warm-white"
+              >
+                <HeartHandshake className="size-4 text-accent-orange" />
+                <span>Menjadi Sponsor</span>
+              </Link>
             </div>
           </div>
         </ScrollReveal>
