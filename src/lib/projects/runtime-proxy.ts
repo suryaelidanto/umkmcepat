@@ -577,7 +577,10 @@ const UNIFIED_INSPECTOR_BRIDGE = String.raw`
       }
     }
 
-    const text = closestElement(element, 'h1,h2,h3,h4,h5,h6,p,label,li,blockquote,figcaption,caption,span,strong,em,b,i,small,code,pre');
+    const text = closestElement(
+      element,
+      'h1,h2,h3,h4,h5,h6,p,label,li,blockquote,figcaption,caption,span,strong,em,b,i,small,code,pre,button,a',
+    );
     if (text && !isIgnorableDecoration(text) && clean(text.innerText || text.textContent || '')) {
       return text;
     }
@@ -647,9 +650,34 @@ const UNIFIED_INSPECTOR_BRIDGE = String.raw`
     return 'Bagian website' + snippet;
   }
 
+  function getDirectText(element) {
+    if (!element) return '';
+    // 1. If element is a pure text leaf or button/heading/span, get its direct text or clean innerText
+    if (element.children.length === 0) {
+      return clean(element.textContent || '');
+    }
+    // 2. Direct text child nodes only
+    const directTextNodes = Array.from(element.childNodes)
+      .filter((node) => node.nodeType === Node.TEXT_NODE && clean(node.textContent || ''))
+      .map((node) => clean(node.textContent || ''));
+
+    if (directTextNodes.length > 0) {
+      return directTextNodes.join(' ');
+    }
+
+    // 3. If it is an inline typography leaf (h1-h6, p, span, button, a) with small number of inline children (b, strong, span)
+    if (/^(h[1-6]|p|span|button|a|label|li|b|strong|em|small)$/i.test(element.tagName) && element.children.length <= 3) {
+      return clean(element.innerText || element.textContent || '');
+    }
+
+    // 4. Fallback: first text node or empty so it doesn't grab entire card/section content
+    return '';
+  }
+
   function targetData(element, selection) {
     const rect = selection ? selection.rect : element.getBoundingClientRect();
-    const text = clean(element.innerText || element.textContent || '');
+    const rawText = clean(element.innerText || element.textContent || '');
+    const directText = getDirectText(element) || (selection ? selection.text : '') || rawText.slice(0, 120);
     const selected = selection ? selection.text : '';
     const tag = element.tagName.toLowerCase();
     const src = /^(img|picture|svg)$/.test(tag)
@@ -660,7 +688,7 @@ const UNIFIED_INSPECTOR_BRIDGE = String.raw`
 
     return {
       componentHierarchy,
-      label: labelFor(element, selected || text),
+      label: labelFor(element, selected || directText),
       primaryComponent,
       selectedText: selected || undefined,
       target: {
@@ -672,7 +700,7 @@ const UNIFIED_INSPECTOR_BRIDGE = String.raw`
         selectorPath: selectorPath(element),
         ...(src ? { src } : {}),
         tag,
-        text: text.slice(0, 300),
+        text: directText.slice(0, 300),
       },
     };
   }
