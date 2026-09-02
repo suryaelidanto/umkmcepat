@@ -97,11 +97,12 @@ export function classifyEditIntent({
   const explicitCopy = EXPLICIT_COPY_DIRECTIVE_KEYWORDS.test(text);
   const hasCopy = explicitCopy;
   const hasContent = COPY_KEYWORDS.test(text) && !explicitCopy;
-  const mediaInstructionText = stripDeniedMediaMentions(text);
+  const mediaInstructionText = stripDeniedMentions(text, MEDIA_KEYWORDS);
+  const styleInstructionText = stripDeniedMentions(text, STYLE_KEYWORDS);
   const hasMedia =
     hasUploadedImages ||
     (MEDIA_KEYWORDS.test(mediaInstructionText) && !explicitCopy);
-  const hasStyle = STYLE_KEYWORDS.test(text) && !explicitCopy;
+  const hasStyle = STYLE_KEYWORDS.test(styleInstructionText) && !explicitCopy;
   const layoutDenied = hasExplicitLayoutDenial(text);
   const hasLayout =
     LAYOUT_KEYWORDS.test(text) && !explicitCopy && !layoutDenied;
@@ -421,9 +422,12 @@ function getPresentationFiles(existingFiles: string[]): string[] {
   );
 }
 
-function stripDeniedMediaMentions(text: string): string {
+function stripDeniedMentions(text: string, terms: RegExp): string {
   return text.replace(
-    /\b(?:jangan|tanpa|tidak|nggak|gak|ga)\b[^.]{0,80}\b(?:gambar|foto|photo|image|logo|galeri|gallery|banner|suasana)\b/giu,
+    new RegExp(
+      `\\b(?:jangan|tanpa|tidak|nggak|gak|ga)\\b[^.]{0,80}${terms.source}`,
+      "giu",
+    ),
     "",
   );
 }

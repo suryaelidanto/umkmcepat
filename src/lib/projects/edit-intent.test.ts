@@ -33,6 +33,17 @@ describe("classifyEditIntent", () => {
     expect(result.targetFiles).toContain("src/components/site/Hero.tsx");
   });
 
+  it("ignores denied visual dimensions for a media-only replacement", () => {
+    const result = classifyEditIntent({
+      instruction:
+        "Ganti foto utama dengan foto usaha yang sudah diunggah. Jangan ubah warna, layout, atau isi lain.",
+      existingFiles: MOCK_FILES,
+    });
+
+    expect(result.dimensions).toEqual(["media"]);
+    expect(result.allowedOperations).toEqual(["update_media"]);
+  });
+
   it("classifies media replacement from Indonesian keywords without attachments", () => {
     const result = classifyEditIntent({
       instruction: "ganti foto utama dan tambah galeri produk",
