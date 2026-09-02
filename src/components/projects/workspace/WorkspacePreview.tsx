@@ -43,11 +43,11 @@ export function GeneratedPreviewFrame({
   annotationMarkers = [],
   directEditActive = false,
   directEditFlagEnabled = true,
-  directEditIntents = [],
+  directEditIntents: _directEditIntents = [],
   editLayout = null,
   editLayoutSignal = 0,
   onAnnotationTarget,
-  onDirectEditAction,
+  onDirectEditAction: _onDirectEditAction,
   onLoad,
   onRecover,
   onStuck,
@@ -91,10 +91,10 @@ export function GeneratedPreviewFrame({
 }) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [ready, setReady] = useState(false);
-  const [hoverTarget, setHoverTarget] = useState<PreviewEditTarget | null>(
+  const [_hoverTarget, setHoverTarget] = useState<PreviewEditTarget | null>(
     null,
   );
-  const [selectedTarget, setSelectedTarget] =
+  const [_selectedTarget, setSelectedTarget] =
     useState<PreviewEditTarget | null>(null);
   // Consecutive 12s silent-recovery timeouts that fired without the generated app
   const [silentRecoveries, setSilentRecoveries] = useState(0);
@@ -252,19 +252,7 @@ export function GeneratedPreviewFrame({
           />
         ) : null}
         {directEditFlagEnabled && directEditActive ? (
-          <PreviewEditOverlay
-            hoverTarget={hoverTarget}
-            intents={directEditIntents}
-            onComment={(target) => onAnnotationTarget?.(target)}
-            onDirectEditAction={(action, target) => {
-              iframeRef.current?.contentWindow?.postMessage(
-                { action, type: "umkmcepat-edit-action" },
-                "*",
-              );
-              onDirectEditAction?.(action, target);
-            }}
-            selectedTarget={selectedTarget}
-          />
+          <PreviewEditOverlay />
         ) : null}
       </div>
       {previewState === "stuck" ? (
@@ -294,49 +282,8 @@ export function GeneratedPreviewFrame({
   );
 }
 
-export function PreviewEditOverlay({
-  intents,
-  selectedTarget,
-}: {
-  hoverTarget?: PreviewEditTarget | null;
-  intents: DirectEditIntent[];
-  onComment?: (target: PreviewEditTarget) => void;
-  onDirectEditAction?: (
-    action: "remove" | "move-up" | "move-down",
-    target: PreviewEditTarget,
-  ) => void;
-  selectedTarget: PreviewEditTarget | null;
-}) {
-  const selectedIntentCount = selectedTarget
-    ? intents.filter(
-        (intent) =>
-          intent.target.selectorPath === selectedTarget.target.selectorPath,
-      ).length
-    : 0;
-
-  return (
-    <div className="pointer-events-none absolute inset-0 z-30">
-      {selectedTarget && selectedIntentCount ? (
-        <div
-          className="absolute rounded-radius-md border border-[#0d9488]/70 bg-[#0d9488] px-spacing-2 py-spacing-1 text-[11px] font-semibold text-white shadow-[0_8px_24px_rgba(0,0,0,0.24)]"
-          style={{
-            left: Math.max(8, selectedTarget.target.boundingBox.x),
-            top:
-              selectedTarget.target.boundingBox.y +
-              selectedTarget.target.boundingBox.height +
-              8,
-          }}
-        >
-          {selectedIntentCount} perubahan siap disimpan
-        </div>
-      ) : null}
-      <div className="absolute bottom-spacing-4 left-1/2 w-[min(32rem,calc(100%-24px))] -translate-x-1/2 rounded-radius-xl border border-white/16 bg-[#171715]/92 px-spacing-4 py-spacing-3 text-center text-xs font-semibold leading-5 text-white shadow-[0_18px_60px_rgba(0,0,0,0.34)]">
-        {intents.length
-          ? `${intents.length} perubahan siap disimpan. Klik Simpan untuk menerapkan.`
-          : "Arahkan kursor untuk memilih bagian. Klik untuk mengunci pilihan dan lakukan perubahan."}
-      </div>
-    </div>
-  );
+export function PreviewEditOverlay() {
+  return null;
 }
 
 function PreviewAnnotationPopover({

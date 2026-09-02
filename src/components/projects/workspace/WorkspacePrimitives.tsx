@@ -1,11 +1,15 @@
 "use client";
 
 import {
+  ArrowDown,
+  ArrowUp,
+  ChevronDown,
   ChevronRight,
   Code2,
   ExternalLink,
   Globe2,
   Image as ImageIcon,
+  ImagePlus,
   Loader2,
   MessageSquare,
   MessageSquarePlus,
@@ -14,6 +18,7 @@ import {
   Send,
   Smartphone,
   Trash2,
+  Type,
   Undo2,
   X,
   LifeBuoy,
@@ -29,6 +34,7 @@ import { WorkspaceHistoryButton } from "@/components/projects/workspace/Workspac
 import { Button } from "@/components/ui/button";
 import { MobileSheet } from "@/components/ui/mobile-sheet";
 import { type WorkspaceCard } from "@/lib/projects/brief";
+import { type DirectEditIntent } from "@/lib/projects/direct-edit";
 import { type VisualAnnotationDraft } from "@/lib/projects/visual-annotations";
 import { cn } from "@/lib/utils";
 
@@ -93,8 +99,10 @@ export function WorkspaceTopBar({
   directEditActions?: {
     canUndo: boolean;
     canRedo: boolean;
+    intents?: DirectEditIntent[];
     onUndo: () => void;
     onRedo: () => void;
+    onRemoveIntent?: (index: number) => void;
     onSave: () => void;
     onDiscard: () => void;
   };
@@ -305,45 +313,7 @@ export function WorkspaceTopBar({
         <div className="hidden min-w-0 items-center justify-end gap-2.5 sm:flex sm:w-auto sm:shrink-0">
           {/* Direct edit controls (if active) */}
           {directEditFlagEnabled && directEditActive && directEditActions ? (
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                aria-label="Undo"
-                disabled={!directEditActions.canUndo}
-                onClick={directEditActions.onUndo}
-                className="grid size-7.5 place-items-center rounded-lg border border-surface-warm-white/12 bg-surface-warm-white/4 text-surface-warm-white/80 hover:bg-surface-warm-white/10 hover:text-white disabled:opacity-30 cursor-pointer transition"
-                title="Undo perubahan"
-              >
-                <Undo2 className="size-3.5" />
-              </button>
-              <button
-                type="button"
-                aria-label="Redo"
-                disabled={!directEditActions.canRedo}
-                onClick={directEditActions.onRedo}
-                className="grid size-7.5 place-items-center rounded-lg border border-surface-warm-white/12 bg-surface-warm-white/4 text-surface-warm-white/80 hover:bg-surface-warm-white/10 hover:text-white disabled:opacity-30 cursor-pointer transition"
-                title="Redo perubahan"
-              >
-                <Redo2 className="size-3.5" />
-              </button>
-              <Button
-                type="button"
-                size="sm"
-                onClick={directEditActions.onSave}
-                className="h-7.5 rounded-lg bg-sky-500 px-3 text-xs font-semibold text-white hover:bg-sky-400 shadow-xs cursor-pointer"
-              >
-                Simpan Perubahan
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={directEditActions.onDiscard}
-                className="h-7.5 rounded-lg border-surface-warm-white/15 bg-transparent px-2.5 text-xs text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-white cursor-pointer"
-              >
-                Batalkan
-              </Button>
-            </div>
+            <DirectEditToolbarSection actions={directEditActions} />
           ) : null}
 
           {/* Section: Project Actions */}
@@ -358,6 +328,159 @@ export function WorkspaceTopBar({
         </div>
       </div>
     </>
+  );
+}
+
+function DirectEditToolbarSection({
+  actions,
+}: {
+  actions: {
+    canUndo: boolean;
+    canRedo: boolean;
+    intents?: DirectEditIntent[];
+    onUndo: () => void;
+    onRedo: () => void;
+    onRemoveIntent?: (index: number) => void;
+    onSave: () => void;
+    onDiscard: () => void;
+  };
+}) {
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const intents = actions.intents || [];
+  const count = intents.length;
+
+  return (
+    <div className="relative flex items-center gap-1.5">
+      <button
+        type="button"
+        aria-label="Undo"
+        disabled={!actions.canUndo}
+        onClick={actions.onUndo}
+        className="grid size-7.5 place-items-center rounded-lg border border-surface-warm-white/12 bg-surface-warm-white/4 text-surface-warm-white/80 hover:bg-surface-warm-white/10 hover:text-white disabled:opacity-30 cursor-pointer transition"
+        title="Undo perubahan"
+      >
+        <Undo2 className="size-3.5" />
+      </button>
+      <button
+        type="button"
+        aria-label="Redo"
+        disabled={!actions.canRedo}
+        onClick={actions.onRedo}
+        className="grid size-7.5 place-items-center rounded-lg border border-surface-warm-white/12 bg-surface-warm-white/4 text-surface-warm-white/80 hover:bg-surface-warm-white/10 hover:text-white disabled:opacity-30 cursor-pointer transition"
+        title="Redo perubahan"
+      >
+        <Redo2 className="size-3.5" />
+      </button>
+
+      {/* Split / Dropdown Save Button */}
+      <div className="flex items-center rounded-lg bg-sky-500 shadow-xs">
+        <Button
+          type="button"
+          size="sm"
+          onClick={actions.onSave}
+          className="h-7.5 rounded-l-lg rounded-r-none bg-sky-500 px-2.5 text-xs font-semibold text-white hover:bg-sky-400 shadow-none cursor-pointer"
+        >
+          {count > 0 ? `Simpan (${count})` : "Simpan Perubahan"}
+        </Button>
+        {count > 0 ? (
+          <button
+            type="button"
+            onClick={() => setDropdownOpen(!dropdownOpen)}
+            className="flex h-7.5 items-center justify-center rounded-r-lg border-l border-sky-400/40 bg-sky-500 px-1.5 text-white hover:bg-sky-400 transition cursor-pointer"
+            title="Lihat rincian perubahan"
+            aria-label="Buka rincian perubahan"
+            aria-expanded={dropdownOpen}
+          >
+            <ChevronDown className="size-3.5" />
+          </button>
+        ) : null}
+      </div>
+
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        onClick={actions.onDiscard}
+        className="h-7.5 rounded-lg border-surface-warm-white/15 bg-transparent px-2.5 text-xs text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-white cursor-pointer"
+      >
+        Batalkan
+      </Button>
+
+      {/* Dropdown Menu Rincian Perubahan */}
+      {dropdownOpen && count > 0 ? (
+        <div className="absolute right-0 top-9 z-50 w-72 rounded-xl border border-surface-warm-white/14 bg-[#141413] p-2 text-surface-warm-white shadow-[0_16px_40px_rgba(0,0,0,0.5)]">
+          <div className="flex items-center justify-between border-b border-surface-warm-white/10 pb-1.5 px-2 text-[11px] font-semibold text-surface-warm-white/70">
+            <span>Rincian Perubahan ({count})</span>
+            <button
+              type="button"
+              onClick={() => setDropdownOpen(false)}
+              className="text-surface-warm-white/40 hover:text-white"
+            >
+              <X className="size-3" />
+            </button>
+          </div>
+          <div className="max-h-56 space-y-1 overflow-y-auto py-1.5">
+            {intents.map((intent, idx) => {
+              let icon = <Type className="size-3 text-sky-400 shrink-0" />;
+              let title = "Ubah Teks";
+              let desc = intent.newText
+                ? `"${intent.newText.slice(0, 24)}${intent.newText.length > 24 ? "…" : ""}"`
+                : intent.target.label;
+
+              if (intent.action === "replace-image") {
+                icon = (
+                  <ImagePlus className="size-3 text-emerald-400 shrink-0" />
+                );
+                title = "Ganti Foto";
+                desc = intent.target.label;
+              } else if (intent.action === "move-up") {
+                icon = <ArrowUp className="size-3 text-amber-400 shrink-0" />;
+                title = "Pindah Naik";
+                desc = intent.target.label;
+              } else if (intent.action === "move-down") {
+                icon = <ArrowDown className="size-3 text-amber-400 shrink-0" />;
+                title = "Pindah Turun";
+                desc = intent.target.label;
+              } else if (intent.action === "remove") {
+                icon = <Trash2 className="size-3 text-red-400 shrink-0" />;
+                title = "Hapus Elemen";
+                desc = intent.target.label;
+              }
+
+              return (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between gap-2 rounded-lg bg-surface-warm-white/4 px-2 py-1.5 text-xs text-surface-warm-white/90"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    {icon}
+                    <div className="min-w-0">
+                      <p className="truncate text-[11px] font-medium leading-tight text-white">
+                        {title}
+                      </p>
+                      <p className="truncate text-[10px] text-surface-warm-white/50">
+                        {desc}
+                      </p>
+                    </div>
+                  </div>
+                  {actions.onRemoveIntent ? (
+                    <button
+                      type="button"
+                      onClick={() => actions.onRemoveIntent?.(idx)}
+                      className="grid size-5 shrink-0 place-items-center rounded text-surface-warm-white/40 hover:bg-surface-warm-white/10 hover:text-red-400 transition"
+                      title="Batalkan perubahan ini"
+                      aria-label="Batalkan aksi ini"
+                    >
+                      <X className="size-3" />
+                    </button>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 

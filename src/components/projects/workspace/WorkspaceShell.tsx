@@ -4284,8 +4284,40 @@ export function WorkspaceShell({
                   canRedo:
                     Boolean(editIntentHistory.future.length) ||
                     canRedoDirectEdit(editHistory),
+                  intents: editIntentHistory.present,
                   onUndo: handleUndo,
                   onRedo: handleRedo,
+                  onRemoveIntent: (idx: number) => {
+                    const intent = editIntentHistory.present[idx];
+                    if (intent) {
+                      if (intent.action === "update-text") {
+                        sendFrameAction({
+                          action: "update-text",
+                          newText: intent.target.text || "",
+                          selectorPath: intent.target.selectorPath,
+                        });
+                      } else if (intent.action === "move-up") {
+                        sendFrameAction({
+                          action: "move-down",
+                          selectorPath: intent.target.selectorPath,
+                        });
+                      } else if (intent.action === "move-down") {
+                        sendFrameAction({
+                          action: "move-up",
+                          selectorPath: intent.target.selectorPath,
+                        });
+                      } else if (intent.action === "remove") {
+                        sendFrameAction({
+                          action: "restore",
+                          selectorPath: intent.target.selectorPath,
+                        });
+                      }
+                    }
+                    setEditIntentHistory((current) => ({
+                      ...current,
+                      present: current.present.filter((_, i) => i !== idx),
+                    }));
+                  },
                   onSave: () => void saveDirectEdit(),
                   onDiscard: handleDiscard,
                 }
