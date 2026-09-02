@@ -1035,6 +1035,13 @@ const UNIFIED_INSPECTOR_BRIDGE = String.raw`
       if (data.action === 'move-up') moveElement(data.selectorPath, -1);
       if (data.action === 'move-down') moveElement(data.selectorPath, 1);
       if (data.action === 'remove') removeElement(data.selectorPath);
+      if (data.action === 'restore') {
+        const el = document.querySelector(data.selectorPath);
+        if (el) {
+          el.style.display = '';
+          updateSelectedBoxPosition();
+        }
+      }
       if (data.action === 'update-text' && typeof data.newText === 'string') {
         updateElementText(data.selectorPath, data.newText);
       }

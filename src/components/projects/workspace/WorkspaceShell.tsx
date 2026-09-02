@@ -2432,8 +2432,44 @@ export function WorkspaceShell({
     setEditLayoutSignal((current) => current + 1);
   }
 
+  function sendFrameAction(actionPayload: Record<string, unknown>) {
+    const frame = document.querySelector(
+      'iframe[title="Tampilan website"]',
+    ) as HTMLIFrameElement | null;
+    frame?.contentWindow?.postMessage(
+      { ...actionPayload, type: "umkmcepat-edit-action" },
+      "*",
+    );
+  }
+
   const handleUndo = useCallback(() => {
-    if (editIntentHistory.present.length || editIntentHistory.past.length) {
+    if (editIntentHistory.present.length > 0) {
+      const lastIntent =
+        editIntentHistory.present[editIntentHistory.present.length - 1];
+      if (lastIntent) {
+        if (lastIntent.action === "update-text") {
+          sendFrameAction({
+            action: "update-text",
+            newText: lastIntent.target.text || "",
+            selectorPath: lastIntent.target.selectorPath,
+          });
+        } else if (lastIntent.action === "move-up") {
+          sendFrameAction({
+            action: "move-down",
+            selectorPath: lastIntent.target.selectorPath,
+          });
+        } else if (lastIntent.action === "move-down") {
+          sendFrameAction({
+            action: "move-up",
+            selectorPath: lastIntent.target.selectorPath,
+          });
+        } else if (lastIntent.action === "remove") {
+          sendFrameAction({
+            action: "restore",
+            selectorPath: lastIntent.target.selectorPath,
+          });
+        }
+      }
       setEditIntentHistory((current) => intentHistoryUndo(current));
       return;
     }
@@ -2444,10 +2480,30 @@ export function WorkspaceShell({
       }
       return next;
     });
-  }, [editIntentHistory.past.length, editIntentHistory.present.length]);
+  }, [editIntentHistory.present]);
 
   const handleRedo = useCallback(() => {
-    if (editIntentHistory.future.length) {
+    if (editIntentHistory.future.length > 0) {
+      const nextIntent =
+        editIntentHistory.future[0]?.[editIntentHistory.future[0].length - 1];
+      if (nextIntent) {
+        if (nextIntent.action === "update-text" && nextIntent.newText) {
+          sendFrameAction({
+            action: "update-text",
+            newText: nextIntent.newText,
+            selectorPath: nextIntent.target.selectorPath,
+          });
+        } else if (
+          nextIntent.action === "move-up" ||
+          nextIntent.action === "move-down" ||
+          nextIntent.action === "remove"
+        ) {
+          sendFrameAction({
+            action: nextIntent.action,
+            selectorPath: nextIntent.target.selectorPath,
+          });
+        }
+      }
       setEditIntentHistory((current) => intentHistoryRedo(current));
       return;
     }
@@ -2458,7 +2514,7 @@ export function WorkspaceShell({
       }
       return next;
     });
-  }, [editIntentHistory.future.length]);
+  }, [editIntentHistory.future]);
 
   function handleDiscard() {
     setEditHistory({ present: null, past: [], future: [] });
@@ -4223,7 +4279,7 @@ export function WorkspaceShell({
             effectiveDirectEditMode
               ? {
                   canUndo:
-                    Boolean(editIntentHistory.past.length) ||
+                    Boolean(editIntentHistory.present.length) ||
                     canUndoDirectEdit(editHistory),
                   canRedo:
                     Boolean(editIntentHistory.future.length) ||
