@@ -308,6 +308,7 @@ export async function runAgenticGenerate(input: {
   buildContract?: BuildContractV1;
   buildId?: string | null;
   buildPlan?: BuildPlanV1;
+  editPlan?: unknown;
   fullRebuild?: boolean;
   initialFiles?: GeneratedProjectFile[];
   motionOptOut?: boolean;
@@ -1398,12 +1399,16 @@ Progress labels and details must be plain Indonesian. Do not expose file names, 
       .map((f) => `- ${f.path}`)
       .join("\n") || "";
 
+  const editPlanContext =
+    isPartialRevisionMode && input.editPlan
+      ? `\n\nACCEPTED EDIT PLAN (authoritative scope):\n${formatPromptValue(input.editPlan)}\nFollow its dimensions, operations, target files, and completion criteria while preserving verified facts.`
+      : "";
   const executionContext = hasExistingComponents
     ? `EXISTING SITE FILES:\n${existingFileList}${targetFilesPreload}\n\nEDIT CATEGORY: ${editIntent?.category ?? "site update"}\n${
         editIntent
           ? `ROUTING BUDGET: no more than ${editIntent.suggestedMaxSteps} agent steps before the mandatory check_app.\n${editIntent.guidelines.map((guideline) => `- ${guideline}`).join("\n")}`
           : ""
-      }\nPreserve unrelated files, behavior, facts, routes, and working component boundaries.`
+      }${editPlanContext}\nPreserve unrelated files, behavior, facts, routes, and working component boundaries.`
     : "Create the source required by the accepted routes and facts. Choose the composition and component boundaries yourself.";
 
   const contractContext = input.buildContract

@@ -13,12 +13,14 @@ import { prisma } from "@/lib/prisma";
 import { enqueueAttemptJob } from "@/lib/projects/attempt-queue";
 import { createReadStreamFromChannel } from "@/lib/projects/build-attempt-pubsub";
 import { parseCanonicalBrief } from "@/lib/projects/canonical-brief";
+import { hashCanonicalBriefContent } from "@/lib/projects/canonical-brief-hash";
 import { resolveProjectChatState } from "@/lib/projects/chat-memory";
 import {
   isProjectDeploymentForProject,
   selectActivePreviewDeployment,
 } from "@/lib/projects/deployment-resolution";
 import { classifyEditIntent } from "@/lib/projects/edit-intent";
+import { createEditPlan, type EditPlan } from "@/lib/projects/edit-plan";
 import { classifyEditStructure } from "@/lib/projects/edit-structure";
 import { parseGeneratedProjectFiles } from "@/lib/projects/generated-source";
 import {
@@ -168,8 +170,8 @@ export async function handleVisualEditPost(request: Request, routeId: string) {
     );
   }
 
-  const editIntent = classifyEditIntent({ instruction });
-  if (editIntent.clarificationRequired) {
+  const scopeIntent = classifyEditIntent({ instruction });
+  if (scopeIntent.clarificationRequired) {
     return Response.json(
       {
         code: "edit_scope_clarification_required",
@@ -276,8 +278,41 @@ export async function handleVisualEditPost(request: Request, routeId: string) {
     );
   }
 
+  const latestSuccessfulCheckpoint =
+    await prisma.projectBuildCheckpoint.findFirst({
+      where: { projectId: project.id },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      select: { id: true, snapshotId: true },
+    });
+  const editIntent = classifyEditIntent({
+    existingFiles: baseFiles.map((file) => file.path),
+    instruction,
+  });
+  const editPlan = createEditPlan({
+    existingFiles: baseFiles.map((file) => file.path),
+    instruction,
+    intent: editIntent,
+    latestSuccessfulCheckpoint,
+    verifiedFactFingerprint: hashCanonicalBriefContent(
+      parseCanonicalBrief(project.brief, project.prompt),
+    ),
+  });
+  if (!editPlan.ok) {
+    return Response.json(
+      {
+        code: `edit_plan_${editPlan.code}`,
+        message:
+          editPlan.code === "checkpoint_required"
+            ? "Preview ini belum memiliki boundary build yang bisa digunakan untuk edit."
+            : "Perubahan ini perlu diperjelas sebelum website diedit.",
+      },
+      { status: 409 },
+    );
+  }
+
   const attempt = await createProjectEditAttempt({
     annotations: annotations.length ? annotations : undefined,
+    editPlan: editPlan.plan,
     instruction,
     kind,
     parentSnapshotId: activeSnapshot.id,
@@ -495,6 +530,7 @@ async function persistVisualSummaryMessage({
 
 type EditAttemptCreateInput = {
   annotations?: unknown;
+  editPlan?: EditPlan;
   instruction: string;
   kind: string;
   parentSnapshotId: string;
@@ -523,6 +559,9 @@ async function createProjectEditAttempt(input: EditAttemptCreateInput) {
     data: {
       annotations: input.annotations
         ? (input.annotations as Prisma.InputJsonValue)
+        : undefined,
+      editPlan: input.editPlan
+        ? (input.editPlan as Prisma.InputJsonValue)
         : undefined,
       id,
       instruction: input.instruction,

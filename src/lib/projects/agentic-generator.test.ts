@@ -394,6 +394,43 @@ describe("runAgenticGenerate", () => {
     ).toHaveLength(0);
   });
 
+  it("passes the structured edit plan to the revision agent", async () => {
+    let capturedPrompt = "";
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      capturedPrompt = (args as { prompt?: string }).prompt ?? "";
+      const tools = getTools(args);
+      await tools.write_file.execute({
+        content:
+          "export const generated = true;\n/* authored entrance: @keyframes umkm-entrance */",
+        path: "src/routes/generated.tsx",
+      });
+      await tools.check_app.execute({});
+      return { text: "Done", steps: [] };
+    });
+
+    await runAgenticGenerate(
+      createInput({
+        editPlan: {
+          dimensions: ["style", "layout"],
+          magnitude: "structural",
+          operations: [
+            { kind: "update_style" },
+            { kind: "redesign_layout" },
+            { kind: "responsive_layout" },
+          ],
+          targetFiles: ["src/routes/index.tsx", "src/index.css"],
+        },
+        initialFiles: [
+          { path: "src/routes/index.tsx", content: "existing route" },
+        ],
+        revisionBrief: "Buat layout lebih premium.",
+      }),
+    );
+
+    expect(capturedPrompt).toContain("ACCEPTED EDIT PLAN");
+    expect(capturedPrompt).toContain('"responsive_layout"');
+  });
+
   it("preserves the accepted protected site data during revisions", async () => {
     const preservedSiteContent =
       "export const site = { primaryCtaTarget: 'accepted' };";

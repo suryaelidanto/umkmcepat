@@ -8,6 +8,7 @@ const {
   prismaProjectBuildCreateMock,
   prismaProjectBuildUpdateManyMock,
   prismaProjectBuildUpdateMock,
+  prismaProjectBuildCheckpointFindFirstMock,
   prismaProjectDeploymentCreateMock,
   prismaProjectDeploymentFindManyMock,
   prismaProjectEditAttemptUpdateMock,
@@ -33,6 +34,7 @@ const {
   prismaProjectBuildCreateMock: vi.fn(),
   prismaProjectBuildUpdateManyMock: vi.fn(),
   prismaProjectBuildUpdateMock: vi.fn(),
+  prismaProjectBuildCheckpointFindFirstMock: vi.fn(),
   prismaProjectDeploymentCreateMock: vi.fn(),
   prismaProjectDeploymentFindManyMock: vi.fn(),
   prismaProjectEditAttemptUpdateMock: vi.fn(),
@@ -73,6 +75,9 @@ vi.mock("@/lib/prisma", () => {
       create: prismaProjectBuildCreateMock,
       update: prismaProjectBuildUpdateMock,
       updateMany: prismaProjectBuildUpdateManyMock,
+    },
+    projectBuildCheckpoint: {
+      findFirst: prismaProjectBuildCheckpointFindFirstMock,
     },
     projectDeployment: {
       create: prismaProjectDeploymentCreateMock,
@@ -248,6 +253,10 @@ describe("project edit route", () => {
       prompt: "Buat website angkringan",
       siteSchema: null,
     });
+    prismaProjectBuildCheckpointFindFirstMock.mockResolvedValue({
+      id: "checkpoint_success",
+      snapshotId: "snapshot_success",
+    });
     prismaProjectDeploymentFindManyMock.mockResolvedValue([
       {
         build: {
@@ -355,6 +364,19 @@ data: ${JSON.stringify({ attemptId, buildId: "build_edit", buildStatus: "succeed
     });
 
     expect(response.status).toBe(200);
+    expect(prismaProjectEditAttemptCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          editPlan: expect.objectContaining({
+            latestSuccessfulCheckpoint: {
+              id: "checkpoint_success",
+              snapshotId: "snapshot_success",
+            },
+            version: 1,
+          }),
+        }),
+      }),
+    );
     expect(enqueueAttemptJobMock).toHaveBeenCalledWith(
       expect.objectContaining({
         kind: "edit",

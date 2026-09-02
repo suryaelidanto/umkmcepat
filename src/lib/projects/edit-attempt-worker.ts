@@ -121,6 +121,7 @@ export async function runEditAttempt({
     select: {
       id: true,
       instruction: true,
+      editPlan: true,
       parentSnapshotId: true,
       status: true,
     },
@@ -419,6 +420,7 @@ export async function runEditAttempt({
     const agenticResult = await runAgenticGenerate({
       abortSignal,
       attemptId: attempt.id,
+      editPlan: attempt.editPlan,
       brief: {
         ...parseProjectBrief(storedBrief, project.prompt),
         prompt: updateInstruction,

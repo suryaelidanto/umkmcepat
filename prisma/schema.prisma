@@ -258,6 +258,7 @@ model ProjectEditAttempt {
   instruction      String              @db.Text
   summary          String?             @db.Text
   annotations      Json?
+  editPlan         Json?
   validationIssues Json?
   advisoryIssues   Json?
   errorMessage     String?             @db.Text
