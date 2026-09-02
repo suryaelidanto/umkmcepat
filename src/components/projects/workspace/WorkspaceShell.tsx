@@ -2416,6 +2416,11 @@ export function WorkspaceShell({
           chatPanelRef.current?.collapse();
           previewPanelRef.current?.resize("100%");
         });
+      } else {
+        setChatCollapsed(false);
+        window.requestAnimationFrame(() => {
+          chatPanelRef.current?.expand();
+        });
       }
       return next;
     });

@@ -274,16 +274,18 @@ export function WorkspaceTopBar({
               onClick={onToggleDirectEdit}
               aria-label={
                 directEditActive
-                  ? "Nonaktifkan mode tunjuk & ubah"
-                  : "Aktifkan mode tunjuk & ubah"
+                  ? "Keluar dari Studio Edit"
+                  : "Buka Studio Edit Tunjuk & Ubah"
               }
               aria-pressed={directEditActive}
-              className={`hidden md:inline-flex h-7 items-center gap-1.5 rounded-radius-md border px-2 py-0.5 text-[11px] transition cursor-pointer ${directEditActive ? "border-[#8fd3ff]/35 bg-[#8fd3ff]/12 text-[#d6f0ff]" : "border-surface-warm-white/10 bg-surface-warm-white/5 text-surface-warm-white/64 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"}`}
+              className={`hidden md:inline-flex h-7 items-center gap-1.5 rounded-radius-md border px-2.5 py-0.5 text-[11px] font-semibold transition cursor-pointer ${
+                directEditActive
+                  ? "border-sky-400/40 bg-sky-500/15 text-sky-200 shadow-xs"
+                  : "border-surface-warm-white/12 bg-surface-warm-white/6 text-surface-warm-white/80 hover:bg-surface-warm-white/10 hover:text-white"
+              }`}
             >
               <MessageSquarePlus className="size-3" />
-              <span className="hidden sm:inline">
-                {directEditActive ? "Mode Tunjuk Aktif" : "Tunjuk & Ubah"}
-              </span>
+              <span>{directEditActive ? "Keluar Studio" : "Studio Edit"}</span>
             </button>
           ) : null}
         </div>
@@ -303,39 +305,41 @@ export function WorkspaceTopBar({
         <div className="hidden min-w-0 items-center justify-end gap-2.5 sm:flex sm:w-auto sm:shrink-0">
           {/* Direct edit controls (if active) */}
           {directEditFlagEnabled && directEditActive && directEditActions ? (
-            <div className="flex items-center gap-spacing-1">
+            <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 aria-label="Undo"
                 disabled={!directEditActions.canUndo}
                 onClick={directEditActions.onUndo}
-                className="grid size-8 place-items-center rounded-radius-sm border border-surface-warm-white/15 text-surface-warm-white/85 hover:bg-surface-warm-white/10 disabled:opacity-40"
+                className="grid size-7.5 place-items-center rounded-lg border border-surface-warm-white/12 bg-surface-warm-white/4 text-surface-warm-white/80 hover:bg-surface-warm-white/10 hover:text-white disabled:opacity-30 cursor-pointer transition"
+                title="Undo perubahan"
               >
-                <Undo2 className="size-4" />
+                <Undo2 className="size-3.5" />
               </button>
               <button
                 type="button"
                 aria-label="Redo"
                 disabled={!directEditActions.canRedo}
                 onClick={directEditActions.onRedo}
-                className="grid size-8 place-items-center rounded-radius-sm border border-surface-warm-white/15 text-surface-warm-white/85 hover:bg-surface-warm-white/10 disabled:opacity-40"
+                className="grid size-7.5 place-items-center rounded-lg border border-surface-warm-white/12 bg-surface-warm-white/4 text-surface-warm-white/80 hover:bg-surface-warm-white/10 hover:text-white disabled:opacity-30 cursor-pointer transition"
+                title="Redo perubahan"
               >
-                <Redo2 className="size-4" />
+                <Redo2 className="size-3.5" />
               </button>
               <Button
                 type="button"
                 size="sm"
                 onClick={directEditActions.onSave}
-                className="h-8 rounded-radius-md bg-[#0d9488] px-spacing-3 text-xs text-white hover:bg-[#0f766e]"
+                className="h-7.5 rounded-lg bg-sky-500 px-3 text-xs font-semibold text-white hover:bg-sky-400 shadow-xs cursor-pointer"
               >
-                Simpan
+                Simpan Perubahan
               </Button>
               <Button
                 type="button"
                 size="sm"
                 variant="outline"
                 onClick={directEditActions.onDiscard}
-                className="h-8 rounded-radius-md border-surface-warm-white/20 bg-transparent text-xs text-surface-warm-white/80 hover:bg-surface-warm-white/8"
+                className="h-7.5 rounded-lg border-surface-warm-white/15 bg-transparent px-2.5 text-xs text-surface-warm-white/70 hover:bg-surface-warm-white/8 hover:text-white cursor-pointer"
               >
                 Batalkan
               </Button>
