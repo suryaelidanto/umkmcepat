@@ -14,6 +14,10 @@ import {
   type BuildSessionLogOperation,
 } from "@/lib/projects/build-session-log";
 import {
+  collectPendingUpdateInstructions,
+  resolveBuildUpdateContext,
+} from "@/lib/projects/build-update-context";
+import {
   createDiscussionContextSnapshot,
   parseCanonicalBrief,
 } from "@/lib/projects/canonical-brief";
@@ -178,6 +182,11 @@ export async function runEditAttempt({
 
   const instruction = attempt.instruction;
   const operation = { token: operationToken };
+  const latestCheckpoint = await prisma.projectBuildCheckpoint.findFirst({
+    where: { projectId: project.id },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    select: { chatMessageId: true, chatMessageIndex: true },
+  });
 
   const deployments = await prisma.projectDeployment.findMany({
     where: { kind: "preview", projectId: project.id },
@@ -397,16 +406,26 @@ export async function runEditAttempt({
       fallback: storedBrief.discussionContext,
     });
     const storedMessages = chatState.messages;
+    const updateContext = resolveBuildUpdateContext({
+      checkpoint: latestCheckpoint,
+      compactedMessageCount: chatState.summary.compactedMessageCount,
+      fallbackMessages: storedBrief.discussionContext?.messages,
+      messages: storedMessages,
+    });
+    const updateInstruction = collectPendingUpdateInstructions(
+      updateContext.pendingMessages,
+      instruction,
+    );
     const agenticResult = await runAgenticGenerate({
       abortSignal,
       attemptId: attempt.id,
       brief: {
         ...parseProjectBrief(storedBrief, project.prompt),
-        prompt: instruction,
+        prompt: updateInstruction,
         businessName: storedBrief.business.name || project.title,
         factLedger: storedBrief.factLedger,
         discussionContext: createDiscussionContextSnapshot({
-          messages: storedMessages,
+          messages: updateContext.contextMessages,
           summary: chatState.summary,
           memoryFacts: chatState.memoryFacts,
         }),
@@ -420,7 +439,7 @@ export async function runEditAttempt({
       },
       onFileStaged: persistBatchedStage,
       projectId: project.id,
-      revisionBrief: `User edit instruction: ${instruction}`,
+      revisionBrief: `User edit instruction: ${updateInstruction}`,
       schema: parseProjectSiteSchema(project.siteSchema),
       stepCharger: editStepCharger,
       userId: project.userId,
