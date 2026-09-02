@@ -50,6 +50,9 @@ const {
     projectDeployment: {
       create: vi.fn(async () => ({ id: "deployment-1" })),
     },
+    projectBuildCheckpoint: {
+      create: vi.fn(async () => ({ id: "checkpoint-1" })),
+    },
     projectAsset: {
       findMany: vi.fn(async () => []),
     },
@@ -527,6 +530,7 @@ describe("runBuildAttempt — bounded self-repair loop", () => {
       "src/components/site/hero.tsx",
     );
     expect(prismaMock.projectDeployment.create).toHaveBeenCalledTimes(1);
+    expect(prismaMock.projectBuildCheckpoint.create).toHaveBeenCalledTimes(1);
     expect(publishedEvents().filter((e) => e.type === "error")).toHaveLength(0);
     expect(
       publishedEvents().filter(
@@ -561,6 +565,7 @@ describe("runBuildAttempt — bounded self-repair loop", () => {
         data: expect.objectContaining({ buildStatus: "failed" }),
       }),
     );
+    expect(prismaMock.projectBuildCheckpoint.create).not.toHaveBeenCalled();
   });
 
   it("retries transient generation errors without consuming a repair round", async () => {

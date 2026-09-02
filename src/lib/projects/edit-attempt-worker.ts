@@ -6,6 +6,10 @@ import { enqueueAndWaitEditBuild } from "@/lib/projects/attempt-queue";
 import { parseProjectBrief } from "@/lib/projects/brief";
 import { publishBuildProgress } from "@/lib/projects/build-attempt-pubsub";
 import {
+  isSuccessfulBuildStatus,
+  persistSuccessfulBuildCheckpoint,
+} from "@/lib/projects/build-checkpoint";
+import {
   appendBuildSessionLog,
   type BuildSessionLogOperation,
 } from "@/lib/projects/build-session-log";
@@ -681,6 +685,15 @@ export async function runEditAttempt({
             status: buildStatus,
           },
         });
+        if (isSuccessfulBuildStatus(buildStatus)) {
+          await persistSuccessfulBuildCheckpoint({
+            buildId: build.id,
+            kind: "edit",
+            projectId: project.id,
+            snapshotId: snapshot.id,
+            store: transaction,
+          });
+        }
         const committedDeployment = await transaction.projectDeployment.create({
           data: {
             buildId: build.id,

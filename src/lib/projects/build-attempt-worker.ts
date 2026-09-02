@@ -7,6 +7,10 @@ import {
   publishBuildProgress,
   type BuildProgressEvent,
 } from "@/lib/projects/build-attempt-pubsub";
+import {
+  isSuccessfulBuildStatus,
+  persistSuccessfulBuildCheckpoint,
+} from "@/lib/projects/build-checkpoint";
 import { loadAcceptedHandoffForAttempt } from "@/lib/projects/build-handoffs";
 import {
   classifyBuildFailure,
@@ -944,6 +948,15 @@ export async function runBuildAttempt({
             status: projectBuildStatus,
           },
         });
+        if (isSuccessfulBuildStatus(projectBuildStatus)) {
+          await persistSuccessfulBuildCheckpoint({
+            buildId: build.id,
+            kind: "build",
+            projectId,
+            snapshotId: snapshot.id,
+            store: transaction,
+          });
+        }
         const committedDeployment = await transaction.projectDeployment.create({
           data: {
             buildId: build.id,
