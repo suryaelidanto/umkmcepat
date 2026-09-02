@@ -976,25 +976,35 @@ const UNIFIED_INSPECTOR_BRIDGE = String.raw`
   }
 
   function moveElement(selector, direction) {
-    const targetEl = currentSelectedElement || (selector ? document.querySelector(selector) : null);
+    let targetEl = currentSelectedElement || (selector ? document.querySelector(selector) : null);
     if (!targetEl || !targetEl.parentElement) return;
-    const parent = targetEl.parentElement;
-    const siblings = Array.from(parent.children).filter((item) => !isBridgeUi(item) && item.style.display !== 'none');
-    const index = siblings.indexOf(targetEl);
-    if (index === -1) return;
-    const targetIndex = index + direction;
-    if (targetIndex < 0 || targetIndex >= siblings.length) return;
-    const other = siblings[targetIndex];
-    if (direction < 0) {
-      parent.insertBefore(targetEl, other);
-    } else {
-      parent.insertBefore(other, targetEl);
+
+    // Climb up to nearest reorderable block when element has no siblings.
+    while (targetEl && targetEl.parentElement && targetEl.parentElement !== document.body) {
+      const siblings = Array.from(targetEl.parentElement.children).filter(
+        (item) => !isBridgeUi(item) && item.style.display !== 'none',
+      );
+      if (siblings.length > 1) {
+        const index = siblings.indexOf(targetEl);
+        const targetIndex = index + direction;
+        if (targetIndex >= 0 && targetIndex < siblings.length) {
+          const other = siblings[targetIndex];
+          if (direction < 0) {
+            targetEl.parentElement.insertBefore(targetEl, other);
+          } else {
+            targetEl.parentElement.insertBefore(other, targetEl);
+          }
+          currentSelectedElement = targetEl;
+          setSelectedBox(targetEl.getBoundingClientRect());
+          return;
+        }
+      }
+      targetEl = targetEl.parentElement;
     }
-    updateSelectedBoxPosition();
   }
 
   function removeElement(selector) {
-    const targetEl = currentSelectedElement || (selector ? document.querySelector(selector) : null);
+    let targetEl = currentSelectedElement || (selector ? document.querySelector(selector) : null);
     if (!targetEl) return;
     targetEl.style.display = 'none';
     hideSelectedBox();

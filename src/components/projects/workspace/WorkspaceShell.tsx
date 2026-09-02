@@ -2634,10 +2634,11 @@ export function WorkspaceShell({
   }
 
   function queueDirectEditIntent(intent: DirectEditIntent) {
+    const frame = document.querySelector(
+      'iframe[title="Tampilan website"]',
+    ) as HTMLIFrameElement | null;
+
     if (intent.action === "update-text" && intent.newText) {
-      const frame = document.querySelector(
-        'iframe[title="Tampilan website"]',
-      ) as HTMLIFrameElement | null;
       frame?.contentWindow?.postMessage(
         {
           action: "update-text",
@@ -2648,13 +2649,23 @@ export function WorkspaceShell({
         "*",
       );
     } else if (intent.action === "replace-image" && intent.newSrc) {
-      const frame = document.querySelector(
-        'iframe[title="Tampilan website"]',
-      ) as HTMLIFrameElement | null;
       frame?.contentWindow?.postMessage(
         {
           action: "replace-image",
           newSrc: intent.newSrc,
+          selectorPath: intent.target.selectorPath,
+          type: "umkmcepat-edit-action",
+        },
+        "*",
+      );
+    } else if (
+      intent.action === "move-up" ||
+      intent.action === "move-down" ||
+      intent.action === "remove"
+    ) {
+      frame?.contentWindow?.postMessage(
+        {
+          action: intent.action,
           selectorPath: intent.target.selectorPath,
           type: "umkmcepat-edit-action",
         },
