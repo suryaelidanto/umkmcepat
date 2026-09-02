@@ -1,7 +1,9 @@
 export type VisualAnnotationTarget = {
   boundingBox: { height: number; width: number; x: number; y: number };
   classes?: string;
+  componentHierarchy?: string[];
   nearbyText?: string;
+  primaryComponent?: string | null;
   selectorPath: string;
   src?: string;
   tag: string;
@@ -133,8 +135,20 @@ export function sanitizeVisualAnnotations(input: unknown) {
             classes: target.classes
               ? trim(String(target.classes), 300)
               : undefined,
+            componentHierarchy: Array.isArray(target.componentHierarchy)
+              ? target.componentHierarchy
+                  .filter(
+                    (c): c is string =>
+                      typeof c === "string" && Boolean(c.trim()),
+                  )
+                  .map((c) => trim(c, 80))
+                  .slice(0, 10)
+              : undefined,
             nearbyText: target.nearbyText
               ? trim(String(target.nearbyText), 500)
+              : undefined,
+            primaryComponent: target.primaryComponent
+              ? trim(String(target.primaryComponent), 80)
               : undefined,
             selectorPath: trim(String(target.selectorPath), 300),
             src: target.src ? trim(String(target.src), 500) : undefined,

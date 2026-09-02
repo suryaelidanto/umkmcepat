@@ -289,6 +289,7 @@ export async function handleVisualEditPost(request: Request, routeId: string) {
     instruction,
   });
   const editPlan = createEditPlan({
+    annotations,
     existingFiles: baseFiles.map((file) => file.path),
     instruction,
     intent: editIntent,

@@ -51,12 +51,19 @@ export type EditPlanResult =
     };
 
 export function createEditPlan({
+  annotations = [],
   existingFiles,
   instruction,
   intent,
   latestSuccessfulCheckpoint,
   verifiedFactFingerprint,
 }: {
+  annotations?: Array<{
+    target?: {
+      componentHierarchy?: string[];
+      primaryComponent?: string | null;
+    };
+  }>;
   existingFiles: string[];
   instruction: string;
   intent: EditIntentClassification;
@@ -77,6 +84,7 @@ export function createEditPlan({
   }
 
   const operations = getPlanOperations(intent);
+  const targetFiles = getTargetFiles(existingFiles, intent, annotations);
   const parsed = editPlanSchema.safeParse({
     completionCriteria: getCompletionCriteria(intent),
     dimensions: intent.dimensions,
@@ -85,7 +93,7 @@ export function createEditPlan({
     magnitude: intent.magnitude,
     operations,
     verifiedFactFingerprint,
-    targetFiles: getTargetFiles(existingFiles, intent),
+    targetFiles,
     version: 1,
   });
   if (!parsed.success) {
@@ -138,7 +146,32 @@ function getCompletionCriteria(
 function getTargetFiles(
   existingFiles: string[],
   intent: EditIntentClassification,
+  annotations: Array<{
+    target?: {
+      componentHierarchy?: string[];
+      primaryComponent?: string | null;
+    };
+  }> = [],
 ): string[] {
   const allowed = new Set(existingFiles);
-  return intent.targetFiles.filter((path) => allowed.has(path));
+  const targets = new Set(
+    intent.targetFiles.filter((path) => allowed.has(path)),
+  );
+
+  for (const item of annotations) {
+    const primary = item.target?.primaryComponent;
+    if (primary) {
+      const match = existingFiles.find(
+        (f) =>
+          f.endsWith(`/${primary}.tsx`) ||
+          f.endsWith(`/${primary}.ts`) ||
+          f.toLowerCase().endsWith(`/${primary.toLowerCase()}.tsx`),
+      );
+      if (match) {
+        targets.add(match);
+      }
+    }
+  }
+
+  return Array.from(targets);
 }
