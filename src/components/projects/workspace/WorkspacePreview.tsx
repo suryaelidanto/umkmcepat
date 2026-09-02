@@ -3,6 +3,11 @@
 import { ImagePlus, RefreshCw, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import {
+  calculateFloatingPopoverPosition,
+  formatHierarchyBreadcrumb,
+} from "./popover-position";
+
 import { Button } from "@/components/ui/button";
 import { type EditLayout } from "@/lib/projects/direct-edit";
 import { type VisualAnnotationDraft } from "@/lib/projects/visual-annotations";
@@ -11,7 +16,13 @@ import {
   PREVIEW_STUCK_MAX_ATTEMPTS,
 } from "@/lib/projects/workspace-sync";
 
-export type PreviewEditTarget = Omit<VisualAnnotationDraft, "comment" | "id">;
+export type PreviewEditTarget = Omit<
+  VisualAnnotationDraft,
+  "comment" | "id"
+> & {
+  componentHierarchy?: string[];
+  primaryComponent?: string | null;
+};
 
 export function GeneratedPreviewFrame({
   annotationMarkers = [],
@@ -328,10 +339,20 @@ function PreviewAnnotationPopover({
   onChange: (value: string) => void;
   onReplaceImage?: () => void;
   onSave: () => void;
-  target: Omit<VisualAnnotationDraft, "comment" | "id">;
+  target: PreviewEditTarget;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const position = getAnnotationPopoverPosition(target.target.boundingBox);
+  const breadcrumbs = formatHierarchyBreadcrumb({
+    componentHierarchy: target.componentHierarchy,
+    label: target.label,
+    tag: target.target.tag,
+  });
+
+  const position = calculateFloatingPopoverPosition({
+    boundingBox: target.target.boundingBox,
+    containerHeight: window.innerHeight,
+    containerWidth: window.innerWidth,
+  });
 
   useEffect(() => {
     textareaRef.current?.focus();
@@ -341,11 +362,34 @@ function PreviewAnnotationPopover({
     <div
       role="dialog"
       aria-label={`Komentar untuk ${target.label}`}
-      className="absolute z-40 w-[min(22rem,calc(100%-1.5rem))] rounded-[18px] border border-surface-warm-white/14 bg-[#1b1b19] p-spacing-4 text-surface-warm-white shadow-[0_18px_60px_rgba(0,0,0,0.42)]"
-      style={position}
+      className="absolute z-40 w-[min(24rem,calc(100%-1.5rem))] rounded-[18px] border border-surface-warm-white/14 bg-[#1b1b19] p-spacing-4 text-surface-warm-white shadow-[0_18px_60px_rgba(0,0,0,0.42)]"
+      style={{
+        left: position.left,
+        top: position.top,
+      }}
     >
       <div className="flex items-start justify-between gap-spacing-4">
         <div className="min-w-0">
+          {breadcrumbs.length > 0 ? (
+            <div className="flex items-center gap-1 overflow-hidden pb-1 text-[11px] font-semibold text-sky-400">
+              {breadcrumbs.map((crumb, idx) => (
+                <span key={idx} className="flex items-center gap-1 truncate">
+                  {idx > 0 && (
+                    <span className="text-surface-warm-white/30">/</span>
+                  )}
+                  <span
+                    className={
+                      idx === breadcrumbs.length - 1
+                        ? "text-sky-300"
+                        : "text-surface-warm-white/60"
+                    }
+                  >
+                    {crumb.name}
+                  </span>
+                </span>
+              ))}
+            </div>
+          ) : null}
           <p className="truncate text-xs font-semibold text-[#d6f0ff]">
             {target.label}
           </p>
@@ -419,21 +463,6 @@ function PreviewAnnotationPopover({
       </div>
     </div>
   );
-}
-
-function getAnnotationPopoverPosition(
-  box: VisualAnnotationDraft["target"]["boundingBox"],
-) {
-  const horizontal =
-    box.x > 420 ? { right: 12 } : { left: Math.max(12, box.x) };
-  const shouldOpenAbove = box.y > 360;
-
-  return shouldOpenAbove
-    ? {
-        ...horizontal,
-        bottom: `calc(100% - ${Math.max(12, box.y - 10)}px)`,
-      }
-    : { ...horizontal, top: Math.max(12, box.y + box.height + 10) };
 }
 
 export function PreviewIssueState({
