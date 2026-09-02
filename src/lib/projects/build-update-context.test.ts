@@ -17,6 +17,19 @@ const message = (
 });
 
 describe("build update context", () => {
+  it("returns no pending requests when the latest message is already applied", () => {
+    const result = resolveBuildUpdateContext({
+      checkpoint: { chatMessageId: "built", chatMessageIndex: 1 },
+      fallbackMessages: [],
+      messages: [
+        message("brief", "user", "Buat website laundry"),
+        message("built", "assistant", "Website siap"),
+      ],
+    });
+
+    expect(result.pendingMessages).toEqual([]);
+  });
+
   it("keeps the applied conversation as baseline and returns later requests", () => {
     const result = resolveBuildUpdateContext({
       checkpoint: { chatMessageId: "built", chatMessageIndex: 2 },
@@ -94,6 +107,18 @@ describe("build update context", () => {
 
     expect(result.baselineMessages.map((item) => item.id)).toEqual(["old"]);
     expect(result.pendingMessages).toEqual([]);
+  });
+
+  it("preserves conflicting owner requests in their original order", () => {
+    const result = collectPendingUpdateInstructions(
+      [
+        message("first", "user", "Gunakan warna biru"),
+        message("second", "user", "Ganti jadi warna hijau"),
+      ],
+      "fallback",
+    );
+
+    expect(result).toBe("Gunakan warna biru\n\nGanti jadi warna hijau");
   });
 
   it("aggregates only distinct owner requests for the next update", () => {
