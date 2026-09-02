@@ -140,6 +140,7 @@ import {
 import {
   getBuildRecommendationHoldSignature,
   getWorkspaceCardFromMessages,
+  isBuildRecommendationConsumed,
   getWorkspaceComposerState,
   getWorkspacePreviewIssue,
   hasAnsweredWorkspaceQuestion,
@@ -465,6 +466,31 @@ export function WorkspaceShell({
   const [mobileSurface, setMobileSurface] = useState<"chat" | "preview">(
     hasInitialPreview ? "preview" : "chat",
   );
+  const applyWorkspaceCard = useCallback(
+    (card: WorkspaceCard) => {
+      if (
+        isBuildRecommendationConsumed(
+          card,
+          consumedBuildRecommendationSignatures,
+        )
+      ) {
+        return false;
+      }
+      setWorkspaceCard(card);
+      return true;
+    },
+    [consumedBuildRecommendationSignatures],
+  );
+  useEffect(() => {
+    if (
+      isBuildRecommendationConsumed(
+        workspaceCard,
+        consumedBuildRecommendationSignatures,
+      )
+    ) {
+      setWorkspaceCard({ type: "none" });
+    }
+  }, [consumedBuildRecommendationSignatures, workspaceCard]);
   const {
     messages,
     regenerate,
@@ -481,8 +507,9 @@ export function WorkspaceShell({
       if (data.type === "data-workspaceCard") {
         const card = (data as { data?: WorkspaceCard }).data;
         if (card && card.type !== "none") {
-          setWorkspaceCard(card);
-          setWorkspaceCardError(false);
+          if (applyWorkspaceCard(card)) {
+            setWorkspaceCardError(false);
+          }
         }
       }
     },
@@ -886,16 +913,19 @@ export function WorkspaceShell({
 
       if (isPreparingNextQuestionRef.current) {
         if (
-          isFreshWorkspaceCard(result.workspaceCard, workspaceCardRef.current)
+          isFreshWorkspaceCard(
+            result.workspaceCard,
+            workspaceCardRef.current,
+          ) &&
+          applyWorkspaceCard(result.workspaceCard)
         ) {
-          setWorkspaceCard(result.workspaceCard);
           setProjectTitle(result.projectTitle);
           setDraftTitle(result.projectTitle);
         }
         return;
       }
 
-      setWorkspaceCard(result.workspaceCard);
+      applyWorkspaceCard(result.workspaceCard);
       setProjectTitle(result.projectTitle);
       setDraftTitle(result.projectTitle);
       if (result.brief) {
@@ -903,7 +933,7 @@ export function WorkspaceShell({
       }
       return result;
     },
-    [projectId],
+    [applyWorkspaceCard, projectId],
   );
 
   const recoverPreviewRuntime = useCallback(async () => {
@@ -988,6 +1018,10 @@ export function WorkspaceShell({
       return;
     }
 
+    const consumedSignature = getBuildRecommendationHoldSignature(
+      workspaceCardRef.current,
+    );
+    setWorkspaceCard({ type: "none" });
     window.localStorage.removeItem(buildRecommendationStorageKey);
     setHeldBuildRecommendationSignature(null);
     setPostBuildChatOpen(false);
@@ -1001,9 +1035,6 @@ export function WorkspaceShell({
     setMobileSurface("chat");
 
     // Permanently consume the current build_recommendation signature (if any)
-    const consumedSignature = getBuildRecommendationHoldSignature(
-      workspaceCardRef.current,
-    );
     if (consumedSignature) {
       setConsumedBuildRecommendationSignatures((prev) => {
         if (prev.has(consumedSignature)) {
@@ -1318,13 +1349,15 @@ export function WorkspaceShell({
     ) {
       return;
     }
-    setWorkspaceCard(toolCard.workspaceCard);
+    if (!applyWorkspaceCard(toolCard.workspaceCard)) {
+      return;
+    }
     if (toolCard.projectTitle) {
       setProjectTitle(toolCard.projectTitle);
       setDraftTitle(toolCard.projectTitle);
     }
     setWorkspaceCardError(false);
-  }, [allMessages, setWorkspaceCard, setProjectTitle, setDraftTitle]);
+  }, [allMessages, applyWorkspaceCard, setProjectTitle, setDraftTitle]);
   const visibleMessages = useMemo(
     () =>
       filterDiscussionMessagesWithWorkspaceUi(allMessages, mode === "discuss"),
@@ -1796,8 +1829,10 @@ export function WorkspaceShell({
               if (canceled) {
                 return;
               }
-              if (isFreshWorkspaceCard(result.workspaceCard, previousCard)) {
-                setWorkspaceCard(result.workspaceCard);
+              if (
+                isFreshWorkspaceCard(result.workspaceCard, previousCard) &&
+                applyWorkspaceCard(result.workspaceCard)
+              ) {
                 if (result.projectTitle) {
                   setProjectTitle(result.projectTitle);
                   setDraftTitle(result.projectTitle);
@@ -1827,8 +1862,10 @@ export function WorkspaceShell({
           if (canceled) {
             return;
           }
-          if (isFreshWorkspaceCard(result.workspaceCard, previousCard)) {
-            setWorkspaceCard(result.workspaceCard);
+          if (
+            isFreshWorkspaceCard(result.workspaceCard, previousCard) &&
+            applyWorkspaceCard(result.workspaceCard)
+          ) {
             if (result.projectTitle) {
               setProjectTitle(result.projectTitle);
               setDraftTitle(result.projectTitle);
@@ -1855,7 +1892,12 @@ export function WorkspaceShell({
     return () => {
       canceled = true;
     };
-  }, [isPreparingNextQuestion, projectId, reloadLatestChat]);
+  }, [
+    applyWorkspaceCard,
+    isPreparingNextQuestion,
+    projectId,
+    reloadLatestChat,
+  ]);
 
   useEffect(() => {
     // Release the synchronous submit lock once the chat settles back to idle,
@@ -1955,9 +1997,9 @@ export function WorkspaceShell({
               };
               if (
                 parsed.workspaceCard &&
-                parsed.workspaceCard.type !== "none"
+                parsed.workspaceCard.type !== "none" &&
+                applyWorkspaceCard(parsed.workspaceCard)
               ) {
-                setWorkspaceCard(parsed.workspaceCard);
                 setWorkspaceCardError(false);
               }
             } catch {
@@ -2079,13 +2121,13 @@ export function WorkspaceShell({
 
     if (settle.applyToolCard && toolCard) {
       if (
-        isFreshWorkspaceCard(
+        (isFreshWorkspaceCard(
           toolCard.workspaceCard,
           workspaceCardRef.current,
         ) ||
-        toolCard.workspaceCard.type !== workspaceCardRef.current.type
+          toolCard.workspaceCard.type !== workspaceCardRef.current.type) &&
+        applyWorkspaceCard(toolCard.workspaceCard)
       ) {
-        setWorkspaceCard(toolCard.workspaceCard);
         if (toolCard.projectTitle) {
           setProjectTitle(toolCard.projectTitle);
           setDraftTitle(toolCard.projectTitle);
@@ -3139,8 +3181,7 @@ export function WorkspaceShell({
             es.addEventListener("workspace-card-delta", (event) => {
               const parsed = parseEvent(event);
               const card = parsed?.workspaceCard as WorkspaceCard | undefined;
-              if (card && card.type !== "none") {
-                setWorkspaceCard(card);
+              if (card && card.type !== "none" && applyWorkspaceCard(card)) {
                 setWorkspaceCardError(false);
               }
             });
@@ -3161,11 +3202,11 @@ export function WorkspaceShell({
                 | undefined;
               if (
                 !output?.workspaceCard ||
-                output.workspaceCard.type === "none"
+                output.workspaceCard.type === "none" ||
+                !applyWorkspaceCard(output.workspaceCard)
               ) {
                 return;
               }
-              setWorkspaceCard(output.workspaceCard);
               if (typeof output.projectTitle === "string") {
                 setProjectTitle(output.projectTitle);
                 setDraftTitle(output.projectTitle);
@@ -3332,7 +3373,9 @@ export function WorkspaceShell({
         return;
       }
 
-      setWorkspaceCard(result.workspaceCard);
+      if (!applyWorkspaceCard(result.workspaceCard)) {
+        return;
+      }
       setProjectTitle(result.projectTitle);
       setDraftTitle(result.projectTitle);
       setWorkspaceCardError(false);
