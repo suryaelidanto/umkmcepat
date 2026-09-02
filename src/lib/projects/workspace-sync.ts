@@ -6,6 +6,39 @@ import { type WorkspaceCard } from "@/lib/projects/brief";
 export type WorkspaceChatStatus =
   "error" | "ready" | "streaming" | "submitted" | string;
 
+const ACTIVE_PROJECT_JOB_PHASES = new Set([
+  "building",
+  "finalizing",
+  "generating",
+]);
+const ACTIVE_PROJECT_DEPLOYMENT_STATUSES = new Set(["created", "starting"]);
+const ACTIVE_PROJECT_ATTEMPT_STATUSES = new Set([
+  "building",
+  "editing",
+  "generating",
+  "queued",
+  "received",
+  "repairing",
+  "running",
+]);
+
+export function getProjectRuntimePollInterval(
+  state:
+    | {
+        activeJob?: { phase?: string | null } | null;
+        deployment?: { status?: string | null } | null;
+        latestAttempt?: { status?: string | null } | null;
+      }
+    | null
+    | undefined,
+): number | false {
+  return ACTIVE_PROJECT_JOB_PHASES.has(state?.activeJob?.phase ?? "") ||
+    ACTIVE_PROJECT_DEPLOYMENT_STATUSES.has(state?.deployment?.status ?? "") ||
+    ACTIVE_PROJECT_ATTEMPT_STATUSES.has(state?.latestAttempt?.status ?? "")
+    ? 2_000
+    : false;
+}
+
 export function shouldRefreshWorkspaceAfterChatStatus(
   previous: WorkspaceChatStatus,
   next: WorkspaceChatStatus,
@@ -443,6 +476,22 @@ function getSafePreviewIssueDetail(value: string, fallback: string) {
 export const PREPARING_POLL_INTERVAL_MS = 2000;
 // Must exceed the server's own worst-case deadline for producing the next
 export const PREPARING_TIMEOUT_MS = DISCUSS_CARD_SERVER_DEADLINE_MS + 15_000;
+
+export function shouldRehydrateWorkspaceCardFromMessages({
+  buildComplete,
+  card,
+  previous,
+}: {
+  buildComplete: boolean;
+  card: WorkspaceCard;
+  previous: WorkspaceCard;
+}) {
+  return !(
+    buildComplete &&
+    previous.type === "none" &&
+    card.type === "build_recommendation"
+  );
+}
 
 export function isFreshWorkspaceCard(
   next: WorkspaceCard,

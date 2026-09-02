@@ -37,6 +37,7 @@ import {
   parseProjectMemoryFacts,
   resolveProjectChatState,
 } from "@/lib/projects/chat-memory";
+import { isPreflightBlockedByWorkspaceCard } from "@/lib/projects/discuss-preflight";
 import { buildCardSystemPrompt } from "@/lib/projects/discuss-tool";
 import {
   claimDiscussTurn,
@@ -312,6 +313,15 @@ async function handlePreviewPost(request: Request) {
     chatRow?.workspaceCard,
     currentBrief,
   );
+  if (preflight && isPreflightBlockedByWorkspaceCard(storedWorkspaceCard)) {
+    return Response.json(
+      {
+        code: "workspace_answer_required",
+        message: "Jawab pertanyaan yang sedang aktif sebelum melanjutkan.",
+      },
+      { status: 409 },
+    );
+  }
   let workspaceAnswerPatch = buildBriefPatchFromWorkspaceAnswers({
     card: storedWorkspaceCard,
     fallbackText: latestUserText,

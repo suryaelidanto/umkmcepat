@@ -173,6 +173,14 @@ describe("resolvePrimaryComposerIntent", () => {
         hasDraft: false,
       }),
     ).toBeNull();
+    expect(
+      resolvePrimaryComposerIntent({
+        buildComplete: false,
+        hasActionableRecommendation: false,
+        hasDraft: false,
+        hasPendingQuestion: true,
+      }),
+    ).toBeNull();
   });
 });
 

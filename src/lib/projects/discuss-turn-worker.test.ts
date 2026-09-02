@@ -833,6 +833,7 @@ describe("runDiscussTurn worker", () => {
       modelOverride: "test-model" as never,
     });
 
+    expect(generateTextMock).toHaveBeenCalledTimes(1);
     const repairText = "Aku siap bantu. Pertama, nama usahanya apa?";
     const textDeltas = publishProgressMock.mock.calls
       .filter(

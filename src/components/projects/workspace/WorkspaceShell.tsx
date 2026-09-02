@@ -122,6 +122,7 @@ import {
   isTerminalChatError,
   nextRetryAttempt,
 } from "@/lib/projects/discuss-chat-error";
+import { isPreflightBlockedByWorkspaceCard } from "@/lib/projects/discuss-preflight";
 import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
 import {
   createImageReplaceEditInstruction,
@@ -139,8 +140,10 @@ import {
 } from "@/lib/projects/workspace-resume";
 import {
   getBuildRecommendationHoldSignature,
+  getProjectRuntimePollInterval,
   getWorkspaceCardFromMessages,
   isBuildRecommendationConsumed,
+  shouldRehydrateWorkspaceCardFromMessages,
   getWorkspaceComposerState,
   getWorkspacePreviewIssue,
   hasAnsweredWorkspaceQuestion,
@@ -725,18 +728,10 @@ export function WorkspaceShell({
 
       return (await response.json()) as RuntimeWorkspaceState;
     },
-    refetchInterval: (query) => {
-      const data = query.state.data as RuntimeWorkspaceState | undefined;
-      const attemptStatus = data?.latestAttempt?.status || "";
-      const deploymentStatus = data?.deployment?.status || "";
-      if (
-        ["running", "building", "starting", "queued"].includes(attemptStatus) ||
-        ["running", "building", "starting", "queued"].includes(deploymentStatus)
-      ) {
-        return 30_000;
-      }
-      return false;
-    },
+    refetchInterval: (query) =>
+      getProjectRuntimePollInterval(
+        query.state.data as RuntimeWorkspaceState | undefined,
+      ),
     // Keep last good runtime while a poll fails (503/backoff/network).
     placeholderData: (previous) => previous,
     staleTime: 3000,
@@ -1317,10 +1312,24 @@ export function WorkspaceShell({
     isEditingPreview ||
     isRetrying ||
     isPreparingNextQuestion;
+  const buildComplete = isWorkspaceBuildComplete({
+    buildStatus,
+    runtimeBuildStatus: runtimeState?.build?.status,
+    sourceStatus,
+  });
 
   useEffect(() => {
     const toolCard = getWorkspaceCardFromMessages(allMessages);
     if (!toolCard || toolCard.workspaceCard.type === "none") {
+      return;
+    }
+    if (
+      !shouldRehydrateWorkspaceCardFromMessages({
+        buildComplete,
+        card: toolCard.workspaceCard,
+        previous: workspaceCardRef.current,
+      })
+    ) {
       return;
     }
     if (
@@ -1337,7 +1346,13 @@ export function WorkspaceShell({
       setDraftTitle(toolCard.projectTitle);
     }
     setWorkspaceCardError(false);
-  }, [allMessages, applyWorkspaceCard, setProjectTitle, setDraftTitle]);
+  }, [
+    allMessages,
+    applyWorkspaceCard,
+    buildComplete,
+    setProjectTitle,
+    setDraftTitle,
+  ]);
   const visibleMessages = useMemo(
     () =>
       filterDiscussionMessagesWithWorkspaceUi(allMessages, mode === "discuss"),
@@ -1349,11 +1364,6 @@ export function WorkspaceShell({
     workspaceCard,
     heldBuildRecommendationSignature,
   );
-  const buildComplete = isWorkspaceBuildComplete({
-    buildStatus,
-    runtimeBuildStatus: runtimeState?.build?.status,
-    sourceStatus,
-  });
   const hasFailedLatestAttemptWithLastGood =
     runtimeState?.userFacingState === "ready_with_failed_latest_attempt" &&
     Boolean(runtimeState.build || runtimeState.deployment);
@@ -1366,6 +1376,8 @@ export function WorkspaceShell({
     postBuildChatOpen,
   });
   const canStartBuildNow = canStartBuild(workspaceCard);
+  const preflightBlockedByCard =
+    isPreflightBlockedByWorkspaceCard(workspaceCard);
   const activeQuestionKey =
     workspaceCard.type === "question"
       ? workspaceCard.question.id
@@ -3002,6 +3014,7 @@ export function WorkspaceShell({
       buildComplete,
       hasActionableRecommendation,
       hasDraft,
+      hasPendingQuestion: preflightBlockedByCard,
     });
 
     if (intent) {
@@ -3012,6 +3025,7 @@ export function WorkspaceShell({
     isBuilding,
     message,
     pendingAttachments.length,
+    preflightBlockedByCard,
     readOnly,
     submitChatText,
     workspaceCard,
@@ -3815,25 +3829,31 @@ export function WorkspaceShell({
                             }
                           />
                           <div className="mt-2 flex items-center justify-between gap-3 border-t border-black/10 pt-2 dark:border-white/10">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => void handlePrimaryComposerAction()}
-                              disabled={
-                                isBuilding ||
-                                isProcessing ||
-                                isSubmittingTurn ||
-                                readOnly ||
-                                Boolean(message.trim()) ||
-                                pendingAttachments.length > 0
-                              }
-                              className="h-8 rounded-lg border-black/15 bg-white px-3 text-xs font-medium text-foreground hover:bg-black/5 hover:text-foreground active:scale-95 disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/15 dark:bg-white/5 dark:hover:bg-white/10 cursor-pointer"
-                            >
-                              {buildComplete
-                                ? "Perbarui website"
-                                : "Buat Website"}
-                            </Button>
+                            {preflightBlockedByCard ? (
+                              <span />
+                            ) : (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  void handlePrimaryComposerAction()
+                                }
+                                disabled={
+                                  isBuilding ||
+                                  isProcessing ||
+                                  isSubmittingTurn ||
+                                  readOnly ||
+                                  Boolean(message.trim()) ||
+                                  pendingAttachments.length > 0
+                                }
+                                className="h-8 rounded-lg border-black/15 bg-white px-3 text-xs font-medium text-foreground hover:bg-black/5 hover:text-foreground active:scale-95 disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/15 dark:bg-white/5 dark:hover:bg-white/10 cursor-pointer"
+                              >
+                                {buildComplete
+                                  ? "Perbarui website"
+                                  : "Buat Website"}
+                              </Button>
+                            )}
                             <div className="flex items-center gap-1.5">
                               {composerUploadsEnabled ? (
                                 <ComposerAttachButton
@@ -4014,23 +4034,29 @@ export function WorkspaceShell({
                         }
                       />
                       <div className="mt-2 flex items-center justify-between gap-3 border-t border-black/10 pt-2 dark:border-white/10">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => void handlePrimaryComposerAction()}
-                          disabled={
-                            isBuilding ||
-                            isProcessing ||
-                            isSubmittingTurn ||
-                            readOnly ||
-                            Boolean(message.trim()) ||
-                            pendingAttachments.length > 0
-                          }
-                          className="h-8 rounded-lg border-black/15 bg-white px-3 text-xs font-medium text-foreground hover:bg-black/5 hover:text-foreground active:scale-95 disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/15 dark:bg-white/5 dark:hover:bg-white/10 cursor-pointer"
-                        >
-                          {buildComplete ? "Perbarui website" : "Buat Website"}
-                        </Button>
+                        {preflightBlockedByCard ? (
+                          <span />
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => void handlePrimaryComposerAction()}
+                            disabled={
+                              isBuilding ||
+                              isProcessing ||
+                              isSubmittingTurn ||
+                              readOnly ||
+                              Boolean(message.trim()) ||
+                              pendingAttachments.length > 0
+                            }
+                            className="h-8 rounded-lg border-black/15 bg-white px-3 text-xs font-medium text-foreground hover:bg-black/5 hover:text-foreground active:scale-95 disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/15 dark:bg-white/5 dark:hover:bg-white/10 cursor-pointer"
+                          >
+                            {buildComplete
+                              ? "Perbarui website"
+                              : "Buat Website"}
+                          </Button>
+                        )}
                         <div className="flex items-center gap-1.5">
                           {composerUploadsEnabled ? (
                             <ComposerAttachButton
@@ -4702,8 +4728,13 @@ export function resolvePrimaryComposerIntent(input: {
   buildComplete: boolean;
   hasActionableRecommendation: boolean;
   hasDraft: boolean;
+  hasPendingQuestion?: boolean;
 }): "prepare_build" | "prepare_update" | null {
-  if (input.hasDraft || input.hasActionableRecommendation) {
+  if (
+    input.hasDraft ||
+    input.hasActionableRecommendation ||
+    input.hasPendingQuestion
+  ) {
     return null;
   }
   return input.buildComplete ? "prepare_update" : "prepare_build";

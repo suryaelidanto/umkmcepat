@@ -5,6 +5,7 @@ import { DISCUSS_CARD_SERVER_DEADLINE_MS } from "@/lib/ai/ai-timeouts";
 import { type WorkspaceCard } from "@/lib/projects/brief";
 import {
   getBuildRecommendationHoldSignature,
+  getProjectRuntimePollInterval,
   getWorkspaceCardFromMessages,
   getWorkspacePreviewIssue,
   getWorkspaceComposerState,
@@ -20,10 +21,59 @@ import {
   previewReadyState,
   shouldShowBuildRecommendationComposer,
   shouldRefreshWorkspaceAfterChatStatus,
+  shouldRehydrateWorkspaceCardFromMessages,
   shouldUseGeneratedPreviewFrame,
 } from "@/lib/projects/workspace-sync";
 
 describe("workspace chat sync", () => {
+  it("polls quickly only while a project operation is active", () => {
+    expect(
+      getProjectRuntimePollInterval({
+        activeJob: { phase: "generating" },
+        deployment: { status: "running" },
+        latestAttempt: { status: "received" },
+      }),
+    ).toBe(2_000);
+    expect(
+      getProjectRuntimePollInterval({
+        activeJob: null,
+        deployment: { status: "starting" },
+        latestAttempt: { status: "succeeded" },
+      }),
+    ).toBe(2_000);
+    expect(
+      getProjectRuntimePollInterval({
+        activeJob: null,
+        deployment: { status: "running" },
+        latestAttempt: { status: "succeeded" },
+      }),
+    ).toBe(false);
+  });
+
+  it("does not resurrect an old recommendation after a completed build", () => {
+    expect(
+      shouldRehydrateWorkspaceCardFromMessages({
+        buildComplete: true,
+        card: {
+          type: "build_recommendation",
+          title: "Website siap dibuat",
+          summary: ["Ubah gaya"],
+        },
+        previous: { type: "none" },
+      }),
+    ).toBe(false);
+    expect(
+      shouldRehydrateWorkspaceCardFromMessages({
+        buildComplete: true,
+        card: {
+          type: "question",
+          question: { id: "q1", options: [], question: "Apa yang diubah?" },
+        },
+        previous: { type: "none" },
+      }),
+    ).toBe(true);
+  });
+
   it("refreshes workspace state when a chat stream finishes", () => {
     expect(shouldRefreshWorkspaceAfterChatStatus("streaming", "ready")).toBe(
       true,

@@ -2,6 +2,12 @@ import type { BriefQuestion, WorkspaceCard } from "./brief";
 
 export type DiscussPreflight = "build" | "update";
 
+export function isPreflightBlockedByWorkspaceCard(
+  card: WorkspaceCard,
+): boolean {
+  return card.type === "question" || card.type === "image_upload";
+}
+
 export function resolvePreflightBuildReadiness({
   hasPendingUpdate,
   preflight,

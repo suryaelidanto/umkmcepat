@@ -271,6 +271,45 @@ describe("POST /api/projects/preview (discuss) — server-side turn flow", () =>
     expect(order).toEqual(["claim", "enqueue"]);
   });
 
+  it("rejects duplicate preflight while a workspace question awaits an answer", async () => {
+    prismaProjectFindFirstMock.mockResolvedValue({
+      id: "p_test",
+      prompt: "Jualan kue",
+      status: "discussing",
+      buildStatus: "not_started",
+      buildCheckpoints: [],
+      builds: [],
+      title: "Kue Lebaran",
+      userId: "u_test",
+    });
+    prismaQueryRawMock.mockResolvedValue([
+      {
+        chatMessages: [],
+        chatSummary: null,
+        memoryFacts: null,
+        lastCompactedMessageCount: 0,
+        brief: null,
+        workspaceCard: {
+          type: "question",
+          question: {
+            id: "business_type",
+            question: "Usaha kamu termasuk jenis apa?",
+            options: [],
+          },
+        },
+      },
+    ]);
+
+    const response = await callPreflightPost("prepare_build");
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "workspace_answer_required",
+    });
+    expect(claimDiscussTurnMock).not.toHaveBeenCalled();
+    expect(enqueueAttemptJobMock).not.toHaveBeenCalled();
+  });
+
   it("starts an empty update preflight without persisting a synthetic user message", async () => {
     prismaProjectFindFirstMock.mockResolvedValue({
       id: "p_test",

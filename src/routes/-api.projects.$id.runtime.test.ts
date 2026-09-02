@@ -147,6 +147,78 @@ describe("project runtime route", () => {
     expect(body.canPublish).toBe(false);
   });
 
+  it("reports a failed edit as the latest operation even when no build row was created", async () => {
+    const successfulBuild = {
+      artifactRef: "project-artifact:s3:dist:build_success",
+      createdAt: older,
+      finishedAt: older,
+      id: "build_success",
+      logText: "ok",
+      projectId: "project_1",
+      snapshot: { id: "snapshot_success", projectId: "project_1" },
+      snapshotId: "snapshot_success",
+      startedAt: older,
+      status: "succeeded",
+      updatedAt: older,
+    };
+    prismaProjectFindFirstMock.mockResolvedValue({
+      buildStatus: "passed",
+      id: "project_1",
+      status: "ready",
+      userId: "user_1",
+    });
+    prismaProjectBuildFindManyMock.mockResolvedValue([successfulBuild]);
+    prismaProjectEditAttemptFindManyMock.mockResolvedValue([
+      {
+        buildId: null,
+        createdAt: newer,
+        finishedAt: newer,
+        id: "edit_failed",
+        kind: "edit",
+        startedAt: newer,
+        status: "failed",
+        updatedAt: newer,
+      },
+    ]);
+    prismaProjectDeploymentFindManyMock.mockImplementation(
+      async (input: { where: { kind: string } }) =>
+        input.where.kind === "published"
+          ? []
+          : [
+              {
+                build: successfulBuild,
+                buildId: successfulBuild.id,
+                createdAt: older,
+                id: "deployment_success",
+                kind: "preview",
+                lastRequestAt: older,
+                projectId: "project_1",
+                publicPath: "/api/projects/project_1/preview",
+                snapshot: {
+                  id: successfulBuild.snapshotId,
+                  projectId: "project_1",
+                },
+                snapshotId: successfulBuild.snapshotId,
+                startedAt: older,
+                status: "running",
+                stoppedAt: null,
+                updatedAt: older,
+              },
+            ],
+    );
+
+    const response = await GET(new Request("http://localhost/runtime"), {
+      id: "project_1",
+    });
+    const body = await response.json();
+
+    expect(body.latestAttempt.id).toBe("edit_failed");
+    expect(body.latestFailedAttempt.id).toBe("edit_failed");
+    expect(body.latestSuccessfulBuild.id).toBe("build_success");
+    expect(body.userFacingState).toBe("ready_with_failed_latest_attempt");
+    expect(body.canRetry).toBe(true);
+  });
+
   it("reports the latest failed attempt without replacing the active successful preview", async () => {
     const successfulBuild = {
       artifactRef: "project-artifact:s3:dist:build_success",

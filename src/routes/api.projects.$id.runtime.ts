@@ -209,6 +209,7 @@ async function getRuntimeState({
         take: 5,
         select: {
           buildId: true,
+          createdAt: true,
           finishedAt: true,
           id: true,
           kind: true,
@@ -227,8 +228,8 @@ async function getRuntimeState({
   const projectPublishedDeployments = publishedDeployments.filter((candidate) =>
     isProjectDeploymentForProject(candidate, project.id),
   );
-  const latestAttempt = selectLatestAttempt(projectBuilds);
-  const latestFailedAttempt = selectLatestFailedAttempt(projectBuilds);
+  const latestBuildAttempt = selectLatestAttempt(projectBuilds);
+  const latestFailedBuildAttempt = selectLatestFailedAttempt(projectBuilds);
   const latestSuccessfulBuild = selectLatestSuccessfulBuild(projectBuilds);
   const deployment = selectActivePreviewDeployment(projectPreviewDeployments);
   const publishedDeployment = selectActivePublishedDeployment(
@@ -248,9 +249,19 @@ async function getRuntimeState({
       ? await getRuntimeSupervisor().getDeploymentStatus(deployment.id)
       : deployment?.status;
   const latestEditAttempt = attempts[0] ?? null;
+  const latestAttempt = selectLatestRuntimeOperation(
+    latestBuildAttempt,
+    latestEditAttempt,
+  );
+  const latestFailedAttempt = selectLatestRuntimeOperation(
+    latestFailedBuildAttempt,
+    latestEditAttempt && FAILED_ATTEMPT_STATUSES.has(latestEditAttempt.status)
+      ? latestEditAttempt
+      : null,
+  );
   const activeJob = deriveActiveProjectJob({
     attempt: latestEditAttempt,
-    build: latestAttempt,
+    build: latestBuildAttempt,
     events,
     projectBuildStatus: project.buildStatus,
     projectStatus: project.status,
@@ -377,6 +388,28 @@ function createCacheSafeRuntimeBody(body: unknown) {
       key === "logText" ? undefined : value,
     ),
   ) as unknown;
+}
+
+type RuntimeOperation = {
+  createdAt: Date | string;
+  id: string;
+  status: string;
+};
+
+function selectLatestRuntimeOperation(
+  first: RuntimeOperation | null,
+  second: RuntimeOperation | null,
+): RuntimeOperation | null {
+  if (!first) {
+    return second;
+  }
+  if (!second) {
+    return first;
+  }
+  return new Date(second.createdAt).getTime() >
+    new Date(first.createdAt).getTime()
+    ? second
+    : first;
 }
 
 const FAILED_ATTEMPT_STATUSES = new Set(["canceled", "failed", "stale"]);

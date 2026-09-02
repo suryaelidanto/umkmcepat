@@ -923,9 +923,10 @@ export async function runDiscussTurn({
     }
 
     // Post-build policy: none is an allowed card. Do not treat it as a
-    let primaryToolFailed = repairedWorkspaceTurn
-      ? true
-      : workspaceTurn.workspaceCard.type === "none" && !hasBuiltSite;
+    let primaryToolFailed =
+      !repairedWorkspaceTurn &&
+      workspaceTurn.workspaceCard.type === "none" &&
+      !hasBuiltSite;
     let repairsUsed = repairedWorkspaceTurn?.repairsUsed ?? 0;
 
     if (primaryToolFailed) {
