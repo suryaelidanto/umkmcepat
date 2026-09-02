@@ -263,6 +263,84 @@ const baseSummary = createEmptyChatSummary();
 describe("runDiscussTurn worker", () => {
   afterEach(() => vi.clearAllMocks());
 
+  it("keeps an empty update preflight on a question card instead of a build recommendation", async () => {
+    normalizeWorkspaceTurnMock.mockReturnValueOnce({
+      brief: baseBrief,
+      projectTitle: "T",
+      workspaceCard: {
+        summary: [],
+        title: "Update",
+        type: "build_recommendation",
+      },
+      readyForBuild: true,
+    } as never);
+    streamTextMock.mockReturnValueOnce(makeStreamResult([]));
+
+    await runDiscussTurn({
+      turnId: "ct_update_preflight",
+      project: { ...baseProject, status: "failed" },
+      chatContext: baseChatContext,
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages: baseMessages,
+      summary: baseSummary,
+      userId: "u1",
+      hasBuiltSite: true,
+      preflight: "update",
+      modelOverride: "test-model" as never,
+    });
+
+    const toolOutput = publishProgressMock.mock.calls.find(
+      (call) => call[1]?.type === "tool-output-available",
+    );
+    expect(toolOutput?.[1]?.output?.workspaceCard?.type).toBe("question");
+    expect(prismaExecuteRawMock).toHaveBeenCalled();
+  });
+
+  it("preserves a pending update recommendation during preflight", async () => {
+    normalizeWorkspaceTurnMock.mockReturnValueOnce({
+      brief: baseBrief,
+      projectTitle: "T",
+      workspaceCard: {
+        summary: [],
+        title: "Update",
+        type: "build_recommendation",
+      },
+      readyForBuild: false,
+    } as never);
+    streamTextMock.mockReturnValueOnce(makeStreamResult([]));
+
+    await runDiscussTurn({
+      turnId: "ct_pending_update_preflight",
+      project: { ...baseProject, status: "failed" },
+      chatContext: baseChatContext,
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages: baseMessages,
+      summary: baseSummary,
+      userId: "u1",
+      hasBuiltSite: true,
+      hasPendingUpdate: true,
+      preflight: "update",
+      modelOverride: "test-model" as never,
+    });
+
+    expect(normalizeWorkspaceTurnMock).toHaveBeenCalledWith(
+      null,
+      baseBrief,
+      expect.objectContaining({
+        hasPendingUpdate: true,
+        preflight: "update",
+      }),
+    );
+    const toolOutput = publishProgressMock.mock.calls.find(
+      (call) => call[1]?.type === "tool-output-available",
+    );
+    expect(toolOutput?.[1]?.output?.workspaceCard?.type).toBe(
+      "build_recommendation",
+    );
+  });
+
   it("persists the assistant reply + finalizes succeeded + publishes finish on happy path", async () => {
     // normalizeWorkspaceTurn returns a non-none card → primaryToolFailed=false
     normalizeWorkspaceTurnMock.mockReturnValueOnce({

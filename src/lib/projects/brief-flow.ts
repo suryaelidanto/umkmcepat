@@ -260,7 +260,9 @@ export function applyBriefPatch(
 
 export type NormalizeWorkspaceTurnOptions = {
   hasBuiltSite?: boolean;
+  hasPendingUpdate?: boolean;
   lastUserText?: string;
+  preflight?: "build" | "update";
   ownerTexts?: string[];
   previousWorkspaceCard?: WorkspaceCard;
   sourceTurnId?: string;
@@ -388,6 +390,7 @@ export function normalizeWorkspaceTurn(
   // Server-side enforcement: when a site is built, allow build_recommendation when user requests changes or affirms update
   if (options.hasBuiltSite) {
     const isUpdateRequested =
+      (options.preflight === "update" && options.hasPendingUpdate === true) ||
       Boolean(
         options.lastUserText &&
         isUserRequestingPostBuildUpdate(options.lastUserText),

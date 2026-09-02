@@ -107,6 +107,9 @@ export async function runQueuedDiscussTurn(
       previousWorkspaceCard,
       summary,
       userId: job.userId,
+      hasBuiltSite: job.hasBuiltSite,
+      hasPendingUpdate: job.hasPendingUpdate,
+      preflight: job.preflight,
       abortSignal,
     });
   } finally {

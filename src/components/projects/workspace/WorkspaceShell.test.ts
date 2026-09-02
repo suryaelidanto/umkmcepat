@@ -10,7 +10,7 @@ import {
   chatBubbleClass,
   resolveBuildAction,
   resolveBuildRequestMode,
-  shouldRequestReadinessCheck,
+  resolvePrimaryComposerIntent,
 } from "./WorkspaceShell";
 
 import type { ProjectBrief } from "@/lib/projects/brief";
@@ -95,43 +95,6 @@ describe("canStartBuild", () => {
   });
 });
 
-describe("shouldRequestReadinessCheck", () => {
-  it("checks with the discussion instead of starting a build without a proof card", () => {
-    expect(
-      shouldRequestReadinessCheck({
-        buildComplete: false,
-        card: { type: "none" },
-      }),
-    ).toBe(true);
-  });
-
-  it("allows a first build only from a proof-carrying recommendation", () => {
-    expect(
-      shouldRequestReadinessCheck({
-        buildComplete: false,
-        card: {
-          type: "build_recommendation",
-          engine: "contract",
-          title: "Siap",
-          summary: [],
-          handoffId: "handoff-1",
-          reviewHash: "a".repeat(64),
-          reviewItems: [],
-        },
-      }),
-    ).toBe(false);
-  });
-
-  it("does not check readiness after a site is already built", () => {
-    expect(
-      shouldRequestReadinessCheck({
-        buildComplete: true,
-        card: { type: "none" },
-      }),
-    ).toBe(false);
-  });
-});
-
 describe("resolveBuildAction", () => {
   it("routes a post-build update to the source-preserving edit worker", () => {
     expect(
@@ -153,6 +116,39 @@ describe("resolveBuildAction", () => {
         hasPostBuildUpdate: false,
       }),
     ).toBe("generate");
+  });
+});
+
+describe("resolvePrimaryComposerIntent", () => {
+  it("keeps draft text on the chat path and preflights only an empty composer", () => {
+    expect(
+      resolvePrimaryComposerIntent({
+        buildComplete: true,
+        hasActionableRecommendation: false,
+        hasDraft: false,
+      }),
+    ).toBe("prepare_update");
+    expect(
+      resolvePrimaryComposerIntent({
+        buildComplete: false,
+        hasActionableRecommendation: false,
+        hasDraft: false,
+      }),
+    ).toBe("prepare_build");
+    expect(
+      resolvePrimaryComposerIntent({
+        buildComplete: true,
+        hasActionableRecommendation: false,
+        hasDraft: true,
+      }),
+    ).toBeNull();
+    expect(
+      resolvePrimaryComposerIntent({
+        buildComplete: true,
+        hasActionableRecommendation: true,
+        hasDraft: false,
+      }),
+    ).toBeNull();
   });
 });
 

@@ -68,6 +68,12 @@ import {
   rewriteTempImageParts,
 } from "@/lib/projects/discuss-asset-phase";
 import {
+  ensureUpdatePreflightCard,
+  getDiscussPreflightFallbackText,
+  getDiscussPreflightInstruction,
+  type DiscussPreflight,
+} from "@/lib/projects/discuss-preflight";
+import {
   alignAssistantTextWithCard,
   buildCardSystemPrompt,
   buildOneCallSystemPrompt,
@@ -137,6 +143,9 @@ export async function runDiscussTurn({
   summary: _summary,
   userId,
   modelOverride,
+  preflight,
+  hasBuiltSite: hasBuiltSiteOverride,
+  hasPendingUpdate: hasPendingUpdateOverride,
   abortSignal,
 }: {
   turnId: string;
@@ -154,6 +163,9 @@ export async function runDiscussTurn({
   previousWorkspaceCard?: WorkspaceCard;
   summary: ReturnType<typeof parseProjectChatSummary>;
   userId: string;
+  hasBuiltSite?: boolean;
+  hasPendingUpdate?: boolean;
+  preflight?: DiscussPreflight;
   // ponytail: production omits → uses the real model via getAiModel(modelName).
   modelOverride?: LanguageModel;
   abortSignal?: AbortSignal;
@@ -330,13 +342,14 @@ export async function runDiscussTurn({
     const hasAttachedImages = uploadedAssetIds.length > 0;
     const modelName = hasAttachedImages ? getVisionModel() : getDiscussModel();
     const model = modelOverride ?? getAiModel(modelName);
-    const lastUserText = [...messages]
-      .reverse()
-      .find((message) => message.role === "user");
+    const lastUserText = preflight
+      ? undefined
+      : [...messages].reverse().find((message) => message.role === "user");
     const lastUserTextValue = lastUserText
       ? getTextFromUIMessage(lastUserText)
       : undefined;
-    const hasBuiltSite = project.status === "ready";
+    const hasBuiltSite = hasBuiltSiteOverride ?? project.status === "ready";
+    const hasPendingUpdate = hasPendingUpdateOverride === true;
     const activeHandoff = hasBuiltSite
       ? await loadActiveHandoff(project.id).catch(() => null)
       : null;
@@ -350,7 +363,9 @@ export async function runDiscussTurn({
 
     const handoffNormalizeOptions = {
       hasBuiltSite,
+      hasPendingUpdate,
       lastUserText: lastUserTextValue,
+      preflight,
       ownerTexts: messages
         .filter((message) => message.role === "user")
         .map(getTextFromUIMessage),
@@ -386,7 +401,7 @@ export async function runDiscussTurn({
         title: input.title ?? project.title,
       });
     };
-    const systemPrompt = buildOneCallSystemPrompt({
+    const systemPrompt = `${buildOneCallSystemPrompt({
       brief: effectiveBrief,
       context: `${effectiveChatContext.systemContext}\n\nFact ledger:\n${JSON.stringify(effectiveBrief.factLedger)}\n\nProject discussion context:\n${buildCompactDiscussionContext(
         {
@@ -398,7 +413,7 @@ export async function runDiscussTurn({
       )}`,
       hasBuiltSite,
       hasPendingChanges,
-    });
+    })}${preflight ? getDiscussPreflightInstruction(preflight, { hasPendingUpdate }) : ""}`;
     const cardSystemPrompt = buildCardSystemPrompt();
     const modelMessages = await convertToModelMessages(
       dedupeUiMessages(chatContextWithInlineAssets.messages),
@@ -890,6 +905,15 @@ export async function runDiscussTurn({
       ...workspaceTurn,
       workspaceCard: ensureQuestionCardRichness(workspaceTurn.workspaceCard),
     };
+    if (preflight === "update") {
+      workspaceTurn = {
+        ...workspaceTurn,
+        readyForBuild: false,
+        workspaceCard: ensureUpdatePreflightCard(workspaceTurn.workspaceCard, {
+          allowRecommendation: hasPendingUpdate,
+        }),
+      };
+    }
 
     // Post-build policy: none is an allowed card. Do not treat it as a
     let primaryToolFailed = repairedWorkspaceTurn
@@ -963,6 +987,8 @@ export async function runDiscussTurn({
         evaluateAdaptiveDiscussionReadiness(canonicalBrief);
       const tieredReadiness = evaluateTieredBriefReadiness(canonicalBrief);
       const isExplicitBuild = isExplicitBuildRequest(lastUserTextValue ?? "");
+      const isPendingUpdatePreflight =
+        preflight === "update" && hasPendingUpdate;
       const minimumBlocker = readiness.blockers.find((blocker) =>
         ["business.name", "offers", "primaryOffer", "primaryAction"].includes(
           blocker.field,
@@ -997,7 +1023,7 @@ export async function runDiscussTurn({
         }
       })();
 
-      if (!adaptiveReadiness.minimumSatisfied) {
+      if (!adaptiveReadiness.minimumSatisfied && !isPendingUpdatePreflight) {
         if (workspaceTurn.workspaceCard.type === "build_recommendation") {
           workspaceTurn = {
             ...workspaceTurn,
@@ -1032,6 +1058,7 @@ export async function runDiscussTurn({
       } else if (
         workspaceTurn.workspaceCard.type === "build_recommendation" &&
         !isExplicitBuild &&
+        !isPendingUpdatePreflight &&
         (!adaptiveReadiness.commercialSatisfied ||
           !tieredReadiness.tier2.satisfied)
       ) {
@@ -1137,9 +1164,11 @@ export async function runDiscussTurn({
 
     if (!chatText.trim()) {
       chatText = unslopUserFacingText(
-        hasBuiltSite
-          ? "Siap, perubahannya sudah aku catat. Klik Perbarui website untuk menerapkan ke websitemu."
-          : "Ada yang bisa aku bantu lagi?",
+        preflight
+          ? getDiscussPreflightFallbackText(preflight)
+          : hasBuiltSite
+            ? "Siap, perubahannya sudah aku catat. Klik Perbarui website untuk menerapkan ke websitemu."
+            : "Ada yang bisa aku bantu lagi?",
       );
     } else {
       chatText = unslopUserFacingText(chatText);

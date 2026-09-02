@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  hasSuccessfulBuildEvidence,
   isSuccessfulBuildStatus,
   persistSuccessfulBuildCheckpoint,
 } from "./build-checkpoint";
@@ -15,6 +16,38 @@ function createStore(chatMessages: unknown[]) {
     },
   };
 }
+
+describe("successful build evidence", () => {
+  it("recognizes a checkpoint or successful build even when project status is failed", () => {
+    expect(
+      hasSuccessfulBuildEvidence({
+        checkpointCount: 1,
+        projectBuildStatus: "canceled",
+        projectStatus: "failed",
+        successfulBuildCount: 0,
+      }),
+    ).toBe(true);
+    expect(
+      hasSuccessfulBuildEvidence({
+        checkpointCount: 0,
+        projectBuildStatus: "failed",
+        projectStatus: "failed",
+        successfulBuildCount: 1,
+      }),
+    ).toBe(true);
+  });
+
+  it("does not treat failed or canceled state alone as a built site", () => {
+    expect(
+      hasSuccessfulBuildEvidence({
+        checkpointCount: 0,
+        projectBuildStatus: "canceled",
+        projectStatus: "failed",
+        successfulBuildCount: 0,
+      }),
+    ).toBe(false);
+  });
+});
 
 describe("successful build checkpoints", () => {
   it("captures the last chat message after a first build", async () => {

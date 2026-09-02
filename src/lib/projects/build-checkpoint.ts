@@ -8,6 +8,25 @@ export function isSuccessfulBuildStatus(status: string): status is "succeeded" {
   return status === "succeeded";
 }
 
+export function hasSuccessfulBuildEvidence({
+  checkpointCount,
+  projectBuildStatus,
+  projectStatus,
+  successfulBuildCount,
+}: {
+  checkpointCount: number;
+  projectBuildStatus?: string | null;
+  projectStatus?: string | null;
+  successfulBuildCount: number;
+}): boolean {
+  return Boolean(
+    checkpointCount > 0 ||
+    successfulBuildCount > 0 ||
+    projectStatus === "ready" ||
+    ["passed", "ready", "succeeded"].includes(projectBuildStatus ?? ""),
+  );
+}
+
 export async function persistSuccessfulBuildCheckpoint({
   buildId,
   kind,

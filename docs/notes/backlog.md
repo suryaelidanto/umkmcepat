@@ -6,9 +6,19 @@ kanban-plugin: board
 
 ## Backlog
 
+- [ ] 🧭 **[#54] Checkpoint Success Boundary After Canceled Builds**: Derive post-build/update mode from the latest successful checkpoint or build rather than mutable `Project.status`, ensure update recommendations carry `postBuildUpdate`, route them to the surgical edit path, and never advance checkpoints for triggered, failed, or canceled operations #engine #data #workspace
+
+- [ ] 🔄 **[#55] Runtime Terminal-State Reconciliation and Cache Invalidation**: Invalidate the per-project runtime cache when an operation reaches success, failure, or cancellation, reconcile the latest `ProjectEditAttempt` with `ProjectBuild`, and refetch until the terminal state is authoritative so stale success/building states cannot remain visible #engine #data #workspace
+
+- [ ] 📊 **[#56] Admin Project Outcome and Publication Read Model**: Add a server-derived admin view that distinguishes latest operation outcome, last known-good build, preview availability, and published deployment, returns truthful totals beyond the 50-row display limit, and filters failed pre-build updates without relying on ambiguous raw project fields #data #workspace #engine
+
+- [ ] 🖼️ **[#57] Version-Aware Project Thumbnail Reliability**: Define preview versus published thumbnail ownership per surface, expose build and timestamp lineage, use `thumbnailUpdatedAt` for cache invalidation, retry asynchronous captures safely, and provide a non-broken fallback when storage or capture fails #media #workspace #data
+
 
 
 ## In Progress
+
+
 
 
 
@@ -17,6 +27,9 @@ kanban-plugin: board
 
 
 ## Ready for Review
+
+- [ ] ✍️ **[#58] Two-Phase Build and Update Preflight**: Keep chat sending and website actions separate; disable the build/update action while a draft exists, route empty actions through checkpoint-aware AI preflight, ask a proactive single-select update question when needed, show a recommendation before any build, and never persist synthetic readiness messages #ui #ux #workspace #engine #copy
+
 
 
 

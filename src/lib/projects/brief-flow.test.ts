@@ -1206,6 +1206,40 @@ describe("normalizeWorkspaceTurn", () => {
     }
   });
 
+  it("allows a pending update preflight to preserve a recommendation after a checkpoint", () => {
+    const brief = parseProjectBrief(
+      {
+        businessName: "Kopi Senja Roastery",
+        businessType: "Kedai kopi",
+        offer: "Biji kopi roasting",
+        targetCustomer: "Pecinta kopi lokal",
+        contactOrCta: "WhatsApp 08123456789",
+        stylePreference: "Warm and cozy",
+      },
+      "jualan kopi",
+    );
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "build_recommendation",
+          title: "Perbarui website",
+          summary: ["Ubah tema"],
+        },
+      },
+      brief,
+      {
+        hasBuiltSite: true,
+        hasPendingUpdate: true,
+        preflight: "update",
+      },
+    );
+
+    expect(turn.workspaceCard.type).toBe("build_recommendation");
+    if (turn.workspaceCard.type === "build_recommendation") {
+      expect(turn.workspaceCard.postBuildUpdate).toBe(true);
+    }
+  });
+
   it("allows a build_recommendation card post-build when user asks to update or rebuild", () => {
     const brief = parseProjectBrief(
       {

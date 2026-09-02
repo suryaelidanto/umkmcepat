@@ -61,6 +61,9 @@ export type DiscussAttemptJob = {
   projectStatus: string;
   projectTitle: string;
   generationEngine: string;
+  hasBuiltSite?: boolean;
+  hasPendingUpdate?: boolean;
+  preflight?: "build" | "update";
 };
 
 export type CompactionAttemptJob = {

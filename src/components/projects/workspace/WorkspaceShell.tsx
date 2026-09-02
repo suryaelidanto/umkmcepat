@@ -278,22 +278,6 @@ const autoSentProjectIds = new Set<string>();
 
 export { chatBubbleClass } from "@/components/projects/chat/ChatMessage";
 
-const READINESS_CHECK_MESSAGE =
-  "Cek dulu kelengkapan data website ini. Kalau masih ada yang wajib, tanyakan satu per satu dan jangan mulai membuat website dulu.";
-const READINESS_CHECK_METADATA = { ui: "readiness_check" as const };
-
-function ComposerNotice({ message }: { message: string }) {
-  return (
-    <div className="mb-2 flex items-start gap-2 rounded-xl border border-amber-500/20 bg-amber-500/8 px-3 py-2 text-xs text-foreground dark:border-amber-200/20 dark:bg-amber-200/8 dark:text-surface-warm-white">
-      <span
-        aria-hidden="true"
-        className="mt-1.5 size-1.5 shrink-0 rounded-full bg-amber-500"
-      />
-      <span>{message}</span>
-    </div>
-  );
-}
-
 const COMPOSER_TRANSITION = {
   initial: { opacity: 0, y: 12, scale: 0.985, filter: "blur(6px)" },
   animate: { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" },
@@ -319,7 +303,6 @@ export function WorkspaceShell({
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [viewport, setViewport] = useState<"desktop" | "mobile">("desktop");
   const [message, setMessage] = useState("");
-  const [composerNotice, setComposerNotice] = useState<string | null>(null);
   const [projectTitle, setProjectTitle] = useState(initialTitle);
   const [isRenaming, setIsRenaming] = useState(false);
   const [mobileRenameOpen, setMobileRenameOpen] = useState(false);
@@ -2734,7 +2717,7 @@ export function WorkspaceShell({
     async (
       text: string,
       options: {
-        metadata?: { ui?: "readiness_check" };
+        intent?: "prepare_build" | "prepare_update";
         workspaceAnswers?: WorkspaceAnswerPayload[];
         uploads?: Array<{ assetId: string; url: string }>;
       } = {},
@@ -2754,7 +2737,8 @@ export function WorkspaceShell({
         (!trimmed &&
           !hasAnswers &&
           pendingAttachments.length === 0 &&
-          !options.uploads?.length) ||
+          !options.uploads?.length &&
+          !options.intent) ||
         isProcessing ||
         rateLimitError ||
         authStatus !== "authenticated" ||
@@ -2823,7 +2807,6 @@ export function WorkspaceShell({
       clearError(); // hide stale banner from the previous failed turn
       retryAttemptRef.current = 0;
       setMessage("");
-      setComposerNotice(null);
       setBuildProgress([]);
       requestAnimationFrame(() =>
         scrollChatToBottom({ force: true, behavior: "smooth" }),
@@ -2837,12 +2820,16 @@ export function WorkspaceShell({
       sendMessage(
         {
           files: fileParts.length ? fileParts : undefined,
-          metadata: options.metadata,
           text: trimmed,
         },
         {
           body: {
-            mode: composerState === "post_build_chat" ? "discuss" : mode,
+            intent: options.intent,
+            mode: options.intent
+              ? "discuss"
+              : composerState === "post_build_chat"
+                ? "discuss"
+                : mode,
             workspaceAnswers: options.workspaceAnswers,
           },
         },
@@ -3005,64 +2992,28 @@ export function WorkspaceShell({
     workspaceCard,
   ]);
 
-  const handlePrimaryComposerAction = useCallback(async () => {
+  const handlePrimaryComposerAction = useCallback(() => {
     if (readOnly || isBuilding) {
       return;
     }
 
-    if (buildComplete) {
-      // 1. If user already typed text or attached files, submit the edit turn
-      if (message.trim() || pendingAttachments.length > 0) {
-        submitChatText(message);
-        return;
-      }
+    const hasDraft = Boolean(message.trim() || pendingAttachments.length > 0);
+    const hasActionableRecommendation =
+      workspaceCard.type === "build_recommendation" &&
+      canStartBuild(workspaceCard);
+    const intent = resolvePrimaryComposerIntent({
+      buildComplete,
+      hasActionableRecommendation,
+      hasDraft,
+    });
 
-      // 2. If there is an unbuilt build recommendation ready to apply, build it
-      if (
-        workspaceCard.type === "build_recommendation" &&
-        canStartBuild(workspaceCard)
-      ) {
-        await handleStartBuild();
-        return;
-      }
-
-      // 3. Otherwise (no pending changes), guide user intentionally instead of blind building
-      if (chatCollapsed) {
-        openChatPanel();
-      }
-      setComposerNotice(
-        "Tulis dulu bagian website yang ingin diperbarui, misalnya teks, warna, foto, atau tombol.",
-      );
-      shouldStickToBottomRef.current = true;
-      requestAnimationFrame(() => {
-        const textarea = document.querySelector<HTMLTextAreaElement>(
-          "textarea#workspace-message",
-        );
-        textarea?.focus();
-      });
-      return;
+    if (intent) {
+      void submitChatText("", { intent });
     }
-
-    if (
-      shouldRequestReadinessCheck({
-        buildComplete,
-        card: workspaceCard,
-      })
-    ) {
-      void submitChatText(READINESS_CHECK_MESSAGE, {
-        metadata: READINESS_CHECK_METADATA,
-      });
-      return;
-    }
-
-    await handleStartBuild();
   }, [
     buildComplete,
-    chatCollapsed,
-    handleStartBuild,
     isBuilding,
     message,
-    openChatPanel,
     pendingAttachments.length,
     readOnly,
     submitChatText,
@@ -3841,15 +3792,11 @@ export function WorkspaceShell({
                               }
                             />
                           ) : null}
-                          {composerNotice ? (
-                            <ComposerNotice message={composerNotice} />
-                          ) : null}
                           <textarea
                             id="workspace-message"
                             rows={2}
                             value={message}
                             onChange={(event) => {
-                              setComposerNotice(null);
                               setMessage(event.target.value);
                               const target = event.currentTarget;
                               target.style.height = "auto";
@@ -3861,7 +3808,9 @@ export function WorkspaceShell({
                             placeholder={
                               sessionExpired
                                 ? "Sesi habis, login ulang..."
-                                : "Tulis pesan atau kebutuhanmu di sini..."
+                                : buildComplete
+                                  ? "Ceritakan perubahan yang kamu mau..."
+                                  : "Tulis pesan atau kebutuhanmu di sini..."
                             }
                             className="w-full resize-none bg-transparent px-1 py-1 text-sm leading-6 text-foreground outline-none [scrollbar-width:none] placeholder:text-muted-foreground disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
                             disabled={
@@ -3874,8 +3823,15 @@ export function WorkspaceShell({
                               variant="outline"
                               size="sm"
                               onClick={() => void handlePrimaryComposerAction()}
-                              disabled={isBuilding || readOnly}
-                              className="h-8 rounded-lg border-black/15 bg-white px-3 text-xs font-medium text-foreground hover:bg-black/5 hover:text-foreground active:scale-95 dark:border-white/15 dark:bg-white/5 dark:hover:bg-white/10 cursor-pointer"
+                              disabled={
+                                isBuilding ||
+                                isProcessing ||
+                                isSubmittingTurn ||
+                                readOnly ||
+                                Boolean(message.trim()) ||
+                                pendingAttachments.length > 0
+                              }
+                              className="h-8 rounded-lg border-black/15 bg-white px-3 text-xs font-medium text-foreground hover:bg-black/5 hover:text-foreground active:scale-95 disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/15 dark:bg-white/5 dark:hover:bg-white/10 cursor-pointer"
                             >
                               {buildComplete
                                 ? "Perbarui website"
@@ -4033,15 +3989,11 @@ export function WorkspaceShell({
                           }
                         />
                       ) : null}
-                      {composerNotice ? (
-                        <ComposerNotice message={composerNotice} />
-                      ) : null}
                       <textarea
                         id="workspace-message"
                         rows={2}
                         value={message}
                         onChange={(event) => {
-                          setComposerNotice(null);
                           setMessage(event.target.value);
                           const target = event.currentTarget;
                           target.style.height = "auto";
@@ -4053,9 +4005,11 @@ export function WorkspaceShell({
                         placeholder={
                           sessionExpired
                             ? "Sesi habis, login ulang..."
-                            : mode === "build"
-                              ? "Tulis perubahan yang kamu mau..."
-                              : "Tulis pesan atau kebutuhanmu di sini..."
+                            : buildComplete
+                              ? "Ceritakan perubahan yang kamu mau..."
+                              : mode === "build"
+                                ? "Tulis perubahan yang kamu mau..."
+                                : "Tulis pesan atau kebutuhanmu di sini..."
                         }
                         className="w-full resize-none bg-transparent px-1 py-1 text-sm leading-6 text-foreground outline-none [scrollbar-width:none] placeholder:text-muted-foreground disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
                         disabled={
@@ -4068,8 +4022,15 @@ export function WorkspaceShell({
                           variant="outline"
                           size="sm"
                           onClick={() => void handlePrimaryComposerAction()}
-                          disabled={isBuilding || readOnly}
-                          className="h-8 rounded-lg border-black/15 bg-white px-3 text-xs font-medium text-foreground hover:bg-black/5 hover:text-foreground active:scale-95 dark:border-white/15 dark:bg-white/5 dark:hover:bg-white/10 cursor-pointer"
+                          disabled={
+                            isBuilding ||
+                            isProcessing ||
+                            isSubmittingTurn ||
+                            readOnly ||
+                            Boolean(message.trim()) ||
+                            pendingAttachments.length > 0
+                          }
+                          className="h-8 rounded-lg border-black/15 bg-white px-3 text-xs font-medium text-foreground hover:bg-black/5 hover:text-foreground active:scale-95 disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/15 dark:bg-white/5 dark:hover:bg-white/10 cursor-pointer"
                         >
                           {buildComplete ? "Perbarui website" : "Buat Website"}
                         </Button>
@@ -4773,6 +4734,17 @@ function writeHandoffProof(storageKey: string, proof: HandoffProof): void {
   }
 }
 
+export function resolvePrimaryComposerIntent(input: {
+  buildComplete: boolean;
+  hasActionableRecommendation: boolean;
+  hasDraft: boolean;
+}): "prepare_build" | "prepare_update" | null {
+  if (input.hasDraft || input.hasActionableRecommendation) {
+    return null;
+  }
+  return input.buildComplete ? "prepare_update" : "prepare_build";
+}
+
 export function resolveBuildAction({
   buildComplete,
   buildStatus,
@@ -4798,14 +4770,6 @@ export function resolveBuildRequestMode(
   buildStatus: string,
 ): "first_generate" | "retry_build" {
   return buildStatus === "failed" ? "retry_build" : "first_generate";
-}
-
-// Proof-carrying gate: every build_recommendation must carry a valid handoff
-export function shouldRequestReadinessCheck(input: {
-  buildComplete: boolean;
-  card: WorkspaceCard | null | undefined;
-}): boolean {
-  return !input.buildComplete && !canStartBuild(input.card);
 }
 
 export function canStartBuild(

@@ -133,6 +133,34 @@ async function callDiscussPost() {
   return handler({ request });
 }
 
+async function callPreflightPost(intent: "prepare_build" | "prepare_update") {
+  const { Route } = await import("./api.projects.preview");
+  const handler = (
+    Route as unknown as {
+      options: {
+        server: {
+          handlers: { POST: (ctx: { request: Request }) => Promise<Response> };
+        };
+      };
+    }
+  ).options.server.handlers.POST;
+  const request = new Request("http://localhost/api/projects/preview", {
+    body: JSON.stringify({
+      intent,
+      message: {
+        id: "client-preflight",
+        role: "user",
+        parts: [{ type: "text", text: "" }],
+      },
+      mode: "discuss",
+      projectId: "p_test",
+    }),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  return handler({ request });
+}
+
 describe("POST /api/projects/preview (discuss) — server-side turn flow", () => {
   it("does not retain a parallel-moderation admin toggle", () => {
     expect(previewRouteSource).not.toContain("discuss.parallel_moderation");
@@ -241,6 +269,106 @@ describe("POST /api/projects/preview (discuss) — server-side turn flow", () =>
     // The discuss worker owns moderation; the route never calls it.
     expect(moderateProjectRequestMock).not.toHaveBeenCalled();
     expect(order).toEqual(["claim", "enqueue"]);
+  });
+
+  it("starts an empty update preflight without persisting a synthetic user message", async () => {
+    prismaProjectFindFirstMock.mockResolvedValue({
+      id: "p_test",
+      prompt: "Jualan kue",
+      status: "failed",
+      buildStatus: "canceled",
+      buildCheckpoints: [
+        {
+          chatMessageId: "checkpoint-message",
+          chatMessageIndex: 0,
+          id: "checkpoint_1",
+        },
+      ],
+      builds: [],
+      title: "Kue Lebaran",
+      userId: "u_test",
+    });
+    prismaQueryRawMock.mockResolvedValue([
+      {
+        chatMessages: [
+          {
+            id: "checkpoint-message",
+            role: "assistant",
+            parts: [{ type: "text", text: "Website selesai." }],
+          },
+          {
+            id: "pending-message",
+            role: "user",
+            parts: [{ type: "text", text: "Ubah warna tombol." }],
+          },
+        ],
+        chatSummary: null,
+        memoryFacts: null,
+        lastCompactedMessageCount: 0,
+        brief: null,
+        workspaceCard: { type: "none" },
+      },
+    ]);
+    claimDiscussTurnMock.mockResolvedValue({
+      claimed: true,
+      turnId: "ct_preflight",
+    });
+
+    const response = await callPreflightPost("prepare_update");
+
+    expect(response.status).toBe(200);
+    expect(prismaExecuteRawMock).not.toHaveBeenCalled();
+    expect(
+      validateUIMessagesMock.mock.calls[0]?.[0]?.messages.map(
+        (message: { id: string }) => message.id,
+      ),
+    ).toEqual(["checkpoint-message", "pending-message"]);
+    expect(claimDiscussTurnMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: "p_test",
+        userId: "u_test",
+        userMessageId: expect.stringMatching(/^preflight-update-/),
+      }),
+    );
+    expect(enqueueAttemptJobMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "discuss",
+        turnId: "ct_preflight",
+        preflight: "update",
+        hasBuiltSite: true,
+        hasPendingUpdate: true,
+      }),
+    );
+  });
+
+  it("starts an empty first-build preflight without starting a build job", async () => {
+    prismaProjectFindFirstMock.mockResolvedValue({
+      id: "p_test",
+      prompt: "Jualan kue",
+      status: "draft",
+      buildStatus: "not_started",
+      buildCheckpoints: [],
+      builds: [],
+      title: "Kue Lebaran",
+      userId: "u_test",
+    });
+    claimDiscussTurnMock.mockResolvedValue({
+      claimed: true,
+      turnId: "ct_build_preflight",
+    });
+
+    const response = await callPreflightPost("prepare_build");
+
+    expect(response.status).toBe(200);
+    expect(enqueueAttemptJobMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "discuss",
+        turnId: "ct_build_preflight",
+        preflight: "build",
+        hasBuiltSite: false,
+      }),
+    );
+    expect(prismaExecuteRawMock).not.toHaveBeenCalled();
   });
 
   it("returns 409 project_chat_in_progress when a turn is already running", async () => {

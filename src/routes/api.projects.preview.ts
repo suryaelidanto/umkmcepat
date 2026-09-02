@@ -20,8 +20,10 @@ import {
   parseProjectBrief,
 } from "@/lib/projects/brief";
 import { parseWorkspaceCard } from "@/lib/projects/brief-flow";
+import { hasSuccessfulBuildEvidence } from "@/lib/projects/build-checkpoint";
 import { prepareBuildHandoff } from "@/lib/projects/build-planner";
 import { describeBuildRecommendation } from "@/lib/projects/build-recommendation-summary";
+import { resolveBuildUpdateContext } from "@/lib/projects/build-update-context";
 import { parseCanonicalBrief } from "@/lib/projects/canonical-brief";
 import {
   buildProjectChatContext,
@@ -57,6 +59,7 @@ export { buildOneCallSystemPrompt } from "@/lib/projects/discuss-tool";
 type PreviewRequest = {
   message?: UIMessage;
   messages?: UIMessage[];
+  intent?: "prepare_build" | "prepare_update";
   mode?: "discuss" | "build" | "repair_card";
   projectId?: string;
   workspaceAnswers?: unknown;
@@ -140,6 +143,17 @@ async function handlePreviewPost(request: Request) {
   const project = await prisma.project.findFirst({
     where: { id: body.projectId, userId },
     select: {
+      buildStatus: true,
+      buildCheckpoints: {
+        where: { build: { status: "succeeded" } },
+        take: 1,
+        select: { chatMessageId: true, chatMessageIndex: true, id: true },
+      },
+      builds: {
+        where: { status: "succeeded" },
+        take: 1,
+        select: { id: true },
+      },
       id: true,
       prompt: true,
       status: true,
@@ -154,6 +168,19 @@ async function handlePreviewPost(request: Request) {
       { status: 404 },
     );
   }
+
+  const hasBuiltSite = hasSuccessfulBuildEvidence({
+    checkpointCount: project.buildCheckpoints?.length ?? 0,
+    projectBuildStatus: project.buildStatus,
+    projectStatus: project.status,
+    successfulBuildCount: project.builds?.length ?? 0,
+  });
+  const preflight =
+    body.intent === "prepare_build"
+      ? ("build" as const)
+      : body.intent === "prepare_update"
+        ? ("update" as const)
+        : undefined;
 
   if (project.status === "building") {
     const prunedCount = await markStaleProjectBuilds(project.id);
@@ -310,6 +337,17 @@ async function handlePreviewPost(request: Request) {
     currentBrief,
     workspaceAnswerPatch,
   );
+  const updateContext = resolveBuildUpdateContext({
+    checkpoint: project.buildCheckpoints?.[0] ?? null,
+    compactedMessageCount: chatSummary.compactedMessageCount,
+    fallbackMessages: canonicalBrief.discussionContext?.messages,
+    messages: storedMessages,
+  });
+  const hasPendingUpdate = updateContext.pendingMessages.some(
+    (message) =>
+      message.role === "user" &&
+      getTextFromUIMessage(message).trim().length > 0,
+  );
 
   if (body.mode === "repair_card") {
     return repairWorkspaceCard({
@@ -322,7 +360,7 @@ async function handlePreviewPost(request: Request) {
     });
   }
 
-  if (!incoming.length) {
+  if (!incoming.length && !preflight) {
     return Response.json(
       { message: "Pesan tidak boleh kosong." },
       { status: 400 },
@@ -331,7 +369,9 @@ async function handlePreviewPost(request: Request) {
 
   const messages = await validateUIMessages({
     messages: dedupeUiMessagesForPersistence(
-      parseProjectChatMessages([...storedMessages, ...incoming]),
+      parseProjectChatMessages(
+        preflight ? storedMessages : [...storedMessages, ...incoming],
+      ),
     ),
   });
   const chatContext = buildProjectChatContext({
@@ -346,8 +386,11 @@ async function handlePreviewPost(request: Request) {
   return handleDiscussTurnOneCall({
     chatContext,
     effectiveBrief,
+    hasBuiltSite,
+    hasPendingUpdate,
     memoryFacts,
     messages,
+    preflight,
     project,
     summary: chatSummary,
     userId,
@@ -357,16 +400,22 @@ async function handlePreviewPost(request: Request) {
 async function handleDiscussTurnOneCall({
   chatContext: _chatContext,
   effectiveBrief: _effectiveBrief,
+  hasBuiltSite,
+  hasPendingUpdate,
   memoryFacts: _memoryFacts,
   messages,
+  preflight,
   project,
   summary: _summary,
   userId,
 }: {
   chatContext: ReturnType<typeof buildProjectChatContext>;
   effectiveBrief: ReturnType<typeof parseProjectBrief>;
+  hasBuiltSite: boolean;
+  hasPendingUpdate: boolean;
   memoryFacts: ReturnType<typeof parseProjectMemoryFacts>;
   messages: UIMessage[];
+  preflight?: "build" | "update";
   project: {
     id: string;
     prompt: string;
@@ -379,13 +428,13 @@ async function handleDiscussTurnOneCall({
 }) {
   // Server-side discuss: persist user message, claim turn, enqueue BullMQ job,
 
-  const userMessage = messages[messages.length - 1];
-  if (!userMessage) {
+  const userMessage = preflight ? undefined : messages[messages.length - 1];
+  if (!preflight && !userMessage) {
     return sseError({ message: "Pesan tidak boleh kosong." });
   }
 
   // Role guard: reject a discuss turn whose last message claims assistant role.
-  if (userMessage.role !== "user") {
+  if (!preflight && userMessage && userMessage.role !== "user") {
     return Response.json(
       {
         code: "chat_turn_not_user",
@@ -395,37 +444,39 @@ async function handleDiscussTurnOneCall({
     );
   }
 
-  // 1. Persist the user message immediately â€” the reply is never lost even
-  const groundedEffectiveBrief = groundProjectBriefToOwnerFacts(
-    _effectiveBrief,
-    {
-      ownerTexts: messages
-        .filter((message) => message.role === "user")
-        .map(getTextFromUIMessage),
-    },
-  );
-  await persistProjectChatTurn({
-    brief: scrubBriefForStorage(
-      groundedEffectiveBrief,
-      groundedEffectiveBrief.readyForBuild,
-      project.id,
-    ),
-    discussionContext: {
-      memoryFacts: _memoryFacts,
-      summary: _summary,
-    },
-    messages,
-    projectId: project.id,
-    title: project.title,
-    userId,
-    workspaceCard: null,
-  });
+  if (!preflight) {
+    const groundedEffectiveBrief = groundProjectBriefToOwnerFacts(
+      _effectiveBrief,
+      {
+        ownerTexts: messages
+          .filter((message) => message.role === "user")
+          .map(getTextFromUIMessage),
+      },
+    );
+    await persistProjectChatTurn({
+      brief: scrubBriefForStorage(
+        groundedEffectiveBrief,
+        groundedEffectiveBrief.readyForBuild,
+        project.id,
+      ),
+      discussionContext: {
+        memoryFacts: _memoryFacts,
+        summary: _summary,
+      },
+      messages,
+      projectId: project.id,
+      title: project.title,
+      userId,
+      workspaceCard: null,
+    });
+  }
 
   // 2. Claim the DB turn lease. A second concurrent POST gets a 409.
   const { claimed, turnId } = await claimDiscussTurn({
     projectId: project.id,
     userId,
-    userMessageId: userMessage.id,
+    userMessageId:
+      userMessage?.id ?? `preflight-${preflight}-${crypto.randomUUID()}`,
   });
   if (!claimed || !turnId) {
     return Response.json(
@@ -451,6 +502,9 @@ async function handleDiscussTurnOneCall({
       projectStatus: project.status,
       projectTitle: project.title,
       generationEngine: project.generationEngine,
+      hasBuiltSite,
+      hasPendingUpdate,
+      preflight,
     });
   } catch (error) {
     // English log for developers; Indonesian only in DB + client message.
