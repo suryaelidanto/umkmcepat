@@ -308,6 +308,16 @@ describe("runBuildAttempt — tool-loop generation", () => {
       activeDeploymentId: "deployment-1",
       projectId: "project-1",
     });
+    expect(prismaMock.projectBuildCheckpoint.create).toHaveBeenCalledWith({
+      data: {
+        buildId: "build-1",
+        chatMessageId: null,
+        chatMessageIndex: null,
+        kind: "build",
+        projectId: "project-1",
+        snapshotId: "snap-1",
+      },
+    });
   });
 
   it("links a retry snapshot to the latest successful source snapshot", async () => {

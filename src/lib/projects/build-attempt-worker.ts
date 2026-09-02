@@ -439,6 +439,15 @@ export async function runBuildAttempt({
                 ...(distRef ? { artifactRef: distRef } : {}),
               },
             });
+            if (buildOk) {
+              await persistSuccessfulBuildCheckpoint({
+                buildId: runtimeBuildId,
+                kind: "build",
+                projectId,
+                snapshotId: snapshot.id,
+                store: transaction,
+              });
+            }
           }
 
           await transaction.projectEditAttempt.update({
