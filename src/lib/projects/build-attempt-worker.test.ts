@@ -284,7 +284,7 @@ describe("runBuildAttempt — tool-loop generation", () => {
     expect(prismaMock.projectEditAttempt.updateMany).toHaveBeenCalled();
   });
 
-  it("records the latest successful retry build time", async () => {
+  it("records a checkpoint for the latest successful retry build", async () => {
     resolveGenerateModeMock.mockReturnValue("retry_build");
 
     await runBuildAttempt({
@@ -555,7 +555,7 @@ describe("runBuildAttempt — bounded self-repair loop", () => {
     expect(generationArg?.repairRounds).toBe(3);
   });
 
-  it("stops with exactly one error after the round cap plus one clean rebuild", async () => {
+  it("does not create a checkpoint after the round cap plus one clean rebuild", async () => {
     buildGeneratedProjectMock.mockResolvedValue({
       ok: false,
       log: "error TS2322: everywhere",

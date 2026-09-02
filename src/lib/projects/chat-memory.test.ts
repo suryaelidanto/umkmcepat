@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { resolveBuildUpdateContext } from "./build-update-context";
 import {
   buildProjectChatContext,
   dedupeUiMessages,
@@ -21,6 +22,76 @@ import {
 } from "./chat-memory";
 
 describe("project chat memory", () => {
+  it("keeps messages after a checkpoint as the pending update context", () => {
+    const result = resolveBuildUpdateContext({
+      checkpoint: { chatMessageId: "chat-31", chatMessageIndex: 30 },
+      fallbackMessages: [],
+      messages: [
+        {
+          id: "chat-31",
+          role: "assistant",
+          parts: [{ type: "text", text: "Website siap." }],
+        },
+        {
+          id: "chat-32",
+          role: "user",
+          parts: [{ type: "text", text: "Ubah tombol utama." }],
+        },
+        {
+          id: "chat-33",
+          role: "assistant",
+          parts: [{ type: "text", text: "Baik." }],
+        },
+        {
+          id: "chat-34",
+          role: "user",
+          parts: [{ type: "text", text: "Pakai label Hubungi Kami." }],
+        },
+      ],
+    });
+
+    expect(result.baselineMessages.map((message) => message.id)).toEqual([
+      "chat-31",
+    ]);
+    expect(result.pendingMessages.map((message) => message.id)).toEqual([
+      "chat-32",
+      "chat-33",
+      "chat-34",
+    ]);
+  });
+
+  it("does not classify messages before a checkpoint as pending updates", () => {
+    const result = resolveBuildUpdateContext({
+      checkpoint: { chatMessageId: "chat-31", chatMessageIndex: 31 },
+      fallbackMessages: [],
+      messages: [
+        {
+          id: "chat-30",
+          role: "user",
+          parts: [{ type: "text", text: "Nama usaha: Kedai Pagi." }],
+        },
+        {
+          id: "chat-31",
+          role: "assistant",
+          parts: [{ type: "text", text: "Website siap." }],
+        },
+        {
+          id: "chat-32",
+          role: "user",
+          parts: [{ type: "text", text: "Ubah warna tombol." }],
+        },
+      ],
+    });
+
+    expect(result.baselineMessages.map((message) => message.id)).toEqual([
+      "chat-30",
+      "chat-31",
+    ]);
+    expect(result.pendingMessages.map((message) => message.id)).toEqual([
+      "chat-32",
+    ]);
+  });
+
   it("deduplicates messages and normalizes consecutive same-role messages (defense against strict Gemini validation)", () => {
     const messages = [
       {
