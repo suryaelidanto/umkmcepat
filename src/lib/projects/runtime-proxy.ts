@@ -741,10 +741,63 @@ const UNIFIED_INSPECTOR_BRIDGE = String.raw`
     return { parentRefs, parents, removed: Array.from(removedIds), blocks: blockRefs };
   }
 
+  function deepElementsFromPoint(x, y) {
+    if (typeof document.elementsFromPoint === 'function') {
+      return Array.from(document.elementsFromPoint(x, y)).filter(
+        (el) => el instanceof HTMLElement && !isBridgeUi(el),
+      );
+    }
+    const single = deepElementFromPoint(x, y);
+    return single ? [single] : [];
+  }
+
+  function pickTargetCandidates(x, y) {
+    const elements = deepElementsFromPoint(x, y);
+    if (!elements.length) return null;
+
+    let primaryElement = null;
+    let nearbyImageElement = null;
+
+    for (const el of elements) {
+      if (isIgnorableDecoration(el)) continue;
+
+      if (!primaryElement) {
+        primaryElement = pickElement(el);
+      }
+
+      if (!nearbyImageElement) {
+        if (el.tagName === 'IMG' || el.tagName === 'PICTURE') {
+          nearbyImageElement = el;
+        } else {
+          const img = el.querySelector ? el.querySelector('img,picture') : null;
+          if (img && !isIgnorableDecoration(img)) {
+            nearbyImageElement = img;
+          }
+        }
+      }
+
+      if (primaryElement && nearbyImageElement) break;
+    }
+
+    if (!primaryElement && !nearbyImageElement) return null;
+
+    const chosen = primaryElement || nearbyImageElement;
+    const baseData = targetData(chosen);
+
+    if (nearbyImageElement && nearbyImageElement !== chosen) {
+      const imgData = targetData(nearbyImageElement);
+      baseData.underlyingImage = {
+        label: imgData.label,
+        selectorPath: imgData.target.selectorPath,
+        src: imgData.target.src || '',
+      };
+    }
+
+    return baseData;
+  }
+
   function targetAt(x, y) {
-    const element = deepElementFromPoint(x, y);
-    const picked = element ? pickElement(element) : null;
-    return picked ? targetData(picked) : null;
+    return pickTargetCandidates(x, y);
   }
 
   function post(type, payload) {
@@ -843,11 +896,10 @@ const UNIFIED_INSPECTOR_BRIDGE = String.raw`
     if (!active) return;
     event.preventDefault();
     event.stopPropagation();
-    const element = deepElementFromPoint(event.clientX, event.clientY);
-    const picked = element ? pickElement(element) : null;
-    currentSelectedElement = picked;
-    if (picked) {
-      setSelectedBox(picked.getBoundingClientRect());
+    const data = pickTargetCandidates(event.clientX, event.clientY);
+    const picked = currentSelectedElement = deepElementFromPoint(event.clientX, event.clientY);
+    if (data) {
+      setSelectedBox(data.target.boundingBox);
     } else {
       hideSelectedBox();
     }
@@ -855,9 +907,8 @@ const UNIFIED_INSPECTOR_BRIDGE = String.raw`
     if (structural && !structural.hasAttribute('data-umkm-id')) structural.setAttribute('data-umkm-id', makeId());
     scan();
     selectedId = structural?.getAttribute('data-umkm-id') || null;
-    const target = picked ? targetData(picked) : null;
-    post('umkmcepat-edit-target', target);
-    post('umkmcepat-annotation-target', target);
+    post('umkmcepat-edit-target', data);
+    post('umkmcepat-annotation-target', data);
   }
 
   function moveSelected(direction) {

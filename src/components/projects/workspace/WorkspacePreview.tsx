@@ -25,6 +25,11 @@ export type PreviewEditTarget = Omit<
 > & {
   componentHierarchy?: string[];
   primaryComponent?: string | null;
+  underlyingImage?: {
+    label: string;
+    selectorPath: string;
+    src: string;
+  };
 };
 
 export function GeneratedPreviewFrame({
@@ -485,6 +490,27 @@ function PreviewAnnotationPopover({
               placeholder="Ketik teks baru..."
               className="w-full rounded-[10px] border border-surface-warm-white/10 bg-[#0d0d0c] px-3 py-2 text-xs leading-5 text-surface-warm-white outline-none placeholder:text-surface-warm-white/30 focus:border-sky-500/50"
             />
+            {target.underlyingImage?.src ? (
+              <div className="flex items-center justify-between rounded-lg border border-surface-warm-white/6 bg-surface-warm-white/4 p-2 text-[11px]">
+                <div className="flex items-center gap-2 truncate">
+                  <img
+                    src={target.underlyingImage.src}
+                    alt="Background"
+                    className="size-6 rounded object-cover border border-surface-warm-white/10"
+                  />
+                  <span className="truncate text-surface-warm-white/60">
+                    Foto di latar
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={onReplaceImage}
+                  className="shrink-0 font-semibold text-sky-400 hover:text-sky-300 cursor-pointer"
+                >
+                  Ganti Foto Ini
+                </button>
+              </div>
+            ) : null}
             <div className="flex items-center justify-between pt-1">
               <span className="text-[10px] text-surface-warm-white/30">
                 Enter untuk simpan
