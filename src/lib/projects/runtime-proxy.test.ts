@@ -37,38 +37,17 @@ describe("runtime proxy", () => {
     });
   });
 
-  it("injects the private preview annotation bridge once", () => {
+  it("injects a single unified inspector bridge script", () => {
     const html = injectPreviewAnnotationBridge(
       "<html><body><main></main></body></html>",
     );
 
-    expect(html).toContain("data-umkm-annotation-bridge");
-    expect(html).toContain(
-      "element.closest('.umkm-annotation-marker,.umkm-annotation-hover')",
-    );
-    expect(html).toContain("function selectionAt");
-    expect(html).toContain("function deepElementFromPoint");
-    expect(html).toContain("function pickElement");
-    expect(html).toContain(
-      "if (!isIgnorableDecoration(element)) return element;",
-    );
-    expect(html).not.toContain("const hovered = recentHoverTargetAt");
+    expect(html).toContain("data-umkm-inspector-bridge");
+    expect(html).toContain("getReactComponentAncestry");
+    expect(html).toContain("__reactFiber");
+    expect(html).toContain("componentHierarchy");
+    expect(html).not.toContain("data-umkm-edit-bridge");
     expect(injectPreviewAnnotationBridge(html)).toBe(html);
-  });
-
-  it("injects the direct edit-mode bridge", () => {
-    const html = injectPreviewAnnotationBridge("<html><body></body></html>");
-    expect(html).toContain("data-umkm-edit-bridge");
-    expect(html).toContain("umkmcepat-edit-mode");
-    expect(html).toContain("umkmcepat-edit-hit-test");
-    expect(html).toContain("umkmcepat-edit-target");
-    expect(html).toContain("elementFromPoint");
-    expect(html).toContain("umkm-edit-hover");
-    expect(html).toContain("setHoverBox");
-    expect(html).toContain('data-umkm-origin="*"');
-    expect(html).toContain("umkmcepat-edit-action");
-    expect(html).toContain("moveSelected");
-    expect(html).toContain("data-umkm-id");
   });
   afterEach(async () => {
     vi.restoreAllMocks();

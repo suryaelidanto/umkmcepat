@@ -220,17 +220,19 @@ export function injectPreviewHead(
 
 export function injectPreviewAnnotationBridge(html: string) {
   const origin = "*";
-  const script = `<script data-umkm-annotation-bridge data-umkm-origin="${origin}">${PREVIEW_ANNOTATION_BRIDGE}</script>`;
-  const editBridge = `<script data-umkm-edit-bridge data-umkm-origin="${origin}">${EDIT_MODE_BRIDGE}</script>`;
+  const script = `<script data-umkm-inspector-bridge data-umkm-origin="${origin}">${UNIFIED_INSPECTOR_BRIDGE}</script>`;
   const fallback = buildImageFallbackScript();
 
-  if (html.includes("data-umkm-annotation-bridge")) {
+  if (
+    html.includes("data-umkm-inspector-bridge") ||
+    html.includes("data-umkm-annotation-bridge")
+  ) {
     return html;
   }
 
   return html.includes("</body>")
-    ? html.replace("</body>", `${script}${editBridge}${fallback}</body>`)
-    : `${html}${script}${editBridge}${fallback}`;
+    ? html.replace("</body>", `${script}${fallback}</body>`)
+    : `${html}${script}${fallback}`;
 }
 
 export function buildImageFallbackScript(): string {
@@ -411,24 +413,21 @@ function isPreviewMediaCandidate(candidate: PreviewAnnotationCandidate) {
   return /^(img|picture|video|svg)$/.test(candidate.tag);
 }
 
-const PREVIEW_ANNOTATION_BRIDGE = String.raw`
+const UNIFIED_INSPECTOR_BRIDGE = String.raw`
 (() => {
-  if (window.__umkmAnnotationBridge) return;
-  window.__umkmAnnotationBridge = true;
+  if (window.__umkmInspectorBridge) return;
+  window.__umkmInspectorBridge = true;
 
-  // Signal ready immediately upon bridge mount
   try {
     window.parent?.postMessage({ type: "umkmcepat-preview-ready" }, "*");
   } catch {}
 
-  // Prevent preview iframe navigation & anchor clicks from polluting parent window browser history
   document.addEventListener('click', (e) => {
     const anchor = e.target && e.target.closest ? e.target.closest('a') : null;
     if (!anchor) return;
     const href = anchor.getAttribute('href');
     if (!href) return;
 
-    // In-page hash jumps (#menu, #location, #contact)
     if (href.startsWith('#')) {
       e.preventDefault();
       const id = href.slice(1);
@@ -439,50 +438,65 @@ const PREVIEW_ANNOTATION_BRIDGE = String.raw`
       return;
     }
 
-    // External links and WhatsApp
     if (anchor.target === '_blank' || href.startsWith('http://') || href.startsWith('https://') || href.startsWith('mailto:') || href.startsWith('tel:')) {
       return;
     }
 
-    // Internal navigation within iframe: use replaceState to keep parent history clean
     e.preventDefault();
     if (window.history && window.history.replaceState) {
       window.history.replaceState(null, '', href);
     }
   }, { capture: true });
 
-  // The control-plane origin (set by the parent via data-umkm-origin).
-  const bridgeScript = document.currentScript || document.querySelector('script[data-umkm-annotation-bridge]');
+  const bridgeScript = document.currentScript || document.querySelector('script[data-umkm-inspector-bridge]');
   const PARENT_ORIGIN = bridgeScript ? bridgeScript.getAttribute('data-umkm-origin') || '*' : '*';
 
   let active = false;
   let hoverBox = null;
-  const markers = new Map();
+  let selectedBox = null;
+  let hoverBadge = null;
+  let currentSelectedElement = null;
+  let selectedId = null;
+  let idCounter = 0;
+  const blocks = new Map();
+  const removedIds = new Set();
 
   const style = document.createElement('style');
-  style.textContent = '.umkm-annotation-hover{position:absolute;z-index:2147483646;pointer-events:none;border:2px solid #8fd3ff;border-radius:10px;background:rgba(143,211,255,.08);box-shadow:0 0 0 9999px rgba(0,0,0,.02)}.umkm-annotation-marker{position:absolute;z-index:2147483645;display:grid;place-items:center;width:24px;height:24px;border-radius:999px;background:#fcfbf8;color:#10100f;font:700 12px ui-sans-serif,system-ui,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.25);border:1px solid rgba(0,0,0,.14)}.umkm-annotation-active *{cursor:crosshair!important}';
+  style.textContent = '.umkm-inspector-hover{position:absolute;z-index:2147483646;pointer-events:none;border:2px solid #38bdf8;border-radius:8px;background:rgba(56,189,248,0.08);box-shadow:0 0 0 1px rgba(255,255,255,0.2) inset;transition:all 0.04s ease-out;}.umkm-inspector-badge{position:absolute;z-index:2147483647;pointer-events:none;background:#0f172a;color:#f8fafc;padding:3px 8px;border-radius:6px;font:600 11px/1.2 ui-sans-serif,system-ui,-apple-system,sans-serif;box-shadow:0 4px 12px rgba(0,0,0,0.3);border:1px solid rgba(56,189,248,0.4);white-space:nowrap;display:flex;align-items:center;gap:4px;transform:translateY(-100%);margin-top:-4px;}.umkm-inspector-badge .badge-component{color:#38bdf8;font-weight:700;}.umkm-inspector-selected{position:absolute;z-index:2147483647;pointer-events:none;border:2.5px solid #0284c7;border-radius:8px;box-shadow:0 0 0 4px rgba(2,132,199,0.25);}.umkm-inspector-active *{cursor:crosshair!important}';
   document.head.appendChild(style);
 
-  function ensureHoverBox() {
-    if (hoverBox) return hoverBox;
-    hoverBox = document.createElement('div');
-    hoverBox.className = 'umkm-annotation-hover';
-    hoverBox.hidden = true;
-    document.body.appendChild(hoverBox);
-    return hoverBox;
+  function clean(value) {
+    return String(value || '').replace(/\s+/g, ' ').trim();
   }
 
-  function setHoverBox(rect) {
-    const box = ensureHoverBox();
-    box.hidden = false;
-    box.style.left = String(rect.left + window.scrollX) + 'px';
-    box.style.top = String(rect.top + window.scrollY) + 'px';
-    box.style.width = String(rect.width) + 'px';
-    box.style.height = String(rect.height) + 'px';
-  }
+  function getReactComponentAncestry(element) {
+    if (!element) return [];
+    const fiberKey = Object.keys(element).find((k) =>
+      k.startsWith('__reactFiber' + String.fromCharCode(36)) || k.startsWith('__reactInternalInstance' + String.fromCharCode(36))
+    );
+    if (!fiberKey) return [];
 
-  function hideHoverBox() {
-    if (hoverBox) hoverBox.hidden = true;
+    let fiber = element[fiberKey];
+    const hierarchy = [];
+
+    while (fiber) {
+      if (fiber.type && typeof fiber.type !== 'string') {
+        const name =
+          fiber.type.displayName ||
+          fiber.type.name ||
+          fiber.type.render?.name;
+
+        if (
+          name &&
+          !name.startsWith('_') &&
+          !['Anonymous', 'Fragment', 'Provider', 'Context', 'Route', 'InnerLayout', 'Root'].includes(name)
+        ) {
+          hierarchy.unshift(name);
+        }
+      }
+      fiber = fiber.return;
+    }
+    return Array.from(new Set(hierarchy));
   }
 
   function deepElementFromPoint(x, y) {
@@ -493,61 +507,6 @@ const PREVIEW_ANNOTATION_BRIDGE = String.raw`
       element = deeper;
     }
     return element instanceof HTMLElement ? element : null;
-  }
-
-  function elementAt(x, y) {
-    const element = deepElementFromPoint(x, y);
-    return element ? pickElement(element) : null;
-  }
-
-  function selectionAt(x, y) {
-    const selection = window.getSelection && window.getSelection();
-    if (!selection || selection.isCollapsed || !selection.rangeCount) return null;
-
-    const text = clean(selection.toString());
-    if (!text) return null;
-
-    const range = selection.getRangeAt(0);
-    const rects = Array.from(range.getClientRects());
-    const containsPoint = rects.some((rect) =>
-      x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom,
-    );
-    const rect = range.getBoundingClientRect();
-    if (!rect.width && !rect.height) return null;
-
-    const node = range.commonAncestorContainer;
-    const element = node instanceof HTMLElement ? node : node.parentElement;
-    if (!containsPoint) return null;
-
-    const pointed = elementAt(x, y);
-    const target = element instanceof HTMLElement ? pickElement(element) || pointed : pointed;
-
-    return target ? { rect, target, text: text.slice(0, 500) } : null;
-  }
-
-  function pickElement(element) {
-    if (isBridgeUi(element)) return null;
-
-    if (element.tagName === 'IMG' || element.tagName === 'PICTURE') return element;
-
-    const interactive = closestElement(element, 'button,a,input,select,textarea,[role="button"],[onclick]');
-    if (interactive) return interactive;
-
-    const childMedia = element.querySelector ? element.querySelector('img,picture,video,svg') : null;
-    if (childMedia && !isIgnorableDecoration(childMedia) && !element.matches('section,main,article')) {
-      return childMedia;
-    }
-
-    const media = closestElement(element, 'img,picture,video,svg');
-    if (media && !isIgnorableDecoration(media)) return media;
-
-    if (!isIgnorableDecoration(element)) return element;
-
-    const atomic = closestAtomicBlock(element);
-    if (atomic) return atomic;
-
-    const container = closestElement(element, 'section,nav,header,footer,main,aside,[aria-label]');
-    return container || element;
   }
 
   function closestElement(element, selector) {
@@ -560,207 +519,12 @@ const PREVIEW_ANNOTATION_BRIDGE = String.raw`
   }
 
   function isBridgeUi(element) {
-    if (element.closest('.umkm-annotation-marker,.umkm-annotation-hover')) return true;
-    return false;
+    if (!element || !(element instanceof HTMLElement)) return false;
+    return Boolean(element.closest('.umkm-inspector-hover,.umkm-inspector-badge,.umkm-inspector-selected,.umkm-annotation-marker'));
   }
 
   function isIgnorableDecoration(element) {
-    if (element.getAttribute('aria-hidden') === 'true') return true;
-
-    const className = typeof element.className === 'string' ? element.className : '';
-    const isDecoration = /(backdrop|decoration|gradient|glow|overlay|veil)/i.test(className);
-    const hasText = Boolean(clean(element.innerText || element.textContent || ''));
-    const isInteractive = element.matches('a,button,input,select,textarea,[role="button"],[onclick]');
-
-    return isDecoration && !hasText && !isInteractive;
-  }
-
-  function closestAtomicBlock(element) {
-    let current = element;
-    while (current && current !== document.body) {
-      if (current instanceof HTMLElement && !isIgnorableDecoration(current) && isAtomicBlock(current)) return current;
-      current = current.parentElement;
-    }
-    return null;
-  }
-
-  function isAtomicBlock(element) {
-    if (element.matches('article,[role="listitem"],[data-umkm-annotatable]')) return true;
-
-    const className = typeof element.className === 'string' ? element.className : '';
-    if (/(^|[\s_-])(body|container|content|inner|padding|wrapper)([\s_-]|$)/i.test(className)) return false;
-    return /(^|[\s_-])(badge|card|capsule|chip|feature|item|pill|product|service|tag|tile)([\s_-]|$)/i.test(className);
-  }
-
-  function targetData(element, selection) {
-    const rect = selection ? selection.rect : element.getBoundingClientRect();
-    const text = clean(element.innerText || element.textContent || '');
-    const selected = selection ? selection.text : '';
-    const tag = element.tagName.toLowerCase();
-    const src = /^(img|picture|svg)$/.test(tag)
-      ? (element.currentSrc || element.getAttribute('src') || element.src || '')
-      : '';
-    return {
-      label: labelFor(element, selected || text),
-      selectedText: selected || undefined,
-      target: {
-        boundingBox: { x: rect.left, y: rect.top, width: rect.width, height: rect.height },
-        classes: typeof element.className === 'string' ? clean(element.className).slice(0, 300) : '',
-        nearbyText: nearbyText(element),
-        selectorPath: selectorPath(element),
-        ...(src ? { src } : {}),
-        tag,
-        text: text.slice(0, 300),
-      },
-    };
-  }
-
-  function labelFor(element, text) {
-    const tag = element.tagName.toLowerCase();
-    const snippet = text ? ' — "' + text.slice(0, 60) + (text.length > 60 ? '…' : '') + '"' : '';
-    if (tag === 'h1') return 'Judul utama' + snippet;
-    if (/^h[2-6]$/.test(tag)) return 'Judul bagian' + snippet;
-    if (tag === 'button' || tag === 'a' || element.getAttribute('role') === 'button') return 'Tombol' + snippet;
-    if (/^(img|picture|video|svg)$/.test(tag)) return 'Gambar' + snippet;
-    if (/^(p|span|label|li|blockquote|figcaption|caption)$/.test(tag)) return 'Teks' + snippet;
-    if (tag === 'article' || element.getAttribute('role') === 'listitem') return 'Kartu' + snippet;
-    if (tag === 'section') return 'Bagian' + snippet;
-    return 'Bagian website' + snippet;
-  }
-
-  function selectorPath(element) {
-    const parts = [];
-    let current = element;
-    while (current && current.nodeType === 1 && current !== document.body && parts.length < 7) {
-      let part = current.tagName.toLowerCase();
-      if (current.id) {
-        part += '#' + current.id.replace(/[^a-zA-Z0-9_-]/g, '');
-      } else {
-        const classes = typeof current.className === 'string' ? current.className.split(/\s+/) : [];
-        const cls = classes.find((name) =>
-          /^[a-z][a-z0-9_-]{2,}$/i.test(name) &&
-          !/(^css-|__[a-z0-9_-]{5,}$)/i.test(name),
-        );
-        if (cls) part += '.' + cls;
-
-        const siblings = current.parentElement
-          ? Array.from(current.parentElement.children).filter((item) => item.tagName === current.tagName)
-          : [];
-        if (siblings.length > 1) part += ':nth-of-type(' + (siblings.indexOf(current) + 1) + ')';
-      }
-      parts.unshift(part);
-      current = current.parentElement;
-    }
-    return parts.join(' > ');
-  }
-
-  function nearbyText(element) {
-    const texts = [];
-    for (const item of [element.previousElementSibling, element, element.nextElementSibling]) {
-      if (!item) continue;
-      const value = clean(item.innerText || item.textContent || '');
-      if (value) texts.push(value.slice(0, 160));
-    }
-    return texts.join(' | ').slice(0, 500);
-  }
-
-  function clean(value) {
-    return value.replace(/\s+/g, ' ').trim();
-  }
-
-  function handleMove(event) {
-    if (!active) return;
-    const selection = selectionAt(event.clientX, event.clientY);
-    const element = selection ? selection.target : elementAt(event.clientX, event.clientY);
-    if (!element) {
-      hideHoverBox();
-      return;
-    }
-
-    const rect = selection ? selection.rect : element.getBoundingClientRect();
-    setHoverBox(rect);
-    window.parent.postMessage({ type: 'umkmcepat-annotation-hover', payload: targetData(element, selection) }, PARENT_ORIGIN);
-  }
-
-  function handleClick(event) {
-    if (!active) return;
-    event.preventDefault();
-    event.stopPropagation();
-    const selection = selectionAt(event.clientX, event.clientY);
-    const element = selection ? selection.target : elementAt(event.clientX, event.clientY);
-    if (!element) return;
-    window.parent.postMessage({ type: 'umkmcepat-annotation-target', payload: targetData(element, selection) }, PARENT_ORIGIN);
-  }
-
-  window.addEventListener('message', (event) => {
-    const data = event.data;
-    if (!data || typeof data !== 'object') return;
-    if (data.type === 'umkmcepat-annotation-mode') {
-      active = Boolean(data.active);
-      document.documentElement.classList.toggle('umkm-annotation-active', active);
-      if (!active) hideHoverBox();
-    }
-    if (data.type === 'umkmcepat-annotation-markers') {
-      for (const marker of markers.values()) marker.remove();
-      markers.clear();
-      for (const item of data.annotations || []) {
-        const rect = item.target && item.target.boundingBox;
-        if (!rect) continue;
-        const marker = document.createElement('button');
-        marker.type = 'button';
-        marker.className = 'umkm-annotation-marker';
-        marker.textContent = String(item.index);
-        marker.style.left = String(rect.x + window.scrollX) + 'px';
-        marker.style.top = String(rect.y + window.scrollY) + 'px';
-        marker.setAttribute('aria-label', 'Komentar ' + item.index);
-        document.body.appendChild(marker);
-        markers.set(item.id, marker);
-      }
-    }
-  });
-
-  document.addEventListener('mousemove', handleMove);
-  document.addEventListener('click', handleClick, true);
-})();
-`;
-
-const EDIT_MODE_BRIDGE = String.raw`(() => {
-  const bridgeScript = document.currentScript || document.querySelector('script[data-umkm-edit-bridge]');
-  const PARENT_ORIGIN = bridgeScript ? bridgeScript.getAttribute('data-umkm-origin') || '*' : '*';
-
-  let active = false;
-  let hoverBox = null;
-  let selectedBox = null;
-  let currentSelectedElement = null;
-
-  const style = document.createElement('style');
-  style.textContent = '.umkm-edit-hover{position:absolute;z-index:2147483646;pointer-events:none;border:2px solid #0d9488;border-radius:8px;background:rgba(13,148,136,0.12);box-shadow:0 0 0 1px rgba(255,255,255,0.2) inset;transition:all 0.05s ease-out;}.umkm-edit-selected{position:absolute;z-index:2147483647;pointer-events:none;border:2.5px solid #0d9488;border-radius:8px;box-shadow:0 0 0 4px rgba(13,148,136,0.22);}.umkm-edit-active *{cursor:crosshair!important}';
-  document.head.appendChild(style);
-
-  function clean(value) {
-    return String(value || '').replace(/\s+/g, ' ').trim();
-  }
-
-  function deepElementFromPoint(x, y) {
-    let element = document.elementFromPoint(x, y);
-    while (element instanceof HTMLElement && element.shadowRoot) {
-      const deeper = element.shadowRoot.elementFromPoint(x, y);
-      if (!deeper || deeper === element) break;
-      element = deeper;
-    }
-    return element instanceof HTMLElement ? element : null;
-  }
-
-  function closestElement(element, selector) {
-    let current = element;
-    while (current && current !== document.body) {
-      if (current instanceof HTMLElement && current.matches(selector)) return current;
-      current = current.parentElement;
-    }
-    return null;
-  }
-
-  function isIgnorableDecoration(element) {
+    if (!element || !(element instanceof HTMLElement)) return true;
     if (element.getAttribute('aria-hidden') === 'true') return true;
     const className = typeof element.className === 'string' ? element.className : '';
     const isDecoration = /(backdrop|decoration|gradient|glow|overlay|veil)/i.test(className);
@@ -781,22 +545,30 @@ const EDIT_MODE_BRIDGE = String.raw`(() => {
   }
 
   function isAtomicBlock(element) {
+    if (!element || !(element instanceof HTMLElement)) return false;
     if (element.matches('article,[role="listitem"],[data-umkm-annotatable]')) return true;
     const className = typeof element.className === 'string' ? element.className : '';
-    return /(^|[-_\s])(card|feature|item|product|service|tile)([-_\s]|$)/i.test(className);
+    if (/(^|[\s_-])(body|container|content|inner|padding|wrapper)([\s_-]|$)/i.test(className)) return false;
+    return /(^|[-_\s])(badge|card|capsule|chip|feature|item|pill|product|service|tag|tile)([-_\s]|$)/i.test(className);
+  }
+
+  function closestAtomicBlock(element) {
+    let current = element;
+    while (current && current !== document.body) {
+      if (current instanceof HTMLElement && !isIgnorableDecoration(current) && isAtomicBlock(current)) return current;
+      current = current.parentElement;
+    }
+    return null;
   }
 
   function pickElement(element) {
-    if (!element || element === document.body || element === document.documentElement) return null;
+    if (!element || isBridgeUi(element) || element === document.body || element === document.documentElement) return null;
 
-    // 1. Direct Image or Picture (highest priority leaf)
     if (element.tagName === 'IMG' || element.tagName === 'PICTURE') return element;
 
-    // 2. Interactive Controls (Button, Anchor, Input)
     const interactive = closestElement(element, 'button,a,input,select,textarea,[role="button"],[onclick]');
     if (interactive) return interactive;
 
-    // 3. Child media within a small container.
     const childMedia = element.querySelector ? element.querySelector('img,picture,video,svg') : null;
     if (childMedia && !isIgnorableDecoration(childMedia) && !element.matches('section,main,article,body')) {
       const imgRect = childMedia.getBoundingClientRect();
@@ -805,20 +577,16 @@ const EDIT_MODE_BRIDGE = String.raw`(() => {
       }
     }
 
-    // 4. Specific Typography Leaf Nodes
     const text = closestElement(element, 'h1,h2,h3,h4,h5,h6,p,label,li,blockquote,figcaption,caption,span,strong,em,b,i,small,code,pre');
     if (text && !isIgnorableDecoration(text) && clean(text.innerText || text.textContent || '')) {
       return text;
     }
 
-    // 5. Atomic Card or Feature Tile (Nearest Container, NOT Section)
     const atomicCard = closestAtomicBlock(element);
     if (atomicCard) return atomicCard;
 
-    // 6. Direct Element with Text
     if (!isIgnorableDecoration(element) && hasDirectText(element)) return element;
 
-    // 7. Structural Section / Fallback Container
     return closestElement(element, 'article,header,footer,nav,section,[aria-label],[data-umkm-annotatable]') || element;
   }
 
@@ -879,20 +647,28 @@ const EDIT_MODE_BRIDGE = String.raw`(() => {
     return 'Bagian website' + snippet;
   }
 
-  function targetData(element) {
-    const rect = element.getBoundingClientRect();
+  function targetData(element, selection) {
+    const rect = selection ? selection.rect : element.getBoundingClientRect();
     const text = clean(element.innerText || element.textContent || '');
+    const selected = selection ? selection.text : '';
     const tag = element.tagName.toLowerCase();
     const src = /^(img|picture|svg)$/.test(tag)
       ? (element.currentSrc || element.getAttribute('src') || element.src || '')
       : '';
+    const componentHierarchy = getReactComponentAncestry(element);
+    const primaryComponent = componentHierarchy.at(-1) || null;
+
     return {
-      label: labelFor(element, text),
-      selectedText: undefined,
+      componentHierarchy,
+      label: labelFor(element, selected || text),
+      primaryComponent,
+      selectedText: selected || undefined,
       target: {
         boundingBox: { x: rect.left, y: rect.top, width: rect.width, height: rect.height },
         classes: typeof element.className === 'string' ? clean(element.className).slice(0, 300) : '',
+        componentHierarchy,
         nearbyText: nearbyText(element),
+        primaryComponent,
         selectorPath: selectorPath(element),
         ...(src ? { src } : {}),
         tag,
@@ -954,29 +730,50 @@ const EDIT_MODE_BRIDGE = String.raw`(() => {
   function ensureHoverBox() {
     if (hoverBox) return hoverBox;
     hoverBox = document.createElement('div');
-    hoverBox.className = 'umkm-edit-hover';
+    hoverBox.className = 'umkm-inspector-hover';
     hoverBox.hidden = true;
     document.body.appendChild(hoverBox);
     return hoverBox;
   }
 
-  function setHoverBox(rect) {
+  function ensureHoverBadge() {
+    if (hoverBadge) return hoverBadge;
+    hoverBadge = document.createElement('div');
+    hoverBadge.className = 'umkm-inspector-badge';
+    hoverBadge.hidden = true;
+    document.body.appendChild(hoverBadge);
+    return hoverBadge;
+  }
+
+  function setHoverBox(rect, target) {
     const box = ensureHoverBox();
+    const badge = ensureHoverBadge();
     box.hidden = false;
     box.style.left = String(rect.left + window.scrollX) + 'px';
     box.style.top = String(rect.top + window.scrollY) + 'px';
     box.style.width = String(rect.width) + 'px';
     box.style.height = String(rect.height) + 'px';
+
+    if (target) {
+      badge.hidden = false;
+      const comp = target.primaryComponent ? '<span class="badge-component">[' + target.primaryComponent + ']</span> ' : '';
+      badge.innerHTML = comp + target.label.split(' — ')[0];
+      badge.style.left = String(rect.left + window.scrollX) + 'px';
+      badge.style.top = String(Math.max(24, rect.top + window.scrollY)) + 'px';
+    } else {
+      badge.hidden = true;
+    }
   }
 
   function hideHoverBox() {
     if (hoverBox) hoverBox.hidden = true;
+    if (hoverBadge) hoverBadge.hidden = true;
   }
 
   function ensureSelectedBox() {
     if (selectedBox) return selectedBox;
     selectedBox = document.createElement('div');
-    selectedBox.className = 'umkm-edit-selected';
+    selectedBox.className = 'umkm-inspector-selected';
     selectedBox.hidden = true;
     document.body.appendChild(selectedBox);
     return selectedBox;
@@ -1008,7 +805,7 @@ const EDIT_MODE_BRIDGE = String.raw`(() => {
   function handleMove(event) {
     if (!active) return;
     const target = targetAt(event.clientX, event.clientY);
-    if (target) setHoverBox(target.target.boundingBox);
+    if (target) setHoverBox(target.target.boundingBox, target);
     else hideHoverBox();
     post('umkmcepat-edit-hover', target);
     post('umkmcepat-annotation-hover', target);
@@ -1062,14 +859,14 @@ const EDIT_MODE_BRIDGE = String.raw`(() => {
   window.addEventListener('message', (event) => {
     const data = event.data;
     if (!data || typeof data !== 'object') return;
-    if (data.type === 'umkmcepat-edit-mode' || data.type === 'umkmcepat-annotation-mode') {
+    if (data.type === 'umkmcepat-edit-mode' || data.type === 'umkmcepat-annotation-mode' || data.type === 'umkmcepat-inspector-mode') {
       active = Boolean(data.active);
       if (active) {
         ensureIds();
         scan();
         post('umkmcepat-edit-ready', layout());
       }
-      document.documentElement.classList.toggle('umkm-edit-active', active);
+      document.documentElement.classList.toggle('umkm-inspector-active', active);
       document.documentElement.style.cursor = active ? 'crosshair' : '';
       if (!active) {
         hideHoverBox();
@@ -1120,4 +917,5 @@ const EDIT_MODE_BRIDGE = String.raw`(() => {
       post('umkmcepat-edit-target', null);
     }
   });
-})();`;
+})();
+`;
