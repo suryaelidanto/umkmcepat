@@ -128,7 +128,6 @@ import {
 import { isPreflightBlockedByWorkspaceCard } from "@/lib/projects/discuss-preflight";
 import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
 import {
-  createImageReplaceEditInstruction,
   createVisualAnnotationEditInstruction,
   createVisualAnnotationId,
   createVisualAnnotationSummary,
@@ -2630,6 +2629,33 @@ export function WorkspaceShell({
   }
 
   function queueDirectEditIntent(intent: DirectEditIntent) {
+    if (intent.action === "update-text" && intent.newText) {
+      const frame = document.querySelector(
+        'iframe[title="Tampilan website"]',
+      ) as HTMLIFrameElement | null;
+      frame?.contentWindow?.postMessage(
+        {
+          action: "update-text",
+          newText: intent.newText,
+          selectorPath: intent.target.selectorPath,
+          type: "umkmcepat-edit-action",
+        },
+        "*",
+      );
+    } else if (intent.action === "replace-image" && intent.newSrc) {
+      const frame = document.querySelector(
+        'iframe[title="Tampilan website"]',
+      ) as HTMLIFrameElement | null;
+      frame?.contentWindow?.postMessage(
+        {
+          action: "replace-image",
+          newSrc: intent.newSrc,
+          selectorPath: intent.target.selectorPath,
+          type: "umkmcepat-edit-action",
+        },
+        "*",
+      );
+    }
     setEditIntentHistory((current) => intentHistoryPush(current, intent));
   }
 
@@ -2659,12 +2685,16 @@ export function WorkspaceShell({
     }
     const asset = (await claimRes.json()) as { id: string };
     const mediaPath = `/api/media/${asset.id}`;
-    const instruction = createImageReplaceEditInstruction({
-      replaceWith: [{ alt: "Gambar baru", mediaPath }],
-      target,
-    });
     setPendingAnnotationTarget(null);
-    await submitDirectEdit({ instruction, summary: "Ganti gambar." });
+    queueDirectEditIntent({
+      action: "replace-image",
+      newSrc: mediaPath,
+      target: {
+        label: "Gambar",
+        selectorPath: target.selectorPath,
+        tag: target.tag,
+      },
+    });
   }
 
   const saveTitleMutation = useCacheMutation<
@@ -4258,14 +4288,18 @@ export function WorkspaceShell({
                             },
                             onChange: setPendingAnnotationComment,
                             onDirectTextSubmit: (newText: string) => {
-                              const oldText =
-                                pendingAnnotationTarget.target.text || "";
-                              const instruction = `Ubah teks "${oldText}" menjadi "${newText}". Pertahankan semua struktur, layout, dan warna lainnya.`;
+                              const target = pendingAnnotationTarget;
                               setPendingAnnotationTarget(null);
                               setPendingAnnotationComment("");
-                              void submitDirectEdit({
-                                instruction,
-                                summary: `Ubah teks menjadi "${newText}".`,
+                              queueDirectEditIntent({
+                                action: "update-text",
+                                newText,
+                                target: {
+                                  label: target.label,
+                                  selectorPath: target.target.selectorPath,
+                                  tag: target.target.tag,
+                                  text: target.target.text,
+                                },
                               });
                             },
                             onReplaceImage: () =>

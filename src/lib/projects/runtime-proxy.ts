@@ -856,6 +856,31 @@ const UNIFIED_INSPECTOR_BRIDGE = String.raw`
     postState();
   }
 
+  function updateElementText(selector, newText) {
+    if (currentSelectedElement) {
+      currentSelectedElement.innerText = newText;
+      updateSelectedBoxPosition();
+      return;
+    }
+    const el = document.querySelector(selector);
+    if (el) {
+      el.innerText = newText;
+    }
+  }
+
+  function updateElementSrc(selector, newSrc) {
+    if (currentSelectedElement && (currentSelectedElement.tagName === 'IMG' || currentSelectedElement.tagName === 'PICTURE')) {
+      currentSelectedElement.src = newSrc;
+      if (currentSelectedElement.currentSrc) currentSelectedElement.currentSrc = newSrc;
+      updateSelectedBoxPosition();
+      return;
+    }
+    const el = document.querySelector(selector);
+    if (el) {
+      el.src = newSrc;
+    }
+  }
+
   window.addEventListener('message', (event) => {
     const data = event.data;
     if (!data || typeof data !== 'object') return;
@@ -880,6 +905,12 @@ const UNIFIED_INSPECTOR_BRIDGE = String.raw`
       if (data.action === 'move-up') moveSelected(-1);
       if (data.action === 'move-down') moveSelected(1);
       if (data.action === 'remove') removeSelected();
+      if (data.action === 'update-text' && typeof data.newText === 'string') {
+        updateElementText(data.selectorPath, data.newText);
+      }
+      if (data.action === 'replace-image' && typeof data.newSrc === 'string') {
+        updateElementSrc(data.selectorPath, data.newSrc);
+      }
     }
   });
 

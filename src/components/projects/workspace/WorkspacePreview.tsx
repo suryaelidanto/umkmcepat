@@ -9,7 +9,10 @@ import {
 } from "./popover-position";
 
 import { Button } from "@/components/ui/button";
-import { type EditLayout } from "@/lib/projects/direct-edit";
+import {
+  type DirectEditIntent,
+  type EditLayout,
+} from "@/lib/projects/direct-edit";
 import { type VisualAnnotationDraft } from "@/lib/projects/visual-annotations";
 import {
   previewReadyState,
@@ -49,10 +52,7 @@ export function GeneratedPreviewFrame({
   }>;
   directEditActive?: boolean;
   directEditFlagEnabled?: boolean;
-  directEditIntents?: Array<{
-    action: "remove" | "move-up" | "move-down";
-    target: { selectorPath: string };
-  }>;
+  directEditIntents?: DirectEditIntent[];
   editLayout?: EditLayout | null;
   editLayoutSignal?: number;
   onAnnotationTarget?: (target: unknown) => void;
@@ -285,10 +285,7 @@ export function PreviewEditOverlay({
   selectedTarget,
 }: {
   hoverTarget?: PreviewEditTarget | null;
-  intents: Array<{
-    action: "remove" | "move-up" | "move-down";
-    target: { selectorPath: string };
-  }>;
+  intents: DirectEditIntent[];
   onComment?: (target: PreviewEditTarget) => void;
   onDirectEditAction?: (
     action: "remove" | "move-up" | "move-down",

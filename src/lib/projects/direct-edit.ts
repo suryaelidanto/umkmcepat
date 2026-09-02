@@ -20,7 +20,9 @@ export type DirectEditTargetRef = {
 };
 
 export type DirectEditIntent = {
-  action: "remove" | "move-up" | "move-down";
+  action: "remove" | "move-up" | "move-down" | "update-text" | "replace-image";
+  newText?: string;
+  newSrc?: string;
   target: DirectEditTargetRef;
 };
 
@@ -86,13 +88,22 @@ export function buildDirectEditIntentInstruction(
   }
 
   const lines = intents.map((intent) => {
-    const action =
-      intent.action === "remove"
-        ? "Hapus bagian/elemen ini"
-        : intent.action === "move-up"
-          ? "Pindahkan bagian/elemen ini ke atas"
-          : "Pindahkan bagian/elemen ini ke bawah";
-    const text = intent.target.text ? `; teks: "${intent.target.text}"` : "";
+    let action = "";
+    if (intent.action === "remove") {
+      action = "Hapus bagian/elemen ini";
+    } else if (intent.action === "move-up") {
+      action = "Pindahkan bagian/elemen ini ke atas";
+    } else if (intent.action === "move-down") {
+      action = "Pindahkan bagian/elemen ini ke bawah";
+    } else if (intent.action === "update-text") {
+      action = `Ganti teks menjadi "${intent.newText || ""}"`;
+    } else if (intent.action === "replace-image") {
+      action = `Ganti gambar menjadi "${intent.newSrc || ""}"`;
+    }
+
+    const text = intent.target.text
+      ? `; teks sebelumnya: "${intent.target.text}"`
+      : "";
     return `- ${action}: ${intent.target.label} (${intent.target.selectorPath}; tag: ${intent.target.tag}${text})`;
   });
 
