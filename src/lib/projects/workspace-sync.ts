@@ -128,6 +128,17 @@ export function getBuildRecommendationHoldSignature(card: WorkspaceCard) {
   ]);
 }
 
+export function getBuildOperationCardTransition(card: WorkspaceCard): {
+  consumedSignature: string | null;
+  workspaceCard: { type: "none" };
+} {
+  const signature = getBuildRecommendationHoldSignature(card);
+  return {
+    consumedSignature: signature || null,
+    workspaceCard: { type: "none" },
+  };
+}
+
 export function isBuildRecommendationHeld(
   card: WorkspaceCard,
   heldSignature: string | null,

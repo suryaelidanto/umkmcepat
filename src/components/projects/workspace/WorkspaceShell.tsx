@@ -142,6 +142,7 @@ import {
   type TurnState,
 } from "@/lib/projects/workspace-resume";
 import {
+  getBuildOperationCardTransition,
   getBuildRecommendationHoldSignature,
   getProjectRuntimePollInterval,
   getWorkspaceCardFromMessages,
@@ -1000,10 +1001,11 @@ export function WorkspaceShell({
       return;
     }
 
-    const consumedSignature = getBuildRecommendationHoldSignature(
+    const operationCard = getBuildOperationCardTransition(
       workspaceCardRef.current,
     );
-    setWorkspaceCard({ type: "none" });
+    const consumedSignature = operationCard.consumedSignature;
+    setWorkspaceCard(operationCard.workspaceCard);
     window.localStorage.removeItem(buildRecommendationStorageKey);
     setHeldBuildRecommendationSignature(null);
     setPostBuildChatOpen(false);
@@ -2471,6 +2473,32 @@ export function WorkspaceShell({
   }) {
     if (readOnly || isProcessing) {
       return false;
+    }
+    const operationCard = getBuildOperationCardTransition(
+      workspaceCardRef.current,
+    );
+    const consumedSignature = operationCard.consumedSignature;
+    setWorkspaceCard(operationCard.workspaceCard);
+    window.localStorage.removeItem(buildRecommendationStorageKey);
+    setHeldBuildRecommendationSignature(null);
+    setPostBuildChatOpen(false);
+    if (consumedSignature) {
+      setConsumedBuildRecommendationSignatures((prev) => {
+        if (prev.has(consumedSignature)) {
+          return prev;
+        }
+        const next = new Set(prev);
+        next.add(consumedSignature);
+        try {
+          window.localStorage.setItem(
+            buildRecommendationConsumedKey,
+            JSON.stringify([...next]),
+          );
+        } catch {
+          // In-memory consumption still protects the current tab.
+        }
+        return next;
+      });
     }
     setBuildStatus("building");
     setMode("build");

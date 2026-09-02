@@ -8,6 +8,7 @@ import {
   getProjectRuntimePollInterval,
   getWorkspaceCardFromMessages,
   getWorkspacePreviewIssue,
+  getBuildOperationCardTransition,
   getWorkspaceComposerState,
   hasAnsweredWorkspaceQuestion,
   isBuildRecommendationConsumed,
@@ -48,6 +49,24 @@ describe("workspace chat sync", () => {
         latestAttempt: { status: "succeeded" },
       }),
     ).toBe(false);
+  });
+
+  it("clears and consumes a recommendation when an operation starts", () => {
+    const card: WorkspaceCard = {
+      type: "build_recommendation",
+      title: "Website siap dibuat",
+      summary: ["Ubah gaya"],
+      handoffId: "handoff-1",
+      reviewHash: "a".repeat(64),
+    };
+    expect(getBuildOperationCardTransition(card)).toEqual({
+      consumedSignature: getBuildRecommendationHoldSignature(card),
+      workspaceCard: { type: "none" },
+    });
+    expect(getBuildOperationCardTransition({ type: "none" })).toEqual({
+      consumedSignature: null,
+      workspaceCard: { type: "none" },
+    });
   });
 
   it("does not resurrect an old recommendation after a completed build", () => {
