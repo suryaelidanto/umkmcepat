@@ -1,6 +1,13 @@
 "use client";
 
-import { ImagePlus, RefreshCw, X } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ImagePlus,
+  RefreshCw,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import {
@@ -70,6 +77,7 @@ export function GeneratedPreviewFrame({
   onStuck?: () => void;
   pendingAnnotation?: {
     comment: string;
+    onArrange?: (action: "move-up" | "move-down" | "remove") => void;
     onCancel: () => void;
     onChange: (value: string) => void;
     onDirectTextSubmit?: (newText: string) => void;
@@ -234,6 +242,7 @@ export function GeneratedPreviewFrame({
         {pendingAnnotation ? (
           <PreviewAnnotationPopover
             comment={pendingAnnotation.comment}
+            onArrange={pendingAnnotation.onArrange}
             onCancel={pendingAnnotation.onCancel}
             onChange={pendingAnnotation.onChange}
             onDirectTextSubmit={pendingAnnotation.onDirectTextSubmit}
@@ -332,6 +341,7 @@ export function PreviewEditOverlay({
 
 function PreviewAnnotationPopover({
   comment,
+  onArrange,
   onCancel,
   onChange,
   onDirectTextSubmit,
@@ -340,6 +350,7 @@ function PreviewAnnotationPopover({
   target,
 }: {
   comment: string;
+  onArrange?: (action: "move-up" | "move-down" | "remove") => void;
   onCancel: () => void;
   onChange: (value: string) => void;
   onDirectTextSubmit?: (newText: string) => void;
@@ -410,14 +421,47 @@ function PreviewAnnotationPopover({
             </span>
           ))}
         </div>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="grid size-6 shrink-0 place-items-center rounded-full text-surface-warm-white/40 hover:bg-surface-warm-white/10 hover:text-surface-warm-white transition"
-          aria-label="Tutup"
-        >
-          <X className="size-3.5" />
-        </button>
+        <div className="flex items-center gap-1">
+          {onArrange ? (
+            <div className="flex items-center gap-0.5 mr-1 border-r border-surface-warm-white/10 pr-1.5">
+              <button
+                type="button"
+                onClick={() => onArrange("move-up")}
+                className="grid size-6 place-items-center rounded-md text-surface-warm-white/50 hover:bg-surface-warm-white/10 hover:text-white transition cursor-pointer"
+                title="Pindahkan ke atas / kiri"
+                aria-label="Geser ke atas"
+              >
+                <ArrowUp className="size-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onArrange("move-down")}
+                className="grid size-6 place-items-center rounded-md text-surface-warm-white/50 hover:bg-surface-warm-white/10 hover:text-white transition cursor-pointer"
+                title="Pindahkan ke bawah / kanan"
+                aria-label="Geser ke bawah"
+              >
+                <ArrowDown className="size-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onArrange("remove")}
+                className="grid size-6 place-items-center rounded-md text-red-400/60 hover:bg-red-500/15 hover:text-red-300 transition cursor-pointer"
+                title="Hapus elemen ini"
+                aria-label="Hapus elemen"
+              >
+                <Trash2 className="size-3.5" />
+              </button>
+            </div>
+          ) : null}
+          <button
+            type="button"
+            onClick={onCancel}
+            className="grid size-6 shrink-0 place-items-center rounded-full text-surface-warm-white/40 hover:bg-surface-warm-white/10 hover:text-surface-warm-white transition"
+            aria-label="Tutup"
+          >
+            <X className="size-3.5" />
+          </button>
+        </div>
       </div>
 
       <div className="mb-2 flex rounded-lg bg-surface-warm-white/6 p-0.5 text-[11px] font-medium text-surface-warm-white/60">

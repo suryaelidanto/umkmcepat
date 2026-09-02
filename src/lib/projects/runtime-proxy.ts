@@ -566,6 +566,12 @@ const UNIFIED_INSPECTOR_BRIDGE = String.raw`
 
     if (element.tagName === 'IMG' || element.tagName === 'PICTURE') return element;
 
+    // SVG Icon leaf detection
+    if (element.tagName === 'svg' || element.tagName === 'path' || element.closest('svg')) {
+      const svg = element.tagName === 'svg' ? element : element.closest('svg');
+      if (svg && !isIgnorableDecoration(svg)) return svg;
+    }
+
     const interactive = closestElement(element, 'button,a,input,select,textarea,[role="button"],[onclick]');
     if (interactive) return interactive;
 
@@ -640,10 +646,11 @@ const UNIFIED_INSPECTOR_BRIDGE = String.raw`
   function labelFor(element, text) {
     const tag = element.tagName.toLowerCase();
     const snippet = text ? ' — "' + text.slice(0, 60) + (text.length > 60 ? '…' : '') + '"' : '';
+    if (tag === 'svg' || tag === 'path') return 'Ikon' + snippet;
     if (tag === 'h1') return 'Judul utama' + snippet;
     if (/^h[2-6]$/.test(tag)) return 'Judul bagian' + snippet;
     if (tag === 'button' || tag === 'a' || element.getAttribute('role') === 'button') return 'Tombol' + snippet;
-    if (/^(img|picture|video|svg)$/.test(tag)) return 'Gambar' + snippet;
+    if (/^(img|picture|video)$/.test(tag)) return 'Gambar' + snippet;
     if (/^(p|span|label|li|blockquote|figcaption|caption)$/.test(tag)) return 'Teks' + snippet;
     if (tag === 'article' || element.getAttribute('role') === 'listitem') return 'Kartu' + snippet;
     if (tag === 'section') return 'Bagian' + snippet;
@@ -960,6 +967,32 @@ const UNIFIED_INSPECTOR_BRIDGE = String.raw`
     }
   }
 
+  function moveElement(selector, direction) {
+    const targetEl = currentSelectedElement || (selector ? document.querySelector(selector) : null);
+    if (!targetEl || !targetEl.parentElement) return;
+    const parent = targetEl.parentElement;
+    const siblings = Array.from(parent.children).filter((item) => !isBridgeUi(item) && item.style.display !== 'none');
+    const index = siblings.indexOf(targetEl);
+    if (index === -1) return;
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= siblings.length) return;
+    const other = siblings[targetIndex];
+    if (direction < 0) {
+      parent.insertBefore(targetEl, other);
+    } else {
+      parent.insertBefore(other, targetEl);
+    }
+    updateSelectedBoxPosition();
+  }
+
+  function removeElement(selector) {
+    const targetEl = currentSelectedElement || (selector ? document.querySelector(selector) : null);
+    if (!targetEl) return;
+    targetEl.style.display = 'none';
+    hideSelectedBox();
+    hideHoverBox();
+  }
+
   window.addEventListener('message', (event) => {
     const data = event.data;
     if (!data || typeof data !== 'object') return;
@@ -981,9 +1014,9 @@ const UNIFIED_INSPECTOR_BRIDGE = String.raw`
       post(data.intent === 'hover' ? 'umkmcepat-edit-hover' : 'umkmcepat-edit-target', targetAt(data.x, data.y));
     }
     if (data.type === 'umkmcepat-edit-action') {
-      if (data.action === 'move-up') moveSelected(-1);
-      if (data.action === 'move-down') moveSelected(1);
-      if (data.action === 'remove') removeSelected();
+      if (data.action === 'move-up') moveElement(data.selectorPath, -1);
+      if (data.action === 'move-down') moveElement(data.selectorPath, 1);
+      if (data.action === 'remove') removeElement(data.selectorPath);
       if (data.action === 'update-text' && typeof data.newText === 'string') {
         updateElementText(data.selectorPath, data.newText);
       }

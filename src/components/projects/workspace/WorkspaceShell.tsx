@@ -4287,6 +4287,22 @@ export function WorkspaceShell({
                       effectiveDirectEditMode && pendingAnnotationTarget
                         ? {
                             comment: pendingAnnotationComment,
+                            onArrange: (
+                              action: "move-up" | "move-down" | "remove",
+                            ) => {
+                              const target = pendingAnnotationTarget;
+                              setPendingAnnotationTarget(null);
+                              setPendingAnnotationComment("");
+                              queueDirectEditIntent({
+                                action,
+                                target: {
+                                  label: target.label,
+                                  selectorPath: target.target.selectorPath,
+                                  tag: target.target.tag,
+                                  text: target.target.text,
+                                },
+                              });
+                            },
                             onCancel: () => {
                               setPendingAnnotationTarget(null);
                               setPendingAnnotationComment("");
