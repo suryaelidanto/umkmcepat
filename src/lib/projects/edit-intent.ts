@@ -75,7 +75,7 @@ const PALETTE_ONLY_KEYWORDS =
   /\b(?:warna|color|palet|palette|gelap|dark|terang|light|monokrom|monochrome|kontras|contrast)\b/i;
 
 const ADD_SECTION_KEYWORDS =
-  /\b(?:tambah(?:kan)?|buat)\s+(?:section|bagian|halaman)\b/i;
+  /\b(?:tambah(?:kan)?|buat)\b(?:\s+\w+){0,2}\s+(?:section|bagian|halaman)\b/i;
 const REMOVE_SECTION_KEYWORDS =
   /\b(?:hapus|hilangkan|buang)\s+(?:section|bagian|halaman)\b/i;
 const REORDER_LAYOUT_KEYWORDS =
@@ -124,7 +124,11 @@ export function classifyEditIntent({
   const hasStyle =
     !explicitCopy &&
     (STYLE_KEYWORDS.test(styleInstructionText) ||
-      (hasLayout && /\b(?:baru|new|redesign|desain|visual)\b/i.test(text)));
+      (hasLayout &&
+        !addSection &&
+        !removeSection &&
+        !reorderLayout &&
+        /\b(?:baru|new|redesign|desain|visual)\b/i.test(text)));
   const explicitFullRebuild = FULL_RESTRUCTURE_KEYWORDS.test(text);
   const explicitPremiumRedesign =
     PREMIUM_REDESIGN_KEYWORDS.test(text) &&
