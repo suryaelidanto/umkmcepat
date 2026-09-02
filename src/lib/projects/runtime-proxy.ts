@@ -790,6 +790,7 @@ const UNIFIED_INSPECTOR_BRIDGE = String.raw`
 
     const chosen = primaryElement || nearbyImageElement;
     const baseData = targetData(chosen);
+    baseData._element = chosen;
 
     if (nearbyImageElement && nearbyImageElement !== chosen) {
       const imgData = targetData(nearbyImageElement);
@@ -904,18 +905,25 @@ const UNIFIED_INSPECTOR_BRIDGE = String.raw`
     event.preventDefault();
     event.stopPropagation();
     const data = pickTargetCandidates(event.clientX, event.clientY);
-    const picked = currentSelectedElement = deepElementFromPoint(event.clientX, event.clientY);
-    if (data) {
+    const chosen = data ? data._element : deepElementFromPoint(event.clientX, event.clientY);
+    currentSelectedElement = chosen;
+    if (data && chosen) {
+      setSelectedBox(chosen.getBoundingClientRect());
+    } else if (data) {
       setSelectedBox(data.target.boundingBox);
     } else {
       hideSelectedBox();
     }
-    const structural = picked ? structuralElement(picked) : null;
+    const structural = chosen ? structuralElement(chosen) : null;
     if (structural && !structural.hasAttribute('data-umkm-id')) structural.setAttribute('data-umkm-id', makeId());
     scan();
     selectedId = structural?.getAttribute('data-umkm-id') || null;
-    post('umkmcepat-edit-target', data);
-    post('umkmcepat-annotation-target', data);
+    if (data) {
+      const cleanPayload = { ...data };
+      delete cleanPayload._element;
+      post('umkmcepat-edit-target', cleanPayload);
+      post('umkmcepat-annotation-target', cleanPayload);
+    }
   }
 
   function moveSelected(direction) {
