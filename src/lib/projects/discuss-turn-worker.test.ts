@@ -852,14 +852,14 @@ describe("runDiscussTurn worker", () => {
     expect(prepareBuildHandoffMock).not.toHaveBeenCalled();
   });
 
-  it("contract gate demotes the HP Surya recommendation while required canonical fields are missing", async () => {
+  it("contract gate demotes an explicit build request while a required offer is missing", async () => {
     normalizeWorkspaceTurnMock.mockReturnValue({
       brief: {
         businessName: "HP Surya",
         businessType: "retail",
-        offer: "HP bekas semua merek",
+        offer: "",
         productOrService: null,
-        targetCustomer: "",
+        targetCustomer: "Pembeli HP terjangkau",
         contactOrCta: "Lihat stok & harga",
         contact: null,
         stylePreference: "Bersih dan modern",
@@ -898,7 +898,14 @@ describe("runDiscussTurn worker", () => {
       chatContext: baseChatContext,
       effectiveBrief: baseBrief,
       memoryFacts: baseMemoryFacts,
-      messages: baseMessages,
+      messages: [
+        ...baseMessages,
+        {
+          id: "m-explicit-build",
+          role: "user",
+          parts: [{ type: "text", text: "langsung buat sekarang" }],
+        },
+      ],
       summary: baseSummary,
       userId: "u1",
       modelOverride: "test-model" as never,
@@ -916,7 +923,7 @@ describe("runDiscussTurn worker", () => {
     };
     expect(cardEvent).toMatchObject({
       type: "question",
-      question: { id: "audience" },
+      question: { id: "services" },
     });
     expect(prepareBuildHandoffMock).not.toHaveBeenCalled();
   });

@@ -1,3 +1,5 @@
+import { isFactLedgerFieldApproved } from "./fact-ledger";
+
 import type { ProjectBriefV2 } from "./canonical-brief";
 
 export const ADAPTIVE_COMMERCIAL_DOMAIN_MINIMUM = 2;
@@ -37,7 +39,9 @@ export function getDiscussionDomainCoverage(
   return {
     identity_transaction:
       Boolean(brief.business.name.trim()) &&
+      isFactLedgerFieldApproved(brief.factLedger, "businessName") &&
       brief.offers.length > 0 &&
+      isFactLedgerFieldApproved(brief.factLedger, "offers") &&
       hasActionablePrimaryAction(brief),
     selling_angle: brief.content.usp.length > 0,
     audience_decision:
@@ -65,11 +69,15 @@ export function evaluateAdaptiveDiscussionReadiness(
   const missingMinimum: Array<
     "businessName" | "offer" | "primaryAction" | "actionTarget"
   > = [];
-  if (!brief.business.name.trim()) {
+  if (
+    !brief.business.name.trim() ||
+    !isFactLedgerFieldApproved(brief.factLedger, "businessName")
+  ) {
     missingMinimum.push("businessName");
   }
   if (
     brief.offers.length === 0 ||
+    !isFactLedgerFieldApproved(brief.factLedger, "offers") ||
     (brief.offers.length > 1 && !brief.offers.some((offer) => offer.isPrimary))
   ) {
     missingMinimum.push("offer");

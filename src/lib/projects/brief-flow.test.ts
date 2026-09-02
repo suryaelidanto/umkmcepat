@@ -889,6 +889,11 @@ describe("normalizeWorkspaceTurn", () => {
         },
       },
       brief,
+      {
+        ownerTexts: [
+          "Nama usaha Kopi Lanang, menu utama Kopi Susu Gula Aren, WhatsApp 081234567890, pelanggan Anak muda di Jogja, gaya Modern & Minimalis.",
+        ],
+      },
     );
 
     expect(turn.brief.businessName).toBe("Kopi Lanang");

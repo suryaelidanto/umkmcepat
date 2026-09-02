@@ -41,6 +41,44 @@ describe("adaptive discussion readiness", () => {
     });
   });
 
+  it("does not satisfy the offer minimum from an AI suggestion", () => {
+    const brief = parseCanonicalBrief({
+      businessName: "Fresh Clean Laundry",
+      offer: "Jasa laundry",
+      contactOrCta: "Chat WhatsApp",
+      factLedger: {
+        version: 1,
+        entries: [
+          {
+            id: "business-name-primary",
+            field: "businessName",
+            label: "Nama usaha",
+            value: "Fresh Clean Laundry",
+            state: "owner_confirmed",
+            origin: "owner_message",
+            source: "owner",
+            sourceTurnId: "turn-1",
+          },
+          {
+            id: "offers-primary",
+            field: "offers",
+            label: "Produk atau layanan",
+            value: [{ name: "Jasa laundry", isPrimary: true }],
+            state: "ai_suggestion",
+            origin: "safe_derivation",
+            source: "assistant",
+            sourceTurnId: "turn-1",
+          },
+        ],
+      },
+    });
+
+    const readiness = evaluateAdaptiveDiscussionReadiness(brief);
+
+    expect(readiness.missingMinimum).toContain("offer");
+    expect(readiness.minimumSatisfied).toBe(false);
+  });
+
   it("rejects an external action without its target", () => {
     const readiness = evaluateAdaptiveDiscussionReadiness(
       parseCanonicalBrief({

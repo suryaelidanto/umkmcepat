@@ -968,14 +968,24 @@ export async function runDiscussTurn({
           blocker.field,
         ),
       );
-      const minimumQuestion = minimumBlocker
-        ? createReadinessQuestion(minimumBlocker)
-        : readiness.state === "blocked"
-          ? readiness.nextQuestion
-          : createReadinessQuestion({
-              field: "business.name",
-              reason: "business name missing",
-            });
+      const minimumQuestion = (() => {
+        if (minimumBlocker?.field === "offers") {
+          const nextEnrichment = getNextTieredEnrichmentCard(canonicalBrief);
+          if (nextEnrichment?.type === "question") {
+            return nextEnrichment.question;
+          }
+        }
+        if (minimumBlocker) {
+          return createReadinessQuestion(minimumBlocker);
+        }
+        if (readiness.state === "blocked") {
+          return readiness.nextQuestion;
+        }
+        return createReadinessQuestion({
+          field: "business.name",
+          reason: "business name missing",
+        });
+      })();
       const photoUploadsActive = (() => {
         try {
           return getSettingSync(
@@ -987,7 +997,7 @@ export async function runDiscussTurn({
         }
       })();
 
-      if (!adaptiveReadiness.minimumSatisfied && !isExplicitBuild) {
+      if (!adaptiveReadiness.minimumSatisfied) {
         if (workspaceTurn.workspaceCard.type === "build_recommendation") {
           workspaceTurn = {
             ...workspaceTurn,

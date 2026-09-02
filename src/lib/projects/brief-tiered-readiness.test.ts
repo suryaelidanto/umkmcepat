@@ -42,6 +42,65 @@ describe("evaluateTieredBriefReadiness", () => {
     expect(readiness.tier2.missing).toEqual(["usp", "location", "photos"]);
   });
 
+  it("asks for an offer when the existing offer is only an AI suggestion", () => {
+    const brief = parseCanonicalBrief({
+      businessName: "Fresh Clean Laundry",
+      productOrService: [{ name: "Jasa laundry", isPrimary: true }],
+      contact: {
+        channel: "whatsapp",
+        value: "08123456789",
+        label: "Chat WhatsApp",
+      },
+      factLedger: {
+        version: 1,
+        entries: [
+          {
+            id: "business-name-primary",
+            field: "businessName",
+            label: "Nama usaha",
+            value: "Fresh Clean Laundry",
+            state: "owner_confirmed",
+            origin: "owner_message",
+            source: "owner",
+            sourceTurnId: "turn-1",
+          },
+          {
+            id: "offers-primary",
+            field: "offers",
+            label: "Produk atau layanan",
+            value: [{ name: "Jasa laundry", isPrimary: true }],
+            state: "ai_suggestion",
+            origin: "safe_derivation",
+            source: "assistant",
+            sourceTurnId: "turn-1",
+          },
+          {
+            id: "contact-primary",
+            field: "contact",
+            label: "Kontak",
+            value: "08123456789",
+            state: "owner_confirmed",
+            origin: "owner_message",
+            source: "owner",
+            sourceTurnId: "turn-1",
+          },
+        ],
+      },
+    });
+
+    const card = getNextTieredEnrichmentCard(brief);
+
+    expect(card).toMatchObject({
+      type: "question",
+      question: {
+        id: "services",
+        answerMode: "choice",
+        selectionMode: "single",
+        options: [{ label: "Jasa laundry", description: expect.any(String) }],
+      },
+    });
+  });
+
   it("identifies Tier 2 enrichment fields correctly", () => {
     const brief = parseCanonicalBrief({
       businessName: "Kopi Senja Nusantara",

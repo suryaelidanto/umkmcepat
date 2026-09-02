@@ -124,6 +124,7 @@ const QUESTION_ID_TO_BRIEF_FIELD: Record<string, string> = {
   business_type: "businessType",
   primary_offer: "offer",
   offer: "offer",
+  services: "offer",
   product_or_service: "offer",
   target_customer: "targetCustomer",
   contact: "contactOrCta",

@@ -186,6 +186,17 @@ export function getRenderableFactEntry(
   );
 }
 
+export function isFactLedgerFieldApproved(
+  value: unknown,
+  field: string,
+): boolean {
+  const ledger = normalizeFactLedger(value);
+  return (
+    ledger.entries.length === 0 ||
+    Boolean(getRenderableFactEntry(ledger, field))
+  );
+}
+
 export function createExplicitOmissionEntry(input: {
   field: string;
   id: string;
