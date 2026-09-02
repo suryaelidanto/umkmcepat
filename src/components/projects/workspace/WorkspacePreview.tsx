@@ -351,6 +351,12 @@ function PreviewAnnotationPopover({
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
+  // Sync state whenever selected target changes
+  useEffect(() => {
+    setDirectText(target.target.text || "");
+    setActiveTab(isImage ? "direct" : target.target.text ? "direct" : "ai");
+  }, [target.target.selectorPath, target.target.text, isImage]);
+
   const breadcrumbs = formatHierarchyBreadcrumb({
     componentHierarchy: target.componentHierarchy,
     label: target.label,
