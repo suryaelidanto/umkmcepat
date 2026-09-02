@@ -59,14 +59,11 @@ const MEDIA_KEYWORDS =
 const STYLE_KEYWORDS =
   /\b(?:warna|color|tema|theme|palet|palette|gelap|dark|terang|light|monokrom|monochrome|hitam\s+putih|black\s+(?:and|&)\s+white|kontras|contrast|nuansa|mood|font|tipografi|typography|premium|mewah|elegan|berkelas|modern)\b/i;
 
-const COPY_KEYWORDS =
-  /\b(?:teks|text|copy|tulisan|judul|nama|nomor|no\b|whatsapp|wa\b|telepon|phone|alamat|address|lokasi|location|jam\s+buka|hours|harga|price|tarif|menu|produk|product|layanan|service|slogan|tagline|deskripsi|description|faq|testimoni)\b/i;
-
 const EXPLICIT_COPY_DIRECTIVE_KEYWORDS =
   /\b(?:teks|text|copy|tulisan|label|cta)\b/i;
 
 const LAYOUT_KEYWORDS =
-  /\b(?:layout|tata\s+letak|susunan|susun|section|bagian|hero|kolom|grid|responsive|responsif|komposisi|struktur|halaman|ruang)\b/i;
+  /\b(?:layout|tata\s+letak|susunan|susun\s+ulang|kolom|grid|responsive|responsif|komposisi|struktur|hierarki)\b/i;
 
 const FULL_RESTRUCTURE_KEYWORDS =
   /\b(?:rombak\s+total|bikin\s+ulang|buat\s+ulang|redesign\s+total|redesign\s+from\s+scratch|ganti\s+semua|reset\s+semua|rombak\s+semua|bangun\s+ulang\s+seluruh|dari\s+awal)\b/i;
@@ -83,6 +80,12 @@ const REMOVE_SECTION_KEYWORDS =
   /\b(?:hapus|hilangkan|buang)\s+(?:section|bagian|halaman)\b/i;
 const REORDER_LAYOUT_KEYWORDS =
   /\b(?:pindah(?:kan)?|urut(?:kan)?|susun ulang|letakkan)\b/i;
+const COPY_DIRECTIVE_KEYWORDS =
+  /\b(?:ubah|ganti|ringkas|persingkat|perbarui|update|tulis ulang)\b[^.]{0,50}\b(?:teks|tulisan|judul|headline|slogan|tagline|deskripsi|label|cta|copy)\b/i;
+const CONTENT_DIRECTIVE_KEYWORDS =
+  /\b(?:tambahkan|tambah|masukkan|isi|ubah|ganti|ringkas|persingkat|perbarui|update|tulis ulang)\b[^.]{0,50}\b(?:detail|deskripsi|jam\s+buka|harga|tarif|alamat|faq|menu|layanan|informasi|pertanyaan|jawaban)\b/i;
+const REMOVE_MEDIA_KEYWORDS =
+  /\b(?:hapus|hilangkan|buang)\b[^.]{0,50}\b(?:gambar|foto|photo|image|logo|galeri|gallery|banner)\b/i;
 
 export function classifyEditIntent({
   existingFiles = [],
@@ -95,17 +98,33 @@ export function classifyEditIntent({
 }): EditIntentClassification {
   const text = instruction.trim();
   const explicitCopy = EXPLICIT_COPY_DIRECTIVE_KEYWORDS.test(text);
-  const hasCopy = explicitCopy;
-  const hasContent = COPY_KEYWORDS.test(text) && !explicitCopy;
   const mediaInstructionText = stripDeniedMentions(text, MEDIA_KEYWORDS);
   const styleInstructionText = stripDeniedMentions(text, STYLE_KEYWORDS);
   const hasMedia =
     hasUploadedImages ||
     (MEDIA_KEYWORDS.test(mediaInstructionText) && !explicitCopy);
-  const hasStyle = STYLE_KEYWORDS.test(styleInstructionText) && !explicitCopy;
+  const hasCopy = explicitCopy || COPY_DIRECTIVE_KEYWORDS.test(text);
+  const removeMedia = REMOVE_MEDIA_KEYWORDS.test(text);
+  const hasContent =
+    !explicitCopy &&
+    (removeMedia ||
+      REMOVE_SECTION_KEYWORDS.test(text) ||
+      CONTENT_DIRECTIVE_KEYWORDS.test(text));
   const layoutDenied = hasExplicitLayoutDenial(text);
+  const addSection = ADD_SECTION_KEYWORDS.test(text);
+  const removeSection = REMOVE_SECTION_KEYWORDS.test(text);
+  const reorderLayout = REORDER_LAYOUT_KEYWORDS.test(text);
   const hasLayout =
-    LAYOUT_KEYWORDS.test(text) && !explicitCopy && !layoutDenied;
+    !explicitCopy &&
+    !layoutDenied &&
+    (LAYOUT_KEYWORDS.test(text) ||
+      addSection ||
+      removeSection ||
+      reorderLayout);
+  const hasStyle =
+    !explicitCopy &&
+    (STYLE_KEYWORDS.test(styleInstructionText) ||
+      (hasLayout && /\b(?:baru|new|redesign|desain|visual)\b/i.test(text)));
   const explicitFullRebuild = FULL_RESTRUCTURE_KEYWORDS.test(text);
   const explicitPremiumRedesign =
     PREMIUM_REDESIGN_KEYWORDS.test(text) &&
@@ -155,14 +174,11 @@ export function classifyEditIntent({
     });
   }
 
-  const addSection = ADD_SECTION_KEYWORDS.test(text);
-  const removeSection = REMOVE_SECTION_KEYWORDS.test(text);
-  const reorderLayout = REORDER_LAYOUT_KEYWORDS.test(text) && hasLayout;
   const allowedOperations = getAllowedOperations({
     dimensions,
     addSection,
     removeSection,
-    reorderLayout,
+    reorderLayout: reorderLayout && hasLayout,
   });
   const layoutChange = dimensions.includes("layout");
   const magnitude: EditIntentMagnitude = layoutChange

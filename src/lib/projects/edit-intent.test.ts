@@ -4,6 +4,7 @@ import { ADAPTIVE_EDIT_SCENARIOS } from "./adaptive-edit-corpus";
 
 import {
   classifyEditIntent,
+  EDIT_INTENT_DIMENSIONS,
   editIntentSchema,
 } from "@/lib/projects/edit-intent";
 
@@ -121,6 +122,22 @@ describe("classifyEditIntent", () => {
 
     expect(result.category).toBe("full_restructure");
     expect(result.suggestedMaxSteps).toBe(8);
+  });
+
+  it("matches the intended dimensions for every corpus scenario", () => {
+    for (const scenario of ADAPTIVE_EDIT_SCENARIOS) {
+      const result = classifyEditIntent({
+        instruction: scenario.instruction,
+        existingFiles: MOCK_FILES,
+      });
+
+      const expectedDimensions = scenario.tags.includes("explicit_full_rebuild")
+        ? EDIT_INTENT_DIMENSIONS
+        : scenario.dimensions;
+      expect(new Set(result.dimensions), scenario.id).toEqual(
+        new Set(expectedDimensions),
+      );
+    }
   });
 
   it("returns a valid adaptive contract for every corpus scenario", () => {
