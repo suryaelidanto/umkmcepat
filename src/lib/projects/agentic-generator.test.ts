@@ -418,7 +418,11 @@ describe("runAgenticGenerate", () => {
             { kind: "redesign_layout" },
             { kind: "responsive_layout" },
           ],
-          targetFiles: ["src/routes/index.tsx", "src/index.css"],
+          targetFiles: [
+            "src/routes/index.tsx",
+            "src/routes/generated.tsx",
+            "src/index.css",
+          ],
         },
         initialFiles: [
           { path: "src/routes/index.tsx", content: "existing route" },
@@ -751,6 +755,49 @@ describe("runAgenticGenerate", () => {
     await expect(runAgenticGenerate(createInput())).resolves.toMatchObject({
       generationMode: "agentic",
     });
+  });
+
+  it("blocks writes outside a surgical edit plan", async () => {
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      const tools = getTools(args);
+      await readCoreSkills(tools);
+      const rejected = await tools.write_file.execute({
+        content:
+          "export const generated = true;\n/* authored entrance: @keyframes umkm-entrance */",
+        path: "src/components/site/Unrelated.tsx",
+      });
+      expect(rejected).toMatchObject({
+        error: expect.stringContaining("outside the approved edit plan"),
+      });
+      await tools.write_file.execute({
+        content:
+          "export default function Home() { return <main>Updated</main>; }",
+        path: "src/routes/index.tsx",
+      });
+      await tools.check_app.execute({});
+      return { text: "Done", steps: [] };
+    });
+
+    await expect(
+      runAgenticGenerate(
+        createInput({
+          editPlan: {
+            dimensions: ["copy"],
+            magnitude: "surgical",
+            operations: [{ kind: "update_copy" }],
+            targetFiles: ["src/routes/index.tsx"],
+          },
+          initialFiles: [
+            {
+              content:
+                "export default function ExistingHome() { return null; }",
+              path: "src/routes/index.tsx",
+            },
+          ],
+          revisionBrief: "Ubah teks tombol utama.",
+        }),
+      ),
+    ).resolves.toMatchObject({ generationMode: "agentic" });
   });
 
   it("allows grounded content and one permanent project asset in an edit plan", async () => {

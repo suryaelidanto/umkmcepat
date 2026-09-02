@@ -223,6 +223,55 @@ function extractAcceptedFactStrings(
   return [...new Set(strings)];
 }
 
+function getEditPlanOperations(editPlan: unknown): Set<string> {
+  if (!editPlan || typeof editPlan !== "object" || Array.isArray(editPlan)) {
+    return new Set();
+  }
+  const operations = (editPlan as { operations?: unknown }).operations;
+  if (!Array.isArray(operations)) {
+    return new Set();
+  }
+  return new Set(
+    operations.flatMap((operation) => {
+      if (!operation || typeof operation !== "object") {
+        return [];
+      }
+      const kind = (operation as { kind?: unknown }).kind;
+      return typeof kind === "string" ? [kind] : [];
+    }),
+  );
+}
+
+function isEditWriteAllowed(
+  path: string,
+  isPartialRevisionMode: boolean,
+  editPlan: unknown,
+): boolean {
+  if (!isPartialRevisionMode || !editPlan || typeof editPlan !== "object") {
+    return true;
+  }
+  const targets = (editPlan as { targetFiles?: unknown }).targetFiles;
+  if (
+    !Array.isArray(targets) ||
+    !targets.every((target) => typeof target === "string")
+  ) {
+    return true;
+  }
+  if (targets.includes(path)) {
+    return true;
+  }
+  const magnitude = (editPlan as { magnitude?: unknown }).magnitude;
+  const operations = getEditPlanOperations(editPlan);
+  return (
+    (magnitude === "structural" || magnitude === "full_rebuild") &&
+    path.startsWith("src/components/site/") &&
+    (operations.has("add_section") ||
+      operations.has("redesign_layout") ||
+      operations.has("reorder_layout") ||
+      operations.has("remove_section"))
+  );
+}
+
 function canWriteEditableContentFile(
   path: string,
   isPartialRevisionMode: boolean,
@@ -735,6 +784,19 @@ export default site;
         label?: string;
         detail?: string;
       }) => {
+        if (
+          isPartialRevisionMode &&
+          input.editPlan &&
+          !getEditPlanOperations(input.editPlan).has("redesign_layout") &&
+          !getEditPlanOperations(input.editPlan).has("reorder_layout") &&
+          !getEditPlanOperations(input.editPlan).has("add_section") &&
+          !getEditPlanOperations(input.editPlan).has("remove_section")
+        ) {
+          return {
+            error:
+              "Edit scope restriction: this edit plan does not allow new interface components.",
+          };
+        }
         const component = SHADCN_COMPONENT_BY_NAME.get(name);
         if (!component) {
           return {
@@ -799,6 +861,20 @@ export default site;
         seedKey: string;
         motionThesis: string;
       }) => {
+        if (
+          isPartialRevisionMode &&
+          input.editPlan &&
+          !getEditPlanOperations(input.editPlan).has("redesign_layout") &&
+          !getEditPlanOperations(input.editPlan).has("reorder_layout") &&
+          !getEditPlanOperations(input.editPlan).has("add_section") &&
+          !getEditPlanOperations(input.editPlan).has("remove_section")
+        ) {
+          return {
+            ok: false,
+            error:
+              "Edit scope restriction: this edit plan does not allow a direction change.",
+          };
+        }
         designDirectionAccepted = true;
         designDirectionState = direction;
         refreshDesignDoc();
@@ -847,6 +923,18 @@ export default site;
         ring: z.string(),
       }),
       execute: async (proposal: GeneratedDesignSystemProposalV1) => {
+        if (
+          isPartialRevisionMode &&
+          input.editPlan &&
+          !getEditPlanOperations(input.editPlan).has("update_style") &&
+          !getEditPlanOperations(input.editPlan).has("redesign_layout")
+        ) {
+          return {
+            ok: false,
+            error:
+              "Edit scope restriction: this edit plan does not allow a visual system change.",
+          };
+        }
         let result = compileGeneratedDesignSystem(proposal);
         if (!result.ok) {
           const repairedProposal = repairDesignSystemContrast(proposal);
@@ -935,6 +1023,12 @@ export default site;
           return {
             error:
               "Design restriction: commit a design direction with set_design_direction before writing source.",
+          };
+        }
+        if (!isEditWriteAllowed(path, isPartialRevisionMode, input.editPlan)) {
+          return {
+            error:
+              "Edit scope restriction: this file is outside the approved edit plan.",
           };
         }
         const canEditContentFile = canWriteEditableContentFile(
