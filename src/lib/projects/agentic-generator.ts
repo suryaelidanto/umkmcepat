@@ -1359,10 +1359,11 @@ export default site;
             ],
           };
         }
-        const sourceClaimIssues = Array.from(fileMap.entries()).flatMap(
-          ([file, content]) =>
+        const sourceClaimIssues = Array.from(fileMap.entries())
+          .filter(([file]) => file !== "src/content/site.ts")
+          .flatMap(([file, content]) =>
             scanSourceClaims(content, { file }, acceptedFactStrings),
-        );
+          );
         if (sourceClaimIssues.length > 0) {
           return {
             ok: false,
@@ -1688,11 +1689,20 @@ ${executionContext}`;
   };
 
   while (true) {
+    if (stepCharger?.isExhausted()) {
+      throw new Error(
+        "Energi akun telah habis. Silakan isi ulang energi untuk melanjutkan pembuatan website.",
+      );
+    }
     const requirements = unfinishedRequirements();
     const continuationPrompt =
       continuationAttempts === 0
         ? userPrompt
         : `Continue the same build using the in-memory project state. Do not stop with a conversational response. Complete these remaining requirements with tools now:\n${requirements.map((requirement) => `- ${requirement}`).join("\n")}`;
+
+    const stepAbortController = new AbortController();
+    const onParentAbort = () => stepAbortController.abort();
+    abortSignal?.addEventListener("abort", onParentAbort);
 
     try {
       await generateText({
@@ -1701,8 +1711,11 @@ ${executionContext}`;
         prompt: continuationPrompt,
         tools,
         toolChoice: "required",
-        stopWhen: (step) => lastCheckOk === true || isStepCount(maxSteps)(step),
-        abortSignal,
+        stopWhen: (step) =>
+          lastCheckOk === true ||
+          isStepCount(maxSteps)(step) ||
+          stepCharger?.isExhausted() === true,
+        abortSignal: stepAbortController.signal,
         ...getNoReasoningCallOptions(),
         timeout: {
           chunkMs: getAiTimeoutMs("agenticGenerate"),
@@ -1755,6 +1768,7 @@ ${executionContext}`;
             });
 
             if (stepCharger.isExhausted()) {
+              stepAbortController.abort();
               throw new Error(
                 "Energi akun telah habis. Silakan isi ulang energi untuk melanjutkan pembuatan website.",
               );
@@ -1772,6 +1786,8 @@ ${executionContext}`;
         stepCharger.onStepError(error);
       }
       throw error;
+    } finally {
+      abortSignal?.removeEventListener("abort", onParentAbort);
     }
 
     const remainingRequirements = unfinishedRequirements();

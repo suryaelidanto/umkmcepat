@@ -222,6 +222,44 @@ describe("runAgenticGenerate", () => {
     });
   });
 
+  it("halts immediately when stepCharger is exhausted after step without continuation", async () => {
+    let exhausted = false;
+    let finishCalls = 0;
+    const stepCharger = {
+      isExhausted: () => exhausted,
+      modelId: "default-combo",
+      onStepError: vi.fn(),
+      onStepFinish: vi.fn(async () => {
+        finishCalls += 1;
+        exhausted = true;
+      }),
+      totals: () => ({ inputTokens: 100, outputTokens: 50, energyUsed: 1000 }),
+      userId: "user-exhausted",
+    } satisfies NonNullable<
+      Parameters<typeof runAgenticGenerate>[0]["stepCharger"]
+    >;
+
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      const fn = (args as { onStepFinish?: (step: unknown) => Promise<void> })
+        .onStepFinish;
+      if (fn) {
+        await fn({
+          usage: { inputTokens: 100, outputTokens: 50 },
+          response: { modelId: "test-model" },
+          toolCalls: [],
+        });
+      }
+      return { text: "", steps: [] };
+    });
+
+    await expect(
+      runAgenticGenerate(createInput({ stepCharger })),
+    ).rejects.toThrow("Energi akun telah habis");
+
+    expect(finishCalls).toBe(1);
+    expect(generateTextMock).toHaveBeenCalledTimes(1);
+  });
+
   it("reports upstream generation failures to the step charger", async () => {
     const onStepError = vi.fn();
     const stepCharger = {
