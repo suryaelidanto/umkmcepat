@@ -138,7 +138,7 @@ const ARBITRARY_INLINE_COLOR_PATTERN =
   /(?:^|["'`=:(,\s])#[0-9a-fA-F]{3,8}(?:["'`),;\s]|$)/;
 const DATA_IMAGE_PATTERN = /data:image\//i;
 const HASH_CTA_FALLBACK_PATTERN = /href\s*=\s*["'`]#\/?["'`]/i;
-const MAX_GENERATION_CONTINUATIONS = 3;
+const MAX_GENERATION_CONTINUATIONS = 6;
 
 function normalizeGeneratedPath(path: string): string {
   return path.replaceAll("\\\\", "/").replace(/^\.\//u, "");
@@ -1680,7 +1680,9 @@ ${executionContext}`;
       }
     }
     if (!hasCustomSource()) {
-      requirements.push("Write the required custom source file now.");
+      requirements.push(
+        "Write the complete homepage implementation in src/routes/index.tsx using write_file now.",
+      );
     }
     if (!checkAppCalls || lastCheckOk !== true) {
       requirements.push("Call check_app and keep working until it passes.");
