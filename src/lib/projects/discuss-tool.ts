@@ -403,9 +403,22 @@ export function alignAssistantTextWithCard(
 ): string {
   const cardQuestion = unslopUserFacingText(cardQuestionOf(card));
   const text = unslopUserFacingText(assistantText.trim());
+
+  if (card?.type === "build_recommendation") {
+    // If the card is a build recommendation, keep the text clean and informative
+    if (!text || text.includes("?")) {
+      const ack = acknowledgementOf(text);
+      return ack
+        ? `${ack} Website kamu siap dibuat.`
+        : "Informasi usahamu sudah lengkap dan website siap dibuat.";
+    }
+    return text;
+  }
+
   if (!text) {
     return cardQuestion || ACKNOWLEDGED_FALLBACK;
   }
+
   if (cardQuestion) {
     if (asksTheSameQuestion(text, cardQuestion)) {
       return text;
@@ -415,14 +428,11 @@ export function alignAssistantTextWithCard(
       ? `${acknowledgement} ${cardQuestion}`
       : cardQuestion;
   }
-  // No card question to answer — a trailing question would send the owner
-  if (!text.includes("?")) {
-    return text;
-  }
-  return acknowledgementOf(text) || ACKNOWLEDGED_FALLBACK;
+
+  return text;
 }
 
-const ACKNOWLEDGED_FALLBACK = "Semua yang penting sudah aku catat.";
+const ACKNOWLEDGED_FALLBACK = "Informasi kamu sudah aku catat.";
 
 function cardQuestionOf(
   card: Record<string, unknown> | null | undefined,
