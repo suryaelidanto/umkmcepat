@@ -1,27 +1,53 @@
 "use client";
 
-import { ImagePlus, RefreshCw, X } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ImagePlus,
+  RefreshCw,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import {
+  calculateFloatingPopoverPosition,
+  formatHierarchyBreadcrumb,
+} from "./popover-position";
+
 import { Button } from "@/components/ui/button";
-import { type EditLayout } from "@/lib/projects/direct-edit";
+import {
+  type DirectEditIntent,
+  type EditLayout,
+} from "@/lib/projects/direct-edit";
 import { type VisualAnnotationDraft } from "@/lib/projects/visual-annotations";
 import {
   previewReadyState,
   PREVIEW_STUCK_MAX_ATTEMPTS,
 } from "@/lib/projects/workspace-sync";
 
-export type PreviewEditTarget = Omit<VisualAnnotationDraft, "comment" | "id">;
+export type PreviewEditTarget = Omit<
+  VisualAnnotationDraft,
+  "comment" | "id"
+> & {
+  componentHierarchy?: string[];
+  primaryComponent?: string | null;
+  underlyingImage?: {
+    label: string;
+    selectorPath: string;
+    src: string;
+  };
+};
 
 export function GeneratedPreviewFrame({
   annotationMarkers = [],
   directEditActive = false,
   directEditFlagEnabled = true,
-  directEditIntents = [],
+  directEditIntents: _directEditIntents = [],
   editLayout = null,
   editLayoutSignal = 0,
   onAnnotationTarget,
-  onDirectEditAction,
+  onDirectEditAction: _onDirectEditAction,
   onLoad,
   onRecover,
   onStuck,
@@ -38,10 +64,7 @@ export function GeneratedPreviewFrame({
   }>;
   directEditActive?: boolean;
   directEditFlagEnabled?: boolean;
-  directEditIntents?: Array<{
-    action: "remove" | "move-up" | "move-down";
-    target: { selectorPath: string };
-  }>;
+  directEditIntents?: DirectEditIntent[];
   editLayout?: EditLayout | null;
   editLayoutSignal?: number;
   onAnnotationTarget?: (target: unknown) => void;
@@ -54,11 +77,13 @@ export function GeneratedPreviewFrame({
   onStuck?: () => void;
   pendingAnnotation?: {
     comment: string;
+    onArrange?: (action: "move-up" | "move-down" | "remove") => void;
     onCancel: () => void;
     onChange: (value: string) => void;
+    onDirectTextSubmit?: (newText: string) => void;
     onReplaceImage?: () => void;
     onSave: () => void;
-    target: Omit<VisualAnnotationDraft, "comment" | "id">;
+    target: PreviewEditTarget;
   } | null;
   projectId: string;
   reloadKey?: number;
@@ -66,10 +91,10 @@ export function GeneratedPreviewFrame({
 }) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [ready, setReady] = useState(false);
-  const [hoverTarget, setHoverTarget] = useState<PreviewEditTarget | null>(
+  const [_hoverTarget, setHoverTarget] = useState<PreviewEditTarget | null>(
     null,
   );
-  const [selectedTarget, setSelectedTarget] =
+  const [_selectedTarget, setSelectedTarget] =
     useState<PreviewEditTarget | null>(null);
   // Consecutive 12s silent-recovery timeouts that fired without the generated app
   const [silentRecoveries, setSilentRecoveries] = useState(0);
@@ -217,27 +242,17 @@ export function GeneratedPreviewFrame({
         {pendingAnnotation ? (
           <PreviewAnnotationPopover
             comment={pendingAnnotation.comment}
+            onArrange={pendingAnnotation.onArrange}
             onCancel={pendingAnnotation.onCancel}
             onChange={pendingAnnotation.onChange}
+            onDirectTextSubmit={pendingAnnotation.onDirectTextSubmit}
             onReplaceImage={pendingAnnotation.onReplaceImage}
             onSave={pendingAnnotation.onSave}
             target={pendingAnnotation.target}
           />
         ) : null}
         {directEditFlagEnabled && directEditActive ? (
-          <PreviewEditOverlay
-            hoverTarget={hoverTarget}
-            intents={directEditIntents}
-            onComment={(target) => onAnnotationTarget?.(target)}
-            onDirectEditAction={(action, target) => {
-              iframeRef.current?.contentWindow?.postMessage(
-                { action, type: "umkmcepat-edit-action" },
-                "*",
-              );
-              onDirectEditAction?.(action, target);
-            }}
-            selectedTarget={selectedTarget}
-          />
+          <PreviewEditOverlay />
         ) : null}
       </div>
       {previewState === "stuck" ? (
@@ -267,173 +282,286 @@ export function GeneratedPreviewFrame({
   );
 }
 
-export function PreviewEditOverlay({
-  intents,
-  selectedTarget,
-}: {
-  hoverTarget?: PreviewEditTarget | null;
-  intents: Array<{
-    action: "remove" | "move-up" | "move-down";
-    target: { selectorPath: string };
-  }>;
-  onComment?: (target: PreviewEditTarget) => void;
-  onDirectEditAction?: (
-    action: "remove" | "move-up" | "move-down",
-    target: PreviewEditTarget,
-  ) => void;
-  selectedTarget: PreviewEditTarget | null;
-}) {
-  const selectedIntentCount = selectedTarget
-    ? intents.filter(
-        (intent) =>
-          intent.target.selectorPath === selectedTarget.target.selectorPath,
-      ).length
-    : 0;
-
-  return (
-    <div className="pointer-events-none absolute inset-0 z-30">
-      {selectedTarget && selectedIntentCount ? (
-        <div
-          className="absolute rounded-radius-md border border-[#0d9488]/70 bg-[#0d9488] px-spacing-2 py-spacing-1 text-[11px] font-semibold text-white shadow-[0_8px_24px_rgba(0,0,0,0.24)]"
-          style={{
-            left: Math.max(8, selectedTarget.target.boundingBox.x),
-            top:
-              selectedTarget.target.boundingBox.y +
-              selectedTarget.target.boundingBox.height +
-              8,
-          }}
-        >
-          {selectedIntentCount} perubahan siap disimpan
-        </div>
-      ) : null}
-      <div className="absolute bottom-spacing-4 left-1/2 w-[min(32rem,calc(100%-24px))] -translate-x-1/2 rounded-radius-xl border border-white/16 bg-[#171715]/92 px-spacing-4 py-spacing-3 text-center text-xs font-semibold leading-5 text-white shadow-[0_18px_60px_rgba(0,0,0,0.34)]">
-        {intents.length
-          ? `${intents.length} perubahan siap disimpan. Klik Simpan untuk menerapkan.`
-          : "Arahkan kursor untuk memilih bagian. Klik untuk mengunci pilihan dan lakukan perubahan."}
-      </div>
-    </div>
-  );
+export function PreviewEditOverlay() {
+  return null;
 }
 
 function PreviewAnnotationPopover({
   comment,
+  onArrange,
   onCancel,
   onChange,
+  onDirectTextSubmit,
   onReplaceImage,
   onSave,
   target,
 }: {
   comment: string;
+  onArrange?: (action: "move-up" | "move-down" | "remove") => void;
   onCancel: () => void;
   onChange: (value: string) => void;
+  onDirectTextSubmit?: (newText: string) => void;
   onReplaceImage?: () => void;
   onSave: () => void;
-  target: Omit<VisualAnnotationDraft, "comment" | "id">;
+  target: PreviewEditTarget;
 }) {
+  const isImage =
+    target.target.tag === "img" || target.target.tag === "picture";
+  const [activeTab, setActiveTab] = useState<"direct" | "ai">(
+    isImage ? "direct" : target.target.text ? "direct" : "ai",
+  );
+  const [directText, setDirectText] = useState(target.target.text || "");
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const position = getAnnotationPopoverPosition(target.target.boundingBox);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  // Sync state whenever selected target changes
+  useEffect(() => {
+    setDirectText(target.target.text || "");
+    setActiveTab(isImage ? "direct" : target.target.text ? "direct" : "ai");
+  }, [target.target.selectorPath, target.target.text, isImage]);
+
+  const breadcrumbs = formatHierarchyBreadcrumb({
+    componentHierarchy: target.componentHierarchy,
+    label: target.label,
+    tag: target.target.tag,
+  });
+
+  const position = calculateFloatingPopoverPosition({
+    boundingBox: target.target.boundingBox,
+    containerHeight: window.innerHeight,
+    containerWidth: window.innerWidth,
+  });
 
   useEffect(() => {
-    textareaRef.current?.focus();
-  }, [target]);
+    if (activeTab === "direct" && !isImage) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    } else {
+      textareaRef.current?.focus();
+    }
+  }, [activeTab, isImage, target]);
 
   return (
     <div
       role="dialog"
-      aria-label={`Komentar untuk ${target.label}`}
-      className="absolute z-40 w-[min(22rem,calc(100%-1.5rem))] rounded-[18px] border border-surface-warm-white/14 bg-[#1b1b19] p-spacing-4 text-surface-warm-white shadow-[0_18px_60px_rgba(0,0,0,0.42)]"
-      style={position}
+      aria-label={`Ubah ${target.label}`}
+      className="absolute z-40 w-[min(22rem,calc(100%-1rem))] rounded-[16px] border border-surface-warm-white/14 bg-[#141413] p-3 text-surface-warm-white shadow-[0_16px_48px_rgba(0,0,0,0.5)] transition-all max-sm:fixed max-sm:bottom-4 max-sm:left-4 max-sm:right-4 max-sm:top-auto max-sm:w-auto"
+      style={{
+        left: position.left,
+        top: position.top,
+      }}
     >
-      <div className="flex items-start justify-between gap-spacing-4">
-        <div className="min-w-0">
-          <p className="truncate text-xs font-semibold text-[#d6f0ff]">
-            {target.label}
-          </p>
-          {target.selectedText ? (
-            <p className="mt-spacing-1 line-clamp-2 text-xs leading-5 text-surface-warm-white/50">
-              Teks dipilih: {target.selectedText}
-            </p>
-          ) : target.target.text ? (
-            <p className="mt-spacing-1 line-clamp-2 text-xs leading-5 text-surface-warm-white/50">
-              Teks saat ini: &ldquo;{target.target.text}&rdquo;
-            </p>
-          ) : null}
-          {target.target.tag === "img" && target.target.src ? (
-            <div className="mt-spacing-3 flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2 pb-2">
+        <div className="flex items-center gap-1.5 overflow-hidden text-[11px] font-medium text-surface-warm-white/60">
+          {breadcrumbs.map((crumb, idx) => (
+            <span key={idx} className="flex items-center gap-1.5 truncate">
+              {idx > 0 && <span className="text-surface-warm-white/20">/</span>}
+              <span
+                className={
+                  idx === breadcrumbs.length - 1
+                    ? "font-semibold text-sky-400"
+                    : ""
+                }
+              >
+                {crumb.name}
+              </span>
+            </span>
+          ))}
+        </div>
+        <div className="flex items-center gap-1">
+          {onArrange ? (
+            <div className="flex items-center gap-0.5 mr-1 border-r border-surface-warm-white/10 pr-1.5">
               <button
                 type="button"
-                onClick={onReplaceImage}
-                className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-surface-warm-white px-3 text-xs font-semibold text-foreground-primary shadow-xs hover:bg-surface-warm-white/90 active:scale-95 transition-all cursor-pointer"
+                onClick={() => onArrange("move-up")}
+                className="grid size-6 place-items-center rounded-md text-surface-warm-white/50 hover:bg-surface-warm-white/10 hover:text-white transition cursor-pointer"
+                title="Pindahkan ke atas / kiri"
+                aria-label="Geser ke atas"
               >
-                <ImagePlus className="size-3.5" />
-                <span>Upload Foto Pengganti</span>
+                <ArrowUp className="size-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onArrange("move-down")}
+                className="grid size-6 place-items-center rounded-md text-surface-warm-white/50 hover:bg-surface-warm-white/10 hover:text-white transition cursor-pointer"
+                title="Pindahkan ke bawah / kanan"
+                aria-label="Geser ke bawah"
+              >
+                <ArrowDown className="size-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onArrange("remove")}
+                className="grid size-6 place-items-center rounded-md text-red-400/60 hover:bg-red-500/15 hover:text-red-300 transition cursor-pointer"
+                title="Hapus elemen ini"
+                aria-label="Hapus elemen"
+              >
+                <Trash2 className="size-3.5" />
               </button>
             </div>
           ) : null}
+          <button
+            type="button"
+            onClick={onCancel}
+            className="grid size-6 shrink-0 place-items-center rounded-full text-surface-warm-white/40 hover:bg-surface-warm-white/10 hover:text-surface-warm-white transition"
+            aria-label="Tutup"
+          >
+            <X className="size-3.5" />
+          </button>
         </div>
+      </div>
+
+      <div className="mb-2 flex rounded-lg bg-surface-warm-white/6 p-0.5 text-[11px] font-medium text-surface-warm-white/60">
         <button
           type="button"
-          onClick={onCancel}
-          className="grid size-9 shrink-0 place-items-center rounded-full text-surface-warm-white/52 hover:bg-surface-warm-white/8 hover:text-surface-warm-white"
-          aria-label="Batalkan komentar"
+          onClick={() => setActiveTab("direct")}
+          className={`flex-1 rounded-md py-1 text-center transition cursor-pointer ${
+            activeTab === "direct"
+              ? "bg-surface-warm-white/14 font-semibold text-white shadow-xs"
+              : "hover:text-surface-warm-white"
+          }`}
         >
-          <X className="size-4" />
+          {isImage ? "Ganti Foto" : "Ubah Teks"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("ai")}
+          className={`flex-1 rounded-md py-1 text-center transition cursor-pointer ${
+            activeTab === "ai"
+              ? "bg-surface-warm-white/14 font-semibold text-white shadow-xs"
+              : "hover:text-surface-warm-white"
+          }`}
+        >
+          Minta AI
         </button>
       </div>
-      <textarea
-        ref={textareaRef}
-        rows={3}
-        maxLength={1000}
-        value={comment}
-        onChange={(event) => onChange(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            event.preventDefault();
-            onCancel();
-          }
 
-          if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-            event.preventDefault();
-            onSave();
-          }
-        }}
-        placeholder={
-          target.target.tag === "img"
-            ? "Instruksi khusus untuk gambar ini (opsional)..."
-            : "Tulis teks baru atau instruksi perubahan..."
-        }
-        className="mt-spacing-3 w-full resize-none rounded-[14px] border border-surface-warm-white/10 bg-[#111110] px-spacing-4 py-spacing-3 text-sm leading-6 text-surface-warm-white outline-none placeholder:text-surface-warm-white/38 focus:border-surface-warm-white/30"
-      />
-      <div className="mt-spacing-3 flex items-center justify-between gap-spacing-4">
-        <span className="text-xs text-surface-warm-white/38">
-          Ctrl/⌘ + Enter
-        </span>
-        <Button
-          type="button"
-          disabled={!comment.trim()}
-          onClick={onSave}
-          className="h-9 rounded-[12px] bg-surface-warm-white px-spacing-4 text-xs text-foreground-primary hover:bg-surface-warm-white/86 disabled:opacity-45"
-        >
-          Terapkan Perubahan
-        </Button>
-      </div>
+      {activeTab === "direct" ? (
+        isImage && target.target.src ? (
+          <div className="my-1 flex items-center gap-3 rounded-xl border border-surface-warm-white/8 bg-surface-warm-white/4 p-2.5">
+            <img
+              src={target.target.src}
+              alt="Preview"
+              className="size-12 rounded-lg object-cover border border-surface-warm-white/10"
+            />
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] text-surface-warm-white/50">
+                Foto saat ini
+              </p>
+              <button
+                type="button"
+                onClick={onReplaceImage}
+                className="mt-1 inline-flex h-7 items-center gap-1.5 rounded-lg bg-surface-warm-white px-2.5 text-xs font-semibold text-foreground-primary shadow-xs hover:bg-surface-warm-white/90 active:scale-95 transition cursor-pointer"
+              >
+                <ImagePlus className="size-3" />
+                <span>Upload Foto Baru</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <input
+              ref={inputRef}
+              type="text"
+              value={directText}
+              onChange={(e) => setDirectText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  onCancel();
+                }
+                if (
+                  e.key === "Enter" &&
+                  directText.trim() &&
+                  directText !== target.target.text
+                ) {
+                  e.preventDefault();
+                  onDirectTextSubmit?.(directText.trim());
+                }
+              }}
+              placeholder="Ketik teks baru..."
+              className="w-full rounded-[10px] border border-surface-warm-white/10 bg-[#0d0d0c] px-3 py-2 text-xs leading-5 text-surface-warm-white outline-none placeholder:text-surface-warm-white/30 focus:border-sky-500/50"
+            />
+            {target.underlyingImage?.src ? (
+              <div className="flex items-center justify-between rounded-lg border border-surface-warm-white/6 bg-surface-warm-white/4 p-2 text-[11px]">
+                <div className="flex items-center gap-2 truncate">
+                  <img
+                    src={target.underlyingImage.src}
+                    alt="Background"
+                    className="size-6 rounded object-cover border border-surface-warm-white/10"
+                  />
+                  <span className="truncate text-surface-warm-white/60">
+                    Foto di latar
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={onReplaceImage}
+                  className="shrink-0 font-semibold text-sky-400 hover:text-sky-300 cursor-pointer"
+                >
+                  Ganti Foto Ini
+                </button>
+              </div>
+            ) : null}
+            <div className="flex items-center justify-between pt-1">
+              <span className="text-[10px] text-surface-warm-white/30">
+                Enter untuk simpan
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                disabled={
+                  !directText.trim() || directText === target.target.text
+                }
+                onClick={() => onDirectTextSubmit?.(directText.trim())}
+                className="h-7.5 rounded-[10px] bg-surface-warm-white px-3 text-xs font-medium text-foreground-primary hover:bg-surface-warm-white/90 disabled:opacity-40"
+              >
+                Terapkan di Layar
+              </Button>
+            </div>
+          </div>
+        )
+      ) : (
+        <div className="space-y-2">
+          <textarea
+            ref={textareaRef}
+            rows={2}
+            maxLength={1000}
+            value={comment}
+            onChange={(event) => onChange(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                onCancel();
+              }
+              if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                event.preventDefault();
+                onSave();
+              }
+            }}
+            placeholder={
+              isImage
+                ? "Contoh: Buat foto lebih terang atau bernuansa estetik..."
+                : `Instruksi untuk bagian ini (misal: buat lebih persuasif)...`
+            }
+            className="w-full resize-none rounded-[12px] border border-surface-warm-white/10 bg-[#0d0d0c] px-3 py-2 text-xs leading-5 text-surface-warm-white outline-none placeholder:text-surface-warm-white/30 focus:border-sky-500/50"
+          />
+          <div className="flex items-center justify-between pt-1">
+            <span className="text-[10px] text-surface-warm-white/30 hidden sm:inline">
+              Ctrl/⌘ + Enter
+            </span>
+            <Button
+              type="button"
+              size="sm"
+              disabled={!comment.trim()}
+              onClick={onSave}
+              className="h-7.5 rounded-[10px] bg-surface-warm-white px-3 text-xs font-medium text-foreground-primary hover:bg-surface-warm-white/90 disabled:opacity-40 ml-auto"
+            >
+              Simpan Anotasi
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
-}
-
-function getAnnotationPopoverPosition(
-  box: VisualAnnotationDraft["target"]["boundingBox"],
-) {
-  const horizontal =
-    box.x > 420 ? { right: 12 } : { left: Math.max(12, box.x) };
-  const shouldOpenAbove = box.y > 360;
-
-  return shouldOpenAbove
-    ? {
-        ...horizontal,
-        bottom: `calc(100% - ${Math.max(12, box.y - 10)}px)`,
-      }
-    : { ...horizontal, top: Math.max(12, box.y + box.height + 10) };
 }
 
 export function PreviewIssueState({

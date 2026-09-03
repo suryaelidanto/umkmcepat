@@ -85,6 +85,7 @@ describe("runQueuedProjectCompaction", () => {
       outputTokens: 5,
       reason: "discuss:compaction",
     });
+    expect(mocks.charge).toHaveBeenCalledTimes(1);
   });
 
   it("does not persist or charge when compaction is not needed", async () => {

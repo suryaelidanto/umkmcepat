@@ -6,7 +6,7 @@ export type AiCallEntry = {
   attemptId?: string;
   turnId?: string;
   buildId?: string;
-  task: string; // moderation|discuss|compaction|build-spec|build-step|edit|edit-repair|build-repair
+  task: string;
   phase?: string;
   stepIndex?: number;
   modelRequested: string;

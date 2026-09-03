@@ -5,6 +5,24 @@ import {
   applyAiBriefPatch,
   createInitialCanonicalBrief,
 } from "@/lib/projects/canonical-brief";
+import { createFactLedgerEntriesFromPatch } from "@/lib/projects/fact-ledger";
+
+function createOwnerConfirmedBrief(patch: Record<string, unknown>) {
+  const ledgerPatch = {
+    ...patch,
+    visualDirection: patch.visualDirection ?? patch.stylePreference,
+  };
+  return applyAiBriefPatch(
+    {
+      ...createInitialCanonicalBrief(),
+      factLedger: {
+        version: 1,
+        entries: createFactLedgerEntriesFromPatch(ledgerPatch),
+      },
+    },
+    patch,
+  );
+}
 
 describe("discussion readiness end-to-end", () => {
   it("keeps an incomplete retail brief blocked", () => {
@@ -18,7 +36,7 @@ describe("discussion readiness end-to-end", () => {
   });
 
   it("authorizes only after every canonical requirement resolves", () => {
-    const brief = applyAiBriefPatch(createInitialCanonicalBrief(), {
+    const brief = createOwnerConfirmedBrief({
       businessName: "Kopi Tuku",
       umkmType: "jasa_online",
       productOrService: [{ name: "Kopi Susu", isPrimary: true }],
@@ -39,7 +57,7 @@ describe("discussion readiness end-to-end", () => {
   });
 
   it("keeps a contact label as a browse action without inventing a destination", () => {
-    const brief = applyAiBriefPatch(createInitialCanonicalBrief(), {
+    const brief = createOwnerConfirmedBrief({
       businessName: "Kopi Tuku",
       umkmType: "jasa_online",
       productOrService: [{ name: "Kopi Susu", isPrimary: true }],

@@ -18,6 +18,10 @@ import {
   startAiCallTimer,
 } from "@/lib/ai/ai-call-record";
 import { getDiscussModel, getVisionModel } from "@/lib/ai/ai-models";
+import {
+  chargeModerationEnergy,
+  moderateProjectRequest,
+} from "@/lib/ai/ai-moderation";
 import { writeAiRequestLog } from "@/lib/ai/ai-request-log";
 import { getAiTimeoutMs } from "@/lib/ai/ai-timeouts";
 import { getSettingSync } from "@/lib/config/app-settings";
@@ -38,18 +42,38 @@ import {
 } from "@/lib/projects/brief-tiered-readiness";
 import { loadActiveHandoff } from "@/lib/projects/build-handoffs";
 import { prepareBuildHandoff } from "@/lib/projects/build-planner";
-import { evaluateBuildReadiness } from "@/lib/projects/build-readiness";
+import {
+  createReadinessQuestion,
+  evaluateBuildReadiness,
+} from "@/lib/projects/build-readiness";
 import { describeBuildRecommendation } from "@/lib/projects/build-recommendation-summary";
-import { parseCanonicalBrief } from "@/lib/projects/canonical-brief";
-import { hashCanonicalBrief } from "@/lib/projects/canonical-brief-hash";
+import {
+  createDiscussionContextSnapshot,
+  parseCanonicalBrief,
+} from "@/lib/projects/canonical-brief";
+import { hashCanonicalBriefContent } from "@/lib/projects/canonical-brief-hash";
 import { ensureQuestionCardRichness } from "@/lib/projects/card-richness";
 import {
+  buildCompactDiscussionContext,
   buildProjectChatContext,
   dedupeUiMessages,
+  dedupeUiMessagesForPersistence,
   getTextFromUIMessage,
   parseProjectChatSummary,
   parseProjectMemoryFacts,
 } from "@/lib/projects/chat-memory";
+import {
+  attachPersistedProjectAssets,
+  prepareDiscussTurnAssets,
+  rewriteTempImageParts,
+} from "@/lib/projects/discuss-asset-phase";
+import {
+  ensureUpdatePreflightCard,
+  getDiscussPreflightFallbackText,
+  getDiscussPreflightInstruction,
+  resolvePreflightBuildReadiness,
+  type DiscussPreflight,
+} from "@/lib/projects/discuss-preflight";
 import {
   alignAssistantTextWithCard,
   buildCardSystemPrompt,
@@ -63,14 +87,51 @@ import {
 import { finalizeDiscussTurn } from "@/lib/projects/discuss-turn";
 import { publishProgress } from "@/lib/projects/discuss-turn-pubsub";
 import {
-  persistProjectChatTurn,
+  persistProjectChatTurn as persistProjectChatTurnRaw,
   repairDiscussCardWithTool,
   repairToolCallInTurn,
   scrubBriefForStorage,
 } from "@/lib/projects/discuss-turn-shared";
+import { evaluateAdaptiveDiscussionReadiness } from "@/lib/projects/discussion-domains";
+import { isImageUploadBoilerplateText } from "@/lib/projects/image-upload-copy";
 import { inlineChatAssetFileParts } from "@/lib/projects/inline-chat-asset-file-parts";
+import {
+  filterOwnedBusinessAssetIds,
+  listProjectBusinessImagesForDiscussion,
+} from "@/lib/projects/project-assets";
 import { stripTransportDiagnosticMessages } from "@/lib/projects/strip-transport-diagnostic-messages";
 import { TextDeltaCoalescer } from "@/lib/projects/text-delta-coalescer";
+import { unslopUserFacingText } from "@/lib/projects/unslop-policy";
+import { deleteTempImage } from "@/lib/storage/uploads/temp-image-storage";
+
+async function cleanupPromotedTempImages(
+  userId: string,
+  assetIds: string[],
+): Promise<void> {
+  await Promise.all(
+    assetIds.map((assetId) =>
+      deleteTempImage(userId, assetId).catch(() => undefined),
+    ),
+  );
+}
+
+function addBusinessImages(
+  brief: ReturnType<typeof parseProjectBrief>,
+  assetIds: string[],
+): ReturnType<typeof parseProjectBrief> {
+  const existingIds = new Set(
+    (brief.businessImages ?? []).map((image) => image.id),
+  );
+  const newImages = assetIds
+    .filter((assetId) => !existingIds.has(assetId))
+    .map((id) => ({ id, purpose: "business-image" as const }));
+  return newImages.length > 0
+    ? {
+        ...brief,
+        businessImages: [...(brief.businessImages ?? []), ...newImages],
+      }
+    : brief;
+}
 
 export async function runDiscussTurn({
   turnId,
@@ -78,11 +139,15 @@ export async function runDiscussTurn({
   chatContext,
   effectiveBrief,
   memoryFacts: _memoryFacts,
-  messages,
+  messages: incomingMessages,
   previousWorkspaceCard,
   summary: _summary,
   userId,
   modelOverride,
+  preflight,
+  hasBuiltSite: hasBuiltSiteOverride,
+  hasPendingUpdate: hasPendingUpdateOverride,
+  pendingUpdateInstructions,
   abortSignal,
 }: {
   turnId: string;
@@ -100,10 +165,16 @@ export async function runDiscussTurn({
   previousWorkspaceCard?: WorkspaceCard;
   summary: ReturnType<typeof parseProjectChatSummary>;
   userId: string;
+  hasBuiltSite?: boolean;
+  hasPendingUpdate?: boolean;
+  pendingUpdateInstructions?: string;
+  preflight?: DiscussPreflight;
   // ponytail: production omits → uses the real model via getAiModel(modelName).
   modelOverride?: LanguageModel;
   abortSignal?: AbortSignal;
 }): Promise<void> {
+  // Downstream steps read the asset phase's rewritten message list.
+  let messages = incomingMessages;
   try {
     if (abortSignal?.aborted) {
       await finalizeDiscussTurn({
@@ -133,8 +204,100 @@ export async function runDiscussTurn({
       });
       return;
     }
+    // Moderation + asset persistence run here so the sent message persists first.
+    publishProgress(turnId, { type: "activity", phase: "moderating" });
+
+    const persistedAssets = await listProjectBusinessImagesForDiscussion(
+      project.id,
+      userId,
+    );
+    messages = attachPersistedProjectAssets(messages, persistedAssets);
+
+    const assetPhase = await prepareDiscussTurnAssets({
+      messages,
+      projectId: project.id,
+      turnId,
+      userId,
+    });
+    if (assetPhase.status !== "ok") {
+      let rewritesPersisted = false;
+      if (assetPhase.messages && assetPhase.urlRewrites?.size) {
+        const partialBrief = addBusinessImages(
+          effectiveBrief,
+          assetPhase.assetIds ?? [],
+        );
+        try {
+          await persistProjectChatTurnRaw({
+            brief: scrubBriefForStorage(
+              partialBrief,
+              partialBrief.readyForBuild,
+              project.id,
+            ),
+            discussionContext: {
+              memoryFacts: _memoryFacts,
+              summary: _summary,
+            },
+            messages: assetPhase.messages,
+            projectId: project.id,
+            title: project.title,
+            userId,
+            workspaceCard: previousWorkspaceCard ?? null,
+          });
+          rewritesPersisted = true;
+        } catch {
+          // Keep the source upload while the failed turn remains retryable.
+        }
+      }
+      if (rewritesPersisted && assetPhase.tempAssetIds) {
+        await cleanupPromotedTempImages(userId, assetPhase.tempAssetIds);
+      }
+      await finalizeDiscussTurn({
+        turnId,
+        status: "failed",
+        errorMessage: assetPhase.message,
+      });
+      publishProgress(turnId, {
+        type: "error",
+        errorText: assetPhase.message,
+      });
+      return;
+    }
+    messages = assetPhase.messages;
+    effectiveBrief = addBusinessImages(effectiveBrief, assetPhase.assetIds);
+    if (assetPhase.urlRewrites.size > 0) {
+      let rewritesPersisted = false;
+      try {
+        await persistProjectChatTurnRaw({
+          brief: scrubBriefForStorage(
+            effectiveBrief,
+            effectiveBrief.readyForBuild,
+            project.id,
+          ),
+          discussionContext: {
+            memoryFacts: _memoryFacts,
+            summary: _summary,
+          },
+          messages,
+          projectId: project.id,
+          title: project.title,
+          userId,
+          workspaceCard: previousWorkspaceCard ?? null,
+        });
+        rewritesPersisted = true;
+      } catch {
+        // Keep the source upload while the rewritten message is not durable.
+      }
+      if (rewritesPersisted) {
+        await cleanupPromotedTempImages(userId, assetPhase.tempAssetIds);
+      }
+    }
+    const effectiveChatContext: ReturnType<typeof buildProjectChatContext> = {
+      ...chatContext,
+      messages: rewriteTempImageParts(messages, assetPhase.urlRewrites),
+    };
+
     // Extract any user-attached media assets from messages and sync into brief
-    const uploadedAssetIds: string[] = [];
+    const submittedAssetIds: string[] = [];
     for (const msg of messages) {
       if (msg.role === "user" && Array.isArray(msg.parts)) {
         for (const part of msg.parts) {
@@ -147,13 +310,19 @@ export async function runDiscussTurn({
             const assetId = part.url.startsWith("/api/media/")
               ? part.url.slice("/api/media/".length)
               : part.url.slice("/media/".length);
-            if (assetId && !uploadedAssetIds.includes(assetId)) {
-              uploadedAssetIds.push(assetId);
+            if (assetId && !submittedAssetIds.includes(assetId)) {
+              submittedAssetIds.push(assetId);
             }
           }
         }
       }
     }
+
+    const uploadedAssetIds = await filterOwnedBusinessAssetIds(
+      submittedAssetIds,
+      project.id,
+      userId,
+    );
 
     if (uploadedAssetIds.length > 0) {
       const existing = (effectiveBrief.businessImages ?? []).map(
@@ -176,17 +345,18 @@ export async function runDiscussTurn({
     const hasAttachedImages = uploadedAssetIds.length > 0;
     const modelName = hasAttachedImages ? getVisionModel() : getDiscussModel();
     const model = modelOverride ?? getAiModel(modelName);
-    const lastUserText = [...messages]
-      .reverse()
-      .find((message) => message.role === "user");
+    const lastUserText = preflight
+      ? undefined
+      : [...messages].reverse().find((message) => message.role === "user");
     const lastUserTextValue = lastUserText
       ? getTextFromUIMessage(lastUserText)
       : undefined;
-    const hasBuiltSite = project.status === "ready";
+    const hasBuiltSite = hasBuiltSiteOverride ?? project.status === "ready";
+    const hasPendingUpdate = hasPendingUpdateOverride === true;
     const activeHandoff = hasBuiltSite
       ? await loadActiveHandoff(project.id).catch(() => null)
       : null;
-    const currentBriefHash = hashCanonicalBrief(
+    const currentBriefHash = hashCanonicalBriefContent(
       parseCanonicalBrief(effectiveBrief, project.prompt),
     );
     const hasPendingChanges =
@@ -196,23 +366,108 @@ export async function runDiscussTurn({
 
     const handoffNormalizeOptions = {
       hasBuiltSite,
+      hasPendingUpdate,
       lastUserText: lastUserTextValue,
+      preflight,
+      ownerTexts: messages
+        .filter((message) => message.role === "user")
+        .map(getTextFromUIMessage),
       previousWorkspaceCard,
+      sourceTurnId: turnId,
     };
     const chatContextWithInlineAssets = {
       ...chatContext,
-      messages: await inlineChatAssetFileParts(chatContext.messages),
+      messages: await inlineChatAssetFileParts(effectiveChatContext.messages, {
+        projectId: project.id,
+        userId,
+      }),
     };
-    const systemPrompt = buildOneCallSystemPrompt({
+    const discussionContext = createDiscussionContextSnapshot({
+      messages,
+      summary: _summary,
+      memoryFacts: _memoryFacts,
+    });
+    const persistProjectChatTurn = (
+      input: Parameters<typeof persistProjectChatTurnRaw>[0],
+    ) => {
+      const brief = parseProjectBrief(
+        input.brief === undefined ? effectiveBrief : input.brief,
+        project.prompt,
+      );
+      return persistProjectChatTurnRaw({
+        ...input,
+        brief: scrubBriefForStorage(brief, brief.readyForBuild, project.id),
+        discussionContext: {
+          summary: _summary,
+          memoryFacts: _memoryFacts,
+        },
+        title: input.title ?? project.title,
+      });
+    };
+    const systemPrompt = `${buildOneCallSystemPrompt({
       brief: effectiveBrief,
-      context: chatContext.systemContext,
+      context: `${effectiveChatContext.systemContext}\n\nFact ledger:\n${JSON.stringify(effectiveBrief.factLedger)}\n\nProject discussion context:\n${buildCompactDiscussionContext(
+        {
+          factLedger: effectiveBrief.factLedger,
+          memoryFacts: _memoryFacts,
+          messages,
+          summary: _summary,
+        },
+      )}`,
       hasBuiltSite,
       hasPendingChanges,
-    });
+    })}${preflight ? getDiscussPreflightInstruction(preflight, { hasPendingUpdate, pendingUpdateInstructions }) : ""}`;
     const cardSystemPrompt = buildCardSystemPrompt();
     const modelMessages = await convertToModelMessages(
-      chatContextWithInlineAssets.messages,
+      dedupeUiMessages(chatContextWithInlineAssets.messages),
     );
+
+    // Fail closed: blocked or unverifiable text never reaches the model.
+    if (lastUserTextValue && !isImageUploadBoilerplateText(lastUserTextValue)) {
+      let moderation: Awaited<
+        ReturnType<typeof moderateProjectRequest>
+      > | null = null;
+      try {
+        moderation = await moderateProjectRequest(
+          lastUserTextValue,
+          [],
+          undefined,
+          { projectId: project.id, turnId },
+        );
+      } catch (error) {
+        console.error("[discuss] text moderation unavailable", {
+          projectId: project.id,
+          turnId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+      if (!moderation) {
+        const errorMessage =
+          "Pemeriksaan keamanan belum berhasil. Coba lagi sebentar.";
+        await finalizeDiscussTurn({
+          turnId,
+          status: "failed",
+          errorMessage,
+        });
+        publishProgress(turnId, { type: "error", errorText: errorMessage });
+        return;
+      }
+      await chargeModerationEnergy(userId, moderation, {
+        projectId: project.id,
+      });
+      if (!moderation.allowed) {
+        await finalizeDiscussTurn({
+          turnId,
+          status: "failed",
+          errorMessage: moderation.message,
+        });
+        publishProgress(turnId, {
+          type: "error",
+          errorText: moderation.message,
+        });
+        return;
+      }
+    }
 
     await writeAiRequestLog({
       event: "discuss:start",
@@ -273,6 +528,7 @@ export async function runDiscussTurn({
           userId,
           projectId: project.id,
           toolCall,
+          turnId,
         }),
       temperature: 0.25,
       maxOutputTokens: 1024,
@@ -459,7 +715,7 @@ export async function runDiscussTurn({
       }
     }
     textCoalescer.flush();
-    let chatText = fullText.trim();
+    let chatText = unslopUserFacingText(fullText.trim());
     publishProgress(turnId, { type: "text-end", id: textPartId });
 
     let totalInputTokens = 0;
@@ -467,6 +723,10 @@ export async function runDiscussTurn({
     // Primary's own usage: ledger row records its own leg; repair/compaction
     let primaryOwnInputTokens = 0;
     let primaryOwnOutputTokens = 0;
+    let repairedWorkspaceTurn: Awaited<
+      ReturnType<typeof repairDiscussCardWithTool>
+    > = null;
+    let repairMs = 0;
     try {
       const primaryUsage = await primary.usage;
       totalInputTokens = primaryUsage?.inputTokens ?? 0;
@@ -530,7 +790,7 @@ export async function runDiscussTurn({
           ],
         };
         const safeMessages = stripTransportDiagnosticMessages(
-          dedupeUiMessages([...messages, assistantMessage]),
+          dedupeUiMessagesForPersistence([...messages, assistantMessage]),
         );
         await writeAiRequestLog({
           event: "discuss:finish",
@@ -585,74 +845,9 @@ export async function runDiscussTurn({
         status: "ok",
       });
     }
-    if (!chatText) {
-      // Post-build: none is a legal card. Do not repair for interview cards
-      if (hasBuiltSite) {
-        const fallbackText = "Siap, perubahannya sudah aku catat.";
-        publishProgress(turnId, {
-          type: "text-delta",
-          id: textPartId,
-          delta: fallbackText,
-        });
-        const resolvedToolCallId = streamToolCallId || toolCallId;
-        publishProgress(turnId, {
-          type: "tool-input-available",
-          toolCallId: resolvedToolCallId,
-          toolName: PRESENT_WORKSPACE_CARD_TOOL_NAME,
-          input: {},
-        });
-        publishProgress(turnId, {
-          type: "tool-output-available",
-          toolCallId: resolvedToolCallId,
-          output: {
-            workspaceCard: { type: "none" },
-            projectTitle: project.title,
-            repairsUsed: 0,
-          },
-        });
-        const assistantMessage: UIMessage = {
-          id: messageId,
-          role: "assistant",
-          parts: [
-            { type: "text", text: fallbackText, state: "done" },
-            {
-              type: `tool-${PRESENT_WORKSPACE_CARD_TOOL_NAME}`,
-              toolCallId: resolvedToolCallId,
-              state: "output-available",
-              input: {},
-              output: {
-                workspaceCard: { type: "none" },
-                projectTitle: project.title,
-              },
-            } as UIMessage["parts"][number],
-          ],
-        };
-        const safeMessages = stripTransportDiagnosticMessages(
-          dedupeUiMessages([...messages, assistantMessage]),
-        );
-        await writeAiRequestLog({
-          event: "discuss:finish",
-          model: modelName,
-          mode: "one_call_tools",
-          projectId: project.id,
-          didWorkspaceToolUpdate: true,
-          primaryToolFailed: false,
-          repairsUsed: 0,
-          workspaceCard: { type: "none" },
-        });
-        await persistProjectChatTurn({
-          messages: safeMessages,
-          projectId: project.id,
-          userId,
-          workspaceCard: { type: "none" },
-        });
-        await chargeDiscussEnergy();
-        publishProgress(turnId, { type: "finish" });
-        await finalizeDiscussTurn({ turnId, status: "succeeded" });
-        return;
-      }
-
-      // ponytail: tool-only response (no prose). Retry the card via
+    if (!chatText && hasBuiltSite) {
+      chatText = unslopUserFacingText("Siap, perubahannya sudah aku catat.");
+    } else if (!chatText) {
       const repairStartedAt = Date.now();
       const repaired = await repairDiscussCardWithTool({
         brief: effectiveBrief,
@@ -660,14 +855,16 @@ export async function runDiscussTurn({
         chatText: "",
         hasBuiltSite,
         lastUserText: lastUserTextValue,
+        ownerTexts: handoffNormalizeOptions.ownerTexts,
         previousWorkspaceCard,
+        sourceTurnId: turnId,
         model,
         modelMessages,
         modelName,
         projectId: project.id,
         userId,
       });
-      const repairMs = Date.now() - repairStartedAt;
+      repairMs = Date.now() - repairStartedAt;
       devLog("discuss", "timings", {
         primaryMs,
         repairMs,
@@ -681,127 +878,57 @@ export async function runDiscussTurn({
       primaryOwnOutputTokens += repaired?.usage.outputTokens ?? 0;
 
       if (repaired) {
-        const repairedCard = repaired.workspaceCard;
-        const repairedToolCallId = streamToolCallId || toolCallId;
-        const repairedText = repaired.assistantText;
-        if (repairedText) {
-          const repairTextPartId = `${textPartId}-repair`;
-          publishProgress(turnId, {
-            type: "text-start",
-            id: repairTextPartId,
-          });
-          publishProgress(turnId, {
-            type: "text-delta",
-            id: repairTextPartId,
-            delta: repairedText,
-          });
-          publishProgress(turnId, {
-            type: "text-end",
-            id: repairTextPartId,
-          });
-        }
-        publishProgress(turnId, {
-          type: "tool-input-available",
-          toolCallId: repairedToolCallId,
-          toolName: PRESENT_WORKSPACE_CARD_TOOL_NAME,
-          input: {},
-        });
-        publishProgress(turnId, {
-          type: "tool-output-available",
-          toolCallId: repairedToolCallId,
-          output: {
-            workspaceCard: repairedCard,
-            projectTitle: repaired.projectTitle || project.title,
-            repairsUsed: repaired.repairsUsed,
-          },
-        });
-        const repairedAssistantMessage: UIMessage = {
-          id: messageId,
-          role: "assistant",
-          parts: [
-            ...(repairedText
-              ? [
-                  {
-                    type: "text" as const,
-                    text: repairedText,
-                    state: "done" as const,
-                  },
-                ]
-              : []),
-            {
-              type: `tool-${PRESENT_WORKSPACE_CARD_TOOL_NAME}`,
-              toolCallId: repairedToolCallId,
-              state: "output-available",
-              input: {},
-              output: {
-                workspaceCard: repairedCard,
-                projectTitle: repaired.projectTitle || project.title,
-              },
-            } as UIMessage["parts"][number],
-          ],
-        };
-        const safeMessages = stripTransportDiagnosticMessages(
-          dedupeUiMessages([...messages, repairedAssistantMessage]),
-        );
-        await writeAiRequestLog({
-          event: "discuss:finish",
-          model: modelName,
-          mode: "one_call_tools",
-          projectId: project.id,
-          didWorkspaceToolUpdate: true,
-          primaryToolFailed: true,
-          repairsUsed: repaired.repairsUsed,
-          workspaceCard: repairedCard,
-        });
-        await persistProjectChatTurn({
-          brief: scrubBriefForStorage(
-            repaired.brief,
-            repaired.readyForBuild,
-            project.id,
-          ),
-          messages: safeMessages,
-          projectId: project.id,
-          title: repaired.projectTitle || project.title,
-          userId,
-          workspaceCard: repairedCard,
-        });
+        repairedWorkspaceTurn = repaired;
+        chatText = repaired.assistantText;
+      } else {
+        // All repair attempts failed. Charge once, surface a clean error.
         await chargeDiscussEnergy();
-        publishProgress(turnId, { type: "finish" });
-        await finalizeDiscussTurn({ turnId, status: "succeeded" });
+        const repairFailMessage = "AI lagi gangguan. Coba lagi sebentar.";
+        publishProgress(turnId, {
+          type: "error",
+          errorText: repairFailMessage,
+        });
+        await finalizeDiscussTurn({
+          turnId,
+          status: "failed",
+          errorMessage: repairFailMessage,
+        });
         return;
       }
-
-      // All repair attempts failed. Charge once, surface a clean error.
-      await chargeDiscussEnergy();
-      const repairFailMessage = "AI lagi gangguan. Coba lagi sebentar.";
-      publishProgress(turnId, {
-        type: "error",
-        errorText: repairFailMessage,
-      });
-      await finalizeDiscussTurn({
-        turnId,
-        status: "failed",
-        errorMessage: repairFailMessage,
-      });
-      return;
     }
 
-    let workspaceTurn = normalizeWorkspaceTurn(
-      toolInput,
-      effectiveBrief,
-      handoffNormalizeOptions,
-    );
+    let workspaceTurn =
+      repairedWorkspaceTurn ??
+      normalizeWorkspaceTurn(
+        toolInput,
+        effectiveBrief,
+        handoffNormalizeOptions,
+      );
     workspaceTurn = {
       ...workspaceTurn,
       workspaceCard: ensureQuestionCardRichness(workspaceTurn.workspaceCard),
     };
+    if (preflight === "update") {
+      workspaceTurn = {
+        ...workspaceTurn,
+        readyForBuild: resolvePreflightBuildReadiness({
+          hasPendingUpdate,
+          preflight,
+          readyForBuild: workspaceTurn.readyForBuild,
+        }),
+        workspaceCard: ensureUpdatePreflightCard(workspaceTurn.workspaceCard, {
+          allowRecommendation: hasPendingUpdate,
+        }),
+      };
+    }
 
     // Post-build policy: none is an allowed card. Do not treat it as a
     let primaryToolFailed =
-      workspaceTurn.workspaceCard.type === "none" && !hasBuiltSite;
-    let repairsUsed = 0;
+      !repairedWorkspaceTurn &&
+      workspaceTurn.workspaceCard.type === "none" &&
+      !hasBuiltSite;
+    let repairsUsed = repairedWorkspaceTurn?.repairsUsed ?? 0;
 
-    let repairMs = 0;
     if (primaryToolFailed) {
       const repairStartedAt = Date.now();
       const repaired = await repairDiscussCardWithTool({
@@ -810,7 +937,9 @@ export async function runDiscussTurn({
         chatText,
         hasBuiltSite,
         lastUserText: lastUserTextValue,
+        ownerTexts: handoffNormalizeOptions.ownerTexts,
         previousWorkspaceCard,
+        sourceTurnId: turnId,
         model,
         modelMessages,
         modelName,
@@ -862,8 +991,35 @@ export async function runDiscussTurn({
         project.prompt,
       );
       const readiness = evaluateBuildReadiness(canonicalBrief);
+      const adaptiveReadiness =
+        evaluateAdaptiveDiscussionReadiness(canonicalBrief);
       const tieredReadiness = evaluateTieredBriefReadiness(canonicalBrief);
       const isExplicitBuild = isExplicitBuildRequest(lastUserTextValue ?? "");
+      const isPendingUpdatePreflight =
+        preflight === "update" && hasPendingUpdate;
+      const minimumBlocker = readiness.blockers.find((blocker) =>
+        ["business.name", "offers", "primaryOffer", "primaryAction"].includes(
+          blocker.field,
+        ),
+      );
+      const minimumQuestion = (() => {
+        if (minimumBlocker?.field === "offers") {
+          const nextEnrichment = getNextTieredEnrichmentCard(canonicalBrief);
+          if (nextEnrichment?.type === "question") {
+            return nextEnrichment.question;
+          }
+        }
+        if (minimumBlocker) {
+          return createReadinessQuestion(minimumBlocker);
+        }
+        if (readiness.state === "blocked") {
+          return readiness.nextQuestion;
+        }
+        return createReadinessQuestion({
+          field: "business.name",
+          reason: "business name missing",
+        });
+      })();
       const photoUploadsActive = (() => {
         try {
           return getSettingSync(
@@ -875,43 +1031,44 @@ export async function runDiscussTurn({
         }
       })();
 
-      if (readiness.state === "blocked") {
+      if (!adaptiveReadiness.minimumSatisfied && !isPendingUpdatePreflight) {
         if (workspaceTurn.workspaceCard.type === "build_recommendation") {
           workspaceTurn = {
             ...workspaceTurn,
             readyForBuild: false,
             workspaceCard: {
               type: "question",
-              question: readiness.nextQuestion,
+              question: minimumQuestion,
             },
           };
           chatText = "Masih ada informasi penting yang perlu dilengkapi dulu.";
           devLog("discuss", "contract-readiness-blocked", {
             projectId: project.id,
             turnId,
-            blockers: readiness.blockers.map((blocker) => blocker.field),
+            blockers: adaptiveReadiness.missingMinimum,
           });
         } else if (
           wasBuildRecommendationAttempt &&
           workspaceTurn.workspaceCard.type === "question"
         ) {
           const isAlreadyReadinessQuestion =
-            workspaceTurn.workspaceCard.question.id ===
-            readiness.nextQuestion.id;
+            workspaceTurn.workspaceCard.question.id === minimumQuestion.id;
           if (isAlreadyReadinessQuestion) {
             chatText =
               "Masih ada informasi penting yang perlu dilengkapi dulu.";
             devLog("discuss", "contract-readiness-blocked", {
               projectId: project.id,
               turnId,
-              blockers: readiness.blockers.map((blocker) => blocker.field),
+              blockers: adaptiveReadiness.missingMinimum,
             });
           }
         }
       } else if (
         workspaceTurn.workspaceCard.type === "build_recommendation" &&
         !isExplicitBuild &&
-        !tieredReadiness.tier2.satisfied
+        !isPendingUpdatePreflight &&
+        (!adaptiveReadiness.commercialSatisfied ||
+          !tieredReadiness.tier2.satisfied)
       ) {
         const nextEnrichment = getNextTieredEnrichmentCard(canonicalBrief, {
           uploadsEnabled: photoUploadsActive,
@@ -944,21 +1101,24 @@ export async function runDiscussTurn({
         projectId: project.id,
         userId,
         engine: "contract",
+        preserveVisualPreference: hasBuiltSite,
         brief: workspaceTurn.brief,
+        discussionContext,
         turnId,
-        messages,
       });
       if (prepared.state === "ready") {
         const base = workspaceTurn.workspaceCard as {
           type: "build_recommendation";
           title: string;
           summary: string[];
+          postBuildUpdate?: boolean;
         };
         workspaceTurn = {
           ...workspaceTurn,
           workspaceCard: {
             type: "build_recommendation",
             engine: "contract" as const,
+            ...(base.postBuildUpdate ? { postBuildUpdate: true } : {}),
             title: base.title,
             // Read from the frozen contract, never the model's prose, so the
             summary: describeBuildRecommendation(
@@ -1011,6 +1171,41 @@ export async function runDiscussTurn({
         }
       : {};
 
+    if (!chatText.trim()) {
+      chatText = unslopUserFacingText(
+        preflight
+          ? getDiscussPreflightFallbackText(preflight)
+          : hasBuiltSite
+            ? "Siap, perubahannya sudah aku catat. Klik Perbarui website untuk menerapkan ke websitemu."
+            : "Ada yang bisa aku bantu lagi?",
+      );
+    } else {
+      chatText = unslopUserFacingText(chatText);
+    }
+
+    // Last word on coherence: the owner answers the card, so a message that
+    chatText = alignAssistantTextWithCard(
+      chatText,
+      workspaceTurn.workspaceCard,
+    );
+
+    if (repairedWorkspaceTurn) {
+      const repairTextPartId = `${textPartId}-repair`;
+      publishProgress(turnId, {
+        type: "text-start",
+        id: repairTextPartId,
+      });
+      publishProgress(turnId, {
+        type: "text-delta",
+        id: repairTextPartId,
+        delta: chatText,
+      });
+      publishProgress(turnId, {
+        type: "text-end",
+        id: repairTextPartId,
+      });
+    }
+
     // Always emit tool protocol events (including type:"none") so useChat
     publishProgress(turnId, {
       type: "tool-input-available",
@@ -1027,18 +1222,6 @@ export async function runDiscussTurn({
         repairsUsed,
       },
     });
-
-    if (!chatText.trim()) {
-      chatText = hasBuiltSite
-        ? "Siap, perubahannya sudah aku catat. Klik Perbarui Website untuk menerapkan ke websitemu."
-        : "Ada yang bisa aku bantu lagi?";
-    }
-
-    // Last word on coherence: the owner answers the card, so a message that
-    chatText = alignAssistantTextWithCard(
-      chatText,
-      workspaceTurn.workspaceCard,
-    );
 
     const assistantMessage: UIMessage = {
       id: messageId,
@@ -1061,7 +1244,7 @@ export async function runDiscussTurn({
     };
 
     const safeMessages = stripTransportDiagnosticMessages(
-      dedupeUiMessages([...messages, assistantMessage]),
+      dedupeUiMessagesForPersistence([...messages, assistantMessage]),
     );
 
     if (hasCard) {

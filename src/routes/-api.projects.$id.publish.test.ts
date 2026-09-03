@@ -84,10 +84,12 @@ describe("project publish route", () => {
     prismaProjectDeploymentFindManyMock.mockResolvedValue([
       {
         build: {
-          artifactRef: "project-artifact:local:dist:build_checked_out",
+          artifactRef: "project-artifact:s3:dist:build_checked_out",
           createdAt: older,
           id: "build_checked_out",
-          snapshotId: "snapshot_original",
+          projectId: "project_1",
+          snapshot: { id: "snapshot_restore", projectId: "project_1" },
+          snapshotId: "snapshot_restore",
           status: "succeeded",
           updatedAt: older,
         },
@@ -95,6 +97,8 @@ describe("project publish route", () => {
         createdAt: newer,
         id: "preview_deployment",
         kind: "preview",
+        projectId: "project_1",
+        snapshot: { id: "snapshot_restore", projectId: "project_1" },
         snapshotId: "snapshot_restore",
         status: "created",
         updatedAt: newer,
@@ -116,5 +120,39 @@ describe("project publish route", () => {
         }),
       }),
     );
+  });
+
+  it("does not publish a preview deployment whose build belongs to another project", async () => {
+    prismaProjectDeploymentFindManyMock.mockResolvedValue([
+      {
+        build: {
+          artifactRef: "project-artifact:s3:dist:build_other",
+          createdAt: newer,
+          id: "build_other",
+          projectId: "project_2",
+          snapshot: { id: "snapshot_other", projectId: "project_2" },
+          snapshotId: "snapshot_other",
+          status: "succeeded",
+          updatedAt: newer,
+        },
+        buildId: "build_other",
+        createdAt: newer,
+        id: "preview_cross_tenant",
+        kind: "preview",
+        projectId: "project_1",
+        snapshot: { id: "snapshot_other", projectId: "project_2" },
+        snapshotId: "snapshot_other",
+        status: "created",
+        updatedAt: newer,
+      },
+    ]);
+
+    const response = await POST(new Request("http://localhost/publish"), {
+      id: "project_1",
+    });
+
+    expect(response.status).toBe(409);
+    expect(prismaProjectDeploymentCreateMock).not.toHaveBeenCalled();
+    expect(prismaRuntimeEventCreateMock).not.toHaveBeenCalled();
   });
 });

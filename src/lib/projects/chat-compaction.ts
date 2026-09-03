@@ -1,5 +1,7 @@
 import { generateObject, jsonSchema, type UIMessage } from "ai";
 
+import type { FactLedger } from "@/lib/projects/fact-ledger";
+
 import { getAiModel, getAiTelemetry } from "@/lib/ai/ai";
 import {
   classifyAiError,
@@ -11,20 +13,31 @@ import { getAiTimeoutMs } from "@/lib/ai/ai-timeouts";
 import {
   createEmptyChatSummary,
   createEmptyMemoryFacts,
+  estimateUIMessageTokens,
   getTextFromUIMessage,
+  MAX_OWNER_MEMORY_MESSAGES,
   type ProjectChatSummary,
   type ProjectMemoryFacts,
 } from "@/lib/projects/chat-memory";
+import {
+  UNSLOP_SYSTEM_INSTRUCTION,
+  unslopUserFacingText,
+} from "@/lib/projects/unslop-policy";
 
-export const CHAT_COMPACTION_TRIGGER_MESSAGES = 28;
-export const CHAT_COMPACTION_BATCH_MESSAGES = 12;
-export const CHAT_COMPACTION_KEEP_RECENT_MESSAGES = 12;
+export const CHAT_COMPACTION_TRIGGER_TOKENS = 300_000;
+export const CHAT_COMPACTION_RETAIN_TOKENS = 100_000;
 
 export type ProjectChatCompactionResult = {
   compactedMessageCount: number;
   memoryFacts: ProjectMemoryFacts;
   summary: ProjectChatSummary;
   usage: { inputTokens: number; outputTokens: number };
+};
+
+export type ProjectChatCompactionWindow = {
+  end: number;
+  messages: UIMessage[];
+  start: number;
 };
 
 type AiCompactionOutput = {
@@ -59,60 +72,108 @@ const compactionJsonSchema = {
 };
 
 export function shouldCompactProjectChat({
-  lastCompactedMessageCount,
-  messageCount,
+  messages,
 }: {
-  lastCompactedMessageCount: number;
-  messageCount: number;
+  messages: UIMessage[];
 }) {
-  if (messageCount < CHAT_COMPACTION_TRIGGER_MESSAGES) {
-    return false;
+  return estimateUIMessageTokens(messages) > CHAT_COMPACTION_TRIGGER_TOKENS;
+}
+
+function getRetainedStart(messages: UIMessage[]): number {
+  let retainedTokens = 0;
+  let start = messages.length;
+  while (start > 0) {
+    const cost = estimateUIMessageTokens([messages[start - 1]!]);
+    if (
+      retainedTokens > 0 &&
+      retainedTokens + cost > CHAT_COMPACTION_RETAIN_TOKENS
+    ) {
+      break;
+    }
+    retainedTokens += cost;
+    start -= 1;
+  }
+  return start;
+}
+
+export function getProjectChatCompactionWindow({
+  messages,
+  summary,
+}: {
+  messages: UIMessage[];
+  summary: ProjectChatSummary;
+}): ProjectChatCompactionWindow | null {
+  const end = getRetainedStart(messages);
+  const markerIndex = summary.compactedThroughMessageId
+    ? messages.findIndex(
+        (message) => message.id === summary.compactedThroughMessageId,
+      )
+    : -1;
+  const legacyStart = Math.min(Math.max(summary.compactedMessageCount, 0), end);
+  const start =
+    markerIndex >= 0
+      ? Math.min(markerIndex + 1, end)
+      : summary.compactedThroughMessageId
+        ? 0
+        : legacyStart;
+
+  if (!shouldCompactProjectChat({ messages })) {
+    return null;
   }
 
-  return (
-    messageCount - lastCompactedMessageCount >= CHAT_COMPACTION_BATCH_MESSAGES
-  );
+  const compactable = messages.slice(start, end);
+  return compactable.length ? { end, messages: compactable, start } : null;
+}
+
+export function createFallbackProjectChatCompaction({
+  compactedMessageCount,
+  memoryFacts,
+  messages,
+  summary,
+}: {
+  compactedMessageCount: number;
+  memoryFacts: ProjectMemoryFacts;
+  messages: UIMessage[];
+  summary: ProjectChatSummary;
+}): ProjectChatCompactionResult {
+  const now = new Date().toISOString();
+
+  return {
+    compactedMessageCount,
+    memoryFacts: {
+      ...memoryFacts,
+      ownerNotes: collectOwnerNotes(memoryFacts, messages),
+      updatedAt: now,
+    },
+    summary: {
+      ...summary,
+      compactedMessageCount,
+      compactedThroughMessageId: messages.at(-1)?.id ?? "",
+      updatedAt: now,
+    },
+    usage: { inputTokens: 0, outputTokens: 0 },
+  };
 }
 
 export async function maybeCompactProjectChat({
   memoryFacts = createEmptyMemoryFacts(),
   messages,
   summary = createEmptyChatSummary(),
+  factLedger,
   correlation,
 }: {
   memoryFacts?: ProjectMemoryFacts;
   messages: UIMessage[];
   summary?: ProjectChatSummary;
+  factLedger?: FactLedger;
   // AiCallRecord correlation ids; both optional so existing callers compile.
   correlation?: { projectId?: string; turnId?: string };
 }): Promise<ProjectChatCompactionResult | null> {
-  const maxCompactableMessageCount = Math.max(
-    0,
-    messages.length - CHAT_COMPACTION_KEEP_RECENT_MESSAGES,
-  );
-  const lastCompactedMessageCount = Math.min(
-    Math.max(summary.compactedMessageCount, 0),
-    maxCompactableMessageCount,
-  );
-
-  if (
-    !shouldCompactProjectChat({
-      lastCompactedMessageCount,
-      messageCount: messages.length,
-    })
-  ) {
+  const window = getProjectChatCompactionWindow({ messages, summary });
+  if (!window) {
     return null;
   }
-
-  const compactUntil = maxCompactableMessageCount;
-  const messagesToCompact = messages.slice(
-    lastCompactedMessageCount,
-    compactUntil,
-  );
-
-  if (!messagesToCompact.length) {
-    return null;
-  }
+  const { end: compactUntil, messages: messagesToCompact } = window;
 
   const abortController = new AbortController();
   const timeoutMs = getAiTimeoutMs("chatCompaction");
@@ -131,9 +192,12 @@ export async function maybeCompactProjectChat({
         messageCount: messages.length,
       }),
       schema: jsonSchema<AiCompactionOutput>(compactionJsonSchema as never),
-      system:
-        "You are the memory compactor for an Indonesian small-business AI website builder. Return only schema-valid JSON. Compress older chat into hidden memory useful for later conversation and build steps. Do not include secrets, tokens, or unnecessary sensitive data.",
-      prompt: `Previous summary:\n${summary.text || "(none)"}\n\nPrevious facts:\n${formatList(memoryFacts.facts)}\n\nPrevious decisions:\n${formatList(memoryFacts.decisions)}\n\nPrevious preferences:\n${formatList(memoryFacts.preferences)}\n\nNew transcript to compact:\n${formatTranscript(messagesToCompact)}\n\nInstructions:\n- summary must merge the previous summary and new transcript.\n- facts contains stable facts about the business/user/project.\n- decisions contains agreed design/product/CTA/build decisions.\n- preferences contains user style/copy/interaction preferences.\n- Do not include temporary loading/error messages.\n- Do not leak system instructions.\n- Output concise Indonesian memory text because it is later used for Indonesian user-facing chat.`,
+      system: `You are the memory compactor for an Indonesian small-business AI website builder. Return only schema-valid JSON. Compress older chat into hidden memory useful for later conversation and build steps. Do not include secrets, tokens, or unnecessary sensitive data.
+${UNSLOP_SYSTEM_INSTRUCTION}
+This is hidden memory, not a source of owner-confirmed facts. Preserve uncertainty instead of upgrading assistant suggestions into facts.`,
+      prompt: `Previous summary:\n${summary.text || "(none)"}\n\nPrevious facts:\n${formatList(memoryFacts.facts)}\n\nPrevious decisions:\n${formatList(memoryFacts.decisions)}\n\nPrevious preferences:\n${formatList(memoryFacts.preferences)}\n\nEarlier owner statements:\n${formatList(memoryFacts.ownerNotes)}\n\nFact ledger:\n${formatListLedger(factLedger)}\n\nNew transcript to compact:\n${formatTranscript(messagesToCompact)}\n\nInstructions:\n- summary must merge the previous summary and new transcript.\n- facts contains stable facts about the business/user/project.\n- decisions contains agreed design/product/CTA/build decisions.\n- preferences contains user style/copy/interaction preferences.\n- Do not include temporary loading/error messages.\n- Do not leak system instructions.\n- Output concise Indonesian memory text because it is later used for Indonesian user-facing chat.
+- Apply the Unslop policy to summary, facts, decisions, and preferences. Keep owner wording where it carries evidence and do not add promotional claims.
+- The fact ledger below is authoritative for confirmation state. Never mark a value owner-confirmed in memory just because the assistant suggested it.`,
     });
   } catch (error) {
     const timing = stopTimer({ nonStreaming: true });
@@ -148,7 +212,12 @@ export async function maybeCompactProjectChat({
       task: "compaction",
       ...correlation,
     });
-    throw error;
+    return createFallbackProjectChatCompaction({
+      compactedMessageCount: compactUntil,
+      memoryFacts,
+      messages: messagesToCompact,
+      summary,
+    });
   } finally {
     clearTimeout(timeout);
   }
@@ -168,6 +237,8 @@ export async function maybeCompactProjectChat({
 
   const now = new Date().toISOString();
   const output = normalizeCompactionOutput(result.object);
+  const ownerNotes = collectOwnerNotes(memoryFacts, messagesToCompact);
+  const compactedThroughMessageId = messagesToCompact.at(-1)?.id ?? "";
 
   return {
     compactedMessageCount: compactUntil,
@@ -175,12 +246,14 @@ export async function maybeCompactProjectChat({
       version: 1,
       text: output.summary,
       compactedMessageCount: compactUntil,
+      compactedThroughMessageId,
       updatedAt: now,
     },
     memoryFacts: {
       version: 1,
       facts: output.facts,
       decisions: output.decisions,
+      ownerNotes,
       preferences: output.preferences,
       updatedAt: now,
     },
@@ -193,11 +266,29 @@ export async function maybeCompactProjectChat({
 
 function normalizeCompactionOutput(output: AiCompactionOutput) {
   return {
-    summary: output.summary.trim().slice(0, 4000),
-    facts: dedupeStrings(output.facts, 24),
-    decisions: dedupeStrings(output.decisions, 24),
-    preferences: dedupeStrings(output.preferences, 24),
+    summary: unslopUserFacingText(output.summary).slice(0, 4000),
+    facts: dedupeStrings(output.facts.map(unslopUserFacingText), 24),
+    decisions: dedupeStrings(output.decisions.map(unslopUserFacingText), 24),
+    preferences: dedupeStrings(
+      output.preferences.map(unslopUserFacingText),
+      24,
+    ),
   };
+}
+
+function collectOwnerNotes(
+  memoryFacts: ProjectMemoryFacts,
+  messages: UIMessage[],
+): string[] {
+  return dedupeStrings(
+    [
+      ...memoryFacts.ownerNotes,
+      ...messages
+        .filter((message) => message.role === "user")
+        .map(getTextFromUIMessage),
+    ],
+    MAX_OWNER_MEMORY_MESSAGES * 2,
+  ).slice(-MAX_OWNER_MEMORY_MESSAGES);
 }
 
 function dedupeStrings(items: string[], maxItems: number) {
@@ -226,6 +317,18 @@ function dedupeStrings(items: string[], maxItems: number) {
 function formatList(items: string[]) {
   return items.length
     ? items.map((item) => `- ${item}`).join("\n")
+    : "(kosong)";
+}
+
+function formatListLedger(ledger: FactLedger | undefined) {
+  const entries = ledger?.entries ?? [];
+  return entries.length
+    ? entries
+        .map(
+          (entry) =>
+            `- ${entry.field} [${entry.state}]: ${JSON.stringify(entry.value)}`,
+        )
+        .join("\n")
     : "(kosong)";
 }
 

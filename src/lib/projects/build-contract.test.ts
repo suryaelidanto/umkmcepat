@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { parseProjectBrief } from "./brief";
 import { parseBuildContract, type BuildContractV1 } from "./build-contract";
 import {
   hashBuildContract,
@@ -7,6 +8,7 @@ import {
   hashReviewItems,
 } from "./build-hash";
 import { parseBuildPlan, validatePlanAgainstContract } from "./build-plan";
+import { buildContractFromBrief } from "./build-planner";
 import {
   deriveReviewItems,
   REVIEW_ITEM_KINDS,
@@ -57,6 +59,104 @@ function baseContract(): BuildContractV1 {
     omissions: [],
   };
 }
+
+describe("buildContractFromBrief", () => {
+  it("does not carry ledger fields that are not owner-confirmed", () => {
+    const brief = parseProjectBrief({
+      version: 1,
+      businessName: "Beras GG",
+      businessType: "retail",
+      productOrService: [{ name: "Beras Putih Premium", isPrimary: true }],
+      contact: { channel: "whatsapp", value: "08123456789" },
+      priceRange: "Rp 14.000 - Rp 17.000 / kg",
+      factLedger: {
+        version: 1,
+        entries: [
+          {
+            id: "business-name-primary",
+            field: "businessName",
+            label: "Nama",
+            value: "Beras GG",
+            state: "owner_confirmed",
+            source: "owner",
+            sourceTurnId: "turn-1",
+          },
+          {
+            id: "offers-primary",
+            field: "offers",
+            label: "Produk",
+            value: [{ name: "Beras Putih Premium", isPrimary: true }],
+            state: "owner_confirmed",
+            source: "owner",
+            sourceTurnId: "turn-1",
+          },
+          {
+            id: "price-range-primary",
+            field: "priceRange",
+            label: "Harga",
+            value: "Rp 14.000 - Rp 17.000 / kg",
+            state: "ai_suggestion",
+            source: "assistant",
+            sourceTurnId: "turn-2",
+          },
+        ],
+      },
+    });
+
+    const result = buildContractFromBrief(
+      brief,
+      { parseBuildContract, hashContract: hashBuildContract },
+      "turn-3",
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    expect(result.value.facts.map((fact) => fact.kind)).toEqual(["offer"]);
+  });
+
+  it("keeps every owner-provided offer and rich fact in the accepted contract", () => {
+    const brief = parseProjectBrief({
+      version: 1,
+      businessName: "Beras GG",
+      businessType: "retail",
+      productOrService: [
+        { name: "Beras GG", isPrimary: true },
+        { name: "Beras Putih Premium" },
+      ],
+      contact: { channel: "whatsapp", value: "08123456789" },
+      usp: ["Gratis Ongkir / Antar Langsung"],
+      priceRange: "Rp 14.000 - Rp 17.000 / kg",
+      deliveryArea: "Area Kota & Sekitarnya",
+      targetCustomer: "Masyarakat Umum & Keluarga",
+      visuals: false,
+    });
+
+    const result = buildContractFromBrief(
+      brief,
+      { parseBuildContract, hashContract: hashBuildContract },
+      "turn-1",
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+
+    const offerFact = result.value.facts.find((fact) => fact.kind === "offer");
+    expect(offerFact?.kind).toBe("offer");
+    if (offerFact?.kind === "offer") {
+      expect(offerFact.value.map((offer) => offer.name)).toEqual([
+        "Beras GG",
+        "Beras Putih Premium",
+      ]);
+    }
+    expect(result.value.facts.map((fact) => fact.kind)).toEqual(
+      expect.arrayContaining(["price", "service_area", "usp", "audience"]),
+    );
+  });
+});
 
 describe("parseBuildContract", () => {
   it("accepts a minimal valid contract", () => {

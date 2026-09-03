@@ -1,3 +1,11 @@
+export function isMalformedPathEncoding(pathname: string) {
+  try {
+    return decodeURIComponent(pathname).includes("\u0000");
+  } catch {
+    return true;
+  }
+}
+
 export function isCrossSiteMutation({
   fetchSite,
   method,
@@ -145,12 +153,8 @@ export function applySecurityHeaders(
       "Content-Security-Policy",
       "sandbox allow-scripts; frame-ancestors 'self'; object-src 'none'; base-uri 'none'",
     );
-    headers.set(
-      "Content-Security-Policy-Report-Only",
-      "script-src 'nonce-" +
-        nonceStr +
-        "' 'strict-dynamic' https: 'unsafe-inline'; report-uri /api/csp-violation",
-    );
+    // Sandbox is the preview boundary; report-only would flag injected bridge scripts.
+    headers.delete("Content-Security-Policy-Report-Only");
     headers.set("X-Frame-Options", "SAMEORIGIN");
   } else {
     headers.set(

@@ -1,4 +1,5 @@
 import { parseCanonicalBrief, type ProjectBriefV2 } from "./canonical-brief";
+import { isFactLedgerFieldApproved } from "./fact-ledger";
 
 import type { ProjectBrief, WorkspaceCard } from "./brief";
 
@@ -48,38 +49,16 @@ export function isExplicitBuildRequest(text: string): boolean {
   return patterns.some((p) => p.test(normalized));
 }
 
-export function fallbackUspOptions(
-  _context?: string,
-): Array<{ label: string; description: string }> {
-  return [
-    {
-      label: "Kualitas Terjamin & Bergaransi",
-      description: "Pelayanan terbaik untuk setiap pelanggan",
-    },
-    {
-      label: "Harga Jujur & Transparan",
-      description: "Tanpa biaya siluman dan jelas di awal",
-    },
-    {
-      label: "Respon Cepat via WhatsApp",
-      description: "Konsultasi ramah dan cepat tanggap",
-    },
-    {
-      label: "Pengerjaan Rapi & Teliti",
-      description: "Dikerjakan profesional dengan standar tinggi",
-    },
-  ];
-}
-
 export function getNextTieredEnrichmentCard(
   brief: ProjectBriefV2,
   options?: { uploadsEnabled?: boolean },
 ): WorkspaceCard | null {
   const name = brief.business.name.trim() || "usahamu";
-  const context = `${brief.business.name} ${brief.business.type} ${brief.prompt}`;
-
   // Tier 1 Missing:
-  if (!brief.business.name.trim()) {
+  if (
+    !brief.business.name.trim() ||
+    !isFactLedgerFieldApproved(brief.factLedger, "businessName")
+  ) {
     return {
       type: "question",
       question: {
@@ -88,35 +67,37 @@ export function getNextTieredEnrichmentCard(
         answerMode: "text",
         selectionMode: "single",
         required: true,
-        placeholder: "Contoh: Bengkel Berkah Jaya",
+        placeholder: "Tulis nama usaha",
         options: [],
       },
     };
   }
 
-  if (brief.offers.length === 0) {
+  if (
+    brief.offers.length === 0 ||
+    !isFactLedgerFieldApproved(brief.factLedger, "offers")
+  ) {
+    const suggestedOffer =
+      brief.offers.length === 1 ? brief.offers[0]?.name.trim() : "";
     return {
       type: "question",
       question: {
         id: "services",
-        question: `Layanan atau produk utama yang ditawarkan di ${name} apa saja?`,
-        answerMode: "choice",
-        selectionMode: "multiple",
+        question: suggestedOffer
+          ? `Aku mencatat ${suggestedOffer} sebagai layanan utama ${name}. Benar?`
+          : `Layanan atau produk utama yang ditawarkan di ${name} apa saja?`,
+        answerMode: suggestedOffer ? "choice" : "text",
+        selectionMode: "single",
         required: true,
-        options: [
-          {
-            label: "Paket Layanan Utama",
-            description: "Pilihan yang paling sering dicari pelanggan",
-          },
-          {
-            label: "Paket Lengkap / Komplit",
-            description: "Solusi menyeluruh dari awal sampai tuntas",
-          },
-          {
-            label: "Konsultasi / Permintaan Khusus",
-            description: "Disesuaikan dengan kebutuhan spesifik pelanggan",
-          },
-        ],
+        placeholder: "Tulis produk atau layanan utama",
+        options: suggestedOffer
+          ? [
+              {
+                label: suggestedOffer,
+                description: "Pilih ini kalau catatan tersebut sudah benar.",
+              },
+            ]
+          : [],
       },
     };
   }
@@ -124,6 +105,8 @@ export function getNextTieredEnrichmentCard(
   if (
     !brief.primaryAction ||
     !brief.primaryAction.label.trim() ||
+    (brief.primaryAction.kind !== "browse" &&
+      !isFactLedgerFieldApproved(brief.factLedger, "contact")) ||
     (brief.primaryAction.kind === "whatsapp" && !brief.primaryAction.target) ||
     (brief.primaryAction.kind === "phone" && !brief.primaryAction.target)
   ) {
@@ -135,7 +118,44 @@ export function getNextTieredEnrichmentCard(
         answerMode: "text",
         selectionMode: "single",
         required: true,
-        placeholder: "Contoh: 081234567890",
+        placeholder: "Tulis nomor WhatsApp aktif",
+        options: [],
+      },
+    };
+  }
+
+  const fieldState = brief.fieldState as Record<string, string> | undefined;
+  if (
+    !brief.audience?.trim() &&
+    !isResolvedField(fieldState, ["audience", "target_customer"])
+  ) {
+    return {
+      type: "question",
+      question: {
+        id: "audience",
+        question: `Siapa yang paling ingin kamu bantu dengan ${name}?`,
+        answerMode: "text",
+        selectionMode: "single",
+        required: false,
+        placeholder: "Contoh: pekerja sekitar atau keluarga",
+        options: [],
+      },
+    };
+  }
+
+  if (
+    !brief.visualDirection?.trim() &&
+    !isResolvedField(fieldState, ["visual_direction", "style_preference"])
+  ) {
+    return {
+      type: "question",
+      question: {
+        id: "visual_direction",
+        question: `Nuansa visual seperti apa yang cocok untuk ${name}?`,
+        answerMode: "text",
+        selectionMode: "single",
+        required: false,
+        placeholder: "Contoh: tenang, tegas, atau penuh warna",
         options: [],
       },
     };
@@ -160,7 +180,7 @@ export function getNextTieredEnrichmentCard(
         answerMode: "text",
         selectionMode: "single",
         required: false,
-        placeholder: "Contoh: Jl. Kenangan No. 4, Jakarta Utara",
+        placeholder: "Tulis alamat atau patokan lokasi",
         options: [],
       },
     };
@@ -178,7 +198,7 @@ export function getNextTieredEnrichmentCard(
         answerMode: "text",
         selectionMode: "single",
         required: false,
-        placeholder: "Contoh: Mulai Rp 35.000 (servis ringan)",
+        placeholder: "Tulis kisaran harga atau tarif",
         options: [],
       },
     };
@@ -190,15 +210,15 @@ export function getNextTieredEnrichmentCard(
       question: {
         id: "usp",
         question: `Apa keunggulan utama ${name} yang paling disukai pelanggan?`,
-        answerMode: "choice",
-        selectionMode: "multiple",
+        answerMode: "text",
+        selectionMode: "single",
         required: false,
-        options: fallbackUspOptions(context),
+        placeholder: "Tulis keunggulan yang benar-benar kamu tawarkan",
+        options: [],
       },
     };
   }
 
-  const fieldState = brief.fieldState as Record<string, string> | undefined;
   const photosResolved =
     brief.assets.length > 0 ||
     fieldState?.visuals === "declined" ||
@@ -229,21 +249,40 @@ export function getNextTieredEnrichmentCard(
   return null;
 }
 
+function isResolvedField(
+  fieldState: Record<string, string> | undefined,
+  keys: readonly string[],
+): boolean {
+  return keys.some((key) =>
+    ["answered", "declined", "explicitly_empty"].includes(
+      fieldState?.[key] ?? "",
+    ),
+  );
+}
+
 export function evaluateTieredBriefReadiness(
   input: ProjectBrief | ProjectBriefV2 | null | undefined,
 ): TieredBriefReadiness {
   const brief = parseCanonicalBrief(input ?? {});
 
   const missingTier1: Tier1MissingField[] = [];
-  if (!brief.business.name.trim()) {
+  if (
+    !brief.business.name.trim() ||
+    !isFactLedgerFieldApproved(brief.factLedger, "businessName")
+  ) {
     missingTier1.push("businessName");
   }
-  if (brief.offers.length === 0) {
+  if (
+    brief.offers.length === 0 ||
+    !isFactLedgerFieldApproved(brief.factLedger, "offers")
+  ) {
     missingTier1.push("offer");
   }
   if (
     !brief.primaryAction ||
     !brief.primaryAction.label.trim() ||
+    (brief.primaryAction.kind !== "browse" &&
+      !isFactLedgerFieldApproved(brief.factLedger, "contact")) ||
     (brief.primaryAction.kind === "whatsapp" && !brief.primaryAction.target) ||
     (brief.primaryAction.kind === "phone" && !brief.primaryAction.target)
   ) {

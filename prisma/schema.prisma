@@ -126,6 +126,7 @@ model Project {
   user                      User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
   snapshots                 ProjectSnapshot[]
   builds                    ProjectBuild[]
+  buildCheckpoints          ProjectBuildCheckpoint[]
   deployments               ProjectDeployment[]
   idempotencyKeys           ProjectIdempotencyKey[]
   runtimeEvents             RuntimeEvent[]
@@ -232,11 +233,13 @@ model ProjectAsset {
   purpose     String   @db.VarChar(32)
   contentType String   @db.VarChar(64)
   sizeBytes   Int
-  publicUrl   String?  @db.Text
-  createdAt   DateTime @default(now())
+  publicUrl         String?  @db.Text
+  sourceTempAssetId String?  @db.Text
+  createdAt         DateTime @default(now())
 
   @@index([projectId, createdAt])
   @@index([userId])
+  @@unique([projectId, userId, purpose, sourceTempAssetId])
 }
 
 model ProjectEditAttempt {
@@ -255,6 +258,7 @@ model ProjectEditAttempt {
   instruction      String              @db.Text
   summary          String?             @db.Text
   annotations      Json?
+  editPlan         Json?
   validationIssues Json?
   advisoryIssues   Json?
   errorMessage     String?             @db.Text
@@ -282,6 +286,7 @@ model ProjectSnapshot {
   files            Json?
   metadata         Json?
   builds           ProjectBuild[]
+  checkpoints      ProjectBuildCheckpoint[]
   deployments      ProjectDeployment[]
   createdAt        DateTime            @default(now())
 
@@ -305,6 +310,7 @@ model ProjectBuild {
   startedAt     DateTime?
   finishedAt    DateTime?
   deployments   ProjectDeployment[]
+  checkpoint    ProjectBuildCheckpoint?
   runtimeEvents RuntimeEvent[]
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
@@ -315,6 +321,22 @@ model ProjectBuild {
   @@index([createdAt])
   @@index([projectId, createdAt])
   @@index([projectId, status, updatedAt])
+}
+
+model ProjectBuildCheckpoint {
+  id               String           @id @default(cuid())
+  projectId        String
+  project          Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  buildId          String           @unique
+  build            ProjectBuild    @relation(fields: [buildId], references: [id], onDelete: Cascade)
+  snapshotId       String           @unique
+  snapshot         ProjectSnapshot  @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  kind             String           @db.VarChar(32)
+  chatMessageId    String?          @db.VarChar(160)
+  chatMessageIndex Int?
+  createdAt        DateTime         @default(now())
+
+  @@index([projectId, createdAt])
 }
 
 model ProjectDeployment {

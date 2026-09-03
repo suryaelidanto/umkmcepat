@@ -46,6 +46,7 @@ export async function claimProjectOperation({
       activeOperationToken: token,
       buildStatus: "running",
       status: "building",
+      workspaceCard: { type: "none" },
     },
   });
 

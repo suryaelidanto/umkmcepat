@@ -1,4 +1,8 @@
-import { type ProjectBrief } from "@/lib/projects/brief";
+import type { ProjectBrief } from "@/lib/projects/brief";
+import type { BuildContractV1 } from "@/lib/projects/build-contract";
+import type { BuildPlanV1 } from "@/lib/projects/build-plan";
+import type { ProjectBriefV2 } from "@/lib/projects/canonical-brief";
+
 import {
   type HoursValue,
   type PaymentMethodValue,
@@ -54,6 +58,7 @@ export type ProjectSiteSchema = {
   priceRange?: string;
   address?: string;
   deliveryArea?: string;
+  since?: string;
   primaryCtaTarget?: string;
   images?: Array<{
     url: string;
@@ -84,7 +89,7 @@ const defaultTheme = {
   background: "#f6f7f4",
   foreground: "#111312",
   muted: "#6b706d",
-  accent: "#f05a28",
+  accent: "#1c1c1c",
 };
 
 function cleanText(value: unknown, fallback: string, maxLength = MAX_TEXT) {
@@ -195,76 +200,48 @@ export function buildContextualWhatsAppHref(
 export function createProjectSiteSchemaFromBrief(
   brief: ProjectBrief,
 ): ProjectSiteSchema {
-  const domain = detectBusinessDomain(brief);
-  const businessName = cleanText(
-    brief.businessName,
-    deriveBusinessName(brief, domain),
-    80,
+  const businessName = cleanText(brief.businessName, "Website usaha", 80);
+  const products = briefProducts(brief);
+  const offer = cleanText(brief.offer || products?.[0]?.name, "", 120);
+  const audience = cleanText(brief.targetCustomer, "", 140);
+  const contactLabel = cleanText(
+    brief.contact?.label || brief.contactOrCta,
+    "Hubungi usaha",
+    44,
   );
-  const offer = cleanText(brief.offer, domain.defaultOffer, 120);
-  const rawTargetCustomer = cleanText(
-    brief.targetCustomer,
-    "pelanggan sekitar yang butuh info cepat",
-    140,
+  const sections = [
+    offer ? { title: "Penawaran", body: offer } : null,
+    audience ? { title: "Pelanggan", body: audience } : null,
+    contactLabel ? { title: "Hubungi usaha", body: contactLabel } : null,
+  ].filter(
+    (section): section is { title: string; body: string } => section !== null,
   );
-  const rawContactOrCta = cleanText(
-    brief.contactOrCta,
-    "hubungi usaha untuk pesan atau bertanya",
-    140,
-  );
-  const rawStylePreference = cleanText(
-    brief.stylePreference,
-    "tampilan bersih dan mudah dipercaya",
-    140,
-  );
-  const targetCustomer = selectionLabel(rawTargetCustomer);
-  const targetCustomerDetail = selectionDetail(rawTargetCustomer);
-  const contactOrCta = selectionLabel(rawContactOrCta);
-  const contactDetail = selectionDetail(rawContactOrCta);
-  const stylePreference = selectionLabel(rawStylePreference);
-  const styleDetail = selectionDetail(rawStylePreference);
-  const theme = themeForBrief(brief, domain.key);
-  const trustPoints = buildTrustPoints(offer, contactOrCta, stylePreference);
-  const primaryCta = primaryCtaFor(rawContactOrCta);
-  const secondaryCta = rawContactOrCta.toLowerCase().includes("maps")
-    ? "Lihat lokasi"
-    : "Lihat menu";
 
   return {
     version: 1,
     businessName,
-    eyebrow: domain.eyebrow,
-    headline: headlineForBrief(domain.key, offer, targetCustomer),
-    subheadline: subheadlineForBrief(domain.key, contactOrCta, stylePreference),
-    primaryCta,
-    secondaryCta,
-    audience: targetCustomer,
+    eyebrow: cleanText(brief.businessType, "Usaha", 60),
+    headline: businessName || offer,
+    subheadline: cleanText(brief.tagline, offer, 260),
+    primaryCta: contactLabel,
+    secondaryCta: cleanText(brief.secondaryCta?.label, "", 44),
+    audience,
     offer,
-    theme,
-    trustPoints,
-    sections: buildBriefSections({
-      contactOrCta,
-      contactDetail,
-      domainLabel: domain.label,
-      offer,
-      stylePreference,
-      styleDetail,
-      targetCustomer,
-      targetCustomerDetail,
-    }),
-    // Rich fields: only set when the brief actually populated them, so the
+    theme: defaultTheme,
+    trustPoints:
+      brief.usp
+        ?.map((value) => value.trim())
+        .filter(Boolean)
+        .slice(0, MAX_TRUST_POINTS) ?? [],
+    sections,
     tagline: brief.tagline?.trim() || undefined,
-    // compileGeneratedSiteContract auto-fills content.usp with the same
     usp:
-      brief.usp && brief.usp.length
-        ? brief.usp
-            .map((u) => u.trim())
-            .filter(Boolean)
-            .slice(0, MAX_USP)
-        : trustPoints.slice(0, MAX_USP),
-    products: briefProducts(brief),
+      brief.usp
+        ?.map((value) => value.trim())
+        .filter(Boolean)
+        .slice(0, MAX_USP) || undefined,
+    products,
     testimonials: briefTestimonials(brief),
-    // faq is never populated from a brief (the brief type has no faq field),
     faq: [],
     socialLinks:
       brief.socialLinks && brief.socialLinks.length
@@ -311,107 +288,174 @@ export function createProjectSiteSchemaFromBrief(
   };
 }
 
-export function createProjectSiteSchemaFromGeneratedContract(input: {
-  contract: import("./generated-site-contract").GeneratedSiteContractV1;
-  theme?: ProjectSiteSchema["theme"];
+export function createProjectSiteSchemaFromAcceptedHandoff(input: {
+  briefSnapshot: ProjectBriefV2;
+  contract: BuildContractV1;
+  plan: BuildPlanV1;
 }): ProjectSiteSchema {
-  const c = input.contract;
-  const businessName = cleanText(c.business.name, "Usaha Lokal", 80);
-  const offer = cleanText(c.content.offer, c.business.primaryJob, 120);
-  const audience = cleanText(c.business.audience ?? "", "pelanggan baru", 80);
-  const primaryCta = cleanText(c.business.primaryCta.label, "Hubungi kami", 44);
-  return {
+  const contract = input.contract;
+  const businessName = cleanText(contract.identity.businessName, "Usaha", 80);
+  const offerFact = findContractFact(contract, "offer");
+  const contractOffers = offerFact?.kind === "offer" ? offerFact.value : [];
+  const offer = cleanText(
+    contractOffers.find((item) => item.isPrimary)?.name ||
+      contractOffers[0]?.name,
+    "",
+    120,
+  );
+  const tagline = contractStringFact(contract, "tagline");
+  const audience = contractStringFact(contract, "audience");
+  const usp = contractArrayFact(contract, "usp");
+  const contactFact = findContractFact(contract, "contact");
+  const contact = contactFact?.kind === "contact" ? contactFact.value : null;
+  const primaryCta = cleanText(
+    contract.ctaIntents[0]?.label || contact?.label,
+    "",
+    44,
+  );
+  const priceFact = findContractFact(contract, "price");
+  const priceRange =
+    priceFact?.kind === "price"
+      ? priceFact.value[0]?.amount?.trim()
+      : undefined;
+  const serviceAreaFact = findContractFact(contract, "service_area");
+  const deliveryArea =
+    serviceAreaFact?.kind === "service_area"
+      ? serviceAreaFact.value[0]?.area?.trim()
+      : undefined;
+  const addressFact = findContractFact(contract, "address");
+  const address =
+    addressFact?.kind === "address" ? addressFact.value.line1 : undefined;
+  const secondaryFact = findContractFact(contract, "secondary_action");
+  const secondaryCta =
+    secondaryFact?.kind === "secondary_action"
+      ? secondaryFact.value.label
+      : undefined;
+  const seenAssetIds = new Set<string>();
+  const images = contract.assets
+    .filter((asset) => {
+      if (seenAssetIds.has(asset.assetId)) {
+        return false;
+      }
+      seenAssetIds.add(asset.assetId);
+      return true;
+    })
+    .map((asset) => ({
+      url: `/api/media/${asset.assetId}`,
+      purpose: asset.approvedPurpose,
+      alt: businessName,
+    }));
+
+  const schema: ProjectSiteSchema = {
     version: 1,
     businessName,
-    eyebrow: "",
-    headline: cleanText(c.content.headline, businessName, 110),
-    subheadline: cleanText(c.content.subheadline, c.business.primaryJob, 260),
+    eyebrow: cleanText(contract.identity.businessType, "Usaha", 60),
+    headline: businessName || offer,
+    subheadline: cleanText(tagline, offer, 260),
     primaryCta,
-    secondaryCta: "",
-    audience,
+    secondaryCta: cleanText(secondaryCta, "", 44),
+    audience: cleanText(audience, "", 140),
     offer,
-    theme: input.theme ?? defaultTheme,
-    trustPoints: c.content?.trustPoints
-      ? c.content.trustPoints.slice(0, MAX_TRUST_POINTS)
-      : [],
-    sections: c.page?.requiredSections
-      ? c.page.requiredSections.slice(0, MAX_SECTIONS).map((s) => ({
-          title: cleanText(s.purpose, "Bagian", 80),
-          body: cleanText(s.purpose, "Konten bagian.", 260),
-        }))
-      : [],
-    tagline: c.content?.headline || undefined,
-    usp: c.content?.usp?.length ? c.content.usp.slice(0, MAX_USP) : undefined,
-    products: c.content?.products?.length
-      ? c.content.products.slice(0, MAX_PRODUCTS)
-      : undefined,
-    testimonials: c.content?.testimonials?.length
-      ? c.content.testimonials.slice(0, MAX_TESTIMONIALS)
-      : undefined,
-    faq: [],
-    socialLinks: c.content?.socialLinks?.length
-      ? c.content.socialLinks.slice(0, MAX_SOCIAL)
-      : undefined,
-    currentPromo: c.content?.promotion || undefined,
-    hours: c.content?.hours?.length
-      ? c.content.hours.slice(0, MAX_HOURS)
-      : undefined,
-    paymentMethods: c.content?.paymentMethods?.length
-      ? c.content.paymentMethods.slice(0, MAX_PAYMENTS)
-      : undefined,
-    priceRange: c.content?.priceRange || undefined,
-    address: c.content?.address || undefined,
-    deliveryArea: c.content?.deliveryArea || undefined,
-    images: (() => {
-      const contractObj = c as unknown as {
-        design?: {
-          approvedAssets?: Array<{ assetId: string; purpose?: string }>;
-        };
-        media?: {
-          approvedAssets?: Array<{ assetId: string; purpose?: string }>;
-        };
-      };
-      const assets =
-        contractObj.design?.approvedAssets &&
-        contractObj.design.approvedAssets.length > 0
-          ? contractObj.design.approvedAssets
-          : contractObj.media?.approvedAssets;
-      if (assets && assets.length > 0) {
-        return assets.map((asset) => ({
-          url: `/api/media/${asset.assetId}`,
-          purpose: asset.purpose || "business-image",
-          alt: businessName,
-        }));
-      }
-      return undefined;
-    })(),
-    routes: c.page.routes.map((r) => ({
-      path: r.path,
-      title: r.purpose,
+    theme: defaultTheme,
+    trustPoints: usp.slice(0, MAX_TRUST_POINTS),
+    sections: [],
+    ...(tagline ? { tagline } : {}),
+    ...(usp.length ? { usp: usp.slice(0, MAX_USP) } : {}),
+    ...(contractOffers.length
+      ? {
+          products: contractOffers
+            .map((item) => ({
+              name: item.name.trim(),
+              description: item.description?.trim() || undefined,
+              priceRange: item.priceRange?.trim() || undefined,
+            }))
+            .filter((item) => item.name)
+            .slice(0, MAX_PRODUCTS),
+        }
+      : {}),
+    ...(priceRange ? { priceRange } : {}),
+    ...(deliveryArea ? { deliveryArea } : {}),
+    ...(address ? { address } : {}),
+    ...(contractStringFact(contract, "since")
+      ? { since: contractStringFact(contract, "since") }
+      : {}),
+    ...(contact
+      ? {
+          contact: { channel: contact.channel, value: contact.value },
+          ...(contact.channel === "whatsapp"
+            ? {
+                primaryCtaTarget: buildContextualWhatsAppHref(
+                  contact.value,
+                  businessName,
+                  offer,
+                ),
+              }
+            : {}),
+        }
+      : {}),
+    images,
+    routes: input.plan.pages.map((page) => ({
+      path: page.path,
+      title: page.title,
     })),
-    primaryCtaTarget:
-      c.business.primaryCta.kind === "whatsapp" && c.business.primaryCta.target
-        ? c.business.primaryCta.target.startsWith("http")
-          ? c.business.primaryCta.target
-          : buildContextualWhatsAppHref(
-              c.business.primaryCta.target,
-              businessName,
-              offer,
-            )
-        : undefined,
-    contact:
-      c.business.primaryCta.kind && c.business.primaryCta.target
-        ? {
-            channel: c.business.primaryCta.kind,
-            value:
-              c.page.routes.length > 1 &&
-              c.business.primaryCta.target.startsWith("#") &&
-              !c.business.primaryCta.target.startsWith("#/")
-                ? `#/#${c.business.primaryCta.target.slice(1)}`
-                : c.business.primaryCta.target,
-          }
-        : undefined,
   };
+
+  const hoursFact = findContractFact(contract, "hours");
+  if (hoursFact?.kind === "hours" && hoursFact.value.length) {
+    schema.hours = hoursFact.value.slice(0, MAX_HOURS);
+  }
+  const paymentsFact = findContractFact(contract, "payment_method");
+  if (paymentsFact?.kind === "payment_method" && paymentsFact.value.length) {
+    schema.paymentMethods = paymentsFact.value.slice(0, MAX_PAYMENTS);
+  }
+  const testimonialsFact = findContractFact(contract, "testimonial");
+  if (
+    testimonialsFact?.kind === "testimonial" &&
+    testimonialsFact.value.length
+  ) {
+    schema.testimonials = testimonialsFact.value
+      .map((testimonial) => ({
+        quote: testimonial.quote,
+        author: testimonial.author,
+        rating: testimonial.rating,
+      }))
+      .slice(0, MAX_TESTIMONIALS);
+  }
+  const socialFact = findContractFact(contract, "social_link");
+  if (socialFact?.kind === "social_link" && socialFact.value.length) {
+    schema.socialLinks = socialFact.value.slice(0, MAX_SOCIAL);
+  }
+  const promotionFact = findContractFact(contract, "promotion");
+  if (promotionFact?.kind === "promotion") {
+    schema.currentPromo = promotionFact.value[0]?.title;
+  }
+
+  return schema;
+}
+
+function findContractFact<K extends BuildContractV1["facts"][number]["kind"]>(
+  contract: BuildContractV1,
+  kind: K,
+): Extract<BuildContractV1["facts"][number], { kind: K }> | undefined {
+  return contract.facts.find(
+    (fact): fact is Extract<BuildContractV1["facts"][number], { kind: K }> =>
+      fact.kind === kind,
+  );
+}
+
+function contractStringFact(
+  contract: BuildContractV1,
+  kind: "audience" | "tagline" | "since",
+): string | undefined {
+  const fact = findContractFact(contract, kind);
+  return fact?.kind === kind ? fact.value.trim() || undefined : undefined;
+}
+
+function contractArrayFact(contract: BuildContractV1, kind: "usp"): string[] {
+  const fact = findContractFact(contract, kind);
+  return fact?.kind === kind
+    ? fact.value.map((value) => value.trim()).filter(Boolean)
+    : [];
 }
 
 function briefProducts(brief: ProjectBrief): SiteSchemaProduct[] | undefined {
@@ -519,7 +563,94 @@ export function parseProjectSiteSchema(
     priceRange: cleanOptional(data.priceRange, fallback.priceRange, 80),
     address: cleanOptional(data.address, fallback.address, 160),
     deliveryArea: cleanOptional(data.deliveryArea, fallback.deliveryArea, 120),
+    since: cleanOptional(data.since, fallback.since, 40),
+    primaryCtaTarget: cleanOptional(
+      data.primaryCtaTarget,
+      fallback.primaryCtaTarget,
+      500,
+    ),
+    contact: parseContactField(data.contact, fallback.contact),
+    images: parseImagesField(data.images, fallback.images),
+    routes: parseRoutesField(data.routes, fallback.routes),
   };
+}
+
+function parseContactField(
+  value: unknown,
+  fallback: ProjectSiteSchema["contact"],
+): ProjectSiteSchema["contact"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return fallback;
+  }
+  const input = value as Record<string, unknown>;
+  const channel = typeof input.channel === "string" ? input.channel.trim() : "";
+  const contactValue =
+    typeof input.value === "string" ? input.value.trim() : "";
+  return channel && contactValue ? { channel, value: contactValue } : fallback;
+}
+
+function parseImagesField(
+  value: unknown,
+  fallback: ProjectSiteSchema["images"],
+): ProjectSiteSchema["images"] {
+  if (!Array.isArray(value)) {
+    return fallback;
+  }
+  const images = value
+    .map((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) {
+        return null;
+      }
+      const input = item as Record<string, unknown>;
+      const url = typeof input.url === "string" ? input.url.trim() : "";
+      if (
+        !url ||
+        (!url.startsWith("/api/media/") && !url.startsWith("/media/"))
+      ) {
+        return null;
+      }
+      return {
+        url,
+        purpose: typeof input.purpose === "string" ? input.purpose : undefined,
+        alt:
+          typeof input.alt === "string"
+            ? input.alt.trim() || undefined
+            : undefined,
+      };
+    })
+    .filter(
+      (
+        item,
+      ): item is {
+        url: string;
+        purpose: string | undefined;
+        alt: string | undefined;
+      } => item !== null,
+    )
+    .slice(0, 12);
+  return images.length ? images : fallback;
+}
+
+function parseRoutesField(
+  value: unknown,
+  fallback: ProjectSiteSchema["routes"],
+): ProjectSiteSchema["routes"] {
+  if (!Array.isArray(value)) {
+    return fallback;
+  }
+  const routes = value
+    .map((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) {
+        return null;
+      }
+      const input = item as Record<string, unknown>;
+      const path = typeof input.path === "string" ? input.path.trim() : "";
+      const title = typeof input.title === "string" ? input.title.trim() : "";
+      return path && title ? { path, title } : null;
+    })
+    .filter((item): item is { path: string; title: string } => item !== null)
+    .slice(0, 12);
+  return routes.length ? routes : fallback;
 }
 
 function cleanOptional(
@@ -747,330 +878,4 @@ function parsePaymentsField(
     .filter((p): p is PaymentMethodValue => p !== null)
     .slice(0, MAX_PAYMENTS);
   return items.length ? items : fallback;
-}
-
-type BusinessDomain = {
-  defaultBusinessName: string;
-  defaultOffer: string;
-  eyebrow: string;
-  key: "angkringan" | "automotive" | "food" | "laundry" | "retail" | "service";
-  label: string;
-};
-
-function detectBusinessDomain(brief: ProjectBrief): BusinessDomain {
-  const text = normalizeSearchText([
-    brief.prompt,
-    brief.businessName,
-    brief.businessType,
-    brief.offer,
-    brief.targetCustomer,
-    brief.stylePreference,
-    ...(brief.notes || []),
-  ]);
-
-  if (text.includes("angkringan")) {
-    return {
-      defaultBusinessName: "Angkringan Hangat",
-      defaultOffer: "Menu angkringan klasik",
-      eyebrow: "Angkringan lokal",
-      key: "angkringan",
-      label: "angkringan",
-    };
-  }
-
-  if (text.includes("laundry")) {
-    return {
-      defaultBusinessName: "Laundry Rapi",
-      defaultOffer: "Cuci, setrika, dan layanan laundry harian",
-      eyebrow: "Laundry cepat",
-      key: "laundry",
-      label: "laundry",
-    };
-  }
-
-  if (
-    text.includes("bengkel") ||
-    text.includes("motor") ||
-    text.includes("mobil") ||
-    text.includes("servis")
-  ) {
-    return {
-      defaultBusinessName: "Bengkel Siap Servis",
-      defaultOffer: "Servis kendaraan dan pengecekan rutin",
-      eyebrow: "Bengkel terpercaya",
-      key: "automotive",
-      label: "bengkel",
-    };
-  }
-
-  if (
-    text.includes("makanan") ||
-    text.includes("kuliner") ||
-    text.includes("bakso") ||
-    text.includes("kopi") ||
-    text.includes("roti")
-  ) {
-    return {
-      defaultBusinessName: "Dapur Lokal",
-      defaultOffer: "Menu favorit siap pesan",
-      eyebrow: "Kuliner lokal",
-      key: "food",
-      label: "kuliner",
-    };
-  }
-
-  if (
-    text.includes("toko") ||
-    text.includes("jual") ||
-    text.includes("produk")
-  ) {
-    return {
-      defaultBusinessName: "Toko Lokal",
-      defaultOffer: "Produk pilihan untuk pelanggan sekitar",
-      eyebrow: "Toko UMKM",
-      key: "retail",
-      label: "toko",
-    };
-  }
-
-  return {
-    defaultBusinessName: "Usaha Lokal",
-    defaultOffer: "Layanan utama usaha",
-    eyebrow: "Usaha lokal",
-    key: "service",
-    label: "usaha",
-  };
-}
-
-function deriveBusinessName(brief: ProjectBrief, domain: BusinessDomain) {
-  return brief.businessName?.trim() || domain.defaultBusinessName;
-}
-
-function themeForBrief(
-  brief: ProjectBrief,
-  domainKey: BusinessDomain["key"],
-): ProjectSiteSchema["theme"] {
-  const style = normalizeSearchText([
-    brief.stylePreference,
-    brief.businessType,
-  ]);
-
-  if (
-    domainKey === "angkringan" ||
-    style.includes("hangat") ||
-    style.includes("tradisional") ||
-    style.includes("kayu") ||
-    style.includes("coklat")
-  ) {
-    return {
-      background: "#f7f1e7",
-      foreground: "#21170f",
-      muted: "#755f4d",
-      accent: "#c65a1e",
-    };
-  }
-
-  if (style.includes("premium") || style.includes("bold")) {
-    return {
-      background: "#f4f1eb",
-      foreground: "#171512",
-      muted: "#6b645b",
-      accent: "#8d6b32",
-    };
-  }
-
-  if (domainKey === "laundry") {
-    return {
-      background: "#eef7f4",
-      foreground: "#12211d",
-      muted: "#587169",
-      accent: "#1f8f7a",
-    };
-  }
-
-  if (domainKey === "automotive") {
-    return {
-      background: "#f3f4f2",
-      foreground: "#151715",
-      muted: "#5f655f",
-      accent: "#d3342f",
-    };
-  }
-
-  return defaultTheme;
-}
-
-function primaryCtaFor(contactOrCta: string) {
-  const text = normalizeSearchText([contactOrCta]);
-
-  if (text.includes("wa") || text.includes("whatsapp")) {
-    return "Pesan via WhatsApp";
-  }
-
-  if (text.includes("booking") || text.includes("reservasi")) {
-    return "Booking sekarang";
-  }
-
-  if (text.includes("maps") || text.includes("lokasi")) {
-    return "Lihat lokasi";
-  }
-
-  if (text.includes("pesan")) {
-    return "Pesan sekarang";
-  }
-
-  return "Hubungi kami";
-}
-
-function headlineForBrief(
-  _domainKey: BusinessDomain["key"],
-  offer: string,
-  targetCustomer: string,
-) {
-  if (offer && targetCustomer) {
-    return `${clipPhrase(offer, 54)} untuk ${lowerFirstPhrase(clipPhrase(targetCustomer, 50))}`;
-  }
-  return clipPhrase(offer || "Layanan Berkualitas & Terpercaya", 110);
-}
-
-function subheadlineForBrief(
-  _domainKey: BusinessDomain["key"],
-  contactOrCta: string,
-  stylePreference: string,
-) {
-  const stylePhrase = stylePreference ? lowerFirstPhrase(stylePreference) : "";
-  return stylePhrase
-    ? `Menghadirkan pelayanan ${clipPhrase(stylePhrase, 50)} dengan kemudahan pemesanan via ${clipPhrase(contactOrCta, 64)}.`
-    : `Menghadirkan pelayanan profesional dengan kemudahan pemesanan via ${clipPhrase(contactOrCta, 64)}.`;
-}
-
-function buildTrustPoints(
-  offer: string,
-  contactOrCta: string,
-  stylePreference: string,
-) {
-  const offerSummary = summarizeOffer(offer);
-
-  return [
-    `${offerSummary} dijelaskan per kebutuhan pelanggan`,
-    `${clipPhrase(contactOrCta, 42)} mudah ditemukan`,
-    `Nuansa ${lowerFirstPhrase(clipPhrase(stylePreference, 42))}`,
-  ];
-}
-
-function buildBriefSections({
-  contactOrCta,
-  contactDetail,
-  domainLabel: _domainLabel,
-  offer,
-  stylePreference,
-  styleDetail,
-  targetCustomer,
-  targetCustomerDetail,
-}: {
-  contactOrCta: string;
-  contactDetail?: string;
-  domainLabel: string;
-  offer: string;
-  stylePreference: string;
-  styleDetail?: string;
-  targetCustomer: string;
-  targetCustomerDetail?: string;
-}): ProjectSiteSchema["sections"] {
-  const offerSentence = stripTrailingPunctuation(offer);
-  const targetContext = targetCustomerDetail
-    ? `${lowerFirstPhrase(targetCustomer)} yang ${stripTrailingPunctuation(lowerFirstPhrase(targetCustomerDetail))}`
-    : lowerFirstPhrase(targetCustomer);
-  const contactContext = contactDetail
-    ? `${contactOrCta} dibuat jelas. ${sentenceCase(stripTrailingPunctuation(contactDetail))}.`
-    : `${contactOrCta} dibuat jelas.`;
-  const styleContext = styleDetail
-    ? `${sentenceCase(stripTrailingPunctuation(styleDetail))}. `
-    : "";
-
-  return [
-    {
-      title: "Penawaran utama",
-      body: `${offerSentence}. Tampilannya dibuat ringkas supaya pembeli cepat tahu pilihan utama sebelum pesan.`,
-    },
-    {
-      title: "Untuk pembeli",
-      body: `Konten diarahkan untuk ${targetContext}. Halaman menonjolkan pilihan produk, keunggulan, dan cara pesan yang mudah dipahami.`,
-    },
-    {
-      title: "Pesan atau datang",
-      body: `${contactContext} Pelanggan bisa langsung pesan atau mencari lokasi tanpa bertanya berulang.`,
-    },
-    {
-      title: "Kesan visual",
-      body: `Tampilan dibuat ${lowerFirstPhrase(stylePreference || "rapi")}. ${styleContext}Memberikan kesan profesional dan terpercaya.`,
-    },
-  ];
-}
-
-export function normalizeSearchText(values: string[]) {
-  return values.join(" ").toLowerCase().replace(/\s+/g, " ").trim();
-}
-
-function clipPhrase(value: string, maxLength: number) {
-  const text = value.trim().replace(/\s+/g, " ");
-
-  if (text.length <= maxLength) {
-    return text;
-  }
-
-  const clipped = text.slice(0, maxLength);
-  const lastSpace = clipped.lastIndexOf(" ");
-
-  return clipped.slice(0, lastSpace > 16 ? lastSpace : maxLength).trim();
-}
-
-function selectionLabel(value: string) {
-  return normalizeDisplayPhrase(splitSelection(value).label || value);
-}
-
-function selectionDetail(value: string) {
-  return normalizeDisplayPhrase(splitSelection(value).detail);
-}
-
-function splitSelection(value: string) {
-  const match = value.match(/^(.+?)\s*\((.+)\)\s*$/);
-
-  if (!match) {
-    return { detail: "", label: value };
-  }
-
-  return {
-    detail: match[2],
-    label: match[1],
-  };
-}
-
-function normalizeDisplayPhrase(value: string) {
-  return value
-    .replace(/\s*&\s*/g, " dan ")
-    .replace(/\bWA\b/g, "WhatsApp")
-    .replace(/\s*\+\s*link\s+/gi, " dan ")
-    .replace(/\s*\+\s*/g, " dan ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function lowerFirstPhrase(value: string) {
-  return value ? `${value[0].toLowerCase()}${value.slice(1)}` : value;
-}
-
-function sentenceCase(value: string) {
-  return value ? `${value[0].toUpperCase()}${value.slice(1)}` : value;
-}
-
-function summarizeOffer(offer: string) {
-  const [label] = offer.split(":");
-  const summary = label && label.length >= 5 ? label : offer;
-
-  return clipPhrase(summary, 42);
-}
-
-function stripTrailingPunctuation(value: string) {
-  return value.trim().replace(/[.。!?]+$/g, "");
 }

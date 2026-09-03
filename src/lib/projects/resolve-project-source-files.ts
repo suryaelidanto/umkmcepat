@@ -7,6 +7,11 @@ export type SourceSnapshotLike = {
   sourceRef?: string | null;
 };
 
+type ReadSourceArtifact = (
+  sourceRef: string,
+  snapshot: SourceSnapshotLike,
+) => Promise<GeneratedProjectFile[]>;
+
 export function resolveProjectSourceFiles({
   latestAttemptSnapshot,
   latestProjectSnapshot,
@@ -16,7 +21,7 @@ export function resolveProjectSourceFiles({
   latestAttemptSnapshot?: SourceSnapshotLike | null;
   latestProjectSnapshot?: SourceSnapshotLike | null;
   projectSourceFiles?: unknown;
-  readArtifact?: (sourceRef: string) => Promise<GeneratedProjectFile[]>;
+  readArtifact?: ReadSourceArtifact;
 }): Promise<GeneratedProjectFile[]> {
   return resolveAsync({
     latestAttemptSnapshot,
@@ -35,35 +40,34 @@ async function resolveAsync({
   latestAttemptSnapshot?: SourceSnapshotLike | null;
   latestProjectSnapshot?: SourceSnapshotLike | null;
   projectSourceFiles?: unknown;
-  readArtifact?: (sourceRef: string) => Promise<GeneratedProjectFile[]>;
+  readArtifact?: ReadSourceArtifact;
 }): Promise<GeneratedProjectFile[]> {
   for (const snapshot of [latestAttemptSnapshot, latestProjectSnapshot]) {
     if (!snapshot) {
       continue;
     }
-    const fromArtifact = await filesFromSnapshot(snapshot, readArtifact);
-    if (fromArtifact.length) {
-      return fromArtifact;
+
+    const embeddedFiles = parseGeneratedProjectFiles(snapshot.files);
+    if (!snapshot.sourceRef) {
+      if (embeddedFiles.length) {
+        return embeddedFiles;
+      }
+      continue;
     }
+
+    if (readArtifact) {
+      try {
+        const artifactFiles = await readArtifact(snapshot.sourceRef, snapshot);
+        if (artifactFiles.length) {
+          return artifactFiles;
+        }
+      } catch {
+        return embeddedFiles;
+      }
+    }
+
+    return embeddedFiles;
   }
 
   return parseGeneratedProjectFiles(projectSourceFiles);
-}
-
-async function filesFromSnapshot(
-  snapshot: SourceSnapshotLike,
-  readArtifact?: (sourceRef: string) => Promise<GeneratedProjectFile[]>,
-): Promise<GeneratedProjectFile[]> {
-  if (snapshot.sourceRef && readArtifact) {
-    try {
-      const artifactFiles = await readArtifact(snapshot.sourceRef);
-      if (artifactFiles.length) {
-        return artifactFiles;
-      }
-    } catch {
-      // fall through to embedded files
-    }
-  }
-
-  return parseGeneratedProjectFiles(snapshot.files);
 }

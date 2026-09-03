@@ -821,7 +821,7 @@ function Step1({
             id={id}
             onBlur={() => markTouched("businessName")}
             onChange={(event) => onChange("businessName", event.target.value)}
-            placeholder="Contoh: Kopi Senja"
+            placeholder="Tulis nama usaha"
             type="text"
             value={values.businessName}
           />
@@ -892,7 +892,7 @@ function Step2({
             id={id}
             onBlur={() => markTouched("storyOffers")}
             onChange={(event) => onChange("storyOffers", event.target.value)}
-            placeholder="Contoh: Kopi sachet dan kue tradisional"
+            placeholder="Tulis produk atau layanan"
             type="text"
             value={values.storyOffers}
           />
@@ -949,7 +949,7 @@ function Step2({
             id={id}
             onBlur={() => markTouched("storyGoal")}
             onChange={(event) => onChange("storyGoal", event.target.value)}
-            placeholder="Contoh: Tampilin menu biar pelanggan bisa pesan"
+            placeholder="Tulis tujuan membuat website"
             type="text"
             value={values.storyGoal}
           />

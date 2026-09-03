@@ -2,9 +2,16 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
-import { selectActivePreviewDeployment } from "@/lib/projects/deployment-resolution";
+import {
+  isProjectBuildForProject,
+  isProjectDeploymentForProject,
+  selectActivePreviewDeployment,
+} from "@/lib/projects/deployment-resolution";
 import { resolveProjectSourceFiles } from "@/lib/projects/resolve-project-source-files";
-import { readProjectSourceArtifact } from "@/lib/projects/runtime-artifacts";
+import {
+  isProjectArtifactRefFor,
+  readProjectSourceArtifact,
+} from "@/lib/projects/runtime-artifacts";
 import { isAdminEmail } from "@/lib/waitlist/waitlist";
 
 export const Route = createFileRoute("/api/projects/$id/source")({
@@ -56,6 +63,8 @@ export const Route = createFileRoute("/api/projects/$id/source")({
                 createdAt: true,
                 id: true,
                 logText: true,
+                projectId: true,
+                snapshot: { select: { id: true, projectId: true } },
                 snapshotId: true,
                 status: true,
                 updatedAt: true,
@@ -71,27 +80,31 @@ export const Route = createFileRoute("/api/projects/$id/source")({
                 files: true,
                 id: true,
                 metadata: true,
+                projectId: true,
                 sourceRef: true,
                 sourceType: true,
               },
             },
+            projectId: true,
             snapshotId: true,
             status: true,
             updatedAt: true,
           },
         });
-        const latestAttempt = await prisma.projectBuild.findFirst({
+        const latestAttemptCandidate = await prisma.projectBuild.findFirst({
           where: { projectId: project.id },
           orderBy: { createdAt: "desc" },
           select: {
             id: true,
             logText: true,
+            projectId: true,
             snapshot: {
               select: {
                 createdAt: true,
                 files: true,
                 id: true,
                 metadata: true,
+                projectId: true,
                 sourceRef: true,
                 sourceType: true,
               },
@@ -100,7 +113,17 @@ export const Route = createFileRoute("/api/projects/$id/source")({
             status: true,
           },
         });
-        const activeDeployment = selectActivePreviewDeployment(deployments);
+        const latestAttempt = isProjectBuildForProject(
+          latestAttemptCandidate,
+          project.id,
+        )
+          ? latestAttemptCandidate
+          : null;
+        const activeDeployment = selectActivePreviewDeployment(
+          deployments.filter((candidate) =>
+            isProjectDeploymentForProject(candidate, project.id),
+          ),
+        );
         const activeBuild = activeDeployment?.build;
         const latestProjectSnapshot =
           activeDeployment?.snapshot || latestAttempt?.snapshot
@@ -122,7 +145,10 @@ export const Route = createFileRoute("/api/projects/$id/source")({
             activeDeployment?.snapshot ?? latestAttempt?.snapshot ?? null,
           latestProjectSnapshot,
           projectSourceFiles: sourceRow?.sourceFiles,
-          readArtifact: (sourceRef) => readProjectSourceArtifact(sourceRef),
+          readArtifact: (sourceRef, snapshot) =>
+            isProjectArtifactRefFor(sourceRef, "source", snapshot.id)
+              ? readProjectSourceArtifact(sourceRef)
+              : Promise.resolve([]),
         });
         const summarySnapshot =
           activeDeployment?.snapshot ??

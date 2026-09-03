@@ -3,7 +3,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { isPrismaDatabaseUnavailable } from "@/lib/prisma-errors";
-import { selectActivePreviewDeployment } from "@/lib/projects/deployment-resolution";
+import {
+  isProjectDeploymentForProject,
+  selectActivePreviewDeployment,
+} from "@/lib/projects/deployment-resolution";
 import { parseGeneratedDistFiles } from "@/lib/projects/generated-source";
 import { createPreviewIssueHtml } from "@/lib/projects/preview-error-html";
 import { refreshProjectThumbnail } from "@/lib/projects/project-thumbnail";
@@ -11,10 +14,14 @@ import { readProjectDistArtifact } from "@/lib/projects/runtime-artifacts";
 import {
   applyPreviewSandboxHeaders,
   injectPreviewAnnotationBridge,
+  injectPreviewHead,
   proxyDeploymentRequest,
   rewritePreviewAssetUrls,
 } from "@/lib/projects/runtime-proxy";
+import { parseProjectSiteSchema } from "@/lib/projects/site-schema";
 import { isAdminEmail } from "@/lib/waitlist/waitlist";
+
+const PREVIEW_ASSET_ROOTS = new Set(["assets", "images"]);
 
 export const Route = createFileRoute("/api/projects/$id/preview/$")({
   server: {
@@ -77,8 +84,10 @@ async function getPreviewResponse({
     where: { id, ...(admin ? {} : { userId }) },
     select: {
       id: true,
+      siteSchema: true,
       thumbnailBuildId: true,
       thumbnailRef: true,
+      title: true,
       userId: true,
     },
   });
@@ -92,12 +101,13 @@ async function getPreviewResponse({
 
   const url = new URL(request.url);
   const targetSnapshotId = url.searchParams.get("snapshotId");
+  const hasTargetSnapshot = targetSnapshotId !== null;
 
   const deployments = await prisma.projectDeployment.findMany({
     where: {
       kind: "preview",
       projectId: project.id,
-      ...(targetSnapshotId ? { snapshotId: targetSnapshotId } : {}),
+      ...(hasTargetSnapshot ? { snapshotId: targetSnapshotId } : {}),
     },
     orderBy: { createdAt: "desc" },
     take: 20,
@@ -107,6 +117,8 @@ async function getPreviewResponse({
           artifactRef: true,
           createdAt: true,
           id: true,
+          projectId: true,
+          snapshot: { select: { id: true, projectId: true } },
           snapshotId: true,
           status: true,
           updatedAt: true,
@@ -116,12 +128,18 @@ async function getPreviewResponse({
       createdAt: true,
       id: true,
       kind: true,
+      projectId: true,
+      snapshot: { select: { id: true, projectId: true } },
       snapshotId: true,
       status: true,
       updatedAt: true,
     },
   });
-  const deployment = selectActivePreviewDeployment(deployments);
+  const deployment = selectActivePreviewDeployment(
+    deployments.filter((candidate) =>
+      isProjectDeploymentForProject(candidate, project.id),
+    ),
+  );
 
   if (deployment?.build?.artifactRef) {
     const observerReadOnly = admin && project.userId !== userId;
@@ -134,6 +152,8 @@ async function getPreviewResponse({
     }
     const response = await proxyDeploymentRequest({
       assetRewrite: { projectId: project.id },
+      businessName: parseProjectSiteSchema(project.siteSchema, project.title)
+        .businessName,
       deploymentId: deployment.id,
       deploymentStatus: deployment.status,
       pathSegments: path,
@@ -152,6 +172,8 @@ async function getPreviewResponse({
 
     const staticResponse = await getStoredPreviewResponse({
       artifactRef: deployment.build.artifactRef,
+      businessName: parseProjectSiteSchema(project.siteSchema, project.title)
+        .businessName,
       projectId: project.id,
       path,
     });
@@ -167,7 +189,17 @@ async function getPreviewResponse({
     });
   }
 
+  if (hasTargetSnapshot) {
+    return createPreviewIssueResponse({
+      detail: "Versi ini belum berhasil dibuat untuk Preview.",
+      status: 404,
+      title: "Versi Preview tidak tersedia",
+    });
+  }
+
   const staticResponse = await getStoredPreviewResponse({
+    businessName: parseProjectSiteSchema(project.siteSchema, project.title)
+      .businessName,
     projectId: project.id,
     path,
   });
@@ -185,23 +217,37 @@ async function getPreviewResponse({
 
 async function getStoredPreviewResponse({
   artifactRef,
+  businessName,
   projectId,
   path,
 }: {
   artifactRef?: string | null;
+  businessName?: string | null;
   path: string[];
   projectId: string;
 }) {
   const distFiles = artifactRef
-    ? await readProjectDistArtifact(artifactRef).catch(() => [])
+    ? await readProjectDistArtifact(artifactRef).catch(() => null)
     : await readStoredProjectDistFiles(projectId);
+  if (!distFiles) {
+    return null;
+  }
+
   const requestedPath = path.join("/") || "index.html";
   const file =
     distFiles.find((item) => item.path === requestedPath) ||
-    distFiles.find((item) => item.path === "index.html");
+    (isPreviewAssetPath(path)
+      ? undefined
+      : distFiles.find((item) => item.path === "index.html"));
 
   if (!file) {
-    return null;
+    return isPreviewAssetPath(path)
+      ? createPreviewIssueResponse({
+          detail: "Aset yang kamu cari tidak tersedia.",
+          status: 404,
+          title: "Aset tidak ditemukan",
+        })
+      : null;
   }
 
   const isHtml = file.contentType.toLowerCase().includes("text/html");
@@ -211,11 +257,14 @@ async function getStoredPreviewResponse({
   const body = isImage
     ? Buffer.from(file.content, "base64")
     : isHtml
-      ? injectPreviewAnnotationBridge(
-          rewritePreviewAssetUrls(file.content, {
-            deploymentId: "stored",
-            projectId,
-          }),
+      ? injectPreviewHead(
+          injectPreviewAnnotationBridge(
+            rewritePreviewAssetUrls(file.content, {
+              deploymentId: "stored",
+              projectId,
+            }),
+          ),
+          { businessName },
         )
       : file.content;
 
@@ -224,6 +273,10 @@ async function getStoredPreviewResponse({
       new Headers({ "Content-Type": file.contentType }),
     ),
   });
+}
+
+function isPreviewAssetPath(pathSegments: string[]): boolean {
+  return PREVIEW_ASSET_ROOTS.has(pathSegments[0] ?? "");
 }
 
 async function readStoredProjectDistFiles(projectId: string) {

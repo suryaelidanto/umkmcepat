@@ -4,7 +4,10 @@ import { auth } from "@/lib/auth/auth";
 import { isGeneratedPublicExecutionEnabled } from "@/lib/config/config";
 import { getGeneratedPublicUrl } from "@/lib/generated-public-origin";
 import { prisma } from "@/lib/prisma";
-import { selectActivePreviewDeployment } from "@/lib/projects/deployment-resolution";
+import {
+  isProjectDeploymentForProject,
+  selectActivePreviewDeployment,
+} from "@/lib/projects/deployment-resolution";
 import { createRuntimeEventData } from "@/lib/projects/runtime-events";
 
 export const Route = createFileRoute("/api/projects/$id/publish")({
@@ -54,6 +57,8 @@ export const Route = createFileRoute("/api/projects/$id/publish")({
                 artifactRef: true,
                 createdAt: true,
                 id: true,
+                projectId: true,
+                snapshot: { select: { id: true, projectId: true } },
                 snapshotId: true,
                 status: true,
                 updatedAt: true,
@@ -63,13 +68,18 @@ export const Route = createFileRoute("/api/projects/$id/publish")({
             createdAt: true,
             id: true,
             kind: true,
+            projectId: true,
+            snapshot: { select: { id: true, projectId: true } },
             snapshotId: true,
             status: true,
             updatedAt: true,
           },
         });
-        const previewDeployment =
-          selectActivePreviewDeployment(previewDeployments);
+        const previewDeployment = selectActivePreviewDeployment(
+          previewDeployments.filter((candidate) =>
+            isProjectDeploymentForProject(candidate, project.id),
+          ),
+        );
         const build = previewDeployment?.build;
 
         if (!build || !previewDeployment) {
@@ -94,7 +104,7 @@ export const Route = createFileRoute("/api/projects/$id/publish")({
               data: {
                 buildId: build.id,
                 publicPath,
-                snapshotId: previewDeployment.snapshotId,
+                snapshotId: build.snapshotId,
                 status: "created",
                 stoppedAt: null,
               },
@@ -107,7 +117,7 @@ export const Route = createFileRoute("/api/projects/$id/publish")({
                 projectId: project.id,
                 publicPath,
                 slug,
-                snapshotId: previewDeployment.snapshotId,
+                snapshotId: build.snapshotId,
                 status: "created",
               },
               select: { id: true },
@@ -135,7 +145,7 @@ export const Route = createFileRoute("/api/projects/$id/publish")({
           ok: true,
           path: publicPath,
           slug,
-          snapshotId: previewDeployment.snapshotId,
+          snapshotId: build.snapshotId,
         });
       },
     },

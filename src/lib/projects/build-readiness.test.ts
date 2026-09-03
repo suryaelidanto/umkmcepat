@@ -44,6 +44,74 @@ describe("evaluateBuildReadiness", () => {
     });
   });
 
+  it("does not treat an AI-suggested offer as owner-confirmed", () => {
+    const result = evaluateBuildReadiness(
+      readyBrief({
+        factLedger: {
+          version: 1,
+          entries: [
+            {
+              id: "business-name-primary",
+              field: "businessName",
+              label: "Nama usaha",
+              value: "Toko Sinar",
+              state: "owner_confirmed",
+              origin: "owner_message",
+              source: "owner",
+              sourceTurnId: "turn-1",
+            },
+            {
+              id: "offers-primary",
+              field: "offers",
+              label: "Produk atau layanan",
+              value: [{ name: "Laptop bekas", isPrimary: true }],
+              state: "ai_suggestion",
+              origin: "safe_derivation",
+              source: "assistant",
+              sourceTurnId: "turn-1",
+            },
+            {
+              id: "audience-primary",
+              field: "audience",
+              label: "Pelanggan",
+              value: "Pelajar dan pekerja",
+              state: "owner_confirmed",
+              origin: "owner_message",
+              source: "owner",
+              sourceTurnId: "turn-1",
+            },
+            {
+              id: "contact-primary",
+              field: "contact",
+              label: "Kontak",
+              value: "08123456789",
+              state: "owner_confirmed",
+              origin: "owner_message",
+              source: "owner",
+              sourceTurnId: "turn-1",
+            },
+            {
+              id: "visual-direction-primary",
+              field: "visualDirection",
+              label: "Arah visual",
+              value: "Bersih dan modern",
+              state: "owner_confirmed",
+              origin: "owner_message",
+              source: "owner",
+              sourceTurnId: "turn-1",
+            },
+          ],
+        },
+      }),
+    );
+
+    expect(result).toMatchObject({
+      state: "blocked",
+      blockers: [{ field: "offers" }],
+      nextQuestion: { id: "offers" },
+    });
+  });
+
   it("requires one primary offer when several offers exist", () => {
     const result = evaluateBuildReadiness(
       readyBrief({

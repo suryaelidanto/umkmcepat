@@ -5,8 +5,10 @@ import { DISCUSS_CARD_SERVER_DEADLINE_MS } from "@/lib/ai/ai-timeouts";
 import { type WorkspaceCard } from "@/lib/projects/brief";
 import {
   getBuildRecommendationHoldSignature,
+  getProjectRuntimePollInterval,
   getWorkspaceCardFromMessages,
   getWorkspacePreviewIssue,
+  getBuildOperationCardTransition,
   getWorkspaceComposerState,
   hasAnsweredWorkspaceQuestion,
   isBuildRecommendationConsumed,
@@ -20,10 +22,77 @@ import {
   previewReadyState,
   shouldShowBuildRecommendationComposer,
   shouldRefreshWorkspaceAfterChatStatus,
+  shouldRehydrateWorkspaceCardFromMessages,
   shouldUseGeneratedPreviewFrame,
 } from "@/lib/projects/workspace-sync";
 
 describe("workspace chat sync", () => {
+  it("polls quickly only while a project operation is active", () => {
+    expect(
+      getProjectRuntimePollInterval({
+        activeJob: { phase: "generating" },
+        deployment: { status: "running" },
+        latestAttempt: { status: "received" },
+      }),
+    ).toBe(2_000);
+    expect(
+      getProjectRuntimePollInterval({
+        activeJob: null,
+        deployment: { status: "starting" },
+        latestAttempt: { status: "succeeded" },
+      }),
+    ).toBe(2_000);
+    expect(
+      getProjectRuntimePollInterval({
+        activeJob: null,
+        deployment: { status: "running" },
+        latestAttempt: { status: "succeeded" },
+      }),
+    ).toBe(false);
+  });
+
+  it("clears and consumes a recommendation when an operation starts", () => {
+    const card: WorkspaceCard = {
+      type: "build_recommendation",
+      title: "Website siap dibuat",
+      summary: ["Ubah gaya"],
+      handoffId: "handoff-1",
+      reviewHash: "a".repeat(64),
+    };
+    expect(getBuildOperationCardTransition(card)).toEqual({
+      consumedSignature: getBuildRecommendationHoldSignature(card),
+      workspaceCard: { type: "none" },
+    });
+    expect(getBuildOperationCardTransition({ type: "none" })).toEqual({
+      consumedSignature: null,
+      workspaceCard: { type: "none" },
+    });
+  });
+
+  it("does not resurrect an old recommendation after a completed build", () => {
+    expect(
+      shouldRehydrateWorkspaceCardFromMessages({
+        buildComplete: true,
+        card: {
+          type: "build_recommendation",
+          title: "Website siap dibuat",
+          summary: ["Ubah gaya"],
+        },
+        previous: { type: "none" },
+      }),
+    ).toBe(false);
+    expect(
+      shouldRehydrateWorkspaceCardFromMessages({
+        buildComplete: true,
+        card: {
+          type: "question",
+          question: { id: "q1", options: [], question: "Apa yang diubah?" },
+        },
+        previous: { type: "none" },
+      }),
+    ).toBe(true);
+  });
+
   it("refreshes workspace state when a chat stream finishes", () => {
     expect(shouldRefreshWorkspaceAfterChatStatus("streaming", "ready")).toBe(
       true,
@@ -168,7 +237,7 @@ describe("workspace chat sync", () => {
         held: true,
         postBuildChatOpen: true,
       }),
-    ).toBe("held_build_recommendation");
+    ).toBe("post_build_chat");
     expect(
       getWorkspaceComposerState({
         buildComplete: true,
@@ -176,7 +245,7 @@ describe("workspace chat sync", () => {
         held: false,
         postBuildChatOpen: true,
       }),
-    ).toBe("build_recommendation");
+    ).toBe("post_build_chat");
   });
 
   it("hides stale build_recommendation cards after the website has been built", () => {
@@ -194,6 +263,14 @@ describe("workspace chat sync", () => {
         postBuildChatOpen: false,
       }),
     ).toBe("post_build_review");
+    expect(
+      getWorkspaceComposerState({
+        buildComplete: true,
+        card,
+        held: false,
+        postBuildChatOpen: true,
+      }),
+    ).toBe("post_build_chat");
   });
 
   it("never resurfaces a build_recommendation signature that was already used to start a build", () => {
@@ -261,6 +338,7 @@ describe("workspace chat sync", () => {
       type: "build_recommendation",
     };
     const freshCard: WorkspaceCard = {
+      postBuildUpdate: true,
       summary: ["Baru"],
       title: "Rancangan baru",
       type: "build_recommendation",
@@ -274,6 +352,15 @@ describe("workspace chat sync", () => {
         consumedSignatures: consumed,
         held: false,
         postBuildChatOpen: true,
+      }),
+    ).toBe("build_recommendation");
+
+    expect(
+      getWorkspaceComposerState({
+        buildComplete: true,
+        card: freshCard,
+        held: false,
+        postBuildChatOpen: false,
       }),
     ).toBe("build_recommendation");
   });
@@ -643,7 +730,7 @@ describe("messagesEqualForRender", () => {
   });
 });
 
-// Regression: when the preview runtime cannot serve (e.g. PROJECT_RUNTIME_SUPERVISOR=noop
+// Regression: when the preview runtime cannot serve.
 describe("previewReadyState", () => {
   it("stays loading before the silent-recovery budget is exhausted", () => {
     for (
@@ -749,5 +836,24 @@ describe("getWorkspaceCardFromMessages", () => {
         assistant("a3", [present(next)]),
       ])?.workspaceCard,
     ).toEqual(next);
+  });
+
+  it("treats a successful build session log as terminal", () => {
+    const card: WorkspaceCard = {
+      type: "build_recommendation",
+      title: "Old recommendation",
+      summary: ["x"],
+    };
+    const sessionLog = {
+      data: { failed: false, kind: "edit", stopped: false },
+      type: "data-buildSessionLog",
+    } as unknown as UIMessage["parts"][number];
+
+    expect(
+      getWorkspaceCardFromMessages([
+        assistant("a1", [present(card)]),
+        assistant("a2", [sessionLog]),
+      ]),
+    ).toBeNull();
   });
 });

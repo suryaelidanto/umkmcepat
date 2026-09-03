@@ -10,6 +10,11 @@ import {
 
 import { getAiTelemetry, getNoReasoningCallOptions } from "@/lib/ai/ai";
 import {
+  classifyAiError,
+  recordAiCall,
+  startAiCallTimer,
+} from "@/lib/ai/ai-call-record";
+import {
   DISCUSS_CARD_SEMANTIC_ATTEMPTS,
   DISCUSS_CARD_SERVER_DEADLINE_MS,
   getAiTimeoutMs,
@@ -20,6 +25,7 @@ import { getSafeAiErrorLog } from "@/lib/projects/ai-error-log";
 import { parseProjectBrief, type WorkspaceCard } from "@/lib/projects/brief";
 import { normalizeWorkspaceTurn } from "@/lib/projects/brief-flow";
 import {
+  createDiscussionContextSnapshot,
   parseCanonicalBrief,
   type ProjectBriefV2,
 } from "@/lib/projects/canonical-brief";
@@ -28,6 +34,16 @@ import {
   PRESENT_WORKSPACE_CARD_TOOL_NAME,
   presentWorkspaceCardTool,
 } from "@/lib/projects/discuss-tool";
+import {
+  UNSLOP_SYSTEM_INSTRUCTION,
+  unslopUserFacingText,
+} from "@/lib/projects/unslop-policy";
+
+type RepairOutcome = ReturnType<typeof normalizeWorkspaceTurn> & {
+  assistantText: string;
+  repairsUsed: number;
+  usage: { inputTokens: number; outputTokens: number };
+};
 
 export type RepairedToolCall = {
   type: "tool-call";
@@ -46,6 +62,7 @@ export function scrubBriefForStorage(
 
 export function persistProjectChatTurn({
   brief,
+  discussionContext,
   messages,
   projectId,
   title,
@@ -53,6 +70,11 @@ export function persistProjectChatTurn({
   workspaceCard,
 }: {
   brief?: unknown;
+  discussionContext?: {
+    capturedAt?: string;
+    memoryFacts?: unknown;
+    summary?: unknown;
+  };
   messages: UIMessage[];
   projectId: string;
   title?: string;
@@ -61,6 +83,14 @@ export function persistProjectChatTurn({
 }) {
   if (brief !== undefined && title !== undefined) {
     const canonicalBrief = parseCanonicalBrief(brief);
+    if (discussionContext) {
+      canonicalBrief.discussionContext = createDiscussionContextSnapshot({
+        capturedAt: discussionContext.capturedAt,
+        memoryFacts: discussionContext.memoryFacts,
+        messages,
+        summary: discussionContext.summary,
+      });
+    }
     return prisma.$executeRaw`
       UPDATE "Project" SET "chatMessages" = ${JSON.stringify(messages)}::jsonb, "brief" = ${JSON.stringify(canonicalBrief)}::jsonb, "workspaceCard" = ${JSON.stringify(workspaceCard)}::jsonb, "title" = ${title} WHERE id = ${projectId} AND "userId" = ${userId}
     `;
@@ -84,7 +114,7 @@ export function persistProjectChatCompaction({
   userId: string;
 }) {
   return prisma.$executeRaw`
-    UPDATE "Project" SET "chatSummary" = ${JSON.stringify(summary)}::jsonb, "memoryFacts" = ${JSON.stringify(memoryFacts)}::jsonb, "lastCompactedMessageCount" = ${compactedMessageCount} WHERE id = ${projectId} AND "userId" = ${userId}
+    UPDATE "Project" SET "chatSummary" = ${JSON.stringify(summary)}::jsonb, "memoryFacts" = ${JSON.stringify(memoryFacts)}::jsonb, "lastCompactedMessageCount" = ${compactedMessageCount} WHERE id = ${projectId} AND "userId" = ${userId} AND "lastCompactedMessageCount" <= ${compactedMessageCount}
   `;
 }
 
@@ -95,6 +125,8 @@ export async function repairDiscussCardWithTool({
   hasBuiltSite,
   lastUserText,
   previousWorkspaceCard,
+  ownerTexts,
+  sourceTurnId,
   model,
   modelMessages,
   modelName,
@@ -107,6 +139,8 @@ export async function repairDiscussCardWithTool({
   hasBuiltSite: boolean;
   lastUserText?: string;
   previousWorkspaceCard?: WorkspaceCard;
+  ownerTexts?: string[];
+  sourceTurnId?: string;
   model: LanguageModel;
   modelMessages: Awaited<ReturnType<typeof convertToModelMessages>>;
   modelName: string;
@@ -122,18 +156,23 @@ export async function repairDiscussCardWithTool({
   let deadline: ReturnType<typeof setTimeout> | undefined;
   let totalInputTokens = 0;
   let totalOutputTokens = 0;
+  let settled: RepairOutcome | null = null;
 
-  const attempts = (async () => {
+  const attempts = (async (): Promise<RepairOutcome | null> => {
     for (
       let semanticAttempt = 0;
       semanticAttempt < DISCUSS_CARD_SEMANTIC_ATTEMPTS;
       semanticAttempt += 1
     ) {
+      const stopRepairTimer = startAiCallTimer({ withTtft: true });
+      let repairRecorded = false;
       try {
         const repaired = await generateText({
           abortSignal: abortController.signal,
           model,
           system: `${cardSystemPrompt}
+
+${UNSLOP_SYSTEM_INSTRUCTION}
 
 REPAIR attempt ${semanticAttempt + 1}: previous card was invalid or missing.
 Call ${PRESENT_WORKSPACE_CARD_TOOL_NAME} exactly once with a valid workspace card.
@@ -171,6 +210,22 @@ Prefer 2-5 options per choice question and set recommendedOptionLabel.`,
           }),
         });
 
+        const repairTiming = stopRepairTimer({ nonStreaming: true });
+        recordAiCall({
+          inputTokens: repaired.usage?.inputTokens ?? undefined,
+          modelRequested: modelName,
+          modelServed: repaired.response?.modelId,
+          outputTokens: repaired.usage?.outputTokens ?? undefined,
+          phase: semanticAttempt === 0 ? "repair" : "repair-retry",
+          projectId,
+          requestMs: repairTiming.requestMs,
+          retryCount: semanticAttempt,
+          status: "ok",
+          task: "discuss-repair",
+          ttftMs: repairTiming.ttftMs,
+          turnId: sourceTurnId,
+        });
+        repairRecorded = true;
         totalInputTokens += repaired.usage?.inputTokens ?? 0;
         totalOutputTokens += repaired.usage?.outputTokens ?? 0;
 
@@ -180,27 +235,59 @@ Prefer 2-5 options per choice question and set recommendedOptionLabel.`,
         const turn = normalizeWorkspaceTurn(input, brief, {
           hasBuiltSite,
           lastUserText,
+          ownerTexts,
           previousWorkspaceCard,
+          sourceTurnId,
         });
         if (turn.workspaceCard.type !== "none") {
-          return {
+          settled = {
             ...turn,
-            assistantText: extractAssistantTextFromToolInput(input),
+            assistantText: unslopUserFacingText(
+              extractAssistantTextFromToolInput(input),
+            ),
             repairsUsed: semanticAttempt + 1,
             usage: {
               inputTokens: totalInputTokens,
               outputTokens: totalOutputTokens,
             },
-          };
+          } as RepairOutcome;
+          break;
         }
       } catch (error) {
+        if (!repairRecorded) {
+          const repairTiming = stopRepairTimer({ nonStreaming: true });
+          recordAiCall({
+            errorClass: classifyAiError(error),
+            modelRequested: modelName,
+            phase: semanticAttempt === 0 ? "repair" : "repair-retry",
+            projectId,
+            requestMs: repairTiming.requestMs,
+            retryCount: semanticAttempt,
+            status:
+              error instanceof Error && /abort|timed out/i.test(error.message)
+                ? "aborted"
+                : "error",
+            task: "discuss-repair",
+            ttftMs: repairTiming.ttftMs,
+            turnId: sourceTurnId,
+          });
+        }
         console.error(
           "[preview-chat] one-call repair error",
           getSafeAiErrorLog(error),
         );
       }
     }
-    return null;
+    // Every attempt's tokens are billed once, including failed legs.
+    await chargeEnergyForAiUsage({
+      userId,
+      projectId,
+      modelId: modelName,
+      inputTokens: totalInputTokens,
+      outputTokens: totalOutputTokens,
+      reason: "discuss:repair",
+    });
+    return settled;
   })();
 
   try {
@@ -228,6 +315,7 @@ export async function repairToolCallInTurn({
   modelName,
   projectId,
   toolCall,
+  turnId,
   userId,
 }: {
   error: unknown;
@@ -236,6 +324,7 @@ export async function repairToolCallInTurn({
   modelName: string;
   projectId: string;
   toolCall: { toolCallId: string; toolName: string; input?: unknown };
+  turnId?: string;
   userId: string;
 }): Promise<RepairedToolCall | null> {
   console.error("[preview-chat] invalid tool args, attempting in-turn repair", {
@@ -245,9 +334,12 @@ export async function repairToolCallInTurn({
     failedToolName: toolCall.toolName,
     error: getSafeAiErrorLog(error),
   });
+  const stopRepairTimer = startAiCallTimer({ withTtft: true });
+  let repairRecorded = false;
   try {
     const result = await generateText({
       model,
+      system: UNSLOP_SYSTEM_INSTRUCTION,
       messages,
       tools: { [PRESENT_WORKSPACE_CARD_TOOL_NAME]: presentWorkspaceCardTool },
       toolChoice: { type: "tool", toolName: PRESENT_WORKSPACE_CARD_TOOL_NAME },
@@ -255,7 +347,21 @@ export async function repairToolCallInTurn({
       maxOutputTokens: 1024,
       timeout: getAiTimeoutMs("discussCard"),
     });
-    void chargeEnergyForAiUsage({
+    const repairTiming = stopRepairTimer({ nonStreaming: true });
+    recordAiCall({
+      inputTokens: result.usage?.inputTokens ?? undefined,
+      modelRequested: modelName,
+      modelServed: result.response?.modelId,
+      outputTokens: result.usage?.outputTokens ?? undefined,
+      projectId,
+      requestMs: repairTiming.requestMs,
+      status: "ok",
+      task: "discuss-repair",
+      ttftMs: repairTiming.ttftMs,
+      turnId,
+    });
+    repairRecorded = true;
+    await chargeEnergyForAiUsage({
       userId,
       projectId,
       modelId: modelName,
@@ -277,6 +383,23 @@ export async function repairToolCallInTurn({
           : JSON.stringify(repaired.input ?? {}),
     };
   } catch (repairError) {
+    if (!repairRecorded) {
+      const repairTiming = stopRepairTimer({ nonStreaming: true });
+      recordAiCall({
+        errorClass: classifyAiError(repairError),
+        modelRequested: modelName,
+        projectId,
+        requestMs: repairTiming.requestMs,
+        status:
+          repairError instanceof Error &&
+          /abort|timed out/i.test(repairError.message)
+            ? "aborted"
+            : "error",
+        task: "discuss-repair",
+        ttftMs: repairTiming.ttftMs,
+        turnId,
+      });
+    }
     console.error("[preview-chat] in-turn repair failed", {
       projectId,
       model: modelName,

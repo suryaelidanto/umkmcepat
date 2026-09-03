@@ -3,17 +3,94 @@ import { describe, expect, it } from "vitest";
 import {
   buildContextualWhatsAppHref,
   createFallbackProjectSiteSchema,
+  createProjectSiteSchemaFromAcceptedHandoff,
   createProjectSiteSchemaFromBrief,
-  createProjectSiteSchemaFromGeneratedContract,
   parseProjectSiteSchema,
 } from "./site-schema";
-import {
-  getProjectSiteSchemaCandidateIssues,
-  getProjectSiteSchemaQualityIssues,
-  resolveProjectSiteSchemaCandidate,
-} from "./site-schema-issues";
 
 import type { ProjectBrief } from "./brief";
+import type { BuildContractV1 } from "./build-contract";
+import type { BuildPlanV1 } from "./build-plan";
+import type { ProjectBriefV2 } from "./canonical-brief";
+
+const acceptedBrief: ProjectBriefV2 = {
+  version: 2,
+  prompt: "Buat website usaha lokal",
+  business: { name: "Usaha Nusantara", type: "usaha lokal", category: "other" },
+  offers: [{ name: "Layanan utama", isPrimary: true }],
+  visitorJobs: [],
+  audience: "Pelanggan sekitar",
+  primaryAction: { kind: "whatsapp", label: "Chat", target: "08123456789" },
+  visualDirection: "Jelas",
+  fieldState: {},
+  content: {
+    tagline: null,
+    usp: [],
+    priceRange: null,
+    hours: [],
+    address: null,
+    deliveryArea: null,
+    since: null,
+    testimonials: [],
+    certifications: [],
+    paymentMethods: [],
+    socialLinks: [],
+    currentPromo: null,
+    secondaryAction: null,
+  },
+  assets: [{ id: "asset-1", purpose: "business-image" }],
+  provenance: { facts: [], decisions: [] },
+};
+
+const acceptedContract: BuildContractV1 = {
+  schemaVersion: 1,
+  revision: 1,
+  contentHash: "contract-hash",
+  identity: { businessName: "Usaha Nusantara", businessType: "usaha lokal" },
+  facts: [],
+  decisions: [],
+  visitorJobs: [],
+  ctaIntents: [{ id: "cta-primary", kind: "whatsapp", label: "Chat" }],
+  hardRequirements: [],
+  prohibitedClaims: [],
+  preferences: {
+    visualDirection: "Jelas",
+    tone: null,
+    density: null,
+    motion: null,
+  },
+  assets: [{ assetId: "asset-1", approvedPurpose: "hero" }],
+  blockers: [],
+  omissions: [],
+};
+
+const acceptedPlan: BuildPlanV1 = {
+  schemaVersion: 1,
+  revision: 1,
+  contractHash: "contract-hash",
+  contentHash: "plan-hash",
+  appKind: "landing",
+  pages: [
+    {
+      id: "home",
+      path: "/",
+      title: "Beranda",
+      purpose: "Informasi usaha",
+      visitorJobIds: [],
+      requiredFactIds: [],
+    },
+    {
+      id: "contact",
+      path: "/hubungi",
+      title: "Hubungi",
+      purpose: "Kontak usaha",
+      visitorJobIds: [],
+      requiredFactIds: [],
+    },
+  ],
+  navigation: [],
+  capabilities: ["static_content"],
+};
 
 describe("project site schema", () => {
   it("builds rich contextual WhatsApp hrefs based on business name and offer", () => {
@@ -32,67 +109,32 @@ describe("project site schema", () => {
     );
   });
 
-  it("populates images array in site schema from generated contract approvedAssets", () => {
-    const schema = createProjectSiteSchemaFromGeneratedContract({
-      contract: {
-        business: {
-          name: "Kedai Kopi",
-          primaryCta: { kind: "whatsapp", label: "Chat", target: "0812" },
-          primaryJob: "Pesan kopi",
-        },
-        content: {
-          headline: "Kopi Nikmat",
-          subheadline: "Kedai lokal",
-          offer: "Espresso",
-          trustPoints: [],
-          products: [],
-          testimonials: [],
-          hours: [],
-          paymentMethods: [],
-          socialLinks: [],
-        },
-        page: { requiredSections: [], routes: [] },
-        design: {
-          approvedAssets: [
-            {
-              assetId: "asset_abc",
-              mediaPath: "/media/asset_abc",
-              purpose: "hero",
-            },
-          ],
-        },
-      } as unknown as import("./generated-site-contract").GeneratedSiteContractV1,
+  it("derives schema routes and approved assets from the accepted handoff", () => {
+    const schema = createProjectSiteSchemaFromAcceptedHandoff({
+      briefSnapshot: acceptedBrief,
+      contract: acceptedContract,
+      plan: acceptedPlan,
     });
 
+    expect(schema.businessName).toBe("Usaha Nusantara");
+    expect(schema.routes).toEqual([
+      { path: "/", title: "Beranda" },
+      { path: "/hubungi", title: "Hubungi" },
+    ]);
     expect(schema.images).toEqual([
-      { url: "/api/media/asset_abc", purpose: "hero", alt: "Kedai Kopi" },
+      { url: "/api/media/asset-1", purpose: "hero", alt: "Usaha Nusantara" },
     ]);
   });
 
-  it("leaves images undefined when no assets were uploaded (images is strictly optional)", () => {
-    const schema = createProjectSiteSchemaFromGeneratedContract({
-      contract: {
-        business: {
-          name: "Kedai Kopi",
-          primaryCta: { kind: "whatsapp", label: "Chat", target: "0812" },
-          primaryJob: "Pesan kopi",
-        },
-        content: {
-          headline: "Kopi Nikmat",
-          subheadline: "Kedai lokal",
-          offer: "Espresso",
-          trustPoints: [],
-          products: [],
-          testimonials: [],
-          hours: [],
-          paymentMethods: [],
-          socialLinks: [],
-        },
-        page: { requiredSections: [], routes: [] },
-      } as unknown as import("./generated-site-contract").GeneratedSiteContractV1,
+  it("keeps the accepted handoff complete when it has no approved assets", () => {
+    const schema = createProjectSiteSchemaFromAcceptedHandoff({
+      briefSnapshot: { ...acceptedBrief, assets: [] },
+      contract: { ...acceptedContract, assets: [] },
+      plan: acceptedPlan,
     });
 
-    expect(schema.images).toBeUndefined();
+    expect(schema.images).toEqual([]);
+    expect(schema.routes).toHaveLength(2);
   });
 
   it("creates a safe fallback schema from a prompt", () => {
@@ -173,42 +215,6 @@ describe("project site schema", () => {
     expect(typeof schema.headline).toBe("string");
     expect(typeof schema.primaryCta).toBe("string");
     expect(schema.sections.length).toBeGreaterThanOrEqual(1);
-    expect(getProjectSiteSchemaQualityIssues(schema)).toEqual([]);
-  });
-
-  it("falls back usp to the already-computed trustPoints when the brief has none", () => {
-    // compileGeneratedSiteContract auto-fills content.usp with grounded
-    const schema = createProjectSiteSchemaFromBrief({
-      version: 1,
-      prompt: "buatkan saya website buat jualan angkringan",
-      businessName: "",
-      businessType: "Warung fisik yang juga ingin terima pesanan online",
-      offer: "Menu klasik: nasi kucing, sate usus",
-      targetCustomer: "Anak kos dan mahasiswa",
-      contactOrCta: "WA + link Google Maps",
-      stylePreference: "Hangat dan tradisional",
-      notes: [],
-      productOrService: null,
-      contact: null,
-      tagline: null,
-      usp: null,
-      priceRange: null,
-      visuals: null,
-      hours: null,
-      address: null,
-      deliveryArea: null,
-      since: null,
-      testimonials: null,
-      certifications: null,
-      paymentMethods: null,
-      socialLinks: null,
-      currentPromo: null,
-      secondaryCta: null,
-      readyForBuild: false,
-    } as ProjectBrief);
-
-    expect(schema.usp).toEqual(schema.trustPoints);
-    expect(schema.usp?.length).toBeGreaterThan(0);
   });
 
   it("truncates an overlong offer at a word boundary with a visible ellipsis, never mid-word", () => {
@@ -292,151 +298,5 @@ describe("project site schema", () => {
     expect(typeof schema.headline).toBe("string");
     expect(allCopy).not.toContain("(");
     expect(allCopy).not.toContain("&");
-  });
-
-  it("flags generic fallback schema as unfit for a completed brief", () => {
-    const fallback = createFallbackProjectSiteSchema(
-      "Permintaan awal: buatkan saya website buat jualan angkringan Bid",
-    );
-
-    expect(
-      getProjectSiteSchemaQualityIssues(fallback, {
-        version: 1,
-        prompt: "buatkan saya website buat jualan angkringan",
-        businessName: "",
-        businessType: "Warung fisik yang juga ingin terima pesanan online",
-        offer: "Menu klasik: nasi kucing, sate usus, gorengan",
-        targetCustomer: "Anak kos dan mahasiswa",
-        contactOrCta: "WA + link Google Maps",
-        stylePreference: "Hangat dan tradisional",
-        notes: [],
-        productOrService: null,
-        contact: null,
-        tagline: null,
-        usp: null,
-        priceRange: null,
-        visuals: null,
-        hours: null,
-        address: null,
-        deliveryArea: null,
-        since: null,
-        testimonials: null,
-        certifications: null,
-        paymentMethods: null,
-        socialLinks: null,
-        currentPromo: null,
-        secondaryCta: null,
-        readyForBuild: false,
-      }),
-    ).toEqual(
-      expect.arrayContaining([
-        "business_name_is_prompt",
-        "offer_is_generic",
-        "offer_not_reflected",
-      ]),
-    );
-  });
-
-  it("flags incomplete AI schema candidates before fallback fields are applied", () => {
-    expect(
-      getProjectSiteSchemaCandidateIssues({
-        version: 1,
-        businessName: "Angkringan Hangat",
-        headline: "Angkringan untuk anak kos",
-      }),
-    ).toEqual(
-      expect.arrayContaining([
-        "missing_offer",
-        "missing_trust_points",
-        "missing_sections",
-        "missing_theme",
-      ]),
-    );
-  });
-  it("uses deterministic brief schema when AI structured output is empty but fallback is specific", () => {
-    const brief = {
-      version: 1 as const,
-      prompt: "buatkan website bengkel motor",
-      businessName: "Website Bengkel Motor",
-      businessType: "Bengkel servis motor harian",
-      offer:
-        "Ganti ban dan velg, perbaikan kelistrikan, aki, lampu, klakson, ECU",
-      targetCustomer:
-        "Pengendara harian, pekerja kantoran, mahasiswa, dan ibu-ibu pengguna motor",
-      contactOrCta: "Booking servis dan konsultasi lewat WhatsApp",
-      stylePreference: "Modern bersih, rapi, jelas, dan mudah dipercaya",
-      notes: [],
-      productOrService: null,
-      contact: null,
-      tagline: null,
-      usp: null,
-      priceRange: null,
-      visuals: null,
-      hours: null,
-      address: null,
-      deliveryArea: null,
-      since: null,
-      testimonials: null,
-      certifications: null,
-      paymentMethods: null,
-      socialLinks: null,
-      currentPromo: null,
-      secondaryCta: null,
-      readyForBuild: false,
-    };
-    const fallbackSchema = createProjectSiteSchemaFromBrief(brief);
-
-    const result = resolveProjectSiteSchemaCandidate({
-      brief,
-      fallbackSchema,
-      value: {},
-    });
-
-    expect(result.issues).toEqual([]);
-    expect(result.schema).toBe(fallbackSchema);
-    expect(result.usedDeterministicFallback).toBe(true);
-  });
-  it("creates specific automotive copy instead of menu-style fallback sections", () => {
-    const schema = createProjectSiteSchemaFromBrief({
-      version: 1,
-      prompt: "buatkan website bengkel motor",
-      businessName: "Website Bengkel Motor",
-      businessType: "Bengkel servis motor harian",
-      offer:
-        "Ganti ban dan velg, perbaikan kelistrikan, aki, lampu, klakson, ECU",
-      targetCustomer: "Pengendara harian dan pekerja sekitar",
-      contactOrCta: "Booking servis lewat WhatsApp",
-      stylePreference: "Modern bersih dan teknis",
-      notes: [],
-      productOrService: null,
-      contact: null,
-      tagline: null,
-      usp: null,
-      priceRange: null,
-      visuals: null,
-      hours: null,
-      address: null,
-      deliveryArea: null,
-      since: null,
-      testimonials: null,
-      certifications: null,
-      paymentMethods: null,
-      socialLinks: null,
-      currentPromo: null,
-      secondaryCta: null,
-      readyForBuild: false,
-    });
-    const allCopy = [
-      schema.headline,
-      schema.subheadline,
-      ...schema.trustPoints,
-      ...schema.sections.flatMap((section) => [section.title, section.body]),
-    ].join(" ");
-
-    expect(typeof schema.headline).toBe("string");
-    expect(schema.headline.length).toBeGreaterThan(0);
-    expect(allCopy.length).toBeGreaterThan(0);
-    expect(allCopy.toLowerCase()).not.toContain("not provided");
-    expect(allCopy.toLowerCase()).not.toContain("undefined");
   });
 });

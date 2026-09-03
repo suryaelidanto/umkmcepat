@@ -10,7 +10,7 @@ import type {
 import type { UmkmType, CleanedBrief } from "@/lib/projects/brief-rich-fields";
 import type { FieldStateMap } from "@/lib/projects/chat-memory";
 
-import { validateBrief } from "@/lib/projects/brief-rich-fields";
+import { parseContact, validateBrief } from "@/lib/projects/brief-rich-fields";
 import {
   getPrimaryActionLabel,
   getPrimaryOfferName,
@@ -18,10 +18,54 @@ import {
   type ProjectBriefV2,
 } from "@/lib/projects/canonical-brief";
 import {
+  createEmptyFactLedger,
+  createFactLedgerEntriesFromPatch,
+  getRenderableFactEntries,
+  getRenderableFactEntry,
+  hasOwnerEvidence,
+  mergeFactLedger,
+  normalizeFactLedger,
+  type FactLedger,
+  type FactLedgerValue,
+} from "@/lib/projects/fact-ledger";
+import {
   normalizeVisitorJobs,
   parseVisitorJobs,
   type VisitorJob,
 } from "@/lib/projects/visitor-jobs";
+
+const VISUAL_PREFERENCE_TERMS = new Set([
+  "berani",
+  "bold",
+  "ceria",
+  "clean",
+  "elegan",
+  "emas",
+  "gelap",
+  "gaya",
+  "hangat",
+  "hijau",
+  "klasik",
+  "kuning",
+  "mewah",
+  "merah",
+  "minimal",
+  "minimalis",
+  "modern",
+  "navy",
+  "natural",
+  "premium",
+  "praktis",
+  "sederhana",
+  "simple",
+  "santai",
+  "tegas",
+  "tema",
+  "terang",
+  "ungu",
+  "visual",
+  "warna",
+]);
 
 export type ProjectFact = {
   key: string;
@@ -75,10 +119,10 @@ export type ProjectBrief = {
   umkmType?: UmkmType | null;
   fieldState?: FieldStateMap;
   businessImages?: BusinessImageRef[];
+  factLedger?: FactLedger;
 };
 
 export type BriefQuestion = {
-  // Free-form slug the AI chooses per question (e.g. "opening_hours",
   id: string;
   question: string;
   recommendedOptionLabel?: string;
@@ -127,6 +171,7 @@ export type ContractBuildRecommendationCard = {
   engine?: "contract";
   title: string;
   summary: string[];
+  postBuildUpdate?: boolean;
   handoffId?: string;
   reviewHash?: string;
   reviewItems?: Array<{
@@ -221,6 +266,7 @@ export function createInitialBrief(prompt = ""): ProjectBrief {
     umkmType: null,
     fieldState: {},
     businessImages: [],
+    factLedger: createEmptyFactLedger(),
   };
 }
 
@@ -290,6 +336,7 @@ export function parseProjectBrief(value: unknown, prompt = ""): ProjectBrief {
         ? (input.fieldState as FieldStateMap)
         : {},
     businessImages: normalizeBusinessImages(input.businessImages),
+    factLedger: normalizeFactLedger(input.factLedger),
   };
 }
 
@@ -345,14 +392,202 @@ function projectCanonicalBriefForLegacyConsumers(
     umkmType: brief.business.category,
     fieldState: brief.fieldState,
     businessImages: brief.assets,
+    factLedger: normalizeFactLedger(brief.factLedger),
   };
+}
+
+export function groundProjectBriefToOwnerFacts(
+  brief: ProjectBrief,
+  context: {
+    ownerTexts: string[];
+    preserveVisualPreference?: boolean;
+    sourceTurnId?: string;
+  },
+): ProjectBrief {
+  const ownerTexts = context.ownerTexts.filter(
+    (text): text is string => typeof text === "string",
+  );
+  const originalValues = briefValuesForLedger(brief);
+  let factLedger = mergeFactLedger(
+    normalizeFactLedger(brief.factLedger),
+    createFactLedgerEntriesFromPatch(originalValues),
+    context,
+  );
+  const materializedBrief = materializeRenderableLedgerValues(
+    brief,
+    factLedger,
+  );
+  const explicitVisualPreference =
+    typeof brief.stylePreference === "string" &&
+    hasVisualPreferenceEvidence(brief.stylePreference, ownerTexts)
+      ? brief.stylePreference.trim()
+      : "";
+  const next: ProjectBrief = {
+    ...materializedBrief,
+    factLedger,
+    productOrService: groundOffers(
+      materializedBrief.productOrService,
+      factLedger,
+      ownerTexts,
+    ),
+    contact: groundContact(materializedBrief.contact, factLedger, ownerTexts),
+    usp: groundStrings(materializedBrief.usp, "usp", factLedger, ownerTexts),
+    tagline: groundString(
+      materializedBrief.tagline,
+      "tagline",
+      factLedger,
+      ownerTexts,
+    ),
+    priceRange: groundString(
+      materializedBrief.priceRange,
+      "priceRange",
+      factLedger,
+      ownerTexts,
+    ),
+    targetCustomer: groundString(
+      materializedBrief.targetCustomer,
+      "audience",
+      factLedger,
+      ownerTexts,
+    ),
+    address: groundString(
+      materializedBrief.address,
+      "address",
+      factLedger,
+      ownerTexts,
+    ),
+    deliveryArea: groundString(
+      materializedBrief.deliveryArea,
+      "serviceArea",
+      factLedger,
+      ownerTexts,
+    ),
+    since: groundString(
+      materializedBrief.since,
+      "since",
+      factLedger,
+      ownerTexts,
+    ),
+    currentPromo: groundString(
+      materializedBrief.currentPromo,
+      "promotion",
+      factLedger,
+      ownerTexts,
+    ),
+    stylePreference: explicitVisualPreference
+      ? explicitVisualPreference
+      : context.preserveVisualPreference
+        ? materializedBrief.stylePreference
+        : groundString(
+            materializedBrief.stylePreference,
+            "visualDirection",
+            factLedger,
+            ownerTexts,
+          ),
+    businessName: groundString(
+      materializedBrief.businessName,
+      "businessName",
+      factLedger,
+      ownerTexts,
+    ),
+    businessType: groundString(
+      materializedBrief.businessType,
+      "businessType",
+      factLedger,
+      ownerTexts,
+    ),
+    contactOrCta: groundString(
+      materializedBrief.contactOrCta,
+      "contact",
+      factLedger,
+      ownerTexts,
+    ),
+  };
+
+  if (
+    !groundedValue(materializedBrief.hours, "hours", factLedger, ownerTexts)
+  ) {
+    next.hours = null;
+  }
+  if (
+    !groundedValue(
+      materializedBrief.testimonials,
+      "testimonials",
+      factLedger,
+      ownerTexts,
+    )
+  ) {
+    next.testimonials = null;
+  }
+  if (
+    !groundedValue(
+      materializedBrief.certifications,
+      "certifications",
+      factLedger,
+      ownerTexts,
+    )
+  ) {
+    next.certifications = null;
+  }
+  if (
+    !groundedValue(
+      materializedBrief.paymentMethods,
+      "paymentMethods",
+      factLedger,
+      ownerTexts,
+    )
+  ) {
+    next.paymentMethods = null;
+  }
+  if (
+    !groundedValue(
+      materializedBrief.socialLinks,
+      "socialLinks",
+      factLedger,
+      ownerTexts,
+    )
+  ) {
+    next.socialLinks = null;
+  }
+  if (
+    materializedBrief.secondaryCta &&
+    !groundedValue(
+      materializedBrief.secondaryCta,
+      "secondaryAction",
+      factLedger,
+      ownerTexts,
+    )
+  ) {
+    next.secondaryCta = null;
+  }
+  if (brief.fieldState?.visuals === "declined") {
+    next.visuals = false;
+  }
+
+  factLedger = mergeFactLedger(
+    factLedger,
+    createFactLedgerEntriesFromPatch(briefValuesForLedger(next)),
+    context,
+  );
+  if (explicitVisualPreference) {
+    factLedger = acceptVisualPreferenceInLedger(
+      factLedger,
+      explicitVisualPreference,
+      context.sourceTurnId,
+    );
+  }
+  return { ...next, factLedger };
 }
 
 export function mergeProjectBriefPatch(
   brief: ProjectBrief,
   patch: ProjectBriefPatch,
 ): ProjectBrief {
-  const next = { ...brief, notes: [...brief.notes] };
+  const next = {
+    ...brief,
+    notes: [...brief.notes],
+    factLedger: normalizeFactLedger(brief.factLedger),
+  };
 
   for (const field of REQUIRED_FIELDS) {
     const value = stringValue(patch[field]);
@@ -464,6 +699,16 @@ export function mergeProjectBriefPatch(
     next.secondaryCta = patch.secondaryCta;
   }
 
+  const patchRecord = patch as unknown as Record<string, unknown>;
+  const patchLedgerEntries = createFactLedgerEntriesFromPatch(patchRecord);
+  if (patchLedgerEntries.length > 0) {
+    next.factLedger = mergeFactLedger(
+      next.factLedger ?? createEmptyFactLedger(),
+      patchLedgerEntries,
+      { ownerTexts: [] },
+    );
+  }
+
   if (Array.isArray(patch.businessImages)) {
     const merged = new Map(
       (next.businessImages ?? []).map((img) => [img.id, img]),
@@ -475,6 +720,397 @@ export function mergeProjectBriefPatch(
   }
 
   return next;
+}
+
+function briefValuesForLedger(brief: ProjectBrief): Record<string, unknown> {
+  return {
+    businessName: brief.businessName,
+    businessType: brief.businessType,
+    productOrService: brief.productOrService,
+    contact: brief.contact,
+    tagline: brief.tagline,
+    usp: brief.usp,
+    priceRange: brief.priceRange,
+    targetCustomer: brief.targetCustomer,
+    stylePreference: brief.stylePreference,
+    hours: brief.hours,
+    address: brief.address,
+    deliveryArea: brief.deliveryArea,
+    since: brief.since,
+    testimonials: brief.testimonials,
+    certifications: brief.certifications,
+    paymentMethods: brief.paymentMethods,
+    socialLinks: brief.socialLinks,
+    currentPromo: brief.currentPromo,
+    secondaryCta: brief.secondaryCta,
+    facts: brief.facts,
+  };
+}
+
+function dedupeJsonItems(items: unknown[]): unknown[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = JSON.stringify(item);
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
+function materializeRenderableLedgerValues(
+  brief: ProjectBrief,
+  ledger: FactLedger,
+): ProjectBrief {
+  const patch: Record<string, unknown> = {};
+  let materializedOffers: unknown[] = [];
+  let hasOffers = false;
+  let materializedUsp: string[] = [];
+  let hasUsp = false;
+  for (const entry of getRenderableFactEntries(ledger)) {
+    switch (entry.field) {
+      case "businessName":
+        if (typeof entry.value === "string") {
+          patch.businessName = entry.value;
+        }
+        break;
+      case "businessType":
+        if (typeof entry.value === "string") {
+          patch.businessType = entry.value;
+        }
+        break;
+      case "offers":
+        hasOffers = true;
+        materializedOffers = [
+          ...materializedOffers,
+          ...(Array.isArray(entry.value)
+            ? entry.value
+            : typeof entry.value === "string"
+              ? [{ name: entry.value }]
+              : []),
+        ];
+        break;
+      case "contact":
+        if (parseContact(entry.value)) {
+          patch.contact = entry.value;
+        }
+        break;
+      case "tagline":
+        patch.tagline = entry.value;
+        break;
+      case "usp":
+        hasUsp = true;
+        materializedUsp = [
+          ...materializedUsp,
+          ...(Array.isArray(entry.value)
+            ? entry.value.filter(
+                (value): value is string => typeof value === "string",
+              )
+            : typeof entry.value === "string"
+              ? entry.value.split(";").map((value) => value.trim())
+              : []),
+        ];
+        break;
+      case "priceRange":
+        patch.priceRange = entry.value;
+        break;
+      case "audience":
+        patch.targetCustomer = entry.value;
+        break;
+      case "visualDirection":
+        patch.stylePreference = entry.value;
+        break;
+      case "hours":
+        patch.hours = entry.value;
+        break;
+      case "address":
+        patch.address =
+          typeof entry.value === "string"
+            ? entry.value
+            : isRecord(entry.value) && typeof entry.value.line1 === "string"
+              ? entry.value.line1
+              : undefined;
+        break;
+      case "serviceArea":
+        patch.deliveryArea = entry.value;
+        break;
+      case "since":
+        patch.since = entry.value;
+        break;
+      case "testimonials":
+        patch.testimonials = entry.value;
+        break;
+      case "certifications":
+        patch.certifications = entry.value;
+        break;
+      case "paymentMethods":
+        patch.paymentMethods = entry.value;
+        break;
+      case "socialLinks":
+        patch.socialLinks = entry.value;
+        break;
+      case "promotion":
+        if (typeof entry.value === "string") {
+          patch.currentPromo = entry.value;
+        } else if (
+          isRecord(entry.value) &&
+          typeof entry.value.title === "string"
+        ) {
+          patch.currentPromo = entry.value.title;
+        }
+        break;
+      case "secondaryAction":
+        patch.secondaryCta = entry.value;
+        break;
+      default:
+        break;
+    }
+  }
+  if (hasOffers) {
+    patch.productOrService = dedupeJsonItems(materializedOffers);
+  }
+  if (hasUsp) {
+    patch.usp = [...new Set(materializedUsp)];
+  }
+  const { cleaned } = validateBrief(patch);
+  return {
+    ...brief,
+    businessName: cleaned.businessName ?? brief.businessName,
+    productOrService: cleaned.productOrService ?? brief.productOrService,
+    contact: cleaned.contact ?? brief.contact,
+    tagline: cleaned.tagline ?? brief.tagline,
+    usp: cleaned.usp ?? brief.usp,
+    targetCustomer: cleaned.targetCustomer ?? brief.targetCustomer,
+    priceRange: cleaned.priceRange ?? brief.priceRange,
+    visuals: cleaned.visuals ?? brief.visuals,
+    hours: cleaned.hours ?? brief.hours,
+    address: cleaned.address ?? brief.address,
+    deliveryArea: cleaned.deliveryArea ?? brief.deliveryArea,
+    since: cleaned.since ?? brief.since,
+    testimonials: cleaned.testimonials ?? brief.testimonials,
+    certifications: cleaned.certifications ?? brief.certifications,
+    paymentMethods: cleaned.paymentMethods ?? brief.paymentMethods,
+    socialLinks: cleaned.socialLinks ?? brief.socialLinks,
+    currentPromo: cleaned.currentPromo ?? brief.currentPromo,
+    secondaryCta: cleaned.secondaryCta ?? brief.secondaryCta,
+    businessType:
+      typeof patch.businessType === "string"
+        ? patch.businessType
+        : brief.businessType,
+    stylePreference:
+      typeof patch.stylePreference === "string"
+        ? patch.stylePreference
+        : brief.stylePreference,
+  };
+}
+
+function groundOffers(
+  offers: ProductOrServiceItem[] | null,
+  ledger: FactLedger,
+  ownerTexts: string[],
+): ProductOrServiceItem[] | null {
+  if (!offers?.length) {
+    return null;
+  }
+  const grounded = offers
+    .map((offer) => {
+      const name = groundString(offer.name, "offers", ledger, ownerTexts);
+      if (!name) {
+        return null;
+      }
+      const description = ownerString(offer.description, ownerTexts)
+        ? offer.description
+        : undefined;
+      const priceRange = ownerString(offer.priceRange, ownerTexts)
+        ? offer.priceRange
+        : undefined;
+      const groundedOffer: ProductOrServiceItem = { name };
+      if (description) {
+        groundedOffer.description = description;
+      }
+      if (priceRange) {
+        groundedOffer.priceRange = priceRange;
+      }
+      if (offer.isPrimary !== undefined) {
+        groundedOffer.isPrimary = offer.isPrimary;
+      }
+      return groundedOffer;
+    })
+    .filter((offer): offer is ProductOrServiceItem => offer !== null);
+  return grounded.length ? grounded : null;
+}
+
+function groundContact(
+  contact: ContactValue | null,
+  ledger: FactLedger,
+  ownerTexts: string[],
+): ContactValue | null {
+  if (!contact || !ownerString(contact.value, ownerTexts)) {
+    const existing = getRenderableFactEntry(ledger, "contact");
+    if (!existing || !isRecord(existing.value)) {
+      return null;
+    }
+    if (!isRecord(existing.value)) {
+      return null;
+    }
+    const value = existing.value.value;
+    const channel = existing.value.channel;
+    if (
+      typeof value !== "string" ||
+      (channel !== "whatsapp" &&
+        channel !== "phone" &&
+        channel !== "instagram" &&
+        channel !== "maps" &&
+        channel !== "other")
+    ) {
+      return null;
+    }
+    const label = existing.value.label;
+    return {
+      channel,
+      value,
+      ...(typeof label === "string" && label.trim()
+        ? { label: label.trim() }
+        : {}),
+    };
+  }
+  return contact;
+}
+
+function groundStrings(
+  values: string[] | null,
+  field: string,
+  ledger: FactLedger,
+  ownerTexts: string[],
+): string[] | null {
+  const grounded = (values ?? []).filter((value) =>
+    groundedValue(value, field, ledger, ownerTexts),
+  );
+  return grounded.length ? grounded : null;
+}
+
+function groundString(
+  value: string | null,
+  field: string,
+  ledger: FactLedger,
+  ownerTexts: string[],
+): string {
+  return groundedValue(value, field, ledger, ownerTexts) ? (value ?? "") : "";
+}
+
+function hasVisualPreferenceEvidence(value: string, ownerTexts: string[]) {
+  if (hasOwnerEvidence(value, ownerTexts)) {
+    return true;
+  }
+
+  const valueTerms = tokenizeVisualPreference(value).filter((term) =>
+    VISUAL_PREFERENCE_TERMS.has(term),
+  );
+  if (valueTerms.length === 0) {
+    return false;
+  }
+
+  const ownerTerms = new Set(ownerTexts.flatMap(tokenizeVisualPreference));
+  return valueTerms.some((term) => ownerTerms.has(term));
+}
+
+function tokenizeVisualPreference(value: string) {
+  return value.toLocaleLowerCase("id-ID").match(/[\p{L}\p{N}]+/gu) ?? [];
+}
+
+function acceptVisualPreferenceInLedger(
+  ledger: FactLedger,
+  value: string,
+  sourceTurnId?: string,
+): FactLedger {
+  const entries = [...ledger.entries];
+  for (let index = entries.length - 1; index >= 0; index -= 1) {
+    const entry = entries[index];
+    if (entry?.field !== "visualDirection") {
+      continue;
+    }
+    entries[index] = {
+      ...entry,
+      origin: "accepted_decision",
+      source: "owner",
+      sourceTurnId: sourceTurnId ?? entry.sourceTurnId,
+      state: "owner_confirmed",
+      value,
+    };
+    return { version: 1, entries };
+  }
+
+  entries.push({
+    field: "visualDirection",
+    id: "visualdirection-primary",
+    label: "Arah visual",
+    origin: "accepted_decision",
+    source: "owner",
+    sourceTurnId: sourceTurnId ?? null,
+    state: "owner_confirmed",
+    value,
+  });
+  return { version: 1, entries };
+}
+
+function groundedValue(
+  value: unknown,
+  field: string,
+  ledger: FactLedger,
+  ownerTexts: string[],
+): boolean {
+  if (value === null || value === undefined) {
+    return false;
+  }
+  const normalized = toLedgerValue(value);
+  if (normalized === null) {
+    return false;
+  }
+  if (hasOwnerEvidence(normalized, ownerTexts)) {
+    return true;
+  }
+  const existing = getRenderableFactEntry(ledger, field);
+  return Boolean(
+    existing && JSON.stringify(existing.value) === JSON.stringify(normalized),
+  );
+}
+
+function ownerString(value: string | undefined, ownerTexts: string[]): boolean {
+  return Boolean(value && hasOwnerEvidence(value, ownerTexts));
+}
+
+function toLedgerValue(value: unknown): FactLedgerValue | null {
+  if (value === null) {
+    return null;
+  }
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    const items = value.map(toLedgerValue);
+    return items.every((item) => item !== null)
+      ? (items as FactLedgerValue)
+      : null;
+  }
+  if (isRecord(value)) {
+    const entries = Object.entries(value).map(
+      ([key, item]) => [key, toLedgerValue(item)] as const,
+    );
+    if (entries.some(([, item]) => item === null)) {
+      return null;
+    }
+    return Object.fromEntries(entries) as FactLedgerValue;
+  }
+  return null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 export function getMissingBriefFields(brief: ProjectBrief) {

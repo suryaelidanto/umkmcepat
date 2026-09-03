@@ -4,6 +4,35 @@ import { nitro } from "nitro/vite";
 import viteReact from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
 
+import {
+  createRejectedPathResponse,
+  resolveRejectedRequestPath,
+} from "./src/lib/security/malformed-path";
+
+function rejectUnsafeRequestPaths(): Plugin {
+  return {
+    name: "reject-unsafe-request-paths",
+    enforce: "pre",
+    configureServer(server) {
+      server.middlewares.use((request, response, next) => {
+        const rejectedPath = resolveRejectedRequestPath(request.url ?? "");
+
+        if (!rejectedPath) {
+          next();
+          return;
+        }
+
+        const rejectedResponse = createRejectedPathResponse(rejectedPath);
+        response.statusCode = rejectedResponse.status;
+        rejectedResponse.headers.forEach((value, key) => {
+          response.setHeader(key, value);
+        });
+        response.end("Not Found");
+      });
+    },
+  };
+}
+
 // Bypass Vite transform for preview/published asset APIs
 function bypassViteTransformForProjectApis(): Plugin {
   return {
@@ -37,10 +66,14 @@ export default defineConfig({
     },
   },
   plugins: [
+    rejectUnsafeRequestPaths(),
     bypassViteTransformForProjectApis(),
     tailwindcss(),
     tanstackStart(),
-    nitro({ preset: "bun" }),
+    nitro({
+      preset: "node",
+      plugins: ["./src/lib/security/malformed-path-plugin.ts"],
+    }),
     viteReact(),
   ],
 });

@@ -6,6 +6,7 @@ import {
   deleteProjectThumbnail,
   parseProjectThumbnailRef,
   readProjectThumbnail,
+  refreshProjectThumbnail,
   writeProjectThumbnail,
 } from "./project-thumbnail";
 import { writeProjectDistArtifact } from "./runtime-artifacts";
@@ -45,6 +46,18 @@ vi.mock("@/lib/storage/s3-client", () => ({
   },
 }));
 
+const { projectBuildFindFirstMock, projectFindUniqueMock } = vi.hoisted(() => ({
+  projectBuildFindFirstMock: vi.fn(),
+  projectFindUniqueMock: vi.fn(),
+}));
+
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    project: { findUnique: projectFindUniqueMock },
+    projectBuild: { findFirst: projectBuildFindFirstMock },
+  },
+}));
+
 const originalEnv = { ...process.env };
 
 describe("project thumbnails", () => {
@@ -53,6 +66,8 @@ describe("project thumbnails", () => {
     putMock.mockClear();
     getMock.mockClear();
     deleteMock.mockClear();
+    projectBuildFindFirstMock.mockReset();
+    projectFindUniqueMock.mockReset();
     process.env = { ...originalEnv };
   });
 
@@ -134,6 +149,37 @@ describe("project thumbnails", () => {
     },
     45_000,
   );
+
+  it("rejects a thumbnail refresh when the build artifact belongs elsewhere", async () => {
+    projectFindUniqueMock.mockResolvedValue({
+      thumbnailBuildId: null,
+      thumbnailRef: null,
+    });
+    projectBuildFindFirstMock.mockResolvedValue({
+      artifactRef: "project-artifact:s3:dist:build_2",
+      id: "build_1",
+      projectId: "project_1",
+      snapshot: { id: "snapshot_1", projectId: "project_1" },
+      snapshotId: "snapshot_1",
+    });
+
+    await refreshProjectThumbnail({
+      artifactRef: "project-artifact:s3:dist:build_2",
+      buildId: "build_1",
+      projectId: "project_1",
+    });
+
+    expect(projectBuildFindFirstMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: "build_1",
+          projectId: "project_1",
+          snapshot: { projectId: "project_1" },
+        }),
+      }),
+    );
+    expect(putMock).not.toHaveBeenCalled();
+  });
 
   it("deletes the current project thumbnail by s3-private ref", async () => {
     await writeProjectThumbnail({

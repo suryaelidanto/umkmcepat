@@ -2,10 +2,11 @@ import type { UIMessage } from "ai";
 
 import { devLog } from "@/lib/dev-log";
 import { readProjectAssetById } from "@/lib/projects/project-asset-upload";
-import { getS3Object } from "@/lib/storage/s3-client";
+import { readTempImage } from "@/lib/storage/uploads/temp-image-storage";
 
 export async function inlineChatAssetFileParts(
   messages: UIMessage[],
+  owner: { projectId: string; userId: string },
 ): Promise<UIMessage[]> {
   return Promise.all(
     messages.map(async (message) => {
@@ -40,12 +41,21 @@ export async function inlineChatAssetFileParts(
                 ? part.url.slice("/media/".length)
                 : part.url.slice("/api/uploads/temp-images/".length);
 
-            const assetId = decodeURIComponent(rawAssetId);
+            let assetId: string;
+            try {
+              assetId = decodeURIComponent(rawAssetId);
+            } catch {
+              return null;
+            }
 
             // 1. Try permanent project asset
             try {
-              const stored = await readProjectAssetById(assetId);
-              if (stored) {
+              const stored = await readProjectAssetById(assetId, owner);
+              if (
+                stored &&
+                stored.projectId === owner.projectId &&
+                stored.userId === owner.userId
+              ) {
                 const mediaType =
                   stored.contentType || part.mediaType || "image/jpeg";
                 return {
@@ -61,33 +71,25 @@ export async function inlineChatAssetFileParts(
               });
             }
 
-            // 2. Try temporary S3 upload
-            try {
-              const jsonStr = Buffer.from(
-                assetId.split(".")[0],
-                "base64url",
-              ).toString("utf-8");
-              const parsed = JSON.parse(jsonStr) as {
-                key?: string;
-                contentType?: string;
-              };
-              if (parsed.key?.startsWith("temp-uploads/")) {
-                const body = await getS3Object("private", parsed.key);
-                if (body && body.length > 0) {
+            // 2. Try the owner-bound temporary upload token.
+            if (part.url.startsWith("/api/uploads/temp-images/")) {
+              try {
+                const stored = await readTempImage(owner.userId, assetId);
+                if (stored.body.length > 0) {
                   const mediaType =
-                    parsed.contentType || part.mediaType || "image/jpeg";
+                    stored.contentType || part.mediaType || "image/jpeg";
                   return {
                     ...part,
                     mediaType,
-                    url: `data:${mediaType};base64,${Buffer.from(body).toString("base64")}`,
+                    url: `data:${mediaType};base64,${Buffer.from(stored.body).toString("base64")}`,
                   };
                 }
+              } catch (err) {
+                devLog("inline-chat-asset", "temp-read-failed", {
+                  assetId,
+                  error: err instanceof Error ? err.message : String(err),
+                });
               }
-            } catch (err) {
-              devLog("inline-chat-asset", "temp-read-failed", {
-                assetId,
-                error: err instanceof Error ? err.message : String(err),
-              });
             }
 
             // Unable to resolve to a valid data URI -> discard part to prevent crash

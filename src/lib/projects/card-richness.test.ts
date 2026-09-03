@@ -28,14 +28,14 @@ describe("ensureQuestionCardRichness", () => {
         id: "q1",
         question: "Q?",
         answerMode: "text",
-        placeholder: "Contoh: Kopi Senja",
+        placeholder: "Tulis nama usaha",
         options: [],
       },
     };
     const out = ensureQuestionCardRichness(card);
     expect(out.type).toBe("question");
     if (out.type === "question") {
-      expect(out.question.placeholder).toBe("Contoh: Kopi Senja");
+      expect(out.question.placeholder).toBe("Tulis nama usaha");
     }
   });
 

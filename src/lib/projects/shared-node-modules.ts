@@ -22,7 +22,11 @@ export async function ensureSharedNodeModules(
     packageJsonContent?: string;
   } = {},
 ): Promise<string> {
-  const sharedRoot = path.join(workspaceRoot, SHARED_DIR_NAME);
+  const sharedRoot = path.join(
+    workspaceRoot,
+    SHARED_DIR_NAME,
+    depSignature.slice(0, 16),
+  );
   const nmPath = path.join(sharedRoot, "node_modules");
   const sigPath = path.join(sharedRoot, "dep-signature.txt");
 

@@ -1,21 +1,28 @@
 import { describe, expect, it, vi } from "vitest";
 
-const { authMock, moderateProjectRequestMock, validateProjectRequestMock } =
-  vi.hoisted(() => ({
-    authMock: vi.fn<() => Promise<unknown>>(async () => ({
-      user: { id: "user_1" },
-      expires: new Date().toISOString(),
-    })),
-    moderateProjectRequestMock: vi.fn(async () => ({ allowed: true })),
-    validateProjectRequestMock: vi.fn((prompt: string) =>
-      prompt.length > 1200
-        ? {
-            ok: false,
-            message: "Maksimal 1.200 karakter. Ringkas sedikit, ya.",
-          }
-        : { ok: true, value: prompt.trim() },
-    ),
-  }));
+const {
+  authMock,
+  chargeModerationEnergyMock,
+  moderateProjectRequestMock,
+  validateProjectRequestMock,
+} = vi.hoisted(() => ({
+  chargeModerationEnergyMock: vi.fn(async () => undefined),
+  authMock: vi.fn<() => Promise<unknown>>(async () => ({
+    user: { id: "user_1" },
+    expires: new Date().toISOString(),
+  })),
+  moderateProjectRequestMock: vi.fn<() => Promise<Record<string, unknown>>>(
+    async () => ({ allowed: true }),
+  ),
+  validateProjectRequestMock: vi.fn((prompt: string) =>
+    prompt.length > 1200
+      ? {
+          ok: false,
+          message: "Maksimal 1.200 karakter. Ringkas sedikit, ya.",
+        }
+      : { ok: true, value: prompt.trim() },
+  ),
+}));
 
 vi.mock("@/lib/auth/auth", () => ({
   auth: authMock,
@@ -26,6 +33,7 @@ vi.mock("@/lib/rate-limit", () => ({
 }));
 
 vi.mock("@/lib/ai/ai-moderation", () => ({
+  chargeModerationEnergy: chargeModerationEnergyMock,
   moderateProjectRequest: moderateProjectRequestMock,
 }));
 
@@ -106,8 +114,12 @@ describe("project moderation route", () => {
     });
   });
 
-  it("returns AI moderation result", async () => {
-    moderateProjectRequestMock.mockResolvedValueOnce({ allowed: true });
+  it("returns AI moderation result and charges the owner", async () => {
+    moderateProjectRequestMock.mockResolvedValueOnce({
+      allowed: true,
+      modelId: "default-combo",
+      usage: { inputTokens: 12, outputTokens: 2 },
+    });
 
     const response = await POST(
       new Request("http://localhost/api/projects/moderate", {
@@ -118,5 +130,11 @@ describe("project moderation route", () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ allowed: true });
+    expect(chargeModerationEnergyMock).toHaveBeenCalledTimes(1);
+    expect(chargeModerationEnergyMock).toHaveBeenCalledWith("user_1", {
+      allowed: true,
+      modelId: "default-combo",
+      usage: { inputTokens: 12, outputTokens: 2 },
+    });
   });
 });

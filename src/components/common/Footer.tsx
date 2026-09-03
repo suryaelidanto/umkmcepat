@@ -29,6 +29,12 @@ export function Footer() {
 
           <nav className="flex flex-wrap justify-center gap-spacing-5 text-sm md:justify-start">
             <Link
+              href="/sponsor"
+              className="text-[#5f5f5d] outline-none transition-colors hover:text-[#1c1c1c] dark:text-surface-warm-white/50 dark:hover:text-surface-warm-white"
+            >
+              Sponsor
+            </Link>
+            <Link
               href="/terms"
               className="text-[#5f5f5d] outline-none transition-colors hover:text-[#1c1c1c] dark:text-surface-warm-white/50 dark:hover:text-surface-warm-white"
             >

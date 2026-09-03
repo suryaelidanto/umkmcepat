@@ -93,13 +93,16 @@ import {
   reduceBuildStreamEvent,
 } from "@/lib/projects/build-stream-event";
 import { createUploadedImageFilePart } from "@/lib/projects/chat-file-parts";
-import { dedupeUiMessages } from "@/lib/projects/chat-memory";
+import {
+  dedupeUiMessagesForPersistence,
+  getTextFromUIMessage,
+} from "@/lib/projects/chat-memory";
 import {
   hasUploadingAttachments,
   MAX_COMPOSER_IMAGES,
   removeAttachment,
   revokeAll,
-  toUploadPlan,
+  tempImageUrl,
   type PendingAttachment,
 } from "@/lib/projects/composer-attachments";
 import {
@@ -122,9 +125,9 @@ import {
   isTerminalChatError,
   nextRetryAttempt,
 } from "@/lib/projects/discuss-chat-error";
+import { isPreflightBlockedByWorkspaceCard } from "@/lib/projects/discuss-preflight";
 import { type GeneratedProjectFile } from "@/lib/projects/generated-types";
 import {
-  createImageReplaceEditInstruction,
   createVisualAnnotationEditInstruction,
   createVisualAnnotationId,
   createVisualAnnotationSummary,
@@ -138,8 +141,12 @@ import {
   type TurnState,
 } from "@/lib/projects/workspace-resume";
 import {
+  getBuildOperationCardTransition,
   getBuildRecommendationHoldSignature,
+  getProjectRuntimePollInterval,
   getWorkspaceCardFromMessages,
+  isBuildRecommendationConsumed,
+  shouldRehydrateWorkspaceCardFromMessages,
   getWorkspaceComposerState,
   getWorkspacePreviewIssue,
   hasAnsweredWorkspaceQuestion,
@@ -329,8 +336,9 @@ export function WorkspaceShell({
   const [publishedPath, setPublishedPath] = useState<string | null>(null);
   const [isCanceling, setIsCanceling] = useState(false);
   const [previewReloadKey, setPreviewReloadKey] = useState(0);
-  const [workspaceCard, setWorkspaceCard] =
-    useState<WorkspaceCard>(initialWorkspaceCard);
+  const [workspaceCard, setWorkspaceCard] = useState<WorkspaceCard>(() =>
+    sanitizeWorkspaceCard(initialWorkspaceCard),
+  );
   const [latestBrief, setLatestBrief] = useState<ProjectBrief | null>(
     initialBrief ?? null,
   );
@@ -346,6 +354,7 @@ export function WorkspaceShell({
   );
   const [postBuildChatOpen, setPostBuildChatOpen] = useState(
     () =>
+      hasInitialPreview ||
       initialMessages.length > 0 ||
       initialWorkspaceCard.type === "build_recommendation",
   );
@@ -359,7 +368,6 @@ export function WorkspaceShell({
   const prompt = (initialPrompt ?? "").trim();
   const buildRecommendationStorageKey = `umkmcepat:build-recommendation-hold:${projectId}`;
   const buildRecommendationConsumedKey = `umkmcepat:build-recommendation-consumed:${projectId}`;
-  const handoffProofStorageKey = `umkmcepat:handoff-proof:${projectId}`;
   const visualAnnotationStorageKey = `umkmcepat:visual-comments:${projectId}`;
   const hasStartedChat = useRef(false);
   const hasStartedBuild = useRef(false);
@@ -394,6 +402,7 @@ export function WorkspaceShell({
   const preparingPollRef = useRef<(() => void) | null>(null);
   const loadWorkspaceStateRequestIdRef = useRef(0);
   const submitInFlightRef = useRef(false);
+  const pendingChatEditInstructionRef = useRef<string | null>(null);
 
   const isDesktop = useIsDesktopViewport();
   const [resumeError, setResumeError] = useState<{
@@ -446,6 +455,32 @@ export function WorkspaceShell({
   const [mobileSurface, setMobileSurface] = useState<"chat" | "preview">(
     hasInitialPreview ? "preview" : "chat",
   );
+  const applyWorkspaceCard = useCallback(
+    (card: WorkspaceCard) => {
+      const safeCard = sanitizeWorkspaceCard(card);
+      if (
+        isBuildRecommendationConsumed(
+          safeCard,
+          consumedBuildRecommendationSignatures,
+        )
+      ) {
+        return false;
+      }
+      setWorkspaceCard(safeCard);
+      return true;
+    },
+    [consumedBuildRecommendationSignatures],
+  );
+  useEffect(() => {
+    if (
+      isBuildRecommendationConsumed(
+        workspaceCard,
+        consumedBuildRecommendationSignatures,
+      )
+    ) {
+      setWorkspaceCard({ type: "none" });
+    }
+  }, [consumedBuildRecommendationSignatures, workspaceCard]);
   const {
     messages,
     regenerate,
@@ -462,8 +497,9 @@ export function WorkspaceShell({
       if (data.type === "data-workspaceCard") {
         const card = (data as { data?: WorkspaceCard }).data;
         if (card && card.type !== "none") {
-          setWorkspaceCard(card);
-          setWorkspaceCardError(false);
+          if (applyWorkspaceCard(card)) {
+            setWorkspaceCardError(false);
+          }
         }
       }
     },
@@ -695,18 +731,10 @@ export function WorkspaceShell({
 
       return (await response.json()) as RuntimeWorkspaceState;
     },
-    refetchInterval: (query) => {
-      const data = query.state.data as RuntimeWorkspaceState | undefined;
-      const attemptStatus = data?.latestAttempt?.status || "";
-      const deploymentStatus = data?.deployment?.status || "";
-      if (
-        ["running", "building", "starting", "queued"].includes(attemptStatus) ||
-        ["running", "building", "starting", "queued"].includes(deploymentStatus)
-      ) {
-        return 30_000;
-      }
-      return false;
-    },
+    refetchInterval: (query) =>
+      getProjectRuntimePollInterval(
+        query.state.data as RuntimeWorkspaceState | undefined,
+      ),
     // Keep last good runtime while a poll fails (503/backoff/network).
     placeholderData: (previous) => previous,
     staleTime: 3000,
@@ -867,16 +895,19 @@ export function WorkspaceShell({
 
       if (isPreparingNextQuestionRef.current) {
         if (
-          isFreshWorkspaceCard(result.workspaceCard, workspaceCardRef.current)
+          isFreshWorkspaceCard(
+            result.workspaceCard,
+            workspaceCardRef.current,
+          ) &&
+          applyWorkspaceCard(result.workspaceCard)
         ) {
-          setWorkspaceCard(result.workspaceCard);
           setProjectTitle(result.projectTitle);
           setDraftTitle(result.projectTitle);
         }
         return;
       }
 
-      setWorkspaceCard(result.workspaceCard);
+      applyWorkspaceCard(result.workspaceCard);
       setProjectTitle(result.projectTitle);
       setDraftTitle(result.projectTitle);
       if (result.brief) {
@@ -884,7 +915,7 @@ export function WorkspaceShell({
       }
       return result;
     },
-    [projectId],
+    [applyWorkspaceCard, projectId],
   );
 
   const recoverPreviewRuntime = useCallback(async () => {
@@ -969,6 +1000,11 @@ export function WorkspaceShell({
       return;
     }
 
+    const operationCard = getBuildOperationCardTransition(
+      workspaceCardRef.current,
+    );
+    const consumedSignature = operationCard.consumedSignature;
+    setWorkspaceCard(operationCard.workspaceCard);
     window.localStorage.removeItem(buildRecommendationStorageKey);
     setHeldBuildRecommendationSignature(null);
     setPostBuildChatOpen(false);
@@ -982,9 +1018,6 @@ export function WorkspaceShell({
     setMobileSurface("chat");
 
     // Permanently consume the current build_recommendation signature (if any)
-    const consumedSignature = getBuildRecommendationHoldSignature(
-      workspaceCardRef.current,
-    );
     if (consumedSignature) {
       setConsumedBuildRecommendationSignatures((prev) => {
         if (prev.has(consumedSignature)) {
@@ -1008,8 +1041,7 @@ export function WorkspaceShell({
     buildAbortRef.current = abortController;
 
     try {
-      // Mode follows real persisted source only — failed status alone must not
-      const generateMode = "first_generate" as const;
+      const generateMode = resolveBuildRequestMode(buildStatus);
       const messageCard = getWorkspaceCardFromMessages(
         allMessagesRef.current,
       )?.workspaceCard;
@@ -1026,11 +1058,10 @@ export function WorkspaceShell({
               reviewHash: (activeCard as { reviewHash?: string }).reviewHash,
             }
           : null;
-      const persistedProof = readHandoffProof(handoffProofStorageKey);
       const proof: HandoffProof | null =
         cardProof?.handoffId && cardProof?.reviewHash
           ? { handoffId: cardProof.handoffId, reviewHash: cardProof.reviewHash }
-          : persistedProof;
+          : null;
       const handoffFields =
         proof?.handoffId && proof?.reviewHash
           ? {
@@ -1040,9 +1071,6 @@ export function WorkspaceShell({
               idempotencyKey: `build-${projectId}-${proof.handoffId}-${Date.now().toString(36)}`,
             }
           : undefined;
-      if (proof) {
-        writeHandoffProof(handoffProofStorageKey, proof);
-      }
       const response = await fetch(`/api/projects/${projectId}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1247,7 +1275,7 @@ export function WorkspaceShell({
   const isResponding = status === "submitted" || status === "streaming";
   const isBuilding = buildStatus === "building";
   const allMessages = useMemo(
-    () => dedupeUiMessages([...olderMessages, ...messages]),
+    () => dedupeUiMessagesForPersistence([...olderMessages, ...messages]),
     [messages, olderMessages],
   );
   const allMessagesRef = useRef(allMessages);
@@ -1288,10 +1316,24 @@ export function WorkspaceShell({
     isEditingPreview ||
     isRetrying ||
     isPreparingNextQuestion;
+  const buildComplete = isWorkspaceBuildComplete({
+    buildStatus,
+    runtimeBuildStatus: runtimeState?.build?.status,
+    sourceStatus,
+  });
 
   useEffect(() => {
     const toolCard = getWorkspaceCardFromMessages(allMessages);
     if (!toolCard || toolCard.workspaceCard.type === "none") {
+      return;
+    }
+    if (
+      !shouldRehydrateWorkspaceCardFromMessages({
+        buildComplete,
+        card: toolCard.workspaceCard,
+        previous: workspaceCardRef.current,
+      })
+    ) {
       return;
     }
     if (
@@ -1300,13 +1342,21 @@ export function WorkspaceShell({
     ) {
       return;
     }
-    setWorkspaceCard(toolCard.workspaceCard);
+    if (!applyWorkspaceCard(toolCard.workspaceCard)) {
+      return;
+    }
     if (toolCard.projectTitle) {
       setProjectTitle(toolCard.projectTitle);
       setDraftTitle(toolCard.projectTitle);
     }
     setWorkspaceCardError(false);
-  }, [allMessages, setWorkspaceCard, setProjectTitle, setDraftTitle]);
+  }, [
+    allMessages,
+    applyWorkspaceCard,
+    buildComplete,
+    setProjectTitle,
+    setDraftTitle,
+  ]);
   const visibleMessages = useMemo(
     () =>
       filterDiscussionMessagesWithWorkspaceUi(allMessages, mode === "discuss"),
@@ -1318,11 +1368,6 @@ export function WorkspaceShell({
     workspaceCard,
     heldBuildRecommendationSignature,
   );
-  const buildComplete = isWorkspaceBuildComplete({
-    buildStatus,
-    runtimeBuildStatus: runtimeState?.build?.status,
-    sourceStatus,
-  });
   const hasFailedLatestAttemptWithLastGood =
     runtimeState?.userFacingState === "ready_with_failed_latest_attempt" &&
     Boolean(runtimeState.build || runtimeState.deployment);
@@ -1335,6 +1380,8 @@ export function WorkspaceShell({
     postBuildChatOpen,
   });
   const canStartBuildNow = canStartBuild(workspaceCard);
+  const preflightBlockedByCard =
+    isPreflightBlockedByWorkspaceCard(workspaceCard);
   const activeQuestionKey =
     workspaceCard.type === "question"
       ? workspaceCard.question.id
@@ -1413,6 +1460,10 @@ export function WorkspaceShell({
 
       if (result.kind === "done") {
         setBuildStatus("ready");
+        setWorkspaceCard({ type: "none" });
+        setPostBuildChatOpen(true);
+        setMode("discuss");
+        setMobileSurface("chat");
         setBuildProgress((current) => completeBuildStreamProgress(current));
         patchProjectInList({ buildStatus: "ready" });
         void loadRuntimeState();
@@ -1555,6 +1606,7 @@ export function WorkspaceShell({
     preparingPollRef.current = null;
     setIsPreparingNextQuestion(false);
     setWorkspaceCardError(false);
+    setIsRetrying(false);
 
     if (isResponding) {
       stop();
@@ -1773,8 +1825,10 @@ export function WorkspaceShell({
               if (canceled) {
                 return;
               }
-              if (isFreshWorkspaceCard(result.workspaceCard, previousCard)) {
-                setWorkspaceCard(result.workspaceCard);
+              if (
+                isFreshWorkspaceCard(result.workspaceCard, previousCard) &&
+                applyWorkspaceCard(result.workspaceCard)
+              ) {
                 if (result.projectTitle) {
                   setProjectTitle(result.projectTitle);
                   setDraftTitle(result.projectTitle);
@@ -1804,8 +1858,10 @@ export function WorkspaceShell({
           if (canceled) {
             return;
           }
-          if (isFreshWorkspaceCard(result.workspaceCard, previousCard)) {
-            setWorkspaceCard(result.workspaceCard);
+          if (
+            isFreshWorkspaceCard(result.workspaceCard, previousCard) &&
+            applyWorkspaceCard(result.workspaceCard)
+          ) {
             if (result.projectTitle) {
               setProjectTitle(result.projectTitle);
               setDraftTitle(result.projectTitle);
@@ -1832,7 +1888,12 @@ export function WorkspaceShell({
     return () => {
       canceled = true;
     };
-  }, [isPreparingNextQuestion, projectId, reloadLatestChat]);
+  }, [
+    applyWorkspaceCard,
+    isPreparingNextQuestion,
+    projectId,
+    reloadLatestChat,
+  ]);
 
   useEffect(() => {
     // Release the synchronous submit lock once the chat settles back to idle,
@@ -1932,9 +1993,9 @@ export function WorkspaceShell({
               };
               if (
                 parsed.workspaceCard &&
-                parsed.workspaceCard.type !== "none"
+                parsed.workspaceCard.type !== "none" &&
+                applyWorkspaceCard(parsed.workspaceCard)
               ) {
-                setWorkspaceCard(parsed.workspaceCard);
                 setWorkspaceCardError(false);
               }
             } catch {
@@ -1974,6 +2035,7 @@ export function WorkspaceShell({
       switch (result.kind) {
         case "reload":
           await reloadLatestChat();
+          setIsRetrying(false);
           // A later turn succeeded, so a stale failure banner must not survive
           setResumeError(null);
           if (
@@ -2055,13 +2117,13 @@ export function WorkspaceShell({
 
     if (settle.applyToolCard && toolCard) {
       if (
-        isFreshWorkspaceCard(
+        (isFreshWorkspaceCard(
           toolCard.workspaceCard,
           workspaceCardRef.current,
         ) ||
-        toolCard.workspaceCard.type !== workspaceCardRef.current.type
+          toolCard.workspaceCard.type !== workspaceCardRef.current.type) &&
+        applyWorkspaceCard(toolCard.workspaceCard)
       ) {
-        setWorkspaceCard(toolCard.workspaceCard);
         if (toolCard.projectTitle) {
           setProjectTitle(toolCard.projectTitle);
           setDraftTitle(toolCard.projectTitle);
@@ -2354,6 +2416,11 @@ export function WorkspaceShell({
           chatPanelRef.current?.collapse();
           previewPanelRef.current?.resize("100%");
         });
+      } else {
+        setChatCollapsed(false);
+        window.requestAnimationFrame(() => {
+          chatPanelRef.current?.expand();
+        });
       }
       return next;
     });
@@ -2365,8 +2432,44 @@ export function WorkspaceShell({
     setEditLayoutSignal((current) => current + 1);
   }
 
+  function sendFrameAction(actionPayload: Record<string, unknown>) {
+    const frame = document.querySelector(
+      'iframe[title="Tampilan website"]',
+    ) as HTMLIFrameElement | null;
+    frame?.contentWindow?.postMessage(
+      { ...actionPayload, type: "umkmcepat-edit-action" },
+      "*",
+    );
+  }
+
   const handleUndo = useCallback(() => {
-    if (editIntentHistory.present.length || editIntentHistory.past.length) {
+    if (editIntentHistory.present.length > 0) {
+      const lastIntent =
+        editIntentHistory.present[editIntentHistory.present.length - 1];
+      if (lastIntent) {
+        if (lastIntent.action === "update-text") {
+          sendFrameAction({
+            action: "update-text",
+            newText: lastIntent.target.text || "",
+            selectorPath: lastIntent.target.selectorPath,
+          });
+        } else if (lastIntent.action === "move-up") {
+          sendFrameAction({
+            action: "move-down",
+            selectorPath: lastIntent.target.selectorPath,
+          });
+        } else if (lastIntent.action === "move-down") {
+          sendFrameAction({
+            action: "move-up",
+            selectorPath: lastIntent.target.selectorPath,
+          });
+        } else if (lastIntent.action === "remove") {
+          sendFrameAction({
+            action: "restore",
+            selectorPath: lastIntent.target.selectorPath,
+          });
+        }
+      }
       setEditIntentHistory((current) => intentHistoryUndo(current));
       return;
     }
@@ -2377,10 +2480,30 @@ export function WorkspaceShell({
       }
       return next;
     });
-  }, [editIntentHistory.past.length, editIntentHistory.present.length]);
+  }, [editIntentHistory.present]);
 
   const handleRedo = useCallback(() => {
-    if (editIntentHistory.future.length) {
+    if (editIntentHistory.future.length > 0) {
+      const nextIntent =
+        editIntentHistory.future[0]?.[editIntentHistory.future[0].length - 1];
+      if (nextIntent) {
+        if (nextIntent.action === "update-text" && nextIntent.newText) {
+          sendFrameAction({
+            action: "update-text",
+            newText: nextIntent.newText,
+            selectorPath: nextIntent.target.selectorPath,
+          });
+        } else if (
+          nextIntent.action === "move-up" ||
+          nextIntent.action === "move-down" ||
+          nextIntent.action === "remove"
+        ) {
+          sendFrameAction({
+            action: nextIntent.action,
+            selectorPath: nextIntent.target.selectorPath,
+          });
+        }
+      }
       setEditIntentHistory((current) => intentHistoryRedo(current));
       return;
     }
@@ -2391,7 +2514,7 @@ export function WorkspaceShell({
       }
       return next;
     });
-  }, [editIntentHistory.future.length]);
+  }, [editIntentHistory.future]);
 
   function handleDiscard() {
     setEditHistory({ present: null, past: [], future: [] });
@@ -2411,6 +2534,34 @@ export function WorkspaceShell({
     if (readOnly || isProcessing) {
       return false;
     }
+    const operationCard = getBuildOperationCardTransition(
+      workspaceCardRef.current,
+    );
+    const consumedSignature = operationCard.consumedSignature;
+    setWorkspaceCard(operationCard.workspaceCard);
+    window.localStorage.removeItem(buildRecommendationStorageKey);
+    setHeldBuildRecommendationSignature(null);
+    setPostBuildChatOpen(false);
+    if (consumedSignature) {
+      setConsumedBuildRecommendationSignatures((prev) => {
+        if (prev.has(consumedSignature)) {
+          return prev;
+        }
+        const next = new Set(prev);
+        next.add(consumedSignature);
+        try {
+          window.localStorage.setItem(
+            buildRecommendationConsumedKey,
+            JSON.stringify([...next]),
+          );
+        } catch {
+          // In-memory consumption still protects the current tab.
+        }
+        return next;
+      });
+    }
+    setBuildStatus("building");
+    setMode("build");
     setIsEditingPreview(true);
     setBuildStartedAt(Date.now());
     setBuildProgress((current) =>
@@ -2476,6 +2627,7 @@ export function WorkspaceShell({
       }
 
       if (!response.ok || result?.buildStatus !== "succeeded") {
+        setBuildStatus("ready");
         setBuildProgress((current) =>
           appendBuildProgressStep(current, {
             detail:
@@ -2485,6 +2637,7 @@ export function WorkspaceShell({
             status: "error",
           }),
         );
+        void loadRuntimeState();
         return false;
       }
 
@@ -2515,6 +2668,10 @@ export function WorkspaceShell({
     );
     if (intentInstruction) {
       setDirectEditMode(false);
+      setChatCollapsed(false);
+      window.requestAnimationFrame(() => {
+        chatPanelRef.current?.expand();
+      });
       await submitDirectEdit({
         instruction: intentInstruction,
         summary: intentInstruction,
@@ -2533,10 +2690,52 @@ export function WorkspaceShell({
       return;
     }
     setDirectEditMode(false);
+    setChatCollapsed(false);
+    window.requestAnimationFrame(() => {
+      chatPanelRef.current?.expand();
+    });
     await submitDirectEdit({ instruction, summary: instruction });
   }
 
   function queueDirectEditIntent(intent: DirectEditIntent) {
+    const frame = document.querySelector(
+      'iframe[title="Tampilan website"]',
+    ) as HTMLIFrameElement | null;
+
+    if (intent.action === "update-text" && intent.newText) {
+      frame?.contentWindow?.postMessage(
+        {
+          action: "update-text",
+          newText: intent.newText,
+          selectorPath: intent.target.selectorPath,
+          type: "umkmcepat-edit-action",
+        },
+        "*",
+      );
+    } else if (intent.action === "replace-image" && intent.newSrc) {
+      frame?.contentWindow?.postMessage(
+        {
+          action: "replace-image",
+          newSrc: intent.newSrc,
+          selectorPath: intent.target.selectorPath,
+          type: "umkmcepat-edit-action",
+        },
+        "*",
+      );
+    } else if (
+      intent.action === "move-up" ||
+      intent.action === "move-down" ||
+      intent.action === "remove"
+    ) {
+      frame?.contentWindow?.postMessage(
+        {
+          action: intent.action,
+          selectorPath: intent.target.selectorPath,
+          type: "umkmcepat-edit-action",
+        },
+        "*",
+      );
+    }
     setEditIntentHistory((current) => intentHistoryPush(current, intent));
   }
 
@@ -2566,12 +2765,16 @@ export function WorkspaceShell({
     }
     const asset = (await claimRes.json()) as { id: string };
     const mediaPath = `/api/media/${asset.id}`;
-    const instruction = createImageReplaceEditInstruction({
-      replaceWith: [{ alt: "Gambar baru", mediaPath }],
-      target,
-    });
     setPendingAnnotationTarget(null);
-    await submitDirectEdit({ instruction, summary: "Ganti gambar." });
+    queueDirectEditIntent({
+      action: "replace-image",
+      newSrc: mediaPath,
+      target: {
+        label: "Gambar",
+        selectorPath: target.selectorPath,
+        tag: target.tag,
+      },
+    });
   }
 
   const saveTitleMutation = useCacheMutation<
@@ -2664,6 +2867,7 @@ export function WorkspaceShell({
     async (
       text: string,
       options: {
+        intent?: "prepare_build" | "prepare_update";
         workspaceAnswers?: WorkspaceAnswerPayload[];
         uploads?: Array<{ assetId: string; url: string }>;
       } = {},
@@ -2683,7 +2887,8 @@ export function WorkspaceShell({
         (!trimmed &&
           !hasAnswers &&
           pendingAttachments.length === 0 &&
-          !options.uploads?.length) ||
+          !options.uploads?.length &&
+          !options.intent) ||
         isProcessing ||
         rateLimitError ||
         authStatus !== "authenticated" ||
@@ -2697,136 +2902,49 @@ export function WorkspaceShell({
       submitInFlightRef.current = true;
       setIsSubmittingTurn(true);
 
-      // Upload attached images to R2 (commit-on-send; nothing left the browser
-      const fileParts: FileUIPart[] = [];
-      const mediaPaths: string[] = [];
-      const uploadErrors: { name: string; message: string }[] = [];
+      // Submit-first: the worker moderates + claims after the message persists.
+      if (hasUploadingAttachments(pendingAttachments)) {
+        toast.error("Tunggu unggahan gambar selesai dulu ya.");
+        submitInFlightRef.current = false;
+        setIsSubmittingTurn(false);
+        return;
+      }
 
-      if (options.uploads?.length) {
-        await Promise.all(
-          options.uploads.map(async (item) => {
-            try {
-              const form = new FormData();
-              form.append("purpose", "business-image");
-              form.append("assetId", item.assetId);
-              const res = await fetch(
-                `/api/projects/${projectId}/assets/upload`,
-                {
-                  body: form,
-                  method: "POST",
-                },
-              );
-              if (res.ok) {
-                const asset = (await res.json()) as { id?: string };
-                if (asset?.id) {
-                  fileParts.push(
-                    createUploadedImageFilePart({
-                      filename: "gambar-usaha.jpg",
-                      mediaType: "image/jpeg",
-                      url: `/api/media/${asset.id}`,
-                    }),
-                  );
-                  mediaPaths.push(`/api/media/${asset.id}`);
-                  return;
-                }
-              }
-              fileParts.push(
-                createUploadedImageFilePart({
-                  filename: "gambar-usaha.jpg",
-                  mediaType: "image/jpeg",
-                  url: item.url,
-                }),
-              );
-            } catch {
-              fileParts.push(
-                createUploadedImageFilePart({
-                  filename: "gambar-usaha.jpg",
-                  mediaType: "image/jpeg",
-                  url: item.url,
-                }),
-              );
-            }
+      const fileParts: FileUIPart[] = [];
+
+      for (const item of options.uploads ?? []) {
+        fileParts.push(
+          createUploadedImageFilePart({
+            filename: "gambar-usaha.jpg",
+            mediaType: "image/jpeg",
+            url: item.url,
           }),
         );
       }
 
-      if (pendingAttachments.length) {
-        const uploadPlan = toUploadPlan(pendingAttachments);
-        await Promise.all(
-          uploadPlan.map(async (item) => {
-            try {
-              const form = new FormData();
-              form.append("purpose", "business-image");
-              if (item.assetId) {
-                form.append("assetId", item.assetId);
-              } else {
-                form.append("file", item.file);
-              }
-              const res = await fetch(
-                `/api/projects/${projectId}/assets/upload`,
-                {
-                  body: form,
-                  method: "POST",
-                },
-              );
-              if (!res.ok) {
-                throw new Error(
-                  (await res.json().catch(() => null))?.message ||
-                    `Gagal mengunggah ${item.file.name}`,
-                );
-              }
-              const contentType = res.headers.get("content-type") ?? "";
-              if (!contentType.toLowerCase().includes("application/json")) {
-                throw new Error(
-                  `Respons tidak valid saat mengunggah ${item.file.name}.`,
-                );
-              }
-              const asset = (await res.json()) as {
-                id?: string;
-                publicUrl?: string | null;
-              };
-              if (!asset?.id) {
-                throw new Error(
-                  `Gambar belum tersedia (${item.file.name}). Coba lagi.`,
-                );
-              }
-              fileParts.push(
-                createUploadedImageFilePart({
-                  filename: item.file.name,
-                  mediaType: item.file.type,
-                  url: `/api/media/${asset.id}`,
-                }),
-              );
-              mediaPaths.push(`/api/media/${asset.id}`);
-            } catch (error) {
-              uploadErrors.push({
-                name: item.file.name,
-                message:
-                  error instanceof Error
-                    ? error.message
-                    : "Error tidak diketahui",
-              });
-            }
+      for (const item of pendingAttachments) {
+        if (!item.assetId) {
+          continue;
+        }
+        fileParts.push(
+          createUploadedImageFilePart({
+            filename: item.file.name,
+            mediaType: item.file.type,
+            url: tempImageUrl(item.assetId),
           }),
         );
+      }
 
-        if (uploadErrors.length > 0) {
-          const lines = uploadErrors.map((e) => `• ${e.name}: ${e.message}`);
-          toast.error(
-            `Gagal mengunggah ${uploadErrors.length} file:\n${lines.join("\n")}`,
-            { duration: 8000 },
-          );
-        }
-
-        if (fileParts.length === 0 && uploadErrors.length > 0) {
-          toast.error(
-            "Gagal mengunggah semua file. Periksa ukuran/format dan coba lagi.",
-          );
-          setPendingAttachments([]);
-          submitInFlightRef.current = false;
-          setIsSubmittingTurn(false);
-          return;
-        }
+      if (
+        pendingAttachments.length > 0 &&
+        fileParts.length === (options.uploads?.length ?? 0)
+      ) {
+        toast.error(
+          "Gambar belum siap dikirim. Coba pilih ulang gambarnya ya.",
+        );
+        submitInFlightRef.current = false;
+        setIsSubmittingTurn(false);
+        return;
       }
 
       // Lock the channel for the duration of the request so a synchronous
@@ -2844,6 +2962,13 @@ export function WorkspaceShell({
         scrollChatToBottom({ force: true, behavior: "smooth" }),
       );
 
+      if (buildComplete && trimmed) {
+        pendingChatEditInstructionRef.current = resolvePendingEditInstruction(
+          pendingChatEditInstructionRef.current,
+          trimmed,
+        );
+      }
+
       // Post-build "Chat dengan AI" is discuss-only. Rebuilds use the
       sendMessage(
         {
@@ -2852,8 +2977,12 @@ export function WorkspaceShell({
         },
         {
           body: {
-            mediaPaths: mediaPaths.length ? mediaPaths : undefined,
-            mode: composerState === "post_build_chat" ? "discuss" : mode,
+            intent: options.intent,
+            mode: options.intent
+              ? "discuss"
+              : composerState === "post_build_chat"
+                ? "discuss"
+                : mode,
             workspaceAnswers: options.workspaceAnswers,
           },
         },
@@ -2867,6 +2996,7 @@ export function WorkspaceShell({
     },
     [
       authStatus,
+      buildComplete,
       clearError,
       composerState,
       isProcessing,
@@ -2938,6 +3068,32 @@ export function WorkspaceShell({
       return;
     }
 
+    const hasPostBuildUpdate =
+      workspaceCard.type === "build_recommendation" &&
+      workspaceCard.postBuildUpdate === true;
+    const action = resolveBuildAction({
+      buildComplete,
+      buildStatus,
+      hasPendingChatEdit: Boolean(pendingChatEditInstructionRef.current),
+      hasPostBuildUpdate,
+    });
+    if (action === "edit") {
+      const instruction =
+        pendingChatEditInstructionRef.current ??
+        getLatestExplicitEditInstruction(allMessagesRef.current);
+      if (!instruction) {
+        return;
+      }
+      const succeeded = await submitDirectEdit({
+        instruction,
+        summary: instruction,
+      });
+      if (succeeded) {
+        pendingChatEditInstructionRef.current = null;
+      }
+      return;
+    }
+
     let handoffBrief = latestBrief;
     if (!handoffBrief) {
       try {
@@ -2971,86 +3127,43 @@ export function WorkspaceShell({
 
     await startBuild();
   }, [
+    allMessagesRef,
     buildComplete,
+    buildStatus,
     latestBrief,
     loadWorkspaceState,
     messages.length,
     readOnly,
     startBuild,
+    submitDirectEdit,
+    workspaceCard,
   ]);
 
-  const handlePrimaryComposerAction = useCallback(async () => {
+  const handlePrimaryComposerAction = useCallback(() => {
     if (readOnly || isBuilding) {
       return;
     }
 
-    if (buildComplete) {
-      // 1. If user already typed text or attached files, submit the edit turn
-      if (message.trim() || pendingAttachments.length > 0) {
-        submitChatText(message);
-        return;
-      }
+    const hasDraft = Boolean(message.trim() || pendingAttachments.length > 0);
+    const hasActionableRecommendation =
+      workspaceCard.type === "build_recommendation" &&
+      canStartBuild(workspaceCard);
+    const intent = resolvePrimaryComposerIntent({
+      buildComplete,
+      hasActionableRecommendation,
+      hasDraft,
+      hasPendingQuestion: preflightBlockedByCard,
+    });
 
-      // 2. If there is an unbuilt build recommendation ready to apply, build it
-      if (
-        workspaceCard.type === "build_recommendation" &&
-        canStartBuild(workspaceCard)
-      ) {
-        await handleStartBuild();
-        return;
-      }
-
-      // 3. Otherwise (no pending changes), guide user intentionally instead of blind building
-      if (chatCollapsed) {
-        openChatPanel();
-      }
-      setMessages((current) => {
-        const guideText =
-          "Bagian apa yang ingin kamu perbarui? Tulis kebutuhanmu di bawah ya (contoh: ganti warna tema, tambah foto baru, atau ubah nomor WhatsApp & harga).";
-        const last = current[current.length - 1];
-        if (
-          last &&
-          last.role === "assistant" &&
-          last.parts?.some(
-            (p) => p.type === "text" && p.text.trim() === guideText.trim(),
-          )
-        ) {
-          return current;
-        }
-        return [
-          ...current,
-          {
-            id: `guide-${Date.now()}`,
-            metadata: undefined,
-            parts: [
-              {
-                text: guideText,
-                type: "text",
-              },
-            ],
-            role: "assistant",
-          },
-        ];
-      });
-      shouldStickToBottomRef.current = true;
-      requestAnimationFrame(() => {
-        const textarea = document.querySelector<HTMLTextAreaElement>(
-          "textarea#workspace-message",
-        );
-        textarea?.focus();
-      });
-      return;
+    if (intent) {
+      void submitChatText("", { intent });
     }
-
-    await handleStartBuild();
   }, [
     buildComplete,
-    chatCollapsed,
-    handleStartBuild,
     isBuilding,
     message,
-    openChatPanel,
     pendingAttachments.length,
+    preflightBlockedByCard,
     readOnly,
     submitChatText,
     workspaceCard,
@@ -3168,8 +3281,7 @@ export function WorkspaceShell({
             es.addEventListener("workspace-card-delta", (event) => {
               const parsed = parseEvent(event);
               const card = parsed?.workspaceCard as WorkspaceCard | undefined;
-              if (card && card.type !== "none") {
-                setWorkspaceCard(card);
+              if (card && card.type !== "none" && applyWorkspaceCard(card)) {
                 setWorkspaceCardError(false);
               }
             });
@@ -3190,11 +3302,11 @@ export function WorkspaceShell({
                 | undefined;
               if (
                 !output?.workspaceCard ||
-                output.workspaceCard.type === "none"
+                output.workspaceCard.type === "none" ||
+                !applyWorkspaceCard(output.workspaceCard)
               ) {
                 return;
               }
-              setWorkspaceCard(output.workspaceCard);
               if (typeof output.projectTitle === "string") {
                 setProjectTitle(output.projectTitle);
                 setDraftTitle(output.projectTitle);
@@ -3361,7 +3473,9 @@ export function WorkspaceShell({
         return;
       }
 
-      setWorkspaceCard(result.workspaceCard);
+      if (!applyWorkspaceCard(result.workspaceCard)) {
+        return;
+      }
       setProjectTitle(result.projectTitle);
       setDraftTitle(result.projectTitle);
       setWorkspaceCardError(false);
@@ -3786,6 +3900,7 @@ export function WorkspaceShell({
                         {workspaceCard.type === "image_upload" ? (
                           <ImageUploadComposer
                             imageUpload={workspaceCard.imageUpload}
+                            projectId={projectId}
                             onSubmit={(answer, workspaceAnswers, uploads) =>
                               submitChatText(answer, {
                                 workspaceAnswers,
@@ -3842,7 +3957,9 @@ export function WorkspaceShell({
                             placeholder={
                               sessionExpired
                                 ? "Sesi habis, login ulang..."
-                                : "Tulis pesan atau kebutuhanmu di sini..."
+                                : buildComplete
+                                  ? "Ceritakan perubahan yang kamu mau..."
+                                  : "Tulis pesan atau kebutuhanmu di sini..."
                             }
                             className="w-full resize-none bg-transparent px-1 py-1 text-sm leading-6 text-foreground outline-none [scrollbar-width:none] placeholder:text-muted-foreground disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
                             disabled={
@@ -3850,18 +3967,31 @@ export function WorkspaceShell({
                             }
                           />
                           <div className="mt-2 flex items-center justify-between gap-3 border-t border-black/10 pt-2 dark:border-white/10">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => void handlePrimaryComposerAction()}
-                              disabled={isBuilding || readOnly}
-                              className="h-8 rounded-lg border-black/15 bg-white px-3 text-xs font-medium text-foreground hover:bg-black/5 hover:text-foreground active:scale-95 dark:border-white/15 dark:bg-white/5 dark:hover:bg-white/10 cursor-pointer"
-                            >
-                              {buildComplete
-                                ? "Perbarui Website"
-                                : "Buat Website"}
-                            </Button>
+                            {preflightBlockedByCard ? (
+                              <span />
+                            ) : (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  void handlePrimaryComposerAction()
+                                }
+                                disabled={
+                                  isBuilding ||
+                                  isProcessing ||
+                                  isSubmittingTurn ||
+                                  readOnly ||
+                                  Boolean(message.trim()) ||
+                                  pendingAttachments.length > 0
+                                }
+                                className="h-8 rounded-lg border-black/15 bg-white px-3 text-xs font-medium text-foreground hover:bg-black/5 hover:text-foreground active:scale-95 disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/15 dark:bg-white/5 dark:hover:bg-white/10 cursor-pointer"
+                              >
+                                {buildComplete
+                                  ? "Perbarui website"
+                                  : "Buat Website"}
+                              </Button>
+                            )}
                             <div className="flex items-center gap-1.5">
                               {composerUploadsEnabled ? (
                                 <ComposerAttachButton
@@ -4030,9 +4160,11 @@ export function WorkspaceShell({
                         placeholder={
                           sessionExpired
                             ? "Sesi habis, login ulang..."
-                            : mode === "build"
-                              ? "Minta perubahan, contoh: buat lebih premium..."
-                              : "Tulis pesan atau kebutuhanmu di sini..."
+                            : buildComplete
+                              ? "Ceritakan perubahan yang kamu mau..."
+                              : mode === "build"
+                                ? "Tulis perubahan yang kamu mau..."
+                                : "Tulis pesan atau kebutuhanmu di sini..."
                         }
                         className="w-full resize-none bg-transparent px-1 py-1 text-sm leading-6 text-foreground outline-none [scrollbar-width:none] placeholder:text-muted-foreground disabled:opacity-60 [&::-webkit-scrollbar]:hidden"
                         disabled={
@@ -4040,16 +4172,29 @@ export function WorkspaceShell({
                         }
                       />
                       <div className="mt-2 flex items-center justify-between gap-3 border-t border-black/10 pt-2 dark:border-white/10">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => void handlePrimaryComposerAction()}
-                          disabled={isBuilding || readOnly}
-                          className="h-8 rounded-lg border-black/15 bg-white px-3 text-xs font-medium text-foreground hover:bg-black/5 hover:text-foreground active:scale-95 dark:border-white/15 dark:bg-white/5 dark:hover:bg-white/10 cursor-pointer"
-                        >
-                          {buildComplete ? "Perbarui Website" : "Buat Website"}
-                        </Button>
+                        {preflightBlockedByCard ? (
+                          <span />
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => void handlePrimaryComposerAction()}
+                            disabled={
+                              isBuilding ||
+                              isProcessing ||
+                              isSubmittingTurn ||
+                              readOnly ||
+                              Boolean(message.trim()) ||
+                              pendingAttachments.length > 0
+                            }
+                            className="h-8 rounded-lg border-black/15 bg-white px-3 text-xs font-medium text-foreground hover:bg-black/5 hover:text-foreground active:scale-95 disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/15 dark:bg-white/5 dark:hover:bg-white/10 cursor-pointer"
+                          >
+                            {buildComplete
+                              ? "Perbarui website"
+                              : "Buat Website"}
+                          </Button>
+                        )}
                         <div className="flex items-center gap-1.5">
                           {composerUploadsEnabled ? (
                             <ComposerAttachButton
@@ -4134,13 +4279,45 @@ export function WorkspaceShell({
             effectiveDirectEditMode
               ? {
                   canUndo:
-                    Boolean(editIntentHistory.past.length) ||
+                    Boolean(editIntentHistory.present.length) ||
                     canUndoDirectEdit(editHistory),
                   canRedo:
                     Boolean(editIntentHistory.future.length) ||
                     canRedoDirectEdit(editHistory),
+                  intents: editIntentHistory.present,
                   onUndo: handleUndo,
                   onRedo: handleRedo,
+                  onRemoveIntent: (idx: number) => {
+                    const intent = editIntentHistory.present[idx];
+                    if (intent) {
+                      if (intent.action === "update-text") {
+                        sendFrameAction({
+                          action: "update-text",
+                          newText: intent.target.text || "",
+                          selectorPath: intent.target.selectorPath,
+                        });
+                      } else if (intent.action === "move-up") {
+                        sendFrameAction({
+                          action: "move-down",
+                          selectorPath: intent.target.selectorPath,
+                        });
+                      } else if (intent.action === "move-down") {
+                        sendFrameAction({
+                          action: "move-up",
+                          selectorPath: intent.target.selectorPath,
+                        });
+                      } else if (intent.action === "remove") {
+                        sendFrameAction({
+                          action: "restore",
+                          selectorPath: intent.target.selectorPath,
+                        });
+                      }
+                    }
+                    setEditIntentHistory((current) => ({
+                      ...current,
+                      present: current.present.filter((_, i) => i !== idx),
+                    }));
+                  },
                   onSave: () => void saveDirectEdit(),
                   onDiscard: handleDiscard,
                 }
@@ -4217,11 +4394,42 @@ export function WorkspaceShell({
                       effectiveDirectEditMode && pendingAnnotationTarget
                         ? {
                             comment: pendingAnnotationComment,
+                            onArrange: (
+                              action: "move-up" | "move-down" | "remove",
+                            ) => {
+                              const target = pendingAnnotationTarget;
+                              setPendingAnnotationTarget(null);
+                              setPendingAnnotationComment("");
+                              queueDirectEditIntent({
+                                action,
+                                target: {
+                                  label: target.label,
+                                  selectorPath: target.target.selectorPath,
+                                  tag: target.target.tag,
+                                  text: target.target.text,
+                                },
+                              });
+                            },
                             onCancel: () => {
                               setPendingAnnotationTarget(null);
                               setPendingAnnotationComment("");
                             },
                             onChange: setPendingAnnotationComment,
+                            onDirectTextSubmit: (newText: string) => {
+                              const target = pendingAnnotationTarget;
+                              setPendingAnnotationTarget(null);
+                              setPendingAnnotationComment("");
+                              queueDirectEditIntent({
+                                action: "update-text",
+                                newText,
+                                target: {
+                                  label: target.label,
+                                  selectorPath: target.target.selectorPath,
+                                  tag: target.target.tag,
+                                  text: target.target.text,
+                                },
+                              });
+                            },
                             onReplaceImage: () =>
                               openReplaceImage(pendingAnnotationTarget.target),
                             onSave: addPendingAnnotation,
@@ -4717,40 +4925,82 @@ function readConsumedBuildRecommendationSignatures(
 
 type HandoffProof = { handoffId: string; reviewHash: string };
 
-function readHandoffProof(storageKey: string): HandoffProof | null {
-  if (typeof window === "undefined") {
+export function resolvePrimaryComposerIntent(input: {
+  buildComplete: boolean;
+  hasActionableRecommendation: boolean;
+  hasDraft: boolean;
+  hasPendingQuestion?: boolean;
+}): "prepare_build" | "prepare_update" | null {
+  if (
+    input.hasDraft ||
+    input.hasActionableRecommendation ||
+    input.hasPendingQuestion
+  ) {
     return null;
   }
-  try {
-    const raw = window.localStorage.getItem(storageKey);
-    if (!raw) {
-      return null;
-    }
-    const parsed = JSON.parse(raw) as Partial<HandoffProof>;
-    if (
-      typeof parsed.handoffId === "string" &&
-      typeof parsed.reviewHash === "string"
-    ) {
-      return { handoffId: parsed.handoffId, reviewHash: parsed.reviewHash };
-    }
-  } catch {
-    // Ignore corrupt localStorage; the card proof still covers first builds.
-  }
-  return null;
+  return input.buildComplete ? "prepare_update" : "prepare_build";
 }
 
-function writeHandoffProof(storageKey: string, proof: HandoffProof): void {
-  if (typeof window === "undefined") {
-    return;
+const BUILD_CONFIRMATION_ONLY_RE =
+  /^(?:ya|iya|yoi|oke|ok|yes|yep|gas|lanjut|boleh|setuju|silakan|silahkan)(?:[\s,]+(?:silakan|silahkan|buat|bikin|bangun|build|website|sekarang|aja|langsung|lanjut))*[.!?]*$/iu;
+
+export function resolvePendingEditInstruction(
+  current: string | null,
+  next: string,
+): string | null {
+  const trimmed = next.trim();
+  if (!trimmed || BUILD_CONFIRMATION_ONLY_RE.test(trimmed)) {
+    return current;
   }
-  try {
-    window.localStorage.setItem(storageKey, JSON.stringify(proof));
-  } catch {
-    // Non-fatal: a retry without persisted proof falls back to the server's
-  }
+  return trimmed;
 }
 
-// Proof-carrying gate: every build_recommendation must carry a valid handoff
+function getLatestExplicitEditInstruction(
+  messages: UIMessage[],
+): string | null {
+  return (
+    [...messages]
+      .reverse()
+      .filter((message) => message.role === "user")
+      .map(getTextFromUIMessage)
+      .map((text) => text.trim())
+      .find((text) => text && !BUILD_CONFIRMATION_ONLY_RE.test(text)) ?? null
+  );
+}
+
+export function resolveBuildAction({
+  buildComplete,
+  buildStatus,
+  hasPendingChatEdit,
+  hasPostBuildUpdate,
+}: {
+  buildComplete: boolean;
+  buildStatus: string;
+  hasPendingChatEdit: boolean;
+  hasPostBuildUpdate: boolean;
+}): "edit" | "generate" {
+  if (
+    buildComplete &&
+    buildStatus !== "failed" &&
+    (hasPendingChatEdit || hasPostBuildUpdate)
+  ) {
+    return "edit";
+  }
+  return "generate";
+}
+
+export function resolveBuildRequestMode(
+  buildStatus: string,
+): "first_generate" | "retry_build" {
+  return buildStatus === "failed" ? "retry_build" : "first_generate";
+}
+
+export function sanitizeWorkspaceCard(card: WorkspaceCard): WorkspaceCard {
+  return card.type === "build_recommendation" && !canStartBuild(card)
+    ? { type: "none" }
+    : card;
+}
+
 export function canStartBuild(
   card: WorkspaceCard | null | undefined,
   _brief?: ProjectBrief | null | undefined,
@@ -4764,7 +5014,7 @@ export function canStartBuild(
   );
 }
 
-// Legacy single-arg bridge — callers passing only a brief (e.g. older tests)
+// Legacy single-arg bridge for callers that pass only a brief.
 export function canStartBuildFromBrief(
   brief: ProjectBrief | null | undefined,
 ): boolean {

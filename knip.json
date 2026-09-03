@@ -6,7 +6,9 @@
     "tests/**/*.{test,itest}.{ts,tsx}",
     ".husky/pre-commit",
     ".husky/commit-msg",
-    "scripts/capture-project-thumbnail.ts"
+    "scripts/capture-project-thumbnail.ts",
+    "scripts/runtime-static-server.ts",
+    "src/lib/security/malformed-path-plugin.ts"
   ],
   "project": [
     "src/**/*.{ts,tsx}",
@@ -29,14 +31,8 @@
       "exports",
       "files"
     ],
-    "src/lib/projects/browser-gates.ts": ["exports"],
-    "src/lib/projects/generated-site-recipes.ts": ["exports"],
-    "src/lib/projects/outcome-visual-review.ts": ["exports"],
-    "src/lib/projects/professional-site-kits.ts": ["exports", "types"],
     "src/lib/storage/uploads/temp-image-client.ts": ["exports"],
     "src/lib/storage/uploads/temp-image-storage.ts": ["exports"],
-    "src/lib/projects/generated-site-contract.ts": ["exports"],
-    "src/lib/projects/professional-site-blueprint.ts": ["exports"],
     "src/lib/projects/brief-admission.ts": ["exports"],
     "src/components/projects/workspace/WorkspaceShell.tsx": ["exports"],
     "src/lib/projects/canonical-brief.ts": ["exports"],

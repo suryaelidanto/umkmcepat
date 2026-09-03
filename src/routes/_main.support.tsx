@@ -280,7 +280,7 @@ function SupportPage() {
                   maxLength={140}
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
-                  placeholder="Contoh: Eror saat generate halaman kontak / Pembayaran energi belum masuk"
+                  placeholder="Jelaskan kendala yang kamu alami"
                   className="h-11 w-full rounded-xl border border-black/15 bg-white px-3.5 text-sm text-[#1c1c1c] outline-none placeholder:text-[#5f5f5d]/60 focus:border-accent-orange focus:ring-1 focus:ring-accent-orange dark:border-white/15 dark:bg-white/[0.04] dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/40 shadow-2xs transition"
                 />
               </div>

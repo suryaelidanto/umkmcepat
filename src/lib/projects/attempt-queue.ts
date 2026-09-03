@@ -29,6 +29,7 @@ export type GenerateAttemptJob = {
   projectId: string;
   projectPrompt: string;
   projectStatus: string;
+  generationEngine: string;
   userId: string;
 };
 
@@ -60,6 +61,10 @@ export type DiscussAttemptJob = {
   projectStatus: string;
   projectTitle: string;
   generationEngine: string;
+  hasBuiltSite?: boolean;
+  hasPendingUpdate?: boolean;
+  pendingUpdateInstructions?: string;
+  preflight?: "build" | "update";
 };
 
 export type CompactionAttemptJob = {
@@ -349,6 +354,7 @@ export function startAttemptQueueWorker(): void {
                 id: data.projectId,
                 prompt: data.projectPrompt,
                 status: data.projectStatus,
+                generationEngine: data.generationEngine,
               },
               userId: data.userId,
             });

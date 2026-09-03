@@ -56,4 +56,21 @@ describe("authConfig stale JWT handling", () => {
       where: { id: "deleted-user" },
     });
   });
+
+  it("returns null when the JWT user lookup fails", async () => {
+    prismaUserFindUniqueMock.mockRejectedValue(new Error("database down"));
+
+    const jwtCallback = authConfig.callbacks?.jwt;
+    expect(typeof jwtCallback).toBe("function");
+    if (!jwtCallback) {
+      return;
+    }
+
+    const result = await jwtCallback({
+      token: { sub: "user-1" } as JWT,
+      user: undefined as unknown as User,
+    });
+
+    expect(result).toBeNull();
+  });
 });

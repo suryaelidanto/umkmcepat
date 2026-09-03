@@ -8,6 +8,7 @@ const {
   prismaProjectBuildCreateMock,
   prismaProjectBuildUpdateManyMock,
   prismaProjectBuildUpdateMock,
+  prismaProjectBuildCheckpointFindFirstMock,
   prismaProjectDeploymentCreateMock,
   prismaProjectDeploymentFindManyMock,
   prismaProjectEditAttemptUpdateMock,
@@ -19,6 +20,7 @@ const {
   prismaProjectUpdateMock,
   prismaRuntimeEventCreateMock,
   prismaExecuteRawMock,
+  prismaQueryRawMock,
   readProjectDistArtifactMock,
   stopSupersededPreviewDeploymentsMock,
   writeProjectDistArtifactMock,
@@ -32,6 +34,7 @@ const {
   prismaProjectBuildCreateMock: vi.fn(),
   prismaProjectBuildUpdateManyMock: vi.fn(),
   prismaProjectBuildUpdateMock: vi.fn(),
+  prismaProjectBuildCheckpointFindFirstMock: vi.fn(),
   prismaProjectDeploymentCreateMock: vi.fn(),
   prismaProjectDeploymentFindManyMock: vi.fn(),
   prismaProjectEditAttemptUpdateMock: vi.fn(),
@@ -43,6 +46,7 @@ const {
   prismaProjectUpdateMock: vi.fn(),
   prismaRuntimeEventCreateMock: vi.fn(),
   prismaExecuteRawMock: vi.fn(),
+  prismaQueryRawMock: vi.fn(),
   readProjectDistArtifactMock: vi.fn(),
   stopSupersededPreviewDeploymentsMock: vi.fn(async () => []),
   writeProjectDistArtifactMock: vi.fn(),
@@ -60,6 +64,7 @@ vi.mock("@/lib/config/app-settings", () => ({ getSetting: getSettingMock }));
 vi.mock("@/lib/prisma", () => {
   const prisma = {
     $executeRaw: prismaExecuteRawMock,
+    $queryRaw: prismaQueryRawMock,
     $transaction: prismaTransactionMock,
     project: {
       findFirst: prismaProjectFindFirstMock,
@@ -70,6 +75,9 @@ vi.mock("@/lib/prisma", () => {
       create: prismaProjectBuildCreateMock,
       update: prismaProjectBuildUpdateMock,
       updateMany: prismaProjectBuildUpdateManyMock,
+    },
+    projectBuildCheckpoint: {
+      findFirst: prismaProjectBuildCheckpointFindFirstMock,
     },
     projectDeployment: {
       create: prismaProjectDeploymentCreateMock,
@@ -245,6 +253,10 @@ describe("project edit route", () => {
       prompt: "Buat website angkringan",
       siteSchema: null,
     });
+    prismaProjectBuildCheckpointFindFirstMock.mockResolvedValue({
+      id: "checkpoint_success",
+      snapshotId: "snapshot_success",
+    });
     prismaProjectDeploymentFindManyMock.mockResolvedValue([
       {
         build: {
@@ -270,9 +282,11 @@ describe("project edit route", () => {
       },
       {
         build: {
-          artifactRef: "project-artifact:local:dist:build_success",
+          artifactRef: "project-artifact:s3:dist:build_success",
           createdAt: older,
           id: "build_success",
+          projectId: "project_1",
+          snapshot: { id: "snapshot_success", projectId: "project_1" },
           snapshotId: "snapshot_success",
           status: "succeeded",
           updatedAt: older,
@@ -281,9 +295,11 @@ describe("project edit route", () => {
         createdAt: older,
         id: "deployment_success",
         kind: "preview",
+        projectId: "project_1",
         snapshot: {
           files: baseFiles,
           id: "snapshot_success",
+          projectId: "project_1",
           sourceRef: null,
         },
         snapshotId: "snapshot_success",
@@ -293,6 +309,7 @@ describe("project edit route", () => {
     ]);
     prismaProjectBuildUpdateManyMock.mockResolvedValue({ count: 0 });
     prismaExecuteRawMock.mockResolvedValue(1);
+    prismaQueryRawMock.mockResolvedValue([{ chatMessages: [] }]);
     prismaProjectUpdateManyMock.mockResolvedValue({ count: 1 });
     prismaProjectSnapshotCreateMock.mockResolvedValue({ id: "snapshot_edit" });
     writeProjectSourceArtifactMock.mockResolvedValue(
@@ -347,6 +364,19 @@ data: ${JSON.stringify({ attemptId, buildId: "build_edit", buildStatus: "succeed
     });
 
     expect(response.status).toBe(200);
+    expect(prismaProjectEditAttemptCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          editPlan: expect.objectContaining({
+            latestSuccessfulCheckpoint: {
+              id: "checkpoint_success",
+              snapshotId: "snapshot_success",
+            },
+            version: 1,
+          }),
+        }),
+      }),
+    );
     expect(enqueueAttemptJobMock).toHaveBeenCalledWith(
       expect.objectContaining({
         kind: "edit",

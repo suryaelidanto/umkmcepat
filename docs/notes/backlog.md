@@ -6,9 +6,19 @@ kanban-plugin: board
 
 ## Backlog
 
+- [ ] 🧭 **[#54] Checkpoint Success Boundary After Canceled Builds**: Derive post-build/update mode from the latest successful checkpoint or build rather than mutable `Project.status`, ensure update recommendations carry `postBuildUpdate`, route them to the surgical edit path, and never advance checkpoints for triggered, failed, or canceled operations #engine #data #workspace
+
+- [ ] 🔄 **[#55] Runtime Terminal-State Reconciliation and Cache Invalidation**: Invalidate the per-project runtime cache when an operation reaches success, failure, or cancellation, reconcile the latest `ProjectEditAttempt` with `ProjectBuild`, and refetch until the terminal state is authoritative so stale success/building states cannot remain visible #engine #data #workspace
+
+- [ ] 📊 **[#56] Admin Project Outcome and Publication Read Model**: Add a server-derived admin view that distinguishes latest operation outcome, last known-good build, preview availability, and published deployment, returns truthful totals beyond the 50-row display limit, and filters failed pre-build updates without relying on ambiguous raw project fields #data #workspace #engine
+
+- [ ] 🖼️ **[#57] Version-Aware Project Thumbnail Reliability**: Define preview versus published thumbnail ownership per surface, expose build and timestamp lineage, use `thumbnailUpdatedAt` for cache invalidation, retry asynchronous captures safely, and provide a non-broken fallback when storage or capture fails #media #workspace #data
+
 
 
 ## In Progress
+
+
 
 
 
@@ -18,15 +28,28 @@ kanban-plugin: board
 
 ## Ready for Review
 
-- [ ] 🖱️ **[#29] Visual Edit Iframe Selector & Smart Target Detection**: Overhaul runtime proxy click listeners and bounding box calculation to accurately resolve target elements, prioritizing semantic tags and image containers without getting blocked by transparent overlays #workspace #preview #ux #engine
+- [ ] ✍️ **[#58] Two-Phase Build and Update Preflight**: Keep chat sending and website actions separate; disable the build/update action while a draft exists, route empty actions through checkpoint-aware AI preflight, ask a proactive single-select update question when needed, show a recommendation before any build, and never persist synthetic readiness messages #ui #ux #workspace #engine #copy
 
-- [ ] 📜 **[#10] High-Signal Snapshot History UX**: Upgrade snapshot changelog summaries to 1-2 sentence AI-generated commit notes, replace static "Pembuatan Awal" with descriptive action titles, and display file modification counts instead of total project files #ux #workspace #history
-- [ ] 🧩 **[#02] Modular Contributor SKILL.md Dropzone**: Decouple and organize engine skill dropzone for plug-and-play community skills #engine #architecture
-- [ ] 🔒 **[#03] High & Medium Security Audit**: Audit tenant isolation, project deletion authorization, auth headers, and prompt injection defense #security #audit
+
 
 
 ## Done
 
+- [ ] 🧱 **[#52] Generation Pipeline Non-Regression Contract**: Add deterministic integration coverage for discuss-to-build handoff, workspace cards, protected source boundaries, snapshot creation, Preview preservation, history, surgical edits, publish pointers, energy accounting, and failure recovery before changing generation taste infrastructure #engine #workspace #data
+- [ ] 🛡️ **[#51] Accepted-Fact Claim Provenance Gate**: Trace every generated commercial claim, contact detail, price, date, delivery promise, popularity label, guarantee, and product attribute to accepted contract facts, fail closed on dummy or unsupported values, and preserve concise grounded connective copy #engine #security #copy
+- [ ] 🧭 **[#49] Multi-Direction Creative Exploration and Selection**: Generate three concise, materially distinct creative directions for each new build, rank them against business specificity, customer trust, factual grounding, differentiation, and asset feasibility, select one before implementation, and avoid multiplying full-site generation cost #engine #ux
+- [ ] 🎭 **[#48] Structured Business-Specific Creative Direction Contract**: Replace free-form visual thesis handling with validated structured direction covering visitor tension, accepted business anchors, material vocabulary, character, first-view intent, signature idea, mobile intent, quiet priorities, factual boundaries, and explicit genericity risks without prescribing layouts or implementation values #engine #data
+- [ ] 🎞️ **[#47] Progressive-Enhancement Motion Policy**: Remove mandatory repeated `motion/react` reveal recipes, require generated content to remain visible and usable without JavaScript, intersection observers, or animation support, preserve reduced-motion behavior, and test browser evidence against hidden-content and excessive-empty-space regressions #engine #ux #scaffold
+- [ ] ✂️ **[#46] Outcome-First Generator Prompt Diet**: Audit and surgically reduce duplicated, conflicting, and implementation-prescriptive generator instructions so prompts define accepted facts, visitor jobs, actions, omissions, safety, accessibility, and quality outcomes while restoring agent ownership of composition, typography, palette, rhythm, section order, and component choice #engine #copy
+- [ ] 📚 **[#45] Real Generated-Site Skill Loading Enforcement**: Remove preemptive `skillsRead` bookkeeping, ensure required Impeccable and shadcn guidance actually enters model context before source writes, keep tool progress honest, and preserve current skill registry, energy charging, and write restrictions #engine #security
+- [ ] 👁️ **[#43] Fail-Closed Rendered Visual Review Gate**: Connect mobile and desktop browser evidence to `runOutcomeVisualReview`, require every review category to reach the existing confidence and quality floors before a candidate can become Preview, preserve the last successful Preview on failure, and surface actionable review evidence without changing discuss, card, history, publish, or deployment contracts #engine #ux #data
+- [ ] 🔄 **[#44] Bounded Visual Revision and Re-Review Pass**: Feed low-rated visual-review findings into one bounded revision of the existing candidate, rerun source, build, browser, and final visual checks, forbid post-review mutation, and retain the prior successful version when revision cannot pass #engine #ux #data
+- [ ] 🧪 **[#50] Generated-Site Visual Quality Evaluation Corpus**: Build a versioned corpus of representative Indonesian UMKM briefs with mobile and desktop browser evidence, blind human calibration, category-complete visual ratings, genericity rejection metrics, and prompt/model A/B comparison outside deterministic unit tests #engine #data
+- [ ] 🔬 **[#53] End-to-End Generator Quality Rollout and Observability**: Introduce the visual-engine changes behind a controlled rollout with per-stage timing, writer and reviewer model IDs, review scores, rejection reasons, revision counts, energy cost, and fallback evidence so quality gains can be measured and rollback remains safe without weakening gates #engine #data
+- [ ] 🖱️ **[#29] Visual Edit Iframe Selector & Smart Target Detection**: Overhaul runtime proxy click listeners and bounding box calculation to accurately resolve target elements, prioritizing semantic tags and image containers without getting blocked by transparent overlays #workspace #preview #ux #engine
+- [ ] 📜 **[#10] High-Signal Snapshot History UX**: Upgrade snapshot changelog summaries to 1-2 sentence AI-generated commit notes, replace static "Pembuatan Awal" with descriptive action titles, and display file modification counts instead of total project files #ux #workspace #history
+- [ ] 🔒 **[#03] High & Medium Security Audit**: Audit tenant isolation, project deletion authorization, auth headers, and prompt injection defense #security #audit
+- [ ] 🧩 **[#02] Modular Contributor SKILL.md Dropzone**: Decouple and organize engine skill dropzone for plug-and-play community skills #engine #architecture
 - [ ] 🖼️ **[#41] Media Tab Reference Selection to Chat Prompt**: Allow users to click or drag assets from workspace media gallery directly into chat composer as referenced inputs #workspace #media #ux #future
 - [ ] 🎨 **[#40] Symmetrical Upload Loading Spinner & Attachment Deduplication**: Center the upload/send loading spinner symmetrically within the action button and prevent duplicate attachment rendering in composer previews and chat turns #ui #ux #media
 - [ ] ⚡ **[#39] Surgical Update Site Preservation & Non-Destructive Generator Policy**: Enforce strict preservation of built components, layouts, and typography during subsequent updates, restricting generator steps to targeted component modifications without full-site regeneration #engine #generator #ai

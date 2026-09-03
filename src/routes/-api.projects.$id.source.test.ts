@@ -70,12 +70,57 @@ describe("project source route", () => {
     expect(body.currentPreviewSource).toBeNull();
   });
 
+  it("does not expose a snapshot from another project through a preview deployment", async () => {
+    prismaProjectDeploymentFindManyMock.mockResolvedValue([
+      {
+        build: {
+          artifactRef: "project-artifact:s3:dist:build_cross",
+          createdAt: newer,
+          id: "build_cross",
+          projectId: "project_1",
+          snapshot: { id: "snapshot_cross", projectId: "project_2" },
+          snapshotId: "snapshot_cross",
+          status: "succeeded",
+          updatedAt: newer,
+        },
+        buildId: "build_cross",
+        createdAt: newer,
+        id: "deployment_cross",
+        kind: "preview",
+        projectId: "project_1",
+        snapshot: {
+          createdAt: newer,
+          files: [{ content: "cross tenant", path: "src/main.tsx" }],
+          id: "snapshot_cross",
+          metadata: null,
+          projectId: "project_2",
+          sourceRef: null,
+          sourceType: "generated",
+        },
+        snapshotId: "snapshot_cross",
+        status: "running",
+        updatedAt: newer,
+      },
+    ]);
+
+    const response = await GET(new Request("http://localhost/source"), {
+      id: "project_1",
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.files).toEqual([]);
+    expect(body.currentPreviewSource).toBeNull();
+  });
+
   it("returns the active preview source instead of the newest failed attempt source", async () => {
     const successfulBuild = {
-      artifactRef: "project-artifact:local:dist:build_success",
+      artifactRef: "project-artifact:s3:dist:build_success",
       createdAt: older,
       id: "build_success",
       logText: "success log",
+      projectId: "project_1",
+      snapshot: { id: "snapshot_success", projectId: "project_1" },
       snapshotId: "snapshot_success",
       status: "succeeded",
       updatedAt: older,
@@ -120,9 +165,11 @@ describe("project source route", () => {
           files: [{ content: "success", path: "src/main.tsx" }],
           id: "snapshot_success",
           metadata: { summary: { runtimeProfile: "static-react-v1" } },
+          projectId: "project_1",
           sourceRef: null,
           sourceType: "generated",
         },
+        projectId: "project_1",
         snapshotId: successfulBuild.snapshotId,
         status: "stopped",
         updatedAt: older,
@@ -130,12 +177,14 @@ describe("project source route", () => {
     ]);
     prismaProjectBuildFindFirstMock.mockResolvedValue({
       id: failedBuild.id,
+      projectId: "project_1",
       logText: failedBuild.logText,
       snapshot: {
         createdAt: newer,
         files: [{ content: "failed", path: "src/main.tsx" }],
         id: "snapshot_failed",
         metadata: { summary: { runtimeProfile: "static-react-v1" } },
+        projectId: "project_1",
         sourceRef: null,
         sourceType: "generated",
       },

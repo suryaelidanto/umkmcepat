@@ -1,17 +1,13 @@
 import { getSettingSync } from "@/lib/config/app-settings";
 
 export type AiTimeoutKey =
-  | "buildSpec"
+  | "agenticGenerate"
   | "chatCompaction"
   | "discuss"
   | "discussCard"
   | "discussOneCall"
   | "discussToolSettle"
-  | "edit"
-  | "editRepair"
-  | "moderation"
-  | "sourceGeneration"
-  | "visualCritic";
+  | "moderation";
 
 export const DISCUSS_CARD_ATTEMPT_TIMEOUT_MS = 45_000;
 export const DISCUSS_CARD_SEMANTIC_ATTEMPTS = 1;
@@ -28,6 +24,13 @@ type AiTimeoutConfig = {
 };
 
 const AI_TIMEOUTS = {
+  agenticGenerate: {
+    key: "ai.timeout.agentic_generate_ms",
+    env: "AI_TIMEOUT_AGENTIC_GENERATE_MS",
+    defaultMs: 180_000,
+    minMs: 30_000,
+    maxMs: 300_000,
+  },
   moderation: {
     key: "ai.timeout.moderation_ms",
     env: "AI_TIMEOUT_MODERATION_MS",
@@ -69,41 +72,6 @@ const AI_TIMEOUTS = {
     defaultMs: 60_000,
     minMs: 30_000,
     maxMs: 120_000,
-  },
-  buildSpec: {
-    key: "ai.timeout.build_spec_ms",
-    env: "AI_TIMEOUT_BUILD_SPEC_MS",
-    defaultMs: 120_000,
-    minMs: 30_000,
-    maxMs: 240_000,
-  },
-  sourceGeneration: {
-    key: "ai.timeout.source_generation_ms",
-    env: "AI_TIMEOUT_SOURCE_GENERATION_MS",
-    defaultMs: 600_000,
-    minMs: 120_000,
-    maxMs: 600_000,
-  },
-  edit: {
-    key: "ai.timeout.edit_ms",
-    env: "AI_TIMEOUT_EDIT_MS",
-    defaultMs: 600_000,
-    minMs: 60_000,
-    maxMs: 600_000,
-  },
-  editRepair: {
-    key: "ai.timeout.edit_repair_ms",
-    env: "AI_TIMEOUT_EDIT_REPAIR_MS",
-    defaultMs: 300_000,
-    minMs: 60_000,
-    maxMs: 600_000,
-  },
-  visualCritic: {
-    key: "ai.timeout.visual_critic_ms",
-    env: "AI_TIMEOUT_VISUAL_CRITIC_MS",
-    defaultMs: 180_000,
-    minMs: 60_000,
-    maxMs: 240_000,
   },
 } satisfies Record<AiTimeoutKey, AiTimeoutConfig>;
 

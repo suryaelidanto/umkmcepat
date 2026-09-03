@@ -199,6 +199,42 @@ describe("getAuthState()", () => {
     expect(state.banned).toBe(true);
     expect(state.session).toEqual({ user: { id: "u-1", name: "Jane" } });
   });
+
+  it("returns an unauthenticated state when the banned check fails", async () => {
+    const mockRequest = new Request("http://localhost:3000/x", {
+      headers: { cookie: "session-token=123" },
+    });
+    vi.mocked(getRequest).mockReturnValue(mockRequest);
+    vi.mocked(Auth).mockResolvedValue(
+      new Response(JSON.stringify({ user: { id: "u-1", name: "Jane" } }), {
+        status: 200,
+      }),
+    );
+    prismaUserFindUniqueMock.mockRejectedValue(new Error("database down"));
+
+    await expect(getAuthState()).resolves.toEqual({
+      session: null,
+      banned: false,
+    });
+  });
+
+  it("returns an unauthenticated state when the session user no longer exists", async () => {
+    const mockRequest = new Request("http://localhost:3000/x", {
+      headers: { cookie: "session-token=123" },
+    });
+    vi.mocked(getRequest).mockReturnValue(mockRequest);
+    vi.mocked(Auth).mockResolvedValue(
+      new Response(JSON.stringify({ user: { id: "deleted-user" } }), {
+        status: 200,
+      }),
+    );
+    prismaUserFindUniqueMock.mockResolvedValue(null);
+
+    await expect(getAuthState()).resolves.toEqual({
+      session: null,
+      banned: false,
+    });
+  });
 });
 
 describe("requireNotBanned()", () => {
@@ -238,11 +274,28 @@ describe("requireNotBanned()", () => {
       expect((thrown as Response).status).toBe(307);
     }
   });
+
+  it("fails closed when the user status cannot be verified", async () => {
+    prismaUserFindUniqueMock.mockRejectedValue(new Error("database down"));
+
+    await expect(
+      requireNotBanned({ user: { id: "u-1" } } as never),
+    ).rejects.toThrow("Account status could not be verified.");
+  });
+
+  it("fails closed when the user row no longer exists", async () => {
+    prismaUserFindUniqueMock.mockResolvedValue(null);
+
+    await expect(
+      requireNotBanned({ user: { id: "deleted-user" } } as never),
+    ).rejects.toThrow("Account status could not be verified.");
+  });
 });
 
 describe("per-request auth memoization", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prismaUserFindUniqueMock.mockResolvedValue({ bannedAt: null });
     globalThis.__authStore = new AsyncLocalStorage<Map<string, unknown>>();
   });
 

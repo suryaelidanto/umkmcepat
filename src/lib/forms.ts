@@ -62,7 +62,7 @@ export function useValidatedForm<TValues extends Record<string, unknown>>(
     [],
   );
 
-  // Re-parse the whole form whenever a value changes so dependents (e.g. a
+  // Re-parse the whole form whenever a value changes so dependent fields
   const liveFieldErrors = useMemo(() => {
     const parsed = schema.safeParse(values);
     const out: Partial<Record<keyof TValues, FieldError>> = {};
@@ -150,7 +150,7 @@ export function useValidatedForm<TValues extends Record<string, unknown>>(
   };
 }
 
-// Pull the first zod issue message for `path` (e.g. "email").
+// Pull the first zod issue message for a field path.
 function findIssue(error: ZodError, path: string): string | null {
   const issue = error.issues.find((item) => item.path.join(".") === path);
   return issue ? issue.message : null;

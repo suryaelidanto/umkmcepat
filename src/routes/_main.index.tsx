@@ -1,15 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
+import { ArrowRight, Zap } from "lucide-react";
 import { useState, type CSSProperties } from "react";
 
 import { WhatsAppCommunityInvite } from "@/components/community/WhatsAppCommunityInvite";
 import { CommunitySection } from "@/components/home/CommunitySection";
+import { EcosystemSection } from "@/components/home/EcosystemSection";
 import { HeroAuroraBackground } from "@/components/home/HeroAuroraBackground";
 import {
   HeroContentMotion,
   HeroMotionItem,
 } from "@/components/home/HeroContentMotion";
+import { HowItWorksSection } from "@/components/home/HowItWorksSection";
 import { ResetCursorOnMount } from "@/components/home/ResetCursorOnMount";
 import { ScrollReveal } from "@/components/home/ScrollReveal";
 import { HomePromptForm } from "@/components/projects/dashboard/HomePromptForm";
@@ -78,6 +81,9 @@ const loadHome = createServerFn({ method: "GET" }).handler(async () => {
       : 0;
     const projectLimit = getProjectLimit();
     const overProjectLimit = isAtOrOverProjectLimit(projectCount, projectLimit);
+    const publishedSiteCount = await prisma.project.count({
+      where: { buildStatus: "succeeded" },
+    });
 
     const email = session?.user?.email ?? null;
     const isAdmin = email ? isAdminEmail(email) : false;
@@ -109,6 +115,7 @@ const loadHome = createServerFn({ method: "GET" }).handler(async () => {
       overProjectLimit,
       projectCount,
       projectLimit,
+      publishedSiteCount,
     };
   } catch (error) {
     console.warn(
@@ -124,6 +131,7 @@ const loadHome = createServerFn({ method: "GET" }).handler(async () => {
       overProjectLimit: false,
       projectCount: 0,
       projectLimit: getProjectLimit(),
+      publishedSiteCount: 0,
     };
   }
 });
@@ -185,71 +193,6 @@ function HeroSubline() {
   return "Tanpa coding, tanpa desainer, tanpa ribet.";
 }
 
-function CaraKerjaSection() {
-  return (
-    <section
-      className="border-t-0 bg-[#eceae4] px-4 py-20 text-[#1c1c1c] dark:border-t dark:border-white/[0.07] dark:bg-[#151515] dark:text-surface-warm-white sm:px-spacing-9 lg:px-spacing-10"
-      id="cara-kerja"
-    >
-      <div className="mx-auto max-w-5xl">
-        <div className="text-center">
-          <h2 className="text-3xl font-semibold tracking-[-0.04em] text-[#1c1c1c] dark:text-surface-warm-white sm:text-4xl">
-            Tiga langkah mudah
-          </h2>
-          <p className="mt-3 text-base text-[#5f5f5d] dark:text-surface-warm-white/60">
-            Tanpa perlu paham koding. Ceritakan usahamu, kami yang siapkan
-            sisanya.
-          </p>
-        </div>
-
-        <div className="mt-14 grid grid-cols-1 gap-8 md:grid-cols-3">
-          {/* Step 1 */}
-          <div className="flex flex-col rounded-2xl border border-black/10 bg-[#fcfbf8] p-8 shadow-sm transition-colors dark:border-white/10 dark:bg-[#1c1c1a] dark:shadow-none">
-            <span className="font-mono text-2xl font-bold text-accent-orange">
-              01
-            </span>
-            <h3 className="mt-4 text-lg font-bold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white">
-              Ceritakan usaha
-            </h3>
-            <p className="mt-2 text-sm leading-relaxed text-[#5f5f5d] dark:text-surface-warm-white/60">
-              Tulis nama toko, menu atau jasa yang kamu tawarkan, serta kontak
-              WhatsApp.
-            </p>
-          </div>
-
-          {/* Step 2 */}
-          <div className="flex flex-col rounded-2xl border border-black/10 bg-[#fcfbf8] p-8 shadow-sm transition-colors dark:border-white/10 dark:bg-[#1c1c1a] dark:shadow-none">
-            <span className="font-mono text-2xl font-bold text-accent-orange">
-              02
-            </span>
-            <h3 className="mt-4 text-lg font-bold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white">
-              AI bikin websitenya
-            </h3>
-            <p className="mt-2 text-sm leading-relaxed text-[#5f5f5d] dark:text-surface-warm-white/60">
-              Dalam beberapa menit, teks penawaran, susunan menu, dan tombol
-              order langsung siap.
-            </p>
-          </div>
-
-          {/* Step 3 */}
-          <div className="flex flex-col rounded-2xl border border-black/10 bg-[#fcfbf8] p-8 shadow-sm transition-colors dark:border-white/10 dark:bg-[#1c1c1a] dark:shadow-none">
-            <span className="font-mono text-2xl font-bold text-accent-orange">
-              03
-            </span>
-            <h3 className="mt-4 text-lg font-bold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white">
-              Bagikan ke pembeli
-            </h3>
-            <p className="mt-2 text-sm leading-relaxed text-[#5f5f5d] dark:text-surface-warm-white/60">
-              Sebar tautan ke bio Instagram atau Google Maps agar calon
-              pelanggan bisa chat dan pesan langsung ke WhatsApp.
-            </p>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 export const Route = createFileRoute("/_main/")({
   loader: async () => loadHome(),
   component: HomePage,
@@ -265,6 +208,7 @@ function HomePage() {
     overProjectLimit: _overProjectLimit,
     projectCount: _projectCount,
     projectLimit: _projectLimit,
+    publishedSiteCount,
   } = Route.useLoaderData();
 
   const [promptFocused, setPromptFocused] = useState(false);
@@ -290,20 +234,34 @@ function HomePage() {
   const waitlisted = homeAccessState === "waitlisted";
   const ownEntry = waitlistQuery.data?.own ?? null;
   const ownStatus = ownEntry?.status ?? null;
+  const energyGrant =
+    waitlistQuery.data?.signupEnergyGrant ??
+    initialWaitlistStatus?.signupEnergyGrant ??
+    500_000;
+  const formattedEnergy = new Intl.NumberFormat("id-ID").format(energyGrant);
+
+  const waitlistEnergyText =
+    energyGrant >= 1000 && energyGrant % 1000 === 0
+      ? `${energyGrant / 1000} ribu`
+      : formattedEnergy;
+
   const waitlistBanner =
     ownStatus === "rejected"
       ? {
-          body: "Pendaftaran kamu belum disetujui. Perbaiki data dan kirim ulang.",
-          cta: "Perbaiki pendaftaran",
+          cta: "Perbaiki Pendaftaran Antrean",
+          highlight: false,
+          label: "Pendaftaran belum disetujui",
         }
       : ownStatus === "pending" || ownStatus === "waitlisted"
         ? {
-            body: "Kamu masih dalam antrean. Kami hubungi lewat email.",
-            cta: "Cek status antrean",
+            cta: "Cek Status Antrean",
+            highlight: false,
+            label: "Pendaftaran sedang direview",
           }
         : {
-            body: "Isi formulir antrean dulu biar kami bisa review usahamu.",
-            cta: "Isi formulir antrean",
+            cta: `Isi Formulir Antrean · Dapatkan ${waitlistEnergyText} Energi Gratis`,
+            highlight: true,
+            label: null,
           };
   const siblingClass = promptFocused
     ? "transition-all duration-300 opacity-40 scale-[0.98]"
@@ -358,11 +316,36 @@ function HomePage() {
           </HeroMotionItem>
           {waitlisted ? (
             <HeroMotionItem className="w-full">
-              <div className="mx-auto mt-spacing-6 flex max-w-3xl flex-col items-center gap-spacing-3 rounded-[20px] border border-yellow-500/24 bg-yellow-500/[0.06] px-spacing-6 py-spacing-4 text-center text-sm text-[#1c1c1c] dark:text-surface-warm-white/82">
-                <p>{waitlistBanner.body}</p>
-                <Button asChild size="sm">
-                  <Link href="/waitlist">{waitlistBanner.cta}</Link>
-                </Button>
+              <div className="mx-auto mt-spacing-6 flex flex-col items-center justify-center">
+                {waitlistBanner.highlight ? (
+                  <Link
+                    href="/waitlist"
+                    className="group relative inline-flex h-13 items-center justify-center gap-3 overflow-hidden rounded-full bg-accent-orange px-8 text-sm sm:text-base font-semibold text-white shadow-lg shadow-accent-orange/25 transition-all duration-300 hover:scale-[1.02] hover:bg-accent-orange/90 hover:shadow-xl hover:shadow-accent-orange/35 active:scale-[0.99]"
+                  >
+                    {/* Shimmer light sweep */}
+                    <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-1000 group-hover:translate-x-full" />
+
+                    <div className="flex size-7 items-center justify-center rounded-full bg-white/20">
+                      <Zap className="size-4 fill-amber-200 text-amber-200" />
+                    </div>
+                    <span>{waitlistBanner.cta}</span>
+                    <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
+                  </Link>
+                ) : (
+                  <div className="flex flex-col items-center gap-2">
+                    <span className="text-xs text-[#5f5f5d] dark:text-surface-warm-white/60">
+                      {waitlistBanner.label}
+                    </span>
+                    <Button
+                      asChild
+                      size="default"
+                      variant="outline"
+                      className="rounded-full"
+                    >
+                      <Link href="/waitlist">{waitlistBanner.cta}</Link>
+                    </Button>
+                  </div>
+                )}
               </div>
             </HeroMotionItem>
           ) : (
@@ -378,7 +361,8 @@ function HomePage() {
 
       {!hasUser ? (
         <>
-          <CaraKerjaSection />
+          <HowItWorksSection />
+          <EcosystemSection publishedSiteCount={publishedSiteCount} />
           <CommunitySection />
           <WhatsAppCommunityInvite variant="homepage" />
         </>
