@@ -580,13 +580,13 @@ function WaitlistPage() {
             </p>
           ) : null}
 
-          <div className="mt-spacing-8 flex items-center justify-between pt-spacing-4 border-t border-black/5 dark:border-white/5">
+          <div className="mt-spacing-8 flex items-center justify-between border-t border-black/5 pt-spacing-4 dark:border-white/5">
             {step > 1 ? (
               <Button
                 type="button"
                 variant="ghost"
                 onClick={() => setStep((s) => Math.max(1, s - 1))}
-                className="flex items-center gap-spacing-2 text-sm text-[#5f5f5d] hover:text-[#1c1c1c] dark:text-surface-warm-white/70 dark:hover:text-surface-warm-white"
+                className="flex items-center gap-spacing-2 text-sm text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:text-surface-warm-white/70 dark:hover:bg-white/10 dark:hover:text-surface-warm-white"
               >
                 <ArrowLeft className="size-4" />
                 Kembali
