@@ -36,10 +36,11 @@ type ProjectsResponse = {
 };
 
 const PROJECT_STATUS_OPTIONS = [
-  { value: "ready", label: "Siap" },
-  { value: "active", label: "Berjalan" },
-  { value: "needs_attention", label: "Gagal" },
-  { value: "all", label: "Semua" },
+  { value: "all", label: "All" },
+  { value: "failed", label: "Failed" },
+  { value: "running", label: "Running" },
+  { value: "has_preview", label: "Has Preview" },
+  { value: "published", label: "Published" },
 ] as const;
 
 export const Route = createFileRoute("/_main/admin/projects")({
@@ -47,7 +48,7 @@ export const Route = createFileRoute("/_main/admin/projects")({
 });
 
 function formatDate(value: string) {
-  return new Date(value).toLocaleDateString("id-ID", {
+  return new Date(value).toLocaleDateString("en-US", {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -76,7 +77,7 @@ function ProjectListSkeleton() {
 
 function ProjectsPage() {
   const streamerMode = useStreamerMode();
-  const [status, setStatus] = useState("ready");
+  const [status, setStatus] = useState("all");
   const [q, setQ] = useState("");
   const { data, isError, isPending, refetch } = useQuery({
     queryFn: () =>
@@ -101,7 +102,7 @@ function ProjectsPage() {
       />
       <AdminSearchInput
         onChange={(e) => setQ(e.target.value)}
-        placeholder="Cari judul proyek, email, atau nama pemilik…"
+        placeholder="Search project title, email, or owner name…"
         value={q}
       />
 
@@ -110,27 +111,31 @@ function ProjectsPage() {
       ) : listState === "error" ? (
         <div className="flex flex-col items-center gap-spacing-3 py-spacing-8 text-center">
           <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/70">
-            Proyek belum bisa dimuat.
+            Failed to load projects.
           </p>
           <button
             className="rounded-radius-md border border-black/15 px-spacing-3 py-spacing-2 text-sm text-[#1c1c1c] hover:bg-black/5 dark:border-surface-warm-white/15 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/10"
             onClick={() => void refetch()}
             type="button"
           >
-            Coba lagi
+            Retry
           </button>
         </div>
       ) : listState === "empty" ? (
         <div className="flex flex-col items-center justify-center rounded-radius-lg border border-dashed border-black/10 py-spacing-12 text-center text-[#5f5f5d] dark:border-surface-warm-white/10 dark:text-surface-warm-white/40">
           <FolderKanban className="size-8 opacity-40" />
           <p className="mt-spacing-3 text-sm">
-            {status === "needs_attention"
-              ? "Tidak ada proyek gagal."
-              : status === "active"
-                ? "Tidak ada proyek berjalan."
-                : q
-                  ? "Tidak ada proyek yang cocok dengan pencarian."
-                  : "Belum ada proyek."}
+            {status === "failed"
+              ? "No failed projects."
+              : status === "running"
+                ? "No running projects."
+                : status === "has_preview"
+                  ? "No projects with preview."
+                  : status === "published"
+                    ? "No published projects."
+                    : q
+                      ? "No projects matching search."
+                      : "No projects found."}
           </p>
         </div>
       ) : (
@@ -207,14 +212,14 @@ function ProjectsPage() {
                                 : "neutral"
                         }
                       >
-                        Aktivitas:{" "}
+                        Activity:{" "}
                         {project.latestOperationOutcome === "failed"
-                          ? "Gagal"
+                          ? "Failed"
                           : project.latestOperationOutcome === "running"
-                            ? "Proses"
+                            ? "Running"
                             : project.latestOperationOutcome === "succeeded"
-                              ? "Selesai"
-                              : "Diskusi"}
+                              ? "Succeeded"
+                              : "Idle"}
                       </AdminStatusBadge>
                       <AdminStatusBadge
                         tone={
@@ -225,19 +230,19 @@ function ProjectsPage() {
                               : "neutral"
                         }
                       >
-                        Akses:{" "}
+                        Access:{" "}
                         {project.accessStatus === "published"
-                          ? "Terbit"
+                          ? "Published"
                           : project.accessStatus === "has_preview"
-                            ? "Ada Preview"
-                            : "Belum Ada"}
+                            ? "Has Preview"
+                            : "None"}
                       </AdminStatusBadge>
                       {project.accessStatus === "has_preview" && (
                         <a
                           className="rounded-radius-sm border border-emerald-500/20 bg-emerald-500/10 px-spacing-2 py-spacing-1 text-emerald-700 underline-offset-2 hover:bg-emerald-500/15 dark:border-emerald-400/20 dark:text-emerald-300"
                           href={`/projects/${project.id}`}
                         >
-                          Buka Preview
+                          Open Preview
                         </a>
                       )}
                       {project.publishedUrl && (
@@ -247,14 +252,14 @@ function ProjectsPage() {
                           rel="noreferrer"
                           target="_blank"
                         >
-                          Lihat Live
+                          View Live
                         </a>
                       )}
                       <a
                         className="rounded-radius-sm border border-black/15 px-spacing-2 py-spacing-1 text-[#1c1c1c] underline-offset-2 hover:bg-black/5 hover:underline dark:border-surface-warm-white/20 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/8"
                         href={`/projects/${project.id}`}
                       >
-                        Lihat detail
+                        View details
                       </a>
                     </div>
                   </div>

@@ -59,13 +59,17 @@ type AdminProjectsClient = {
   };
 };
 
+export type AdminProjectAccessStatus = "published" | "has_preview" | "none";
+export type AdminProjectOperationOutcome =
+  "failed" | "running" | "succeeded" | "idle";
+
 export type AdminProject = {
-  accessStatus: "published" | "has_preview" | "none";
+  accessStatus: AdminProjectAccessStatus;
   buildStatus: string;
   createdAt: string;
   hasWorkingSnapshot: boolean;
   id: string;
-  latestOperationOutcome: "failed" | "running" | "succeeded" | "idle";
+  latestOperationOutcome: AdminProjectOperationOutcome;
   owner: {
     email: string | null;
     id: string;
@@ -83,7 +87,15 @@ export type AdminProjectsResponse = {
   total: number;
 };
 
-export type AdminProjectFilter = "needs_attention" | "active" | "ready" | "all";
+export type AdminProjectFilter =
+  | "all"
+  | "failed"
+  | "running"
+  | "published"
+  | "has_preview"
+  | "ready"
+  | "active"
+  | "needs_attention";
 
 const FAIL_BUILD = ["stale", "canceled", "cancelled"] as const;
 const ACTIVE_BUILD = [
@@ -101,24 +113,35 @@ export function parseAdminProjectFilter(
   raw: string | null | undefined,
 ): AdminProjectFilter {
   if (
-    raw === "needs_attention" ||
-    raw === "active" ||
-    raw === "ready" ||
-    raw === "all"
+    raw === "all" ||
+    raw === "failed" ||
+    raw === "running" ||
+    raw === "published" ||
+    raw === "has_preview"
   ) {
     return raw;
   }
-  return "ready";
+  // Backwards compatibility for old query params
+  if (raw === "needs_attention") {
+    return "failed";
+  }
+  if (raw === "active") {
+    return "running";
+  }
+  if (raw === "ready") {
+    return "has_preview";
+  }
+  return "all";
 }
 
 export function projectWhere(
   filter: AdminProjectFilter,
   searchQuery?: string,
 ): Prisma.ProjectWhereInput | undefined {
-  const filterClause =
+  const filterClause: Prisma.ProjectWhereInput | undefined =
     filter === "all"
       ? undefined
-      : filter === "needs_attention"
+      : filter === "failed"
         ? {
             OR: [
               {
@@ -136,19 +159,32 @@ export function projectWhere(
               { status: { in: [...FAIL_BUILD] } },
             ],
           }
-        : filter === "active"
+        : filter === "running"
           ? {
               OR: [
                 { buildStatus: { in: [...ACTIVE_BUILD] } },
                 { status: { in: [...ACTIVE_BUILD] } },
               ],
             }
-          : {
-              OR: [
-                { buildStatus: { in: [...READY_BUILD] } },
-                { status: { in: [...READY_BUILD] } },
-              ],
-            };
+          : filter === "published"
+            ? {
+                deployments: {
+                  some: {
+                    kind: "published",
+                    status: { not: "failed" },
+                  },
+                },
+              }
+            : filter === "has_preview"
+              ? {
+                  OR: [
+                    { buildCheckpoints: { some: {} } },
+                    { builds: { some: { status: "succeeded" } } },
+                    { status: "ready" },
+                    { buildStatus: { in: [...READY_BUILD] } },
+                  ],
+                }
+              : undefined;
 
   const trimmedSearch = searchQuery?.trim();
   const searchClause: Prisma.ProjectWhereInput | undefined = trimmedSearch
