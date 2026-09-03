@@ -98,6 +98,7 @@ import {
   getTextFromUIMessage,
 } from "@/lib/projects/chat-memory";
 import {
+  addAttachments,
   hasUploadingAttachments,
   MAX_COMPOSER_IMAGES,
   removeAttachment,
@@ -428,6 +429,122 @@ export function WorkspaceShell({
   const effectiveDirectEditMode = directEditMode && directEditFlagEnabled;
   const composerUploadsEnabled = useFeatureFlag(
     "feature.composer_uploads_enabled",
+  );
+  const [isDraggingComposerFiles, setIsDraggingComposerFiles] = useState(false);
+  const [draggedComposerFileCount, setDraggedComposerFileCount] = useState(0);
+  const composerDragCounterRef = useRef(0);
+
+  const processComposerDroppedFiles = useCallback(
+    (incomingFiles: File[]) => {
+      if (!incomingFiles.length) {
+        return;
+      }
+
+      if (authStatus !== "authenticated" || sessionExpired) {
+        toast.error("Masuk dulu untuk mengunggah gambar.");
+        return;
+      }
+
+      if (!composerUploadsEnabled) {
+        toast.error("Fitur unggah gambar sedang tidak aktif.");
+        return;
+      }
+
+      const result = addAttachments(pendingAttachments, incomingFiles);
+
+      if (result.unaccepted.length > 0) {
+        toast.error(
+          "Hanya format JPG, JPEG, PNG, dan WebP yang diperbolehkan.",
+        );
+      }
+
+      if (result.rejected.length > 0) {
+        toast.error(
+          `Maksimal ${MAX_COMPOSER_IMAGES} gambar per pesan dan kurang dari 5MB per gambar.`,
+        );
+      }
+
+      if (!result.next.length) {
+        return;
+      }
+
+      const added = result.next.filter(
+        (item) => !pendingAttachments.some((prev) => prev.id === item.id),
+      );
+
+      setPendingAttachments(result.next);
+
+      for (const item of added) {
+        void uploadTempImageFile(item.file)
+          .then((uploaded) =>
+            setPendingAttachments((cur) =>
+              cur.map((candidate) =>
+                candidate.id === item.id
+                  ? {
+                      ...candidate,
+                      assetId: uploaded.assetId,
+                      status: "uploaded",
+                    }
+                  : candidate,
+              ),
+            ),
+          )
+          .catch(() => {
+            setPendingAttachments((cur) => removeAttachment(cur, item.id));
+            toast.error("Gagal mengunggah gambar.");
+          });
+      }
+    },
+    [authStatus, composerUploadsEnabled, pendingAttachments, sessionExpired],
+  );
+
+  const handleComposerDragEnter = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    composerDragCounterRef.current += 1;
+    if (event.dataTransfer.types.includes("Files")) {
+      const count = event.dataTransfer.items?.length || 0;
+      setDraggedComposerFileCount(count);
+      setIsDraggingComposerFiles(true);
+    }
+  }, []);
+
+  const handleComposerDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.dataTransfer.types.includes("Files")) {
+      event.dataTransfer.dropEffect = "copy";
+      const count = event.dataTransfer.items?.length || 0;
+      if (count > 0) {
+        setDraggedComposerFileCount(count);
+      }
+      setIsDraggingComposerFiles(true);
+    }
+  }, []);
+
+  const handleComposerDragLeave = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    composerDragCounterRef.current -= 1;
+    if (composerDragCounterRef.current <= 0) {
+      composerDragCounterRef.current = 0;
+      setIsDraggingComposerFiles(false);
+      setDraggedComposerFileCount(0);
+    }
+  }, []);
+
+  const handleComposerDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      composerDragCounterRef.current = 0;
+      setIsDraggingComposerFiles(false);
+      setDraggedComposerFileCount(0);
+
+      const files = Array.from(event.dataTransfer.files ?? []);
+      processComposerDroppedFiles(files);
+    },
+    [processComposerDroppedFiles],
   );
   const [editHistory, setEditHistory] = useState<EditHistory>({
     present: null,
@@ -3925,12 +4042,34 @@ export function WorkspaceShell({
                         exit={{ opacity: 0, y: -6 }}
                         transition={{ duration: 0.18, ease: "easeOut" }}
                         onSubmit={handleMessageSubmit}
+                        onDragEnter={handleComposerDragEnter}
+                        onDragOver={handleComposerDragOver}
+                        onDragLeave={handleComposerDragLeave}
+                        onDrop={handleComposerDrop}
                         className="mt-2.5"
                       >
                         <label htmlFor="workspace-message" className="sr-only">
                           Pesan untuk AI
                         </label>
-                        <div className="rounded-2xl border border-black/10 bg-white p-2.5 shadow-sm transition-colors focus-within:border-black/30 dark:border-white/15 dark:bg-[#282824] dark:shadow-[0_4px_20px_rgba(0,0,0,0.35)] dark:focus-within:border-white/30">
+                        <div
+                          className={`relative rounded-2xl border bg-white p-2.5 shadow-sm transition-all duration-200 dark:bg-[#282824] dark:shadow-[0_4px_20px_rgba(0,0,0,0.35)] ${
+                            isDraggingComposerFiles
+                              ? "border-primary ring-2 ring-primary/20 dark:border-white/60 dark:ring-white/20"
+                              : "border-black/10 focus-within:border-black/30 dark:border-white/15 dark:focus-within:border-white/30"
+                          }`}
+                        >
+                          {isDraggingComposerFiles ? (
+                            <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center rounded-2xl bg-white/90 backdrop-blur-xs dark:bg-[#282824]/90">
+                              <p className="text-xs font-semibold text-foreground dark:text-surface-warm-white">
+                                {draggedComposerFileCount > 1
+                                  ? `Lepaskan ${draggedComposerFileCount} gambar di sini`
+                                  : "Lepaskan 1 gambar di sini"}
+                              </p>
+                              <p className="mt-0.5 text-[11px] text-muted-foreground dark:text-surface-warm-white/60">
+                                JPG, JPEG, PNG, atau WebP (maks. 5 MB)
+                              </p>
+                            </div>
+                          ) : null}
                           {pendingAttachments.length > 0 ? (
                             <ComposerAttachments
                               attachments={pendingAttachments}
@@ -3996,7 +4135,12 @@ export function WorkspaceShell({
                               {composerUploadsEnabled ? (
                                 <ComposerAttachButton
                                   attachments={pendingAttachments}
-                                  onAdd={(next, rejected) => {
+                                  onAdd={(next, rejected, unaccepted) => {
+                                    if (unaccepted?.length) {
+                                      toast.error(
+                                        "Hanya format JPG, JPEG, PNG, dan WebP yang diperbolehkan.",
+                                      );
+                                    }
                                     const added = next.filter(
                                       (item) =>
                                         !pendingAttachments.some(
@@ -4128,12 +4272,34 @@ export function WorkspaceShell({
                   ) : null}
                   <form
                     onSubmit={handleMessageSubmit}
+                    onDragEnter={handleComposerDragEnter}
+                    onDragOver={handleComposerDragOver}
+                    onDragLeave={handleComposerDragLeave}
+                    onDrop={handleComposerDrop}
                     className="p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
                   >
                     <label htmlFor="workspace-message" className="sr-only">
                       Pesan untuk AI
                     </label>
-                    <div className="rounded-2xl border border-black/10 bg-white p-2.5 shadow-sm transition-colors focus-within:border-black/30 dark:border-white/15 dark:bg-[#282824] dark:shadow-[0_4px_20px_rgba(0,0,0,0.35)] dark:focus-within:border-white/30">
+                    <div
+                      className={`relative rounded-2xl border bg-white p-2.5 shadow-sm transition-all duration-200 dark:bg-[#282824] dark:shadow-[0_4px_20px_rgba(0,0,0,0.35)] ${
+                        isDraggingComposerFiles
+                          ? "border-primary ring-2 ring-primary/20 dark:border-white/60 dark:ring-white/20"
+                          : "border-black/10 focus-within:border-black/30 dark:border-white/15 dark:focus-within:border-white/30"
+                      }`}
+                    >
+                      {isDraggingComposerFiles ? (
+                        <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center rounded-2xl bg-white/90 backdrop-blur-xs dark:bg-[#282824]/90">
+                          <p className="text-xs font-semibold text-foreground dark:text-surface-warm-white">
+                            {draggedComposerFileCount > 1
+                              ? `Lepaskan ${draggedComposerFileCount} gambar di sini`
+                              : "Lepaskan 1 gambar di sini"}
+                          </p>
+                          <p className="mt-0.5 text-[11px] text-muted-foreground dark:text-surface-warm-white/60">
+                            JPG, JPEG, PNG, atau WebP (maks. 5 MB)
+                          </p>
+                        </div>
+                      ) : null}
                       {pendingAttachments.length > 0 ? (
                         <ComposerAttachments
                           attachments={pendingAttachments}
@@ -4199,7 +4365,12 @@ export function WorkspaceShell({
                           {composerUploadsEnabled ? (
                             <ComposerAttachButton
                               attachments={pendingAttachments}
-                              onAdd={(next, rejected) => {
+                              onAdd={(next, rejected, unaccepted) => {
+                                if (unaccepted?.length) {
+                                  toast.error(
+                                    "Hanya format JPG, JPEG, PNG, dan WebP yang diperbolehkan.",
+                                  );
+                                }
                                 const added = next.filter(
                                   (item) =>
                                     !pendingAttachments.some(
