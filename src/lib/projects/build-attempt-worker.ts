@@ -1127,7 +1127,7 @@ export async function runBuildAttempt({
       projectId,
       skillDigestVersion: sessionSkillDigestVersion,
       skillsRead: sessionSkillsRead,
-      stopped: sessionStopped || abortSignal.aborted,
+      stopped: sessionStopped || Boolean(abortSignal?.aborted),
       touchedFiles: sessionTouchedFiles,
       operations: sessionOperations,
       userId,
