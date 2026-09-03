@@ -36,11 +36,11 @@ type ProjectsResponse = {
 };
 
 const PROJECT_STATUS_OPTIONS = [
-  { value: "all", label: "All" },
-  { value: "failed", label: "Failed" },
-  { value: "running", label: "Running" },
-  { value: "has_preview", label: "Has Preview" },
-  { value: "published", label: "Published" },
+  { value: "all", label: "Semua" },
+  { value: "failed", label: "Gagal" },
+  { value: "running", label: "Sedang Proses" },
+  { value: "has_preview", label: "Ada Preview" },
+  { value: "published", label: "Sudah Terbit" },
 ] as const;
 
 export const Route = createFileRoute("/_main/admin/projects")({
@@ -48,7 +48,7 @@ export const Route = createFileRoute("/_main/admin/projects")({
 });
 
 function formatDate(value: string) {
-  return new Date(value).toLocaleDateString("en-US", {
+  return new Date(value).toLocaleDateString("id-ID", {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -102,7 +102,7 @@ function ProjectsPage() {
       />
       <AdminSearchInput
         onChange={(e) => setQ(e.target.value)}
-        placeholder="Search project title, email, or owner name…"
+        placeholder="Cari judul proyek, email, atau nama pemilik…"
         value={q}
       />
 
@@ -111,14 +111,14 @@ function ProjectsPage() {
       ) : listState === "error" ? (
         <div className="flex flex-col items-center gap-spacing-3 py-spacing-8 text-center">
           <p className="text-sm text-[#5f5f5d] dark:text-surface-warm-white/70">
-            Failed to load projects.
+            Proyek belum bisa dimuat.
           </p>
           <button
             className="rounded-radius-md border border-black/15 px-spacing-3 py-spacing-2 text-sm text-[#1c1c1c] hover:bg-black/5 dark:border-surface-warm-white/15 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/10"
             onClick={() => void refetch()}
             type="button"
           >
-            Retry
+            Coba lagi
           </button>
         </div>
       ) : listState === "empty" ? (
@@ -126,16 +126,16 @@ function ProjectsPage() {
           <FolderKanban className="size-8 opacity-40" />
           <p className="mt-spacing-3 text-sm">
             {status === "failed"
-              ? "No failed projects."
+              ? "Tidak ada proyek gagal."
               : status === "running"
-                ? "No running projects."
+                ? "Tidak ada proyek sedang proses."
                 : status === "has_preview"
-                  ? "No projects with preview."
+                  ? "Tidak ada proyek dengan preview."
                   : status === "published"
-                    ? "No published projects."
+                    ? "Tidak ada proyek yang sudah terbit."
                     : q
-                      ? "No projects matching search."
-                      : "No projects found."}
+                      ? "Tidak ada proyek yang cocok dengan pencarian."
+                      : "Belum ada proyek."}
           </p>
         </div>
       ) : (
@@ -212,14 +212,14 @@ function ProjectsPage() {
                                 : "neutral"
                         }
                       >
-                        Activity:{" "}
+                        Aktivitas:{" "}
                         {project.latestOperationOutcome === "failed"
-                          ? "Failed"
+                          ? "Gagal"
                           : project.latestOperationOutcome === "running"
-                            ? "Running"
+                            ? "Sedang Proses"
                             : project.latestOperationOutcome === "succeeded"
-                              ? "Succeeded"
-                              : "Idle"}
+                              ? "Selesai"
+                              : "Diskusi"}
                       </AdminStatusBadge>
                       <AdminStatusBadge
                         tone={
@@ -230,19 +230,19 @@ function ProjectsPage() {
                               : "neutral"
                         }
                       >
-                        Access:{" "}
+                        Akses:{" "}
                         {project.accessStatus === "published"
-                          ? "Published"
+                          ? "Sudah Terbit"
                           : project.accessStatus === "has_preview"
-                            ? "Has Preview"
-                            : "None"}
+                            ? "Ada Preview"
+                            : "Belum Ada"}
                       </AdminStatusBadge>
                       {project.accessStatus === "has_preview" && (
                         <a
                           className="rounded-radius-sm border border-emerald-500/20 bg-emerald-500/10 px-spacing-2 py-spacing-1 text-emerald-700 underline-offset-2 hover:bg-emerald-500/15 dark:border-emerald-400/20 dark:text-emerald-300"
                           href={`/projects/${project.id}`}
                         >
-                          Open Preview
+                          Buka Preview
                         </a>
                       )}
                       {project.publishedUrl && (
@@ -252,14 +252,14 @@ function ProjectsPage() {
                           rel="noreferrer"
                           target="_blank"
                         >
-                          View Live
+                          Lihat Live
                         </a>
                       )}
                       <a
                         className="rounded-radius-sm border border-black/15 px-spacing-2 py-spacing-1 text-[#1c1c1c] underline-offset-2 hover:bg-black/5 hover:underline dark:border-surface-warm-white/20 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/8"
                         href={`/projects/${project.id}`}
                       >
-                        View details
+                        Lihat Detail
                       </a>
                     </div>
                   </div>
