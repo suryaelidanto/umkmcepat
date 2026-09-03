@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { prisma as defaultPrisma } from "@/lib/prisma";
+import { invalidateProjectRuntimeStateCache } from "@/routes/api.projects.$id.runtime";
 
 export type ProjectOperationKind = "build" | "edit";
 
@@ -105,6 +106,10 @@ export async function finalizeProjectOperation({
       activeOperationToken: null,
     },
   });
+
+  if (finalized.count > 0) {
+    invalidateProjectRuntimeStateCache(projectId);
+  }
 
   return finalized.count === 1;
 }

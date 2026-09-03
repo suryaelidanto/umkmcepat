@@ -340,6 +340,14 @@ function readRuntimeStateCache(userId: string, projectId: string) {
   return cached;
 }
 
+export function invalidateProjectRuntimeStateCache(projectId: string) {
+  for (const [key, entry] of runtimeStateCache) {
+    if (entry.projectId === projectId) {
+      runtimeStateCache.delete(key);
+    }
+  }
+}
+
 function writeRuntimeStateCache(
   userId: string,
   projectId: string,
