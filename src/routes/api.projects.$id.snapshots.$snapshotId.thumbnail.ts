@@ -2,11 +2,13 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
+import { isProjectBuildForProject } from "@/lib/projects/deployment-resolution";
 import {
   captureProjectThumbnail,
   readProjectThumbnail,
   writeProjectThumbnail,
 } from "@/lib/projects/project-thumbnail";
+import { isProjectArtifactRefFor } from "@/lib/projects/runtime-artifacts";
 import { isAdminEmail } from "@/lib/waitlist/waitlist";
 
 export const Route = createFileRoute(
@@ -42,24 +44,40 @@ export const Route = createFileRoute(
 
         const snapshot = await prisma.projectSnapshot.findFirst({
           where: { id: snapshotId, projectId: id },
-          select: { id: true, parentSnapshotId: true },
+          select: { id: true },
         });
+        if (!snapshot) {
+          return Response.json(
+            { message: "Thumbnail tidak tersedia untuk versi ini." },
+            { status: 404 },
+          );
+        }
 
-        const build = await prisma.projectBuild.findFirst({
-          where: {
-            projectId: id,
-            status: "succeeded",
-            artifactRef: { not: null },
-            OR: [
-              { snapshotId },
-              ...(snapshot?.parentSnapshotId
-                ? [{ snapshotId: snapshot.parentSnapshotId }]
-                : []),
-            ],
+        const buildWhere = {
+          artifactRef: { not: null },
+          project: { id },
+          projectId: id,
+          snapshot: { projectId: id },
+          status: "succeeded",
+        } as const;
+        let build = await prisma.projectBuild.findFirst({
+          where: { ...buildWhere, snapshotId },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          select: {
+            artifactRef: true,
+            id: true,
+            projectId: true,
+            snapshot: { select: { id: true, projectId: true } },
+            snapshotId: true,
           },
-          orderBy: { createdAt: "desc" },
-          select: { id: true, artifactRef: true },
         });
+        if (
+          build &&
+          (!isProjectBuildForProject(build, id) ||
+            !isProjectArtifactRefFor(build.artifactRef, "dist", build.id))
+        ) {
+          build = null;
+        }
 
         if (!build?.artifactRef) {
           return Response.json(

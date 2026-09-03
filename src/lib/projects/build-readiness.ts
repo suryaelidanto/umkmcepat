@@ -1,3 +1,5 @@
+import { isFactLedgerFieldApproved } from "./fact-ledger";
+
 import type { BriefQuestion } from "./brief";
 import type { ProjectBriefV2 } from "./canonical-brief";
 
@@ -42,14 +44,23 @@ const QUESTIONS: Record<BuildReadinessField, string> = {
 export function evaluateBuildReadiness(brief: ProjectBriefV2): BuildReadiness {
   const blockers: BuildReadinessBlocker[] = [];
 
-  if (!brief.business.name.trim()) {
+  if (
+    !brief.business.name.trim() ||
+    !isFactLedgerFieldApproved(brief.factLedger, "businessName")
+  ) {
     blockers.push({
       field: "business.name",
-      reason: "business name missing",
+      reason: "business name missing or not owner-confirmed",
     });
   }
-  if (brief.offers.length === 0) {
-    blockers.push({ field: "offers", reason: "no offer supplied" });
+  if (
+    brief.offers.length === 0 ||
+    !isFactLedgerFieldApproved(brief.factLedger, "offers")
+  ) {
+    blockers.push({
+      field: "offers",
+      reason: "no owner-confirmed offer supplied",
+    });
   } else if (
     brief.offers.length > 1 &&
     !brief.offers.some((offer) => offer.isPrimary)
@@ -59,19 +70,32 @@ export function evaluateBuildReadiness(brief: ProjectBriefV2): BuildReadiness {
       reason: "primary offer not selected",
     });
   }
-  if (!brief.audience?.trim()) {
-    blockers.push({ field: "audience", reason: "target audience missing" });
+  if (
+    !brief.audience?.trim() ||
+    !isFactLedgerFieldApproved(brief.factLedger, "audience")
+  ) {
+    blockers.push({
+      field: "audience",
+      reason: "target audience missing or not owner-confirmed",
+    });
   }
-  if (!isPrimaryActionResolved(brief)) {
+  if (
+    !isPrimaryActionResolved(brief) ||
+    (brief.primaryAction?.kind !== "browse" &&
+      !isFactLedgerFieldApproved(brief.factLedger, "contact"))
+  ) {
     blockers.push({
       field: "primaryAction",
       reason: "primary action missing or has no destination",
     });
   }
-  if (!brief.visualDirection?.trim()) {
+  if (
+    !brief.visualDirection?.trim() ||
+    !isFactLedgerFieldApproved(brief.factLedger, "visualDirection")
+  ) {
     blockers.push({
       field: "visualDirection",
-      reason: "visual direction missing",
+      reason: "visual direction missing or not owner-confirmed",
     });
   }
 

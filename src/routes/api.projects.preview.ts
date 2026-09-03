@@ -8,33 +8,36 @@ import {
 } from "ai";
 
 import { getAiModel } from "@/lib/ai/ai";
-import { getDiscussModel, getModerationModel } from "@/lib/ai/ai-models";
-import { moderateProjectRequest } from "@/lib/ai/ai-moderation";
+import { getDiscussModel } from "@/lib/ai/ai-models";
 import { auth } from "@/lib/auth/auth";
 import { isBoundedJsonError, readBoundedJson } from "@/lib/bounded-json";
-import {
-  chargeEnergyForAiUsage,
-  checkEnergy,
-  getEnergyConfig,
-} from "@/lib/payment/user-credits";
+import { checkEnergy, getEnergyConfig } from "@/lib/payment/user-credits";
 import { prisma } from "@/lib/prisma";
 import { enqueueAttemptJob } from "@/lib/projects/attempt-queue";
 import {
+  groundProjectBriefToOwnerFacts,
   mergeProjectBriefPatch,
   parseProjectBrief,
 } from "@/lib/projects/brief";
 import { parseWorkspaceCard } from "@/lib/projects/brief-flow";
+import { hasSuccessfulBuildEvidence } from "@/lib/projects/build-checkpoint";
 import { prepareBuildHandoff } from "@/lib/projects/build-planner";
 import { describeBuildRecommendation } from "@/lib/projects/build-recommendation-summary";
+import {
+  collectPendingUpdateInstructions,
+  resolveBuildUpdateContext,
+} from "@/lib/projects/build-update-context";
 import { parseCanonicalBrief } from "@/lib/projects/canonical-brief";
 import {
   buildProjectChatContext,
-  dedupeUiMessages,
+  dedupeUiMessagesForPersistence,
   getTextFromUIMessage,
   parseProjectChatMessages,
   parseProjectChatSummary,
   parseProjectMemoryFacts,
+  resolveProjectChatState,
 } from "@/lib/projects/chat-memory";
+import { isPreflightBlockedByWorkspaceCard } from "@/lib/projects/discuss-preflight";
 import { buildCardSystemPrompt } from "@/lib/projects/discuss-tool";
 import {
   claimDiscussTurn,
@@ -49,16 +52,18 @@ import {
 import { runDiscussProgressTail } from "@/lib/projects/discuss-turn-sse-tail";
 import { DISCUSS_SYSTEM_PROMPT } from "@/lib/projects/prompts/discuss-system";
 import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
+import { UNSLOP_SYSTEM_INSTRUCTION } from "@/lib/projects/unslop-policy";
 import { buildBriefPatchFromWorkspaceAnswers } from "@/lib/projects/workspace-answers";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { mapToUserFacingError } from "@/lib/user-facing-error";
 
-// Re-export so external importers (e.g. the preview test) keep resolving after
+// Keep the shared prompt available to the route test and other callers.
 export { buildOneCallSystemPrompt } from "@/lib/projects/discuss-tool";
 
 type PreviewRequest = {
   message?: UIMessage;
   messages?: UIMessage[];
+  intent?: "prepare_build" | "prepare_update";
   mode?: "discuss" | "build" | "repair_card";
   projectId?: string;
   workspaceAnswers?: unknown;
@@ -130,20 +135,31 @@ async function handlePreviewPost(request: Request) {
     return Response.json({ message: "Proyek tidak valid." }, { status: 400 });
   }
 
-  if (body.mode !== "repair_card") {
-    const energy = await checkEnergy(userId, getEnergyConfig().minDiscuss);
-    if (!energy.allowed) {
-      return sseError({
-        message: "Energi kamu sudah habis. Tambah energi untuk lanjut.",
-        code: "energy_exhausted",
-        remaining: energy.remaining,
-      });
-    }
+  const energy = await checkEnergy(userId, getEnergyConfig().minDiscuss);
+  if (!energy.allowed) {
+    return sseError({
+      message: "Energi kamu sudah habis. Tambah energi untuk lanjut.",
+      code: "energy_exhausted",
+      remaining: energy.remaining,
+    });
   }
 
   const project = await prisma.project.findFirst({
     where: { id: body.projectId, userId },
     select: {
+      buildStatus: true,
+      buildCheckpoints: {
+        orderBy: { createdAt: "desc" },
+        where: { build: { status: "succeeded" } },
+        take: 1,
+        select: { chatMessageId: true, chatMessageIndex: true, id: true },
+      },
+      builds: {
+        orderBy: { createdAt: "desc" },
+        where: { status: "succeeded" },
+        take: 1,
+        select: { id: true },
+      },
       id: true,
       prompt: true,
       status: true,
@@ -158,6 +174,19 @@ async function handlePreviewPost(request: Request) {
       { status: 404 },
     );
   }
+
+  const hasBuiltSite = hasSuccessfulBuildEvidence({
+    checkpointCount: project.buildCheckpoints?.length ?? 0,
+    projectBuildStatus: project.buildStatus,
+    projectStatus: project.status,
+    successfulBuildCount: project.builds?.length ?? 0,
+  });
+  const preflight =
+    body.intent === "prepare_build"
+      ? ("build" as const)
+      : body.intent === "prepare_update"
+        ? ("update" as const)
+        : undefined;
 
   if (project.status === "building") {
     const prunedCount = await markStaleProjectBuilds(project.id);
@@ -191,18 +220,24 @@ async function handlePreviewPost(request: Request) {
   >`
     SELECT "chatMessages", "chatSummary", "memoryFacts", "lastCompactedMessageCount", "brief", "workspaceCard" FROM "Project" WHERE id = ${project.id} AND "userId" = ${userId}
   `;
-  const storedMessages = parseProjectChatMessages(chatRow?.chatMessages);
-  const parsedChatSummary = parseProjectChatSummary(chatRow?.chatSummary);
+  const canonicalBrief = parseCanonicalBrief(chatRow?.brief, project.prompt);
+  const chatState = resolveProjectChatState({
+    chatMessages: chatRow?.chatMessages,
+    chatSummary: chatRow?.chatSummary,
+    memoryFacts: chatRow?.memoryFacts,
+    fallback: canonicalBrief.discussionContext,
+  });
+  const storedMessages = chatState.messages;
   const chatSummary = {
-    ...parsedChatSummary,
+    ...chatState.summary,
     compactedMessageCount: Math.max(
-      parsedChatSummary.compactedMessageCount,
+      chatState.summary.compactedMessageCount,
       typeof chatRow?.lastCompactedMessageCount === "number"
         ? chatRow.lastCompactedMessageCount
         : 0,
     ),
   };
-  const memoryFacts = parseProjectMemoryFacts(chatRow?.memoryFacts);
+  const memoryFacts = chatState.memoryFacts;
   const incoming = body.message ? [body.message] : (body.messages ?? []);
 
   if (incoming.length > 1) {
@@ -273,20 +308,20 @@ async function handlePreviewPost(request: Request) {
     latestUserText = summary;
   }
 
-  const moderationPromise = latestUserText.trim()
-    ? moderateProjectRequest(latestUserText, [], undefined, {
-        projectId: project.id,
-      })
-    : null;
-
-  const currentBrief = parseProjectBrief(
-    parseCanonicalBrief(chatRow?.brief, project.prompt),
-    project.prompt,
-  );
+  const currentBrief = parseProjectBrief(canonicalBrief, project.prompt);
   const storedWorkspaceCard = parseWorkspaceCard(
     chatRow?.workspaceCard,
     currentBrief,
   );
+  if (preflight && isPreflightBlockedByWorkspaceCard(storedWorkspaceCard)) {
+    return Response.json(
+      {
+        code: "workspace_answer_required",
+        message: "Jawab pertanyaan yang sedang aktif sebelum melanjutkan.",
+      },
+      { status: 409 },
+    );
+  }
   let workspaceAnswerPatch = buildBriefPatchFromWorkspaceAnswers({
     card: storedWorkspaceCard,
     fallbackText: latestUserText,
@@ -317,86 +352,61 @@ async function handlePreviewPost(request: Request) {
     currentBrief,
     workspaceAnswerPatch,
   );
+  const updateContext = resolveBuildUpdateContext({
+    checkpoint: project.buildCheckpoints?.[0] ?? null,
+    compactedMessageCount: chatSummary.compactedMessageCount,
+    fallbackMessages: canonicalBrief.discussionContext?.messages,
+    messages: storedMessages,
+  });
+  const pendingUpdateInstructions = collectPendingUpdateInstructions(
+    updateContext.pendingMessages,
+    "",
+  );
+  const hasPendingUpdate = pendingUpdateInstructions.length > 0;
 
   if (body.mode === "repair_card") {
     return repairWorkspaceCard({
       brief: effectiveBrief,
+      memoryFacts,
       messages: storedMessages,
       project,
+      summary: chatSummary,
       userId,
     });
   }
 
-  if (!incoming.length) {
+  if (!incoming.length && !preflight) {
     return Response.json(
       { message: "Pesan tidak boleh kosong." },
       { status: 400 },
     );
   }
 
-  // Dedupe concurrent discuss turns for the same project. A second in-flight
-  await persistProjectBrief({
-    brief: effectiveBrief,
-    projectId: project.id,
-    userId,
-  });
-
   const messages = await validateUIMessages({
-    messages: dedupeUiMessages(
-      parseProjectChatMessages([...storedMessages, ...incoming]),
+    messages: dedupeUiMessagesForPersistence(
+      parseProjectChatMessages(
+        preflight ? storedMessages : [...storedMessages, ...incoming],
+      ),
     ),
   });
   const chatContext = buildProjectChatContext({
-    fieldState: {},
+    factLedger: canonicalBrief.factLedger,
+    fieldState: currentBrief.fieldState,
     memoryFacts,
     messages,
     summary: chatSummary,
   });
 
-  if (moderationPromise) {
-    let moderation;
-    try {
-      moderation = await moderationPromise;
-    } catch (error) {
-      console.error(
-        "[moderation] failed:",
-        error instanceof Error ? error.message : error,
-      );
-      return Response.json(
-        {
-          code: "moderation_unavailable",
-          message: "Pemeriksaan keamanan belum berhasil. Coba lagi sebentar.",
-        },
-        { status: 503, headers: { "Retry-After": "3" } },
-      );
-    }
-
-    if (moderation.usage) {
-      await chargeEnergyForAiUsage({
-        userId,
-        modelId: moderation.modelId || getModerationModel(),
-        inputTokens: moderation.usage.inputTokens,
-        outputTokens: moderation.usage.outputTokens,
-        reason: "moderation",
-      });
-    }
-
-    if (!moderation.allowed) {
-      return Response.json(
-        {
-          code: "project_request_blocked",
-          message: moderation.message || "Permintaan belum bisa diproses.",
-        },
-        { status: 400 },
-      );
-    }
-  }
-
+  // Moderation runs in the worker after persist; the POST stays sub-second.
   return handleDiscussTurnOneCall({
     chatContext,
     effectiveBrief,
+    hasBuiltSite,
+    hasPendingUpdate,
+    pendingUpdateInstructions,
     memoryFacts,
     messages,
+    preflight,
     project,
     summary: chatSummary,
     userId,
@@ -406,16 +416,24 @@ async function handlePreviewPost(request: Request) {
 async function handleDiscussTurnOneCall({
   chatContext: _chatContext,
   effectiveBrief: _effectiveBrief,
+  hasBuiltSite,
+  hasPendingUpdate,
+  pendingUpdateInstructions,
   memoryFacts: _memoryFacts,
   messages,
+  preflight,
   project,
   summary: _summary,
   userId,
 }: {
   chatContext: ReturnType<typeof buildProjectChatContext>;
   effectiveBrief: ReturnType<typeof parseProjectBrief>;
+  hasBuiltSite: boolean;
+  hasPendingUpdate: boolean;
+  pendingUpdateInstructions: string;
   memoryFacts: ReturnType<typeof parseProjectMemoryFacts>;
   messages: UIMessage[];
+  preflight?: "build" | "update";
   project: {
     id: string;
     prompt: string;
@@ -428,13 +446,13 @@ async function handleDiscussTurnOneCall({
 }) {
   // Server-side discuss: persist user message, claim turn, enqueue BullMQ job,
 
-  const userMessage = messages[messages.length - 1];
-  if (!userMessage) {
+  const userMessage = preflight ? undefined : messages[messages.length - 1];
+  if (!preflight && !userMessage) {
     return sseError({ message: "Pesan tidak boleh kosong." });
   }
 
   // Role guard: reject a discuss turn whose last message claims assistant role.
-  if (userMessage.role !== "user") {
+  if (!preflight && userMessage && userMessage.role !== "user") {
     return Response.json(
       {
         code: "chat_turn_not_user",
@@ -444,19 +462,39 @@ async function handleDiscussTurnOneCall({
     );
   }
 
-  // 1. Persist the user message immediately â€” the reply is never lost even
-  await persistProjectChatTurn({
-    messages,
-    projectId: project.id,
-    userId,
-    workspaceCard: null,
-  });
+  if (!preflight) {
+    const groundedEffectiveBrief = groundProjectBriefToOwnerFacts(
+      _effectiveBrief,
+      {
+        ownerTexts: messages
+          .filter((message) => message.role === "user")
+          .map(getTextFromUIMessage),
+      },
+    );
+    await persistProjectChatTurn({
+      brief: scrubBriefForStorage(
+        groundedEffectiveBrief,
+        groundedEffectiveBrief.readyForBuild,
+        project.id,
+      ),
+      discussionContext: {
+        memoryFacts: _memoryFacts,
+        summary: _summary,
+      },
+      messages,
+      projectId: project.id,
+      title: project.title,
+      userId,
+      workspaceCard: null,
+    });
+  }
 
   // 2. Claim the DB turn lease. A second concurrent POST gets a 409.
   const { claimed, turnId } = await claimDiscussTurn({
     projectId: project.id,
     userId,
-    userMessageId: userMessage.id,
+    userMessageId:
+      userMessage?.id ?? `preflight-${preflight}-${crypto.randomUUID()}`,
   });
   if (!claimed || !turnId) {
     return Response.json(
@@ -482,6 +520,10 @@ async function handleDiscussTurnOneCall({
       projectStatus: project.status,
       projectTitle: project.title,
       generationEngine: project.generationEngine,
+      hasBuiltSite,
+      hasPendingUpdate,
+      pendingUpdateInstructions,
+      preflight,
     });
   } catch (error) {
     // English log for developers; Indonesian only in DB + client message.
@@ -574,13 +616,17 @@ async function handleDiscussTurnOneCall({
 
 async function repairWorkspaceCard({
   brief,
+  memoryFacts,
   messages,
   project,
+  summary,
   userId,
 }: {
   brief: ReturnType<typeof parseProjectBrief>;
+  memoryFacts: ReturnType<typeof parseProjectMemoryFacts>;
   messages: UIMessage[];
   project: { id: string; prompt: string; status: string; title: string };
+  summary: ReturnType<typeof parseProjectChatSummary>;
   userId: string;
 }) {
   if (!messages.length) {
@@ -625,7 +671,11 @@ async function repairWorkspaceCard({
     model: getAiModel(modelName),
     modelMessages,
     modelName,
+    ownerTexts: messages
+      .filter((message) => message.role === "user")
+      .map(getTextFromUIMessage),
     projectId: project.id,
+    sourceTurnId: "repair",
     userId,
   });
 
@@ -649,17 +699,19 @@ async function repairWorkspaceCard({
       userId,
       engine: "contract",
       brief: turn.brief,
-      messages,
+      discussionContext: { messages, memoryFacts, summary },
     });
     if (prepared.state === "ready") {
       const base = finalWorkspaceCard as {
         type: "build_recommendation";
         title: string;
         summary: string[];
+        postBuildUpdate?: boolean;
       };
       finalWorkspaceCard = {
         type: "build_recommendation",
         engine: "contract" as const,
+        ...(base.postBuildUpdate ? { postBuildUpdate: true } : {}),
         title: base.title,
         summary: describeBuildRecommendation(prepared.contract, prepared.plan),
         handoffId: prepared.handoffId,
@@ -677,19 +729,12 @@ async function repairWorkspaceCard({
   const title = turn.projectTitle || project.title;
   await persistProjectChatTurn({
     brief: scrubBriefForStorage(turn.brief, turn.readyForBuild, project.id),
+    discussionContext: { memoryFacts, summary },
     messages,
     projectId: project.id,
     title,
     userId,
     workspaceCard: finalWorkspaceCard,
-  });
-  await chargeEnergyForAiUsage({
-    userId,
-    projectId: project.id,
-    modelId: modelName,
-    inputTokens: turn.usage?.inputTokens ?? 0,
-    outputTokens: turn.usage?.outputTokens ?? 0,
-    reason: "discuss:repair",
   });
 
   return Response.json({
@@ -710,21 +755,6 @@ function findLastMessageIndex(
   return -1;
 }
 
-function persistProjectBrief({
-  brief,
-  projectId,
-  userId,
-}: {
-  brief: unknown;
-  projectId: string;
-  userId: string;
-}) {
-  const canonicalBrief = parseCanonicalBrief(brief);
-  return prisma.$executeRaw`
-    UPDATE "Project" SET "brief" = ${JSON.stringify(canonicalBrief)}::jsonb WHERE id = ${projectId} AND "userId" = ${userId}
-  `;
-}
-
 export function buildChatSystemPrompt({
   brief,
   context,
@@ -742,6 +772,8 @@ The user's message is an edit/revision request about the built site (copy, layou
 Write user-visible chat copy in natural, ultra-concise Indonesian.
 Do NOT output JSON, XML, markdown fences, or any structured format. Just write your Indonesian chat response as plain text.
 
+${UNSLOP_SYSTEM_INSTRUCTION}
+
 Tone contract:
 - Treat the user like a friend building something together.
 - Use "aku" for yourself and "kamu" for the user.
@@ -749,7 +781,7 @@ Tone contract:
 - Keep it warm, relaxed, helpful, and specific.
 
 Chat style:
-- EXACTLY ONE short Indonesian sentence (max 20 words) acknowledging the edit request, e.g. "oke, gw ubah variantnya sekarang ya."
+- EXACTLY ONE short Indonesian sentence (max 20 words) acknowledging the edit request.
 - Do not restate the brief or ask an unrelated question.
 
 Current brief:
@@ -764,6 +796,8 @@ Your job is to ask one clear question per turn until every decision that shapes 
 
 Write user-visible chat copy in natural, ultra-concise Indonesian.
 Do NOT output JSON, XML, markdown fences, or any structured format. Just write your Indonesian chat response as plain text.
+
+${UNSLOP_SYSTEM_INSTRUCTION}
 
 Tone contract:
 - Treat the user like a friend building something together.

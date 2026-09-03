@@ -12,15 +12,25 @@ import { checkEnergy, getEnergyConfig } from "@/lib/payment/user-credits";
 import { prisma } from "@/lib/prisma";
 import { enqueueAttemptJob } from "@/lib/projects/attempt-queue";
 import { createReadStreamFromChannel } from "@/lib/projects/build-attempt-pubsub";
-import { parseProjectChatMessages } from "@/lib/projects/chat-memory";
-import { selectActivePreviewDeployment } from "@/lib/projects/deployment-resolution";
+import { parseCanonicalBrief } from "@/lib/projects/canonical-brief";
+import { hashCanonicalBriefContent } from "@/lib/projects/canonical-brief-hash";
+import { resolveProjectChatState } from "@/lib/projects/chat-memory";
+import {
+  isProjectDeploymentForProject,
+  selectActivePreviewDeployment,
+} from "@/lib/projects/deployment-resolution";
+import { classifyEditIntent } from "@/lib/projects/edit-intent";
+import { createEditPlan, type EditPlan } from "@/lib/projects/edit-plan";
 import { classifyEditStructure } from "@/lib/projects/edit-structure";
 import { parseGeneratedProjectFiles } from "@/lib/projects/generated-source";
 import {
   claimProjectOperation,
   finalizeProjectOperation,
 } from "@/lib/projects/project-operation";
-import { readProjectSourceArtifact } from "@/lib/projects/runtime-artifacts";
+import {
+  isProjectArtifactRefFor,
+  readProjectSourceArtifact,
+} from "@/lib/projects/runtime-artifacts";
 import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
 import { sanitizeVisualAnnotations } from "@/lib/projects/visual-annotations";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -117,10 +127,13 @@ export async function handleVisualEditPost(request: Request, routeId: string) {
   const project = await prisma.project.findFirst({
     where: { id, userId: session.user.id },
     select: {
+      brief: true,
       buildStatus: true,
       chatMessages: true,
+      chatSummary: true,
       generationEngine: true,
       id: true,
+      memoryFacts: true,
       prompt: true,
       siteSchema: true,
       status: true,
@@ -154,6 +167,18 @@ export async function handleVisualEditPost(request: Request, routeId: string) {
         message: "Instruksi edit belum valid.",
       },
       { status: 400 },
+    );
+  }
+
+  const scopeIntent = classifyEditIntent({ instruction });
+  if (scopeIntent.clarificationRequired) {
+    return Response.json(
+      {
+        code: "edit_scope_clarification_required",
+        message:
+          "Sebutkan bagian, isi, foto, atau arah visual yang ingin kamu ubah.",
+      },
+      { status: 409 },
     );
   }
 
@@ -195,6 +220,8 @@ export async function handleVisualEditPost(request: Request, routeId: string) {
           artifactRef: true,
           createdAt: true,
           id: true,
+          projectId: true,
+          snapshot: { select: { id: true, projectId: true } },
           snapshotId: true,
           status: true,
           updatedAt: true,
@@ -204,10 +231,12 @@ export async function handleVisualEditPost(request: Request, routeId: string) {
       createdAt: true,
       id: true,
       kind: true,
+      projectId: true,
       snapshot: {
         select: {
           files: true,
           id: true,
+          projectId: true,
           sourceRef: true,
         },
       },
@@ -216,7 +245,11 @@ export async function handleVisualEditPost(request: Request, routeId: string) {
       updatedAt: true,
     },
   });
-  const activeDeployment = selectActivePreviewDeployment(deployments);
+  const activeDeployment = selectActivePreviewDeployment(
+    deployments.filter((candidate) =>
+      isProjectDeploymentForProject(candidate, project.id),
+    ),
+  );
   const activeSnapshot = activeDeployment?.snapshot;
 
   if (!activeSnapshot) {
@@ -226,8 +259,13 @@ export async function handleVisualEditPost(request: Request, routeId: string) {
     );
   }
 
-  const artifactFiles = activeSnapshot.sourceRef
-    ? await readProjectSourceArtifact(activeSnapshot.sourceRef).catch(() => [])
+  const activeSourceRef = activeSnapshot.sourceRef;
+  const artifactFiles = isProjectArtifactRefFor(
+    activeSourceRef,
+    "source",
+    activeSnapshot.id,
+  )
+    ? await readProjectSourceArtifact(activeSourceRef).catch(() => [])
     : [];
   const baseFiles = artifactFiles.length
     ? artifactFiles
@@ -240,8 +278,42 @@ export async function handleVisualEditPost(request: Request, routeId: string) {
     );
   }
 
+  const latestSuccessfulCheckpoint =
+    await prisma.projectBuildCheckpoint.findFirst({
+      where: { projectId: project.id },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      select: { id: true, snapshotId: true },
+    });
+  const editIntent = classifyEditIntent({
+    existingFiles: baseFiles.map((file) => file.path),
+    instruction,
+  });
+  const editPlan = createEditPlan({
+    annotations,
+    existingFiles: baseFiles.map((file) => file.path),
+    instruction,
+    intent: editIntent,
+    latestSuccessfulCheckpoint,
+    verifiedFactFingerprint: hashCanonicalBriefContent(
+      parseCanonicalBrief(project.brief, project.prompt),
+    ),
+  });
+  if (!editPlan.ok) {
+    return Response.json(
+      {
+        code: `edit_plan_${editPlan.code}`,
+        message:
+          editPlan.code === "checkpoint_required"
+            ? "Preview ini belum memiliki boundary build yang bisa digunakan untuk edit."
+            : "Perubahan ini perlu diperjelas sebelum website diedit.",
+      },
+      { status: 409 },
+    );
+  }
+
   const attempt = await createProjectEditAttempt({
     annotations: annotations.length ? annotations : undefined,
+    editPlan: editPlan.plan,
     instruction,
     kind,
     parentSnapshotId: activeSnapshot.id,
@@ -257,14 +329,14 @@ export async function handleVisualEditPost(request: Request, routeId: string) {
   } | null;
 
   try {
-    if (summary) {
-      await persistVisualSummaryMessage({
-        attemptId: attempt.id,
-        messages: project.chatMessages,
-        projectId: project.id,
-        summary,
-      });
-    }
+    await persistVisualSummaryMessage({
+      attemptId: attempt.id,
+      fallback: parseCanonicalBrief(project.brief, project.prompt)
+        .discussionContext,
+      messages: project.chatMessages,
+      projectId: project.id,
+      summary: summary || instruction,
+    });
 
     await markStaleProjectBuilds(project.id);
 
@@ -415,39 +487,51 @@ export async function handleVisualEditPost(request: Request, routeId: string) {
 
 async function persistVisualSummaryMessage({
   attemptId,
+  fallback,
   messages,
   projectId,
   summary,
 }: {
   attemptId: string;
+  fallback?: {
+    messages?: unknown;
+    summary?: unknown;
+    memoryFacts?: unknown;
+  };
   messages: unknown;
   projectId: string;
   summary: string;
 }) {
-  const current = parseProjectChatMessages(messages);
-  const exists = current.some((message) => message.id === attemptId);
+  await prisma.$transaction(async (transaction) => {
+    const [row] = await transaction.$queryRaw<Array<{ chatMessages: unknown }>>`
+      SELECT "chatMessages" FROM "Project" WHERE id = ${projectId} FOR UPDATE
+    `;
+    const current = resolveProjectChatState({
+      chatMessages: row?.chatMessages ?? messages,
+      chatSummary: null,
+      memoryFacts: null,
+      fallback,
+    }).messages;
+    if (current.some((message) => message.id === attemptId)) {
+      return;
+    }
 
-  if (exists) {
-    return;
-  }
-
-  await prisma.project.update({
-    where: { id: projectId },
-    data: {
-      chatMessages: [
+    await transaction.$executeRaw`
+      UPDATE "Project" SET "chatMessages" = ${JSON.stringify([
         ...current,
         {
           id: attemptId,
           parts: [{ text: summary, type: "text" }],
           role: "user",
         },
-      ] as Prisma.InputJsonValue,
-    },
+      ])}::jsonb WHERE id = ${projectId}
+    `;
   });
 }
 
 type EditAttemptCreateInput = {
   annotations?: unknown;
+  editPlan?: EditPlan;
   instruction: string;
   kind: string;
   parentSnapshotId: string;
@@ -476,6 +560,9 @@ async function createProjectEditAttempt(input: EditAttemptCreateInput) {
     data: {
       annotations: input.annotations
         ? (input.annotations as Prisma.InputJsonValue)
+        : undefined,
+      editPlan: input.editPlan
+        ? (input.editPlan as Prisma.InputJsonValue)
         : undefined,
       id,
       instruction: input.instruction,

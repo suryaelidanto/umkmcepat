@@ -27,6 +27,11 @@ export const FACT_KINDS = [
   "testimonial",
   "social_link",
   "promotion",
+  "usp",
+  "audience",
+  "tagline",
+  "since",
+  "secondary_action",
   "other",
 ] as const;
 
@@ -59,6 +64,11 @@ export type ContractFactV1 =
   | FactRecord<"testimonial", TestimonialValue[]>
   | FactRecord<"social_link", SocialLinkValue[]>
   | FactRecord<"promotion", PromotionValue[]>
+  | FactRecord<"usp", string[]>
+  | FactRecord<"audience", string>
+  | FactRecord<"tagline", string>
+  | FactRecord<"since", string>
+  | FactRecord<"secondary_action", { label: string; action: string }>
   | FactRecord<"other", string>;
 
 export type ContractDecision = {
@@ -139,6 +149,23 @@ function parseFactValue(kind: FactKind, value: unknown): boolean {
     case "price":
     case "promotion":
       return Array.isArray(value);
+    case "usp":
+      return (
+        Array.isArray(value) &&
+        value.every((item) => typeof item === "string" && item.trim())
+      );
+    case "audience":
+    case "tagline":
+    case "since":
+      return typeof value === "string" && value.trim().length > 0;
+    case "secondary_action":
+      return (
+        isRecord(value) &&
+        typeof value.label === "string" &&
+        value.label.trim().length > 0 &&
+        typeof value.action === "string" &&
+        value.action.trim().length > 0
+      );
     case "contact":
       return parseContact(value) !== null;
     case "address":

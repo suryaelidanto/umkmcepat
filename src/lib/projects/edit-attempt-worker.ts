@@ -3,8 +3,29 @@ import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
 import { runAgenticGenerate } from "@/lib/projects/agentic-generator";
 import { enqueueAndWaitEditBuild } from "@/lib/projects/attempt-queue";
+import { parseProjectBrief } from "@/lib/projects/brief";
 import { publishBuildProgress } from "@/lib/projects/build-attempt-pubsub";
-import { selectActivePreviewDeployment } from "@/lib/projects/deployment-resolution";
+import {
+  isSuccessfulBuildStatus,
+  persistSuccessfulBuildCheckpoint,
+} from "@/lib/projects/build-checkpoint";
+import {
+  appendBuildSessionLog,
+  type BuildSessionLogOperation,
+} from "@/lib/projects/build-session-log";
+import {
+  collectPendingUpdateInstructions,
+  resolveBuildUpdateContext,
+} from "@/lib/projects/build-update-context";
+import {
+  createDiscussionContextSnapshot,
+  parseCanonicalBrief,
+} from "@/lib/projects/canonical-brief";
+import { resolveProjectChatState } from "@/lib/projects/chat-memory";
+import {
+  isProjectDeploymentForProject,
+  selectActivePreviewDeployment,
+} from "@/lib/projects/deployment-resolution";
 import { type DiffLine } from "@/lib/projects/diff";
 import { validateGeneratedEdit } from "@/lib/projects/edit-validation";
 import { createStepCharger } from "@/lib/projects/energy-step-charger";
@@ -21,6 +42,7 @@ import {
 } from "@/lib/projects/project-operation";
 import { refreshProjectThumbnail } from "@/lib/projects/project-thumbnail";
 import {
+  isProjectArtifactRefFor,
   readProjectSourceArtifact,
   resolveArtifactFilesDir,
   writeProjectSourceArtifact,
@@ -99,6 +121,7 @@ export async function runEditAttempt({
     select: {
       id: true,
       instruction: true,
+      editPlan: true,
       parentSnapshotId: true,
       status: true,
     },
@@ -118,6 +141,10 @@ export async function runEditAttempt({
       status: true,
       buildStatus: true,
       siteSchema: true,
+      brief: true,
+      chatMessages: true,
+      chatSummary: true,
+      memoryFacts: true,
       prompt: true,
       title: true,
       userId: true,
@@ -131,8 +158,36 @@ export async function runEditAttempt({
     return;
   }
 
+  const appendEditSessionLog = (input: {
+    failed: boolean;
+    skillDigestVersion?: string;
+    skillsRead?: string[];
+    stopped?: boolean;
+    touchedFiles?: string[];
+    operations?: Awaited<
+      ReturnType<typeof runAgenticGenerate>
+    >["operationTrace"];
+  }) =>
+    appendBuildSessionLog({
+      attemptId,
+      failed: input.failed,
+      kind: "edit",
+      projectId: project.id,
+      skillDigestVersion: input.skillDigestVersion,
+      skillsRead: input.skillsRead ?? [],
+      stopped: input.stopped,
+      touchedFiles: input.touchedFiles ?? [],
+      operations: input.operations,
+      userId,
+    }).catch(() => undefined);
+
   const instruction = attempt.instruction;
   const operation = { token: operationToken };
+  const latestCheckpoint = await prisma.projectBuildCheckpoint.findFirst({
+    where: { projectId: project.id },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    select: { chatMessageId: true, chatMessageIndex: true },
+  });
 
   const deployments = await prisma.projectDeployment.findMany({
     where: { kind: "preview", projectId: project.id },
@@ -144,6 +199,8 @@ export async function runEditAttempt({
           artifactRef: true,
           createdAt: true,
           id: true,
+          projectId: true,
+          snapshot: { select: { id: true, projectId: true } },
           snapshotId: true,
           status: true,
           updatedAt: true,
@@ -153,15 +210,20 @@ export async function runEditAttempt({
       createdAt: true,
       id: true,
       kind: true,
+      projectId: true,
       snapshot: {
-        select: { files: true, id: true, sourceRef: true },
+        select: { files: true, id: true, projectId: true, sourceRef: true },
       },
       snapshotId: true,
       status: true,
       updatedAt: true,
     },
   });
-  const activeDeployment = selectActivePreviewDeployment(deployments);
+  const activeDeployment = selectActivePreviewDeployment(
+    deployments.filter((candidate) =>
+      isProjectDeploymentForProject(candidate, project.id),
+    ),
+  );
   const activeSnapshot = activeDeployment?.snapshot;
   if (!activeSnapshot) {
     await updateProjectEditAttempt(attempt.id, {
@@ -169,6 +231,7 @@ export async function runEditAttempt({
       finishedAt: new Date(),
       status: "failed",
     });
+    await appendEditSessionLog({ failed: true });
     await restoreProjectReadyState(project.id, userId, operation.token);
     publishBuildProgress(attemptId, {
       type: "error",
@@ -177,8 +240,13 @@ export async function runEditAttempt({
     return;
   }
 
-  const artifactFiles = activeSnapshot.sourceRef
-    ? await readProjectSourceArtifact(activeSnapshot.sourceRef).catch(() => [])
+  const activeSourceRef = activeSnapshot.sourceRef;
+  const artifactFiles = isProjectArtifactRefFor(
+    activeSourceRef,
+    "source",
+    activeSnapshot.id,
+  )
+    ? await readProjectSourceArtifact(activeSourceRef).catch(() => [])
     : [];
   const baseFiles = artifactFiles.length
     ? artifactFiles
@@ -190,6 +258,7 @@ export async function runEditAttempt({
       finishedAt: new Date(),
       status: "failed",
     });
+    await appendEditSessionLog({ failed: true });
     await restoreProjectReadyState(project.id, userId, operation.token);
     publishBuildProgress(attemptId, {
       type: "error",
@@ -201,6 +270,45 @@ export async function runEditAttempt({
   let activeBuildId: string | null = null;
   let lastProgressLabel: string | null = null;
   let sendProgress: (label: string, detail?: string) => void = () => {};
+  let sessionFailed = true;
+  let sessionSkillDigestVersion: string | undefined;
+  let sessionSkillsRead: string[] = [];
+  let sessionTouchedFiles: string[] = [];
+  let sessionOperations: BuildSessionLogOperation[] = [];
+
+  function captureSessionOperation(data: Record<string, unknown>): void {
+    const state = data.state;
+    if (
+      typeof data.detail !== "string" ||
+      typeof data.id !== "string" ||
+      typeof data.title !== "string" ||
+      typeof data.type !== "string" ||
+      (state !== "succeeded" && state !== "failed" && state !== "active")
+    ) {
+      return;
+    }
+    const touchedPath =
+      data.type === "set_design_system"
+        ? "src/index.css"
+        : data.type === "set_design_direction"
+          ? "DESIGN.md"
+          : data.type === "write_file" || data.type === "copy_component"
+            ? data.path
+            : undefined;
+    if (typeof touchedPath === "string" && touchedPath.trim()) {
+      sessionTouchedFiles = [
+        ...new Set([...sessionTouchedFiles, touchedPath.trim()]),
+      ];
+    }
+    sessionOperations.push({
+      detail: data.detail,
+      id: `edit-${data.id}`,
+      ...(typeof data.path === "string" ? { path: data.path } : {}),
+      state,
+      title: data.title,
+      type: data.type,
+    });
+  }
 
   // Durable per-tool-call progress so refresh can rehydrate the edit
   function persistEditProgress(operation: {
@@ -291,24 +399,63 @@ export async function runEditAttempt({
       onFilesChanged([...merged.values()]);
     };
 
+    const storedBrief = parseCanonicalBrief(project.brief, project.prompt);
+    const chatState = resolveProjectChatState({
+      chatMessages: project.chatMessages,
+      chatSummary: project.chatSummary,
+      memoryFacts: project.memoryFacts,
+      fallback: storedBrief.discussionContext,
+    });
+    const storedMessages = chatState.messages;
+    const updateContext = resolveBuildUpdateContext({
+      checkpoint: latestCheckpoint,
+      compactedMessageCount: chatState.summary.compactedMessageCount,
+      fallbackMessages: storedBrief.discussionContext?.messages,
+      messages: storedMessages,
+    });
+    const updateInstruction = collectPendingUpdateInstructions(
+      updateContext.pendingMessages,
+      instruction,
+    );
     const agenticResult = await runAgenticGenerate({
       abortSignal,
       attemptId: attempt.id,
+      editPlan: attempt.editPlan,
       brief: {
-        prompt: instruction,
-        businessName: project.title,
+        ...parseProjectBrief(storedBrief, project.prompt),
+        prompt: updateInstruction,
+        businessName: storedBrief.business.name || project.title,
+        factLedger: storedBrief.factLedger,
+        discussionContext: createDiscussionContextSnapshot({
+          messages: updateContext.contextMessages,
+          summary: chatState.summary,
+          memoryFacts: chatState.memoryFacts,
+        }),
       },
       initialFiles: baseFiles,
       onEvent(type: string, data: unknown) {
+        if (type === "operation" && typeof data === "object" && data !== null) {
+          captureSessionOperation(data as Record<string, unknown>);
+        }
         send(type, data as Record<string, unknown>);
       },
       onFileStaged: persistBatchedStage,
       projectId: project.id,
-      revisionBrief: `User edit instruction: ${instruction}`,
+      revisionBrief: `User edit instruction: ${updateInstruction}`,
       schema: parseProjectSiteSchema(project.siteSchema),
       stepCharger: editStepCharger,
       userId: project.userId,
     });
+
+    sessionSkillDigestVersion = agenticResult.skillDigest?.version;
+    sessionSkillsRead = agenticResult.skillsRead;
+    sessionTouchedFiles = agenticResult.touchedFiles;
+    if (sessionOperations.length === 0) {
+      sessionOperations = agenticResult.operationTrace.map((operation) => ({
+        ...operation,
+        id: `edit-${operation.id}`,
+      }));
+    }
 
     const editResult = {
       check: null,
@@ -431,6 +578,8 @@ export async function runEditAttempt({
             mode: "batched-edit",
             operationTrace: editResult.operations,
             editValidation,
+            skillDigestVersion: sessionSkillDigestVersion,
+            skillsRead: sessionSkillsRead,
             touchedFiles,
           },
           sideEffects: editResult.sideEffects,
@@ -491,15 +640,23 @@ export async function runEditAttempt({
     });
     const { readProjectDistArtifact } =
       await import("@/lib/projects/runtime-artifacts");
-    const distFiles =
-      queuedBuild.artifactRef && queuedBuild.buildStatus === "succeeded"
-        ? await readProjectDistArtifact(queuedBuild.artifactRef)
-        : [];
+    const queuedArtifactRef =
+      queuedBuild.buildStatus === "succeeded" &&
+      isProjectArtifactRefFor(queuedBuild.artifactRef, "dist", build.id)
+        ? queuedBuild.artifactRef
+        : null;
+    const artifactLineageValid =
+      queuedBuild.buildStatus !== "succeeded" || queuedArtifactRef !== null;
+    const distFiles = queuedArtifactRef
+      ? await readProjectDistArtifact(queuedArtifactRef)
+      : [];
     const buildResult = {
-      artifactRef: queuedBuild.artifactRef,
+      artifactRef: queuedArtifactRef,
       distFiles,
-      logText: queuedBuild.logText,
-      status: queuedBuild.buildStatus,
+      logText: artifactLineageValid
+        ? queuedBuild.logText
+        : "Build artifact does not match its build.",
+      status: artifactLineageValid ? queuedBuild.buildStatus : "failed",
     };
     devLog("edit", "build.finished", {
       projectId: project.id,
@@ -507,6 +664,7 @@ export async function runEditAttempt({
     });
     const buildStatus: ProjectBuildStatus = buildResult.status;
     const artifactRef = buildResult.artifactRef;
+    sessionFailed = buildStatus !== "succeeded";
 
     const deploymentStatus: ProjectDeploymentStatus =
       buildResult.status === "succeeded" ? "created" : "failed";
@@ -519,6 +677,7 @@ export async function runEditAttempt({
                   buildLog: buildResult.logText,
                   buildStatus: "passed",
                   builtAt: new Date(),
+                  workspaceCard: { type: "none" },
                   distFiles: buildResult.distFiles,
                   sourceFiles: editResult.files,
                   status: "ready",
@@ -547,6 +706,15 @@ export async function runEditAttempt({
             status: buildStatus,
           },
         });
+        if (isSuccessfulBuildStatus(buildStatus)) {
+          await persistSuccessfulBuildCheckpoint({
+            buildId: build.id,
+            kind: "edit",
+            projectId: project.id,
+            snapshotId: snapshot.id,
+            store: transaction,
+          });
+        }
         const committedDeployment = await transaction.projectDeployment.create({
           data: {
             buildId: build.id,
@@ -630,6 +798,7 @@ export async function runEditAttempt({
       snapshotId: snapshot.id,
     });
   } catch (error) {
+    sessionFailed = true;
     devLog("edit", "unexpected-failure", {
       error: error instanceof Error ? error.name : "unknown",
       projectId: project.id,
@@ -664,6 +833,15 @@ export async function runEditAttempt({
       attemptId: attempt.id,
       code: "edit_failed_retryable",
       message: failUserMessage,
+    });
+  } finally {
+    await appendEditSessionLog({
+      failed: sessionFailed,
+      skillDigestVersion: sessionSkillDigestVersion,
+      skillsRead: sessionSkillsRead,
+      stopped: abortSignal.aborted,
+      touchedFiles: sessionTouchedFiles,
+      operations: sessionOperations,
     });
   }
 }

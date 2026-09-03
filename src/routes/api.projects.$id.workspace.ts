@@ -3,9 +3,16 @@ import { createFileRoute } from "@tanstack/react-router";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { isPrismaDatabaseUnavailable } from "@/lib/prisma-errors";
-import { parseProjectBrief } from "@/lib/projects/brief";
+import {
+  groundProjectBriefToOwnerFacts,
+  parseProjectBrief,
+} from "@/lib/projects/brief";
 import { parseWorkspaceCard } from "@/lib/projects/brief-flow";
 import { parseCanonicalBrief } from "@/lib/projects/canonical-brief";
+import {
+  getTextFromUIMessage,
+  parseProjectChatMessages,
+} from "@/lib/projects/chat-memory";
 import { isAdminEmail } from "@/lib/waitlist/waitlist";
 
 export const Route = createFileRoute("/api/projects/$id/workspace")({
@@ -40,13 +47,14 @@ export const Route = createFileRoute("/api/projects/$id/workspace")({
         }
 
         let workspaceRow:
-          { brief: unknown; workspaceCard: unknown } | undefined;
+          | { brief: unknown; workspaceCard: unknown; chatMessages: unknown }
+          | undefined;
 
         try {
           [workspaceRow] = await prisma.$queryRaw<
-            [{ brief: unknown; workspaceCard: unknown }]
+            [{ brief: unknown; workspaceCard: unknown; chatMessages: unknown }]
           >`
-            SELECT "brief", "workspaceCard" FROM "Project" WHERE id = ${project.id}
+            SELECT "brief", "workspaceCard", "chatMessages" FROM "Project" WHERE id = ${project.id}
           `;
         } catch (error) {
           if (isPrismaDatabaseUnavailable(error)) {
@@ -62,9 +70,16 @@ export const Route = createFileRoute("/api/projects/$id/workspace")({
 
           throw error;
         }
-        const brief = parseProjectBrief(
-          parseCanonicalBrief(workspaceRow?.brief, project.prompt),
-          project.prompt,
+        const brief = groundProjectBriefToOwnerFacts(
+          parseProjectBrief(
+            parseCanonicalBrief(workspaceRow?.brief, project.prompt),
+            project.prompt,
+          ),
+          {
+            ownerTexts: parseProjectChatMessages(workspaceRow?.chatMessages)
+              .filter((message) => message.role === "user")
+              .map(getTextFromUIMessage),
+          },
         );
 
         return Response.json({

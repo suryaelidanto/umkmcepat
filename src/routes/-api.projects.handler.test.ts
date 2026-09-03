@@ -8,6 +8,8 @@ const {
   moderateProjectRequestMock,
   prismaProjectCreateMock,
   prismaProjectFindManyMock,
+  readTempImageMock,
+  claimTempImageMock,
   transactionMock,
 } = vi.hoisted(() => ({
   authMock: vi.fn<() => Promise<unknown>>(async () => ({
@@ -19,6 +21,8 @@ const {
   queryRawMock: vi.fn<() => Promise<Array<{ id: string }>>>(async () => []),
   moderateProjectRequestMock: vi.fn(async () => ({ allowed: true })),
   prismaProjectCreateMock: vi.fn(async () => ({ id: "project_1" })),
+  readTempImageMock: vi.fn(),
+  claimTempImageMock: vi.fn(),
   prismaProjectFindManyMock: vi.fn<
     () => Promise<
       Array<{
@@ -49,6 +53,7 @@ vi.mock("@/lib/ai/ai-models", () => ({
   getGenerationModel: () => "test/model",
 }));
 vi.mock("@/lib/ai/ai-moderation", () => ({
+  chargeModerationEnergy: vi.fn(async () => undefined),
   moderateProjectRequest: moderateProjectRequestMock,
 }));
 vi.mock("@/lib/projects/input", async () => {
@@ -69,6 +74,10 @@ vi.mock("@/lib/projects/project-asset-upload", () => ({
   uploadProjectAsset: vi.fn(async () => ({
     id: `asset_mock`,
   })),
+}));
+vi.mock("@/lib/storage/uploads/temp-image-storage", () => ({
+  claimTempImage: claimTempImageMock,
+  readTempImage: readTempImageMock,
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -141,6 +150,8 @@ describe("projects route", () => {
       allowed: true,
     });
     prismaProjectCreateMock.mockResolvedValue({ id: "project_1" });
+    readTempImageMock.mockReset();
+    claimTempImageMock.mockReset();
     prismaProjectFindManyMock.mockResolvedValue([]);
     transactionMock.mockImplementation(async (callback) =>
       callback({
@@ -334,13 +345,19 @@ describe("projects route", () => {
     );
   });
 
-  it("returns a retryable failure when moderation provider fails", async () => {
+  it("returns a retryable failure before claiming a temporary image when moderation is unavailable", async () => {
+    const tempBytes = Buffer.from("temporary-image");
+    readTempImageMock.mockResolvedValueOnce({
+      body: tempBytes,
+      contentType: "image/png",
+    });
     moderateProjectRequestMock.mockRejectedValueOnce(
       new Error("provider down"),
     );
 
     const formData = new FormData();
     formData.append("prompt", "Saya jual kopi susu");
+    formData.append("assetIds", "signed-temp-image");
 
     const response = await POST(
       new Request("http://localhost/api/projects", {
@@ -353,7 +370,16 @@ describe("projects route", () => {
     await expect(response.json()).resolves.toMatchObject({
       code: "moderation_unavailable",
     });
+    expect(readTempImageMock).toHaveBeenCalledWith(
+      "user_1",
+      "signed-temp-image",
+    );
+    expect(moderateProjectRequestMock).toHaveBeenCalledWith(
+      "Saya jual kopi susu",
+      [{ bytes: tempBytes, mediaType: "image/png" }],
+    );
     expect(prismaProjectCreateMock).not.toHaveBeenCalled();
+    expect(claimTempImageMock).not.toHaveBeenCalled();
   });
 
   it("returns existing project for an idempotency key", async () => {

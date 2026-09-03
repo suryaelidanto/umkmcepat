@@ -1,4 +1,4 @@
-import { recordAiCall } from "@/lib/ai/ai-call-record";
+import { classifyAiError, recordAiCall } from "@/lib/ai/ai-call-record";
 import { chargeEnergyForStep } from "@/lib/payment/user-credits";
 
 export type StepChargeEvent = {
@@ -17,6 +17,7 @@ export type StepCharger = {
   readonly userId: string;
   readonly modelId: string;
   readonly onCharge?: (event: StepChargeEvent) => void;
+  onStepError: (error: unknown) => void;
   onStepFinish: (step: StepLike) => Promise<void>;
   isExhausted: () => boolean;
   totals: () => {
@@ -29,7 +30,6 @@ export type StepCharger = {
 const REASON_TO_RECORD_TASK: Record<string, string> = {
   "build:step": "build-step",
   "edit:step": "edit",
-  "build:subagent": "build-step",
 };
 
 export function createStepCharger(opts: {
@@ -59,6 +59,33 @@ export function createStepCharger(opts: {
     onCharge: opts.onCharge,
     isExhausted: () => exhausted,
     totals: () => ({ inputTokens, outputTokens, energyUsed }),
+    onStepError(error) {
+      const requestMs = Math.round(performance.now() - stepStartedAt);
+      stepStartedAt = performance.now();
+      const message = error instanceof Error ? error.message : String(error);
+      const status = /timed out|timeout/i.test(message)
+        ? "timeout"
+        : /abort/i.test(message)
+          ? "aborted"
+          : "error";
+      recordAiCall({
+        attemptId: opts.recordMeta?.attemptId,
+        buildId: opts.recordMeta?.buildId,
+        errorClass: classifyAiError(error),
+        modelRequested: opts.modelId,
+        phase: opts.recordMeta?.phase,
+        projectId: opts.projectId ?? undefined,
+        requestMs,
+        status,
+        stepIndex,
+        task:
+          opts.recordMeta?.task ??
+          REASON_TO_RECORD_TASK[opts.reason] ??
+          "unknown",
+        turnId: opts.recordMeta?.turnId,
+      });
+      stepIndex += 1;
+    },
     async onStepFinish(step) {
       // The ai-sdk has no per-step start hook, so step latency is measured
       const requestMs = Math.round(performance.now() - stepStartedAt);
@@ -73,7 +100,10 @@ export function createStepCharger(opts: {
         outputTokens: step?.usage?.outputTokens ?? undefined,
         requestMs,
         stepIndex,
-        task: REASON_TO_RECORD_TASK[opts.reason] ?? "unknown",
+        task:
+          opts.recordMeta?.task ??
+          REASON_TO_RECORD_TASK[opts.reason] ??
+          "unknown",
         ...(stepIndex === 0 ? { ttftMs: requestMs } : {}),
         ...opts.recordMeta,
       });

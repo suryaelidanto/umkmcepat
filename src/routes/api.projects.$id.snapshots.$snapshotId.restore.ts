@@ -3,6 +3,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { auth } from "@/lib/auth/auth";
 import { devLog } from "@/lib/dev-log";
 import { prisma } from "@/lib/prisma";
+import { isProjectBuildForProject } from "@/lib/projects/deployment-resolution";
+import { isProjectArtifactRefFor } from "@/lib/projects/runtime-artifacts";
 
 export const Route = createFileRoute(
   "/api/projects/$id/snapshots/$snapshotId/restore",
@@ -37,7 +39,6 @@ export const Route = createFileRoute(
             files: true,
             sourceRef: true,
             metadata: true,
-            parentSnapshotId: true,
           },
         });
         if (!snapshot) {
@@ -50,7 +51,7 @@ export const Route = createFileRoute(
         // Only restorable snapshots (files or sourceRef present) can checkout.
         const restorable =
           (Array.isArray(snapshot.files) && snapshot.files.length > 0) ||
-          Boolean(snapshot.sourceRef);
+          isProjectArtifactRefFor(snapshot.sourceRef, "source", snapshot.id);
         if (!restorable) {
           return Response.json(
             {
@@ -61,32 +62,30 @@ export const Route = createFileRoute(
           );
         }
 
+        const buildWhere = {
+          artifactRef: { not: null },
+          project: { id: project.id },
+          projectId: project.id,
+          snapshot: { projectId: project.id },
+          status: "succeeded",
+        } as const;
         let build = await prisma.projectBuild.findFirst({
-          where: {
-            projectId: project.id,
-            artifactRef: { not: null },
-            status: "succeeded",
-            OR: [
-              { snapshotId },
-              ...(snapshot.parentSnapshotId
-                ? [{ snapshotId: snapshot.parentSnapshotId }]
-                : []),
-            ],
+          where: { ...buildWhere, snapshotId },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          select: {
+            artifactRef: true,
+            id: true,
+            projectId: true,
+            snapshot: { select: { id: true, projectId: true } },
+            snapshotId: true,
           },
-          orderBy: { createdAt: "desc" },
-          select: { id: true },
         });
-
-        if (!build) {
-          build = await prisma.projectBuild.findFirst({
-            where: {
-              projectId: project.id,
-              artifactRef: { not: null },
-              status: "succeeded",
-            },
-            orderBy: { createdAt: "desc" },
-            select: { id: true },
-          });
+        if (
+          build &&
+          (!isProjectBuildForProject(build, project.id) ||
+            !isProjectArtifactRefFor(build.artifactRef, "dist", build.id))
+        ) {
+          build = null;
         }
 
         if (!build) {
@@ -108,6 +107,23 @@ export const Route = createFileRoute(
               : {};
           const handoffId =
             typeof meta.handoffId === "string" ? meta.handoffId : undefined;
+          if (handoffId) {
+            const handoff = await prisma.projectBuildHandoff.findFirst({
+              where: {
+                id: handoffId,
+                projectId: project.id,
+                status: { in: ["accepted", "superseded"] },
+                userId: session.user.id,
+              },
+              select: { id: true },
+            });
+            if (!handoff) {
+              return Response.json(
+                { message: "Riwayat ini tidak valid." },
+                { status: 409 },
+              );
+            }
+          }
 
           await prisma.$transaction(async (tx) => {
             await tx.projectDeployment.create({
@@ -116,7 +132,7 @@ export const Route = createFileRoute(
                 kind: "preview",
                 projectId: project.id,
                 publicPath: `/api/projects/${project.id}/preview`,
-                snapshotId,
+                snapshotId: build.snapshotId,
                 status: "created",
               },
               select: { id: true },

@@ -25,7 +25,8 @@ export async function acceptHandoffAndCreateAttempt(
   if (
     !handoff ||
     handoff.projectId !== input.projectId ||
-    handoff.userId !== input.userId
+    handoff.userId !== input.userId ||
+    (handoff.status !== "draft" && handoff.status !== "accepted")
   ) {
     throw new Error("handoff not found");
   }

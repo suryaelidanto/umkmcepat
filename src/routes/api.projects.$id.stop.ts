@@ -2,6 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
+import {
+  isProjectDeploymentForProject,
+  selectActivePreviewDeployment,
+} from "@/lib/projects/deployment-resolution";
 import { getRuntimeSupervisor } from "@/lib/projects/runtime-supervisor";
 import { verifyProjectOwnership } from "@/middleware/ownership";
 
@@ -32,15 +36,43 @@ export const Route = createFileRoute("/api/projects/$id/stop")({
           where: { id },
           data: { status: "stopping" },
         });
-        const deployment = await prisma.projectDeployment.findFirst({
+        const deployments = await prisma.projectDeployment.findMany({
           where: {
             kind: "preview",
             projectId: id,
             status: { in: ["running", "starting"] },
           },
           orderBy: { createdAt: "desc" },
-          select: { id: true },
+          take: 20,
+          select: {
+            build: {
+              select: {
+                artifactRef: true,
+                createdAt: true,
+                id: true,
+                projectId: true,
+                snapshot: { select: { id: true, projectId: true } },
+                snapshotId: true,
+                status: true,
+                updatedAt: true,
+              },
+            },
+            buildId: true,
+            createdAt: true,
+            id: true,
+            kind: true,
+            projectId: true,
+            snapshot: { select: { id: true, projectId: true } },
+            snapshotId: true,
+            status: true,
+            updatedAt: true,
+          },
         });
+        const deployment = selectActivePreviewDeployment(
+          deployments.filter((candidate) =>
+            isProjectDeploymentForProject(candidate, id),
+          ),
+        );
 
         if (deployment) {
           await getRuntimeSupervisor().stopDeployment(deployment.id);

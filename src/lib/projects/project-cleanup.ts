@@ -14,7 +14,6 @@ export type ProjectCleanupInput = {
   deploymentIds: string[];
   thumbnailRef?: string | null;
   assetRefs?: string[];
-  gateEvidenceRefs?: string[];
   supervisor?: Pick<RuntimeSupervisor, "stopDeployment">;
   runtimeRootDir?: string;
   buildWorkspaceRootDir?: string;
@@ -55,20 +54,6 @@ export async function cleanupProjectResources(
         await deleteProjectArtifact(ref);
       } catch (error) {
         note("delete-artifact", error);
-      }
-    }),
-  );
-
-  // Gate-screenshot evidence is private S3 JSON, deleted best-effort like
-  await Promise.all(
-    (input.gateEvidenceRefs ?? []).map(async (ref) => {
-      if (!ref) {
-        return;
-      }
-      try {
-        await deleteProjectArtifact(ref);
-      } catch (error) {
-        note("delete-gate-evidence", error);
       }
     }),
   );

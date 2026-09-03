@@ -43,11 +43,12 @@ export function getAiModel(model = getDefaultAiModel()) {
   })(model);
 }
 
+// ponytail: "none" routes 9router combos to quota-limited gateways; use "minimal" instead.
 export function getNoReasoningCallOptions() {
   return {
-    reasoning: "none" as const,
+    reasoning: "minimal" as const,
     providerOptions: {
-      "9router": { reasoningEffort: "none" },
+      "9router": { reasoningEffort: "minimal" },
     },
   };
 }

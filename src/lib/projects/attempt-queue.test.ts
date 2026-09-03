@@ -58,6 +58,7 @@ describe("queueNameForJob", () => {
       projectId: "p1",
       projectPrompt: "x",
       projectStatus: "building",
+      generationEngine: "contract-v1",
       userId: "u1",
     };
     const compaction: AttemptJob = {

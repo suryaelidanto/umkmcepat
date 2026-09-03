@@ -29,6 +29,13 @@ export function getNonce(): string | undefined {
   return globalThis.__nonceStore?.getStore();
 }
 
+export function resolveNonce(routerNonce?: string): string | undefined {
+  if (typeof window !== "undefined") {
+    return getNonce() ?? routerNonce;
+  }
+  return routerNonce;
+}
+
 export function generateNonce() {
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);

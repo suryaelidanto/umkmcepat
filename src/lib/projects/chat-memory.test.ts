@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 
+import { resolveBuildUpdateContext } from "./build-update-context";
 import {
   buildProjectChatContext,
   dedupeUiMessages,
+  dedupeUiMessagesForPersistence,
   getProjectChatContext,
   getProjectChatPage,
-  MAX_CONTEXT_MESSAGES,
   parseProjectChatMessages,
   parseProjectChatSummary,
   parseProjectMemoryFacts,
@@ -15,10 +16,82 @@ import {
   recordFieldEmpty,
   summarizeFieldState,
   buildFieldStateBlock,
+  buildCompactDiscussionContext,
+  resolveProjectChatState,
   type FieldStateMap,
 } from "./chat-memory";
 
 describe("project chat memory", () => {
+  it("keeps messages after a checkpoint as the pending update context", () => {
+    const result = resolveBuildUpdateContext({
+      checkpoint: { chatMessageId: "chat-31", chatMessageIndex: 30 },
+      fallbackMessages: [],
+      messages: [
+        {
+          id: "chat-31",
+          role: "assistant",
+          parts: [{ type: "text", text: "Website siap." }],
+        },
+        {
+          id: "chat-32",
+          role: "user",
+          parts: [{ type: "text", text: "Ubah tombol utama." }],
+        },
+        {
+          id: "chat-33",
+          role: "assistant",
+          parts: [{ type: "text", text: "Baik." }],
+        },
+        {
+          id: "chat-34",
+          role: "user",
+          parts: [{ type: "text", text: "Pakai label Hubungi Kami." }],
+        },
+      ],
+    });
+
+    expect(result.baselineMessages.map((message) => message.id)).toEqual([
+      "chat-31",
+    ]);
+    expect(result.pendingMessages.map((message) => message.id)).toEqual([
+      "chat-32",
+      "chat-33",
+      "chat-34",
+    ]);
+  });
+
+  it("does not classify messages before a checkpoint as pending updates", () => {
+    const result = resolveBuildUpdateContext({
+      checkpoint: { chatMessageId: "chat-31", chatMessageIndex: 31 },
+      fallbackMessages: [],
+      messages: [
+        {
+          id: "chat-30",
+          role: "user",
+          parts: [{ type: "text", text: "Nama usaha: Kedai Pagi." }],
+        },
+        {
+          id: "chat-31",
+          role: "assistant",
+          parts: [{ type: "text", text: "Website siap." }],
+        },
+        {
+          id: "chat-32",
+          role: "user",
+          parts: [{ type: "text", text: "Ubah warna tombol." }],
+        },
+      ],
+    });
+
+    expect(result.baselineMessages.map((message) => message.id)).toEqual([
+      "chat-30",
+      "chat-31",
+    ]);
+    expect(result.pendingMessages.map((message) => message.id)).toEqual([
+      "chat-32",
+    ]);
+  });
+
   it("deduplicates messages and normalizes consecutive same-role messages (defense against strict Gemini validation)", () => {
     const messages = [
       {
@@ -67,6 +140,27 @@ describe("project chat memory", () => {
     expect(result[2].parts).toEqual([
       { type: "text", text: "Ganti warna" },
       { type: "text", text: "Warna biru ya" },
+    ]);
+  });
+
+  it("preserves a new user-turn boundary after a prior turn has no assistant reply", () => {
+    const result = dedupeUiMessagesForPersistence([
+      {
+        id: "failed-user-turn",
+        role: "user" as const,
+        parts: [{ type: "text" as const, text: "Lewati." }],
+      },
+      {
+        id: "retry-user-turn",
+        role: "user" as const,
+        parts: [{ type: "text" as const, text: "Lewati." }],
+      },
+    ]);
+
+    expect(result).toHaveLength(2);
+    expect(result.map((message) => message.id)).toEqual([
+      "failed-user-turn",
+      "retry-user-turn",
     ]);
   });
 
@@ -134,41 +228,137 @@ describe("project chat memory", () => {
   });
 
   it("keeps a larger bounded stored history", () => {
-    const messages = Array.from({ length: 205 }, (_, index) => ({
+    const messages = Array.from({ length: 2005 }, (_, index) => ({
       id: `m${index}`,
       role: "user" as const,
       parts: [{ type: "text" as const, text: `${index}` }],
     }));
-
     const result = parseProjectChatMessages(messages);
 
-    expect(result).toHaveLength(200);
+    expect(result).toHaveLength(2000);
     expect(result[0]?.id).toBe("m5");
   });
 
-  it("uses a bounded recent context window", () => {
-    const messages = Array.from(
-      { length: MAX_CONTEXT_MESSAGES + 2 },
-      (_, index) => ({
-        id: `m${index}`,
-        role: "user" as const,
-        parts: [{ type: "text" as const, text: `${index}` }],
-      }),
-    );
+  it("keeps every message that fits the token budget", () => {
+    const messages = Array.from({ length: 50 }, (_, index) => ({
+      id: `m${index}`,
+      role: "user" as const,
+      parts: [{ type: "text" as const, text: `pesan ${index}` }],
+    }));
 
-    expect(getProjectChatContext(messages)).toHaveLength(MAX_CONTEXT_MESSAGES);
-    expect(getProjectChatContext(messages)[0].id).toBe("m2");
+    const context = getProjectChatContext(messages);
+
+    expect(context).toHaveLength(50);
+    expect(context[0]?.id).toBe("m0");
   });
 
-  it("builds a hidden summary context with recent messages only", () => {
-    const messages = Array.from(
-      { length: MAX_CONTEXT_MESSAGES + 2 },
-      (_, index) => ({
-        id: `m${index}`,
+  it("drops only the oldest messages once the token budget is exceeded", () => {
+    const bigMessage = "x".repeat(24_000);
+    const messages = Array.from({ length: 60 }, (_, index) => ({
+      id: `m${index}`,
+      role: "user" as const,
+      parts: [{ type: "text" as const, text: bigMessage }],
+    }));
+
+    const context = getProjectChatContext(messages);
+
+    expect(context.length).toBeGreaterThan(0);
+    expect(context.length).toBeLessThan(60);
+    expect(context.at(-1)?.id).toBe("m59");
+    expect(context[0]?.id).not.toBe("m0");
+  });
+
+  it("does not start active model context with an assistant message", () => {
+    const messages = [
+      {
+        id: "u0",
         role: "user" as const,
-        parts: [{ type: "text" as const, text: `${index}` }],
-      }),
+        parts: [{ type: "text" as const, text: "Jawaban pemilik" }],
+      },
+      {
+        id: "a0",
+        role: "assistant" as const,
+        parts: [{ type: "text" as const, text: "Pertanyaan AI" }],
+      },
+      ...Array.from({ length: 20 }, (_, index) => ({
+        id: `m${index + 1}`,
+        role: index % 2 === 0 ? ("user" as const) : ("assistant" as const),
+        parts: [{ type: "text" as const, text: `pesan ${index + 1}` }],
+      })),
+    ];
+
+    const context = getProjectChatContext(messages);
+
+    expect(context[0]?.role).toBe("user");
+    expect(context.length).toBeLessThanOrEqual(messages.length);
+  });
+
+  it("keeps older owner statements in hidden context when the budget is exceeded", () => {
+    const bigAssistantText = "x".repeat(24_000);
+    const messages = [
+      {
+        id: "old-owner",
+        role: "user" as const,
+        parts: [{ type: "text" as const, text: "Nama usaha: Kedai Pagi" }],
+      },
+      ...Array.from({ length: 60 }, (_, index) => ({
+        id: `recent-${index}`,
+        role: "user" as const,
+        parts: [{ type: "text" as const, text: bigAssistantText }],
+      })),
+    ];
+
+    const context = buildProjectChatContext({
+      messages,
+      memoryFacts: parseProjectMemoryFacts(null),
+      summary: parseProjectChatSummary(null),
+    });
+
+    expect(context.messages[0]?.id).not.toBe("old-owner");
+    expect(context.systemContext).toContain("Nama usaha: Kedai Pagi");
+  });
+
+  it("serializes bounded discussion context with older owner statements", () => {
+    const bigAssistantText = "x".repeat(24_000);
+    const messages = [
+      {
+        id: "old-owner",
+        role: "user" as const,
+        parts: [
+          { type: "text" as const, text: "Pemilik memilih pesan WhatsApp" },
+        ],
+      },
+      ...Array.from({ length: 60 }, (_, index) => ({
+        id: `recent-${index}`,
+        role: "assistant" as const,
+        parts: [{ type: "text" as const, text: bigAssistantText }],
+      })),
+    ];
+
+    const context = buildCompactDiscussionContext({
+      messages,
+      memoryFacts: parseProjectMemoryFacts({ ownerNotes: ["Owner note"] }),
+      summary: parseProjectChatSummary(null),
+    });
+    const parsed = JSON.parse(context) as {
+      ownerMessages: string[];
+      recentMessages: Array<{ id: string }>;
+    };
+
+    expect(parsed.ownerMessages).toEqual(
+      expect.arrayContaining(["Pemilik memilih pesan WhatsApp", "Owner note"]),
     );
+    expect(parsed.recentMessages.map((message) => message.id)).toContain(
+      "recent-59",
+    );
+  });
+
+  it("builds a hidden summary context with the full recent session", () => {
+    const messages = Array.from({ length: 12 }, (_, index) => ({
+      id: `m${index}`,
+      role: "user" as const,
+      parts: [{ type: "text" as const, text: `${index}` }],
+    }));
 
     const context = buildProjectChatContext({
       messages,
@@ -183,8 +373,8 @@ describe("project chat memory", () => {
       }),
     });
 
-    expect(context.messages).toHaveLength(MAX_CONTEXT_MESSAGES);
-    expect(context.messages[0]?.id).toBe("m2");
+    expect(context.messages).toHaveLength(12);
+    expect(context.messages[0]?.id).toBe("m0");
     expect(context.systemContext).toContain("User memilih gaya premium");
     expect(context.systemContext).toContain("CTA utama WhatsApp");
     expect(context.systemContext).toContain("Usaha sate");
@@ -196,6 +386,36 @@ describe("project chat memory", () => {
       "A",
       "B",
     ]);
+  });
+
+  it("falls back to the canonical discussion snapshot when chat columns are empty", () => {
+    const state = resolveProjectChatState({
+      chatMessages: null,
+      chatSummary: null,
+      memoryFacts: null,
+      fallback: {
+        messages: [
+          {
+            id: "fallback-1",
+            role: "user",
+            parts: [{ type: "text", text: "Kedai Pagi" }],
+          },
+        ],
+        summary: {
+          text: "Pemilik menjual sarapan.",
+          compactedMessageCount: 1,
+        },
+        memoryFacts: {
+          facts: ["Usaha sarapan"],
+          decisions: [],
+          preferences: [],
+        },
+      },
+    });
+
+    expect(state.messages.map((message) => message.id)).toEqual(["fallback-1"]);
+    expect(state.summary.text).toBe("Pemilik menjual sarapan.");
+    expect(state.memoryFacts.facts).toEqual(["Usaha sarapan"]);
   });
 
   it("returns paginated chat windows", () => {

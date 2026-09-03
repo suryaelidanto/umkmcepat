@@ -44,7 +44,10 @@ export const Route = createFileRoute(
         }
 
         const filePath = new URL(request.url).searchParams.get("path") ?? "";
-        const file = await readSnapshotFile(snapshotId, filePath);
+        const file = await readSnapshotFile(snapshotId, filePath, {
+          projectId: project.id,
+          userId: session.user.id,
+        });
         if (!file) {
           return Response.json(
             { message: "File tidak ditemukan pada riwayat ini." },

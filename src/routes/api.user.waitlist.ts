@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { canUseDevTools } from "@/lib/admin/dev-admin";
 import { auth } from "@/lib/auth/auth";
+import { getEnergyConfig } from "@/lib/payment/user-credits";
 import {
   type WaitlistStatus,
   isAdminEmail,
@@ -31,19 +32,29 @@ export function resolveUserWaitlistStatus({
   own?: OwnEntry;
   status: string | null;
   canUseDevTools: boolean;
+  signupEnergyGrant: number;
 } {
   const hasDevTools = canUseDevTools({ isDevelopment, isAdmin });
+  const signupEnergyGrant = getEnergyConfig().signupGrant;
   if (!email) {
-    return { status: null, canUseDevTools: false };
+    return { status: null, canUseDevTools: false, signupEnergyGrant };
   }
   // In production, admins always bypass the gate. In dev, admins are treated
   if ((isAdmin && !isDevelopment) || !waitlistEnabled) {
-    return { status: "approved", canUseDevTools: hasDevTools };
+    return {
+      status: "approved",
+      canUseDevTools: hasDevTools,
+      signupEnergyGrant,
+    };
   }
   if (isApproved === "approved") {
-    return { status: "approved", canUseDevTools: hasDevTools };
+    return {
+      status: "approved",
+      canUseDevTools: hasDevTools,
+      signupEnergyGrant,
+    };
   }
-  return { status: null, canUseDevTools: hasDevTools };
+  return { status: null, canUseDevTools: hasDevTools, signupEnergyGrant };
 }
 
 export const Route = createFileRoute("/api/user/waitlist")({

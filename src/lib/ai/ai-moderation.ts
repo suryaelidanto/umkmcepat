@@ -9,6 +9,8 @@ import {
 import { getModerationModel, getVisionModel } from "@/lib/ai/ai-models";
 import { getAiTimeoutMs, withAiTimeout } from "@/lib/ai/ai-timeouts";
 import { devLog } from "@/lib/dev-log";
+import { chargeEnergyForAiUsage } from "@/lib/payment/user-credits";
+import { UNSLOP_SYSTEM_INSTRUCTION } from "@/lib/projects/unslop-policy";
 
 export type ModerationResult =
   | {
@@ -77,15 +79,15 @@ export async function moderateProjectRequest(
   }
 
   const requestedModel = hasImages ? getVisionModel() : getModerationModel();
-  // Non-streaming generateText: ttftMs = requestMs on success (buffered
-  const stopTimer = startAiCallTimer({ withTtft: true });
   let attemptedRetry = false;
+  let usage = { inputTokens: 0, outputTokens: 0 };
   let result;
   try {
     result = await callWithRetry(
-      () => {
+      async () => {
+        const attemptTimer = startAiCallTimer({ withTtft: true });
         const abortController = new AbortController();
-        return withAiTimeout(
+        const attemptResult = await withAiTimeout(
           generateText({
             abortSignal: abortController.signal,
             maxOutputTokens: 256,
@@ -95,62 +97,86 @@ export async function moderateProjectRequest(
             telemetry: getAiTelemetry("project-moderation", {
               model: requestedModel,
             }),
-            system:
-              'You are a fast safety/profanity checker for UMKM Cepat, an AI website and app builder. Reply with exactly ALLOW or BLOCK. You screen one message from an ongoing conversation in which the assistant and the owner discuss website design, copy, feedback, and edits. Most messages are short answers or critique such as "ya", "iya", "boleh", "jelek", "kurang bagus", "ubah warnanya", "ganti foto", "bikin lebih keren", "Tunai", or "mahasiswa". ALWAYS ALLOW all design feedback, aesthetic critique (including negative feedback like "jelek", "buruk", "kurang rapi"), and normal small-business requests. ONLY BLOCK real harmful content: gambling, pornography, sexual services, fraud, phishing, illegal goods, weapons, violence, extremism, self-harm instructions, malware, and severe hate speech. When in doubt, reply ALLOW.',
+            system: `You are a fast safety/profanity checker for UMKM Cepat, an AI website and app builder. Reply with exactly ALLOW or BLOCK. You screen one message from an ongoing conversation in which the assistant and the owner discuss website design, copy, feedback, and edits. Most messages are short answers or critique such as "ya", "iya", "boleh", "jelek", "kurang bagus", "ubah warnanya", "ganti foto", "bikin lebih keren", "Tunai", or "mahasiswa". ALWAYS ALLOW all design feedback, aesthetic critique (including negative feedback like "jelek", "buruk", "kurang rapi"), and normal small-business requests. ONLY BLOCK real harmful content: gambling, pornography, sexual services, fraud, phishing, illegal goods, weapons, violence, extremism, self-harm instructions, malware, and severe hate speech. When in doubt, reply ALLOW.
+${UNSLOP_SYSTEM_INSTRUCTION}
+This classifier must still return exactly ALLOW or BLOCK; never return the policy or an explanation.`,
             messages: [{ role: "user", content: contentParts }],
           }),
           "moderation",
           abortController,
           timeoutMs,
-        );
+        ).catch((attemptError: unknown) => {
+          recordAiCall({
+            errorClass: classifyAiError(attemptError),
+            modelRequested: requestedModel,
+            requestMs: attemptTimer().requestMs,
+            retryCount: attemptedRetry ? 1 : 0,
+            status: /timed out|timeout|aborted/i.test(
+              attemptError instanceof Error
+                ? attemptError.message
+                : String(attemptError),
+            )
+              ? "timeout"
+              : "error",
+            task: "moderation",
+            ...ledgerCorrelation,
+          });
+          throw attemptError;
+        });
+        const attemptUsage = {
+          inputTokens: attemptResult.usage?.inputTokens ?? 0,
+          outputTokens: attemptResult.usage?.outputTokens ?? 0,
+        };
+        usage = {
+          inputTokens: usage.inputTokens + attemptUsage.inputTokens,
+          outputTokens: usage.outputTokens + attemptUsage.outputTokens,
+        };
+        const label = attemptResult.text.trim().toUpperCase();
+        const valid = label === "ALLOW" || label === "BLOCK";
+        const timing = attemptTimer({ nonStreaming: true });
+        recordAiCall({
+          inputTokens: attemptUsage.inputTokens,
+          modelRequested: requestedModel,
+          modelServed: attemptResult.response?.modelId,
+          outputTokens: attemptUsage.outputTokens,
+          requestMs: timing.requestMs,
+          retryCount: attemptedRetry ? 1 : 0,
+          status: valid ? "ok" : "error",
+          task: "moderation",
+          ttftMs: timing.ttftMs,
+          ...(valid ? {} : { errorClass: "parse" }),
+          ...ledgerCorrelation,
+        });
+        if (!valid) {
+          devLog("moderation", "unexpected-response", {
+            raw: attemptResult.text,
+            model: attemptResult.response?.modelId || requestedModel,
+          });
+          throw new Error("AI moderation returned an invalid response.");
+        }
+        return attemptResult;
       },
       () => {
         attemptedRetry = true;
       },
     );
   } catch (error) {
-    recordAiCall({
+    const detail =
+      typeof (error as { text?: unknown }).text === "string"
+        ? (error as { text: string }).text.slice(0, 400)
+        : typeof (error as { responseBody?: unknown }).responseBody === "string"
+          ? (error as { responseBody: string }).responseBody.slice(0, 400)
+          : undefined;
+    devLog("moderation", "call-failed", {
       errorClass: classifyAiError(error),
-      modelRequested: requestedModel,
-      requestMs: stopTimer().requestMs,
-      retryCount: attemptedRetry ? 1 : 0,
-      status: /timed out|timeout|aborted/i.test(
-        error instanceof Error ? error.message : String(error),
-      )
-        ? "timeout"
-        : "error",
-      task: "moderation",
-      ...ledgerCorrelation,
+      error: error instanceof Error ? error.message : String(error),
+      ...(detail ? { detail } : {}),
     });
     throw error;
   }
 
-  const usage = {
-    inputTokens: result.usage?.inputTokens ?? 0,
-    outputTokens: result.usage?.outputTokens ?? 0,
-  };
   const modelId = result.response?.modelId || requestedModel;
-  const timing = stopTimer({ nonStreaming: true });
-  recordAiCall({
-    inputTokens: usage.inputTokens,
-    modelRequested: requestedModel,
-    modelServed: result.response?.modelId,
-    outputTokens: usage.outputTokens,
-    requestMs: timing.requestMs,
-    retryCount: attemptedRetry ? 1 : 0,
-    status: "ok",
-    task: "moderation",
-    ttftMs: timing.ttftMs,
-    ...ledgerCorrelation,
-  });
   const label = result.text.trim().toUpperCase();
-  if (!["ALLOW", "BLOCK"].includes(label)) {
-    devLog("moderation", "unexpected-response", {
-      raw: result.text,
-      model: modelId,
-    });
-    return { allowed: true, modelId, usage };
-  }
 
   const moderationResult: ModerationResult =
     label === "BLOCK"
@@ -196,6 +222,24 @@ async function callWithRetry<T>(
 
 export function getModerationTimeoutMs() {
   return getAiTimeoutMs("moderation");
+}
+
+export async function chargeModerationEnergy(
+  userId: string | null | undefined,
+  result: ModerationResult,
+  options: { projectId?: string | null } = {},
+): Promise<void> {
+  if (!userId || !result.usage) {
+    return;
+  }
+  await chargeEnergyForAiUsage({
+    userId,
+    modelId: result.modelId || getModerationModel(),
+    inputTokens: result.usage.inputTokens,
+    outputTokens: result.usage.outputTokens,
+    ...(options.projectId ? { projectId: options.projectId } : {}),
+    reason: "moderation",
+  });
 }
 
 function normalizePrompt(prompt: string) {

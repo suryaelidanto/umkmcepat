@@ -4,7 +4,7 @@ export interface ComponentDocumentation {
   name: string;
   module: string;
   description: string;
-  importExample: string;
+  importStatement: string;
 }
 
 const COMPONENT_DESCRIPTIONS: Record<string, string> = {
@@ -64,7 +64,7 @@ export const COMPLETE_COMPONENT_REGISTRY: ComponentDocumentation[] = Array.from(
     description:
       COMPONENT_DESCRIPTIONS[name] ??
       "Bundled shadcn source component; inspect it before composing.",
-    importExample: `import { ${toPascalCase(name)} } from "@/components/ui/${name}";`,
+    importStatement: `import { ${toPascalCase(name)} } from "@/components/ui/${name}";`,
     module: `@/components/ui/${name}`,
     name,
   }));

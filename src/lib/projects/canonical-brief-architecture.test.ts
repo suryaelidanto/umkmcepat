@@ -44,7 +44,7 @@ describe("canonical brief architecture", () => {
     const acceptedHandoffIndex = worker.indexOf(
       "loadAcceptedHandoffForAttempt",
     );
-    const generationIndex = worker.indexOf("compileGeneratedSiteContract");
+    const generationIndex = worker.indexOf("await runAgenticGenerate");
     const generationSlice = worker.slice(acceptedHandoffIndex, generationIndex);
 
     expect(acceptedHandoffIndex).toBeGreaterThanOrEqual(0);

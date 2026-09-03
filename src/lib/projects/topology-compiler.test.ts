@@ -14,7 +14,6 @@ function plan() {
     contractHash: "c",
     contentHash: "",
     appKind: "marketing_site",
-    archetype: "fnb",
     pages: [
       {
         id: "home",
@@ -23,15 +22,6 @@ function plan() {
         purpose: "Landing",
         visitorJobIds: ["order"],
         requiredFactIds: ["contact-primary"],
-        sections: [
-          {
-            id: "hero",
-            purpose: "Intro",
-            surfaceIntent: "full_bleed",
-            requiredFactIds: [],
-            requiredAssetIds: [],
-          },
-        ],
       },
       {
         id: "katalog",
@@ -40,17 +30,10 @@ function plan() {
         purpose: "Browse offers",
         visitorJobIds: [],
         requiredFactIds: [],
-        sections: [],
       },
     ],
     navigation: [{ fromPageId: "home", toPageId: "katalog", label: "Katalog" }],
     capabilities: ["static_content", "whatsapp_cta"],
-    artDirection: {
-      businessSpecificReference: "",
-      antiReferences: [],
-      imageStrategy: "typographic",
-      fontStrategy: "system_stack",
-    },
   } as const;
 }
 

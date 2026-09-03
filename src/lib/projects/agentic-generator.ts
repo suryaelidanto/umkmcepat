@@ -1,10 +1,15 @@
 import { generateText, isStepCount, tool } from "ai";
 import { z } from "zod";
 
+import type { BuildContractV1 } from "@/lib/projects/build-contract";
+import type { BuildPlanV1 } from "@/lib/projects/build-plan";
 import type { StepCharger } from "@/lib/projects/energy-step-charger";
 import type { GeneratedProjectFile } from "@/lib/projects/generated-types";
 import type { ProjectSiteSchema } from "@/lib/projects/site-schema";
-import type { ProjectSkillName } from "@/lib/projects/skills/skill-registry";
+import type {
+  ProjectSkillDigest,
+  ProjectSkillName,
+} from "@/lib/projects/skills/skill-registry";
 
 import {
   getAiModel,
@@ -13,39 +18,102 @@ import {
 } from "@/lib/ai/ai";
 import { getAgentMaxSteps } from "@/lib/ai/ai-agent-steps";
 import { getGenerationModel } from "@/lib/ai/ai-models";
+import { getAiTimeoutMs } from "@/lib/ai/ai-timeouts";
 import { devLog } from "@/lib/dev-log";
 import { classifyBuildFailure } from "@/lib/projects/build-logs";
+import { formatProjectDiscussionContext } from "@/lib/projects/chat-memory";
 import { generateDiff, type DiffLine } from "@/lib/projects/diff";
 import { classifyEditIntent } from "@/lib/projects/edit-intent";
+import {
+  getRenderableFactEntries,
+  normalizeFactLedger,
+} from "@/lib/projects/fact-ledger";
+import {
+  buildDesignAnchorContext,
+  buildDesignMarkdown,
+  buildProductMarkdown,
+  DESIGN_DOC_PATH,
+  designDirectionSchema,
+  type DesignDirectionInput,
+  PRODUCT_DOC_PATH,
+} from "@/lib/projects/generated-design-docs";
+import {
+  compileGeneratedDesignSystem,
+  repairDesignSystemContrast,
+  type GeneratedDesignSystemProposalV1,
+} from "@/lib/projects/generated-design-system";
 import {
   buildGeneratedProject,
   createGeneratedViteTanStackStarterFiles,
 } from "@/lib/projects/generated-source";
-import { runDesignAuditInMemory } from "@/lib/projects/impeccable/audit";
-import { generatePaletteInMemory } from "@/lib/projects/impeccable/palette";
+import { scanSourceClaims } from "@/lib/projects/high-risk-claims";
 import {
-  compileOutcomeDesignSystem,
-  type GeneratedDesignSystemProposalV1,
-} from "@/lib/projects/outcome-design-system";
+  buildMotionPromptLine,
+  hasAuthoredMotionMarker,
+  MOTION_MISSING_REASON,
+  resolveMotionIntensity,
+} from "@/lib/projects/motion-policy";
+import {
+  buildHueDiversityPromptLine,
+  readRecentHueFamilies,
+} from "@/lib/projects/palette-diversity";
 import { renewProjectOperation } from "@/lib/projects/project-operation";
-import { getFormattedShadcnRegistryPrompt } from "@/lib/projects/scaffold/component-catalog";
+import { MOTION_PRESET_CSS } from "@/lib/projects/scaffold/motion-preset";
 import { isProtectedScaffoldPath } from "@/lib/projects/scaffold/protected-paths";
 import {
   resolveShadcnDeps,
   SHADCN_COMPONENT_BY_NAME,
 } from "@/lib/projects/scaffold/shadcn-components";
+import { normalizeSiteSchemaForEmit } from "@/lib/projects/scaffold/vite-tanstack-shadcn-starter";
 import {
+  executeSkillScript,
+  formatProjectSkillDigest,
+  getProjectSkillDigest,
   PROJECT_CORE_SKILL_NAMES,
+  PROJECT_SCRIPT_SKILL_NAMES,
   PROJECT_SKILL_NAMES,
   readProjectSkill,
 } from "@/lib/projects/skills/skill-registry";
+
+export type ProjectSkillContext = {
+  availableSkillNames: Set<ProjectSkillName>;
+  digest: ProjectSkillDigest | null;
+};
+
+export function resolveAgentMaxSteps(
+  configuredMaxSteps: number,
+  intent: { suggestedMaxSteps: number } | null,
+): number {
+  if (!intent || !Number.isFinite(intent.suggestedMaxSteps)) {
+    return configuredMaxSteps;
+  }
+
+  return Math.min(
+    configuredMaxSteps,
+    Math.max(2, Math.floor(intent.suggestedMaxSteps)),
+  );
+}
+
+export function resolveProjectSkillContext(
+  isRevisionMode: boolean,
+  fullRebuild: boolean,
+): ProjectSkillContext {
+  if (!isRevisionMode || fullRebuild) {
+    return { availableSkillNames: new Set(), digest: null };
+  }
+
+  const digest = getProjectSkillDigest(PROJECT_CORE_SKILL_NAMES);
+  return {
+    availableSkillNames: new Set(digest.entries.map((entry) => entry.name)),
+    digest,
+  };
+}
 
 export type AgenticGeneratedSourceResult = {
   files: GeneratedProjectFile[];
   generationMode: "agentic";
   summary: string;
   touchedFiles: string[];
-  repairAttempts: number;
   operationTrace: Array<{
     id: string;
     type: string;
@@ -56,87 +124,252 @@ export type AgenticGeneratedSourceResult = {
     state: "succeeded" | "failed" | "active";
   }>;
   skillsRead: ProjectSkillName[];
+  skillDigest?: {
+    hash: string;
+    skillNames: string[];
+    version: string;
+  };
 };
 
 const MAX_PROMPT_VALUE_LENGTH = 12_000;
 const ARBITRARY_TAILWIND_COLOR_PATTERN =
   /\b(?:bg|text|border|ring|fill|stroke|from|to|via|shadow|outline|divide)-(?:\[#[0-9a-fA-F]{3,8}\]|(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3}(?:\/\d+)?)/;
+const ARBITRARY_INLINE_COLOR_PATTERN =
+  /(?:^|["'`=:(,\s])#[0-9a-fA-F]{3,8}(?:["'`),;\s]|$)/;
+const DATA_IMAGE_PATTERN = /data:image\//i;
+const HASH_CTA_FALLBACK_PATTERN = /href\s*=\s*["'`]#\/?["'`]/i;
+const MAX_GENERATION_CONTINUATIONS = 3;
 
-function autoAssembleHomeRouteIfNeeded(
+function normalizeGeneratedPath(path: string): string {
+  return path.replaceAll("\\\\", "/").replace(/^\.\//u, "");
+}
+
+function collectUnresolvedImports(
+  content: string,
+  filePath: string,
   fileMap: Map<string, string>,
-  touched: Set<string>,
-): void {
-  const homeContent = fileMap.get("src/routes/index.tsx") ?? "";
-  if (
-    !homeContent.trim() ||
-    homeContent.includes("data-generated-site-starter")
-  ) {
-    const componentFiles = Array.from(fileMap.keys()).filter(
-      (p) =>
-        p.startsWith("src/components/") &&
-        !p.startsWith("src/components/ui/") &&
-        (p.endsWith(".tsx") || p.endsWith(".jsx")),
-    );
-    if (componentFiles.length > 0) {
-      const sorted = componentFiles.sort((a, b) => {
-        const getPriority = (path: string) => {
-          const lower = path.toLowerCase();
-          if (lower.includes("header") || lower.includes("navbar")) {
-            return 1;
-          }
-          if (lower.includes("hero") || lower.includes("banner")) {
-            return 2;
-          }
-          if (lower.includes("footer")) {
-            return 99;
-          }
-          if (
-            lower.includes("contact") ||
-            lower.includes("location") ||
-            lower.includes("lokasi")
-          ) {
-            return 98;
-          }
-          return 50;
-        };
-        return getPriority(a) - getPriority(b);
-      });
+): string[] {
+  const specs = new Set<string>();
+  for (const match of content.matchAll(
+    /(?:import|export)\s[^;]*?from\s*["']([^"']+)["']/g,
+  )) {
+    specs.add(match[1] ?? "");
+  }
+  for (const match of content.matchAll(/import\s*["']([^"']+)["']/g)) {
+    specs.add(match[1] ?? "");
+  }
+  const issues: string[] = [];
+  for (const spec of specs) {
+    if (!spec.startsWith("@/") && !spec.startsWith(".")) {
+      continue;
+    }
+    const base = spec.startsWith("@/")
+      ? `src/${spec.slice(2)}`
+      : resolveRelativeImport(filePath, spec);
+    const candidates = [
+      base,
+      `${base}.ts`,
+      `${base}.tsx`,
+      `${base}/index.ts`,
+      `${base}/index.tsx`,
+    ];
+    if (candidates.some((candidate) => fileMap.has(candidate))) {
+      continue;
+    }
+    const uiName = spec.match(/^@\/components\/ui\/([a-z0-9-]+)$/)?.[1];
+    if (uiName && SHADCN_COMPONENT_BY_NAME.has(uiName)) {
+      issues.push(
+        `${spec} is not in the project yet: call copy_shadcn_component("${uiName}") first.`,
+      );
+    } else {
+      issues.push(
+        `${spec} does not exist yet (${base}): write it with write_file first.`,
+      );
+    }
+  }
+  return issues;
+}
 
-      const imports: string[] = [];
-      const tags: string[] = [];
-      for (const compPath of sorted) {
-        const compName =
-          compPath
-            .split("/")
-            .pop()
-            ?.replace(/\.tsx?$/, "") || "";
-        if (compName) {
-          const importPath = `@/${compPath.replace(/^src\//, "").replace(/\.tsx?$/, "")}`;
-          imports.push(`import { ${compName} } from "${importPath}";`);
-          tags.push(`        <${compName} />`);
-        }
+function extractAcceptedFactStrings(
+  schema: ProjectSiteSchema,
+  factLedger?: unknown,
+): string[] {
+  const strings: string[] = [];
+  const collect = (value: unknown): void => {
+    if (typeof value === "string") {
+      if (value.trim()) {
+        strings.push(value);
       }
+      return;
+    }
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        collect(item);
+      }
+      return;
+    }
+    if (value && typeof value === "object") {
+      for (const item of Object.values(value)) {
+        collect(item);
+      }
+    }
+  };
+  collect(schema);
+  for (const entry of getRenderableFactEntries(
+    normalizeFactLedger(factLedger),
+  )) {
+    collect(entry.value);
+  }
+  return [...new Set(strings)];
+}
 
-      const generatedHome = `import React from "react";
-${imports.join("\n")}
-
-export function HomeRouteComponent() {
-  return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
-      <main className="flex-1">
-${tags.join("\n")}
-      </main>
-    </div>
+function getEditPlanOperations(editPlan: unknown): Set<string> {
+  if (!editPlan || typeof editPlan !== "object" || Array.isArray(editPlan)) {
+    return new Set();
+  }
+  const operations = (editPlan as { operations?: unknown }).operations;
+  if (!Array.isArray(operations)) {
+    return new Set();
+  }
+  return new Set(
+    operations.flatMap((operation) => {
+      if (!operation || typeof operation !== "object") {
+        return [];
+      }
+      const kind = (operation as { kind?: unknown }).kind;
+      return typeof kind === "string" ? [kind] : [];
+    }),
   );
 }
-`;
-      fileMap.set("src/routes/index.tsx", generatedHome);
-      touched.add("src/routes/index.tsx");
+
+function isEditWriteAllowed(
+  path: string,
+  isPartialRevisionMode: boolean,
+  editPlan: unknown,
+): boolean {
+  if (!isPartialRevisionMode || !editPlan || typeof editPlan !== "object") {
+    return true;
+  }
+  const targets = (editPlan as { targetFiles?: unknown }).targetFiles;
+  if (
+    !Array.isArray(targets) ||
+    !targets.every((target) => typeof target === "string")
+  ) {
+    return true;
+  }
+  if (targets.includes(path)) {
+    return true;
+  }
+  const magnitude = (editPlan as { magnitude?: unknown }).magnitude;
+  const operations = getEditPlanOperations(editPlan);
+  return (
+    (magnitude === "structural" || magnitude === "full_rebuild") &&
+    path.startsWith("src/components/site/") &&
+    (operations.has("add_section") ||
+      operations.has("redesign_layout") ||
+      operations.has("reorder_layout") ||
+      operations.has("remove_section"))
+  );
+}
+
+function canWriteEditableContentFile(
+  path: string,
+  isPartialRevisionMode: boolean,
+  editPlan: unknown,
+): boolean {
+  if (!isPartialRevisionMode || path !== "src/content/site.ts") {
+    return false;
+  }
+  if (!editPlan || typeof editPlan !== "object" || Array.isArray(editPlan)) {
+    return false;
+  }
+  const operations = (editPlan as { operations?: unknown }).operations;
+  if (!Array.isArray(operations)) {
+    return false;
+  }
+  return operations.some((operation) => {
+    if (!operation || typeof operation !== "object") {
+      return false;
+    }
+    const kind = (operation as { kind?: unknown }).kind;
+    return (
+      kind === "update_copy" ||
+      kind === "update_content" ||
+      kind === "update_media"
+    );
+  });
+}
+
+function hasStableSiteModuleShape(content: string): boolean {
+  return (
+    /export\s+const\s+site\b/u.test(content) &&
+    /export\s+default\s+site\s*;/u.test(content)
+  );
+}
+
+function hasDisallowedAssetReference(content: string): boolean {
+  return (
+    /\/api\/uploads\/temp-images\//iu.test(content) ||
+    /(?:src|poster|image|imageUrl|url)\s*[:=]\s*(?:\{\s*)?["'`]https?:\/\//iu.test(
+      content,
+    )
+  );
+}
+
+function resolveRelativeImport(filePath: string, spec: string): string {
+  const dirParts = filePath.split("/").slice(0, -1);
+  for (const part of spec.split("/")) {
+    if (part === "." || part === "") {
+      continue;
+    }
+    if (part === "..") {
+      dirParts.pop();
+      continue;
+    }
+    dirParts.push(part);
+  }
+  return dirParts.join("/");
+}
+
+function ensureAllShadcnImportsResolved(
+  fileMap: Map<string, string>,
+  touched?: Set<string>,
+): void {
+  let added = true;
+  while (added) {
+    added = false;
+    for (const [, content] of Array.from(fileMap.entries())) {
+      for (const match of content.matchAll(
+        /["']@\/components\/ui\/([a-z0-9-]+)["'/]/g,
+      )) {
+        const name = match[1];
+        const component = name ? SHADCN_COMPONENT_BY_NAME.get(name) : undefined;
+        if (!component || fileMap.has(component.path)) {
+          continue;
+        }
+        const currentFiles = Array.from(fileMap, ([p, c]) => ({
+          content: c,
+          path: p,
+        }));
+        for (const file of [
+          ...resolveShadcnDeps(component, currentFiles),
+          component,
+        ]) {
+          if (!fileMap.has(file.path)) {
+            fileMap.set(file.path, file.content);
+            touched?.add(file.path);
+            added = true;
+          }
+        }
+      }
     }
   }
 }
 
-function formatPromptValue(value: unknown): string {
+function formatPromptValue(
+  value: unknown,
+  maxLength = MAX_PROMPT_VALUE_LENGTH,
+): string {
   if (value == null) {
     return "NOT PROVIDED";
   }
@@ -155,10 +388,10 @@ function formatPromptValue(value: unknown): string {
     return "NOT PROVIDED";
   }
 
-  if (serialized.length <= MAX_PROMPT_VALUE_LENGTH) {
+  if (serialized.length <= maxLength) {
     return serialized;
   }
-  return `${serialized.slice(0, MAX_PROMPT_VALUE_LENGTH - 1)}…`;
+  return `${serialized.slice(0, maxLength - 1)}…`;
 }
 
 export async function runAgenticGenerate(input: {
@@ -174,10 +407,16 @@ export async function runAgenticGenerate(input: {
     priceRange?: string | null;
     stylePreference?: string | null;
     businessType?: string | null;
+    factLedger?: unknown;
+    discussionContext?: unknown;
   };
+  buildContract?: BuildContractV1;
   buildId?: string | null;
-  creativeDirection?: string | null;
+  buildPlan?: BuildPlanV1;
+  editPlan?: unknown;
+  fullRebuild?: boolean;
   initialFiles?: GeneratedProjectFile[];
+  motionOptOut?: boolean;
   revisionBrief?: string | null;
   onEvent?: (
     type:
@@ -191,23 +430,30 @@ export async function runAgenticGenerate(input: {
   ) => void;
   onFileStaged?: (file: GeneratedProjectFile) => void;
   operationToken?: string;
+  repairContext?: {
+    failingFiles: string[];
+    logExcerpt: string;
+  } | null;
   projectId: string;
   schema: ProjectSiteSchema;
   stepCharger?: StepCharger;
   userId: string;
 }): Promise<AgenticGeneratedSourceResult> {
-  const {
-    abortSignal,
-    brief,
-    onEvent,
-    onFileStaged,
-    projectId,
-    schema,
-    stepCharger,
-  } = input;
+  const { abortSignal, onEvent, onFileStaged, projectId, schema, stepCharger } =
+    input;
 
   devLog("generate", "agentic-start", { projectId });
 
+  const isRevisionMode = Boolean(
+    input.revisionBrief ||
+    input.initialFiles?.some(
+      (f) =>
+        f.path.startsWith("src/components/site/") ||
+        (f.path === "src/routes/index.tsx" &&
+          !f.content.includes("data-generated-site-starter")),
+    ),
+  );
+  const isPartialRevisionMode = isRevisionMode && !input.fullRebuild;
   const baseStarterFiles = createGeneratedViteTanStackStarterFiles(
     projectId,
     schema,
@@ -218,46 +464,90 @@ export async function runAgenticGenerate(input: {
   }
   if (input.initialFiles && input.initialFiles.length > 0) {
     for (const f of input.initialFiles) {
+      if (
+        input.fullRebuild &&
+        (f.path === PRODUCT_DOC_PATH || f.path === DESIGN_DOC_PATH)
+      ) {
+        continue;
+      }
       fileMap.set(f.path, f.content);
     }
   }
 
-  // Pre-seed site.ts
-  const siteTsContent = `export const site = ${JSON.stringify(schema, null, 2)} as const;\n`;
-  fileMap.set("src/content/site.ts", siteTsContent);
-  if (onFileStaged) {
-    onFileStaged({ path: "src/content/site.ts", content: siteTsContent });
+  // Preserve the accepted site data when revising an existing project.
+  const initialSiteFile = input.initialFiles?.find(
+    (file) => file.path === "src/content/site.ts",
+  );
+  if (!isRevisionMode || !initialSiteFile) {
+    const siteTsContent = `export const site = ${JSON.stringify(normalizeSiteSchemaForEmit(schema), null, 2)} as const;
+export default site;
+`;
+    fileMap.set("src/content/site.ts", siteTsContent);
+    if (onFileStaged) {
+      onFileStaged({ path: "src/content/site.ts", content: siteTsContent });
+    }
   }
 
-  const isRevisionMode = Boolean(
-    input.initialFiles && input.initialFiles.length > 0,
-  );
+  const emitProductDoc = () => {
+    const productMd = buildProductMarkdown(schema);
+    fileMap.set(PRODUCT_DOC_PATH, productMd);
+    touched.add(PRODUCT_DOC_PATH);
+    onFileStaged?.({ content: productMd, path: PRODUCT_DOC_PATH });
+  };
   const touched = new Set<string>();
   const operationTrace: AgenticGeneratedSourceResult["operationTrace"] = [];
+  const skillContext = resolveProjectSkillContext(
+    isRevisionMode,
+    Boolean(input.fullRebuild),
+  );
   const skillsRead = new Set<ProjectSkillName>();
+  const availableSkills = new Set(skillContext.availableSkillNames);
+  if (!isRevisionMode || input.fullRebuild) {
+    emitProductDoc();
+  }
   let checkAppCalls = 0;
   let lastCheckOk: boolean | null = null;
-  let lastCheckLog: string | null = null;
-  let designSystemAccepted = isRevisionMode;
+  let designSystemAccepted = isPartialRevisionMode;
+  let designDirectionState: DesignDirectionInput | null = null;
+  let designSystemState: GeneratedDesignSystemProposalV1 | null = null;
+
+  function refreshDesignDoc(): void {
+    if (!designDirectionState) {
+      return;
+    }
+    const designMd = buildDesignMarkdown({
+      direction: designDirectionState,
+      system: designSystemState,
+    });
+    fileMap.set(DESIGN_DOC_PATH, designMd);
+    touched.add(DESIGN_DOC_PATH);
+    onFileStaged?.({ content: designMd, path: DESIGN_DOC_PATH });
+  }
+  let designDirectionAccepted = isPartialRevisionMode;
+  let paletteScriptRun = isPartialRevisionMode;
+  let conceptSeedScriptRun = isPartialRevisionMode;
   let opSeq = 0;
 
-  // Pre-seed core design and component skills on startup
-  for (const name of PROJECT_CORE_SKILL_NAMES) {
-    skillsRead.add(name);
+  if (skillContext.digest) {
     opSeq++;
-    operationTrace.push({
-      detail: `Membaca panduan ${name} untuk standar visual dan komponen`,
+    const operation = {
+      detail: `Menggunakan ${skillContext.digest.entries.length} panduan tersimpan (${skillContext.digest.version})`,
       id: `op-${opSeq}`,
       state: "succeeded" as const,
-      title: `Menyiapkan panduan ${name}`,
-      type: "read_skill",
-    });
+      title: "Memakai panduan desain tersimpan",
+      type: "skill_digest" as const,
+    };
+    operationTrace.push(operation);
+    onEvent?.("operation", operation);
   }
 
   function missingCoreSkills() {
-    return PROJECT_CORE_SKILL_NAMES.filter((name) => !skillsRead.has(name));
+    return PROJECT_CORE_SKILL_NAMES.filter(
+      (name) => !availableSkills.has(name),
+    );
   }
 
+  const preloadedRevisionContents = new Map<string, string>();
   const tools = {
     read_skill: tool({
       description:
@@ -287,6 +577,7 @@ export async function runAgenticGenerate(input: {
         detail?: string;
       }) => {
         const skill = readProjectSkill(name);
+        availableSkills.add(name);
         if (!skillsRead.has(name)) {
           skillsRead.add(name);
           opSeq++;
@@ -306,6 +597,68 @@ export async function runAgenticGenerate(input: {
       },
     }),
 
+    run_skill_script: tool({
+      description:
+        "Run a bundled Impeccable or shadcn skill script when the skill documents call for it.",
+      inputSchema: z.object({
+        skill: z.enum(PROJECT_SCRIPT_SKILL_NAMES),
+        script: z
+          .string()
+          .min(1)
+          .describe(
+            "Entrypoint name only, e.g. concept-seed. Pass CLI flags via args, never inside this name.",
+          ),
+        args: z.unknown().optional(),
+      }),
+      execute: async ({
+        skill,
+        script,
+        args,
+      }: {
+        skill: (typeof PROJECT_SCRIPT_SKILL_NAMES)[number];
+        script: string;
+        args?: unknown;
+      }) => {
+        const result = await executeSkillScript(skill, script, args);
+        devLog("generate", "skill.script", {
+          error: result.error,
+          ok: result.ok,
+          script,
+          skill,
+        });
+        const normalizedScript = script.replaceAll("\\", "/").toLowerCase();
+        if (
+          skill === "impeccable" &&
+          normalizedScript.includes("palette") &&
+          result.ok
+        ) {
+          paletteScriptRun = true;
+        }
+        if (
+          skill === "impeccable" &&
+          normalizedScript.includes("concept-seed") &&
+          result.ok
+        ) {
+          conceptSeedScriptRun = true;
+        }
+        opSeq++;
+        const operation = {
+          detail: result.ok
+            ? `Menjalankan panduan ${skill}`
+            : `Panduan ${skill} belum dapat dijalankan`,
+          id: `op-${opSeq}`,
+          state: (result.ok ? "succeeded" : "failed") as "succeeded" | "failed",
+          title: result.ok
+            ? "Menjalankan panduan desain"
+            : "Panduan belum berjalan",
+          type: "run_skill_script" as const,
+        };
+        operationTrace.push(operation);
+        onEvent?.("operation", operation);
+        return result;
+      },
+    }),
+
     list_files: tool({
       description:
         "List all files currently in the project scaffold or available shadcn components.",
@@ -313,15 +666,11 @@ export async function runAgenticGenerate(input: {
         label: z
           .string()
           .optional()
-          .describe(
-            "User-friendly Indonesian progress title, e.g. 'Melihat struktur file proyek'",
-          ),
+          .describe("Judul progres singkat dalam bahasa Indonesia."),
         detail: z
           .string()
           .optional()
-          .describe(
-            "User-friendly Indonesian progress detail, e.g. 'Memeriksa daftar file dan komponen yang tersedia'",
-          ),
+          .describe("Detail progres singkat dalam bahasa Indonesia."),
       }),
       execute: async ({
         label,
@@ -359,23 +708,15 @@ export async function runAgenticGenerate(input: {
       description:
         "Read the full raw content of a file in the project scaffold or shadcn library.",
       inputSchema: z.object({
-        path: z
-          .string()
-          .describe(
-            "Relative file path, e.g. 'src/routes/index.tsx' or 'src/components/ui/button.tsx'",
-          ),
+        path: z.string().describe("Path relatif ke file proyek."),
         label: z
           .string()
           .optional()
-          .describe(
-            "User-friendly Indonesian progress title, e.g. 'Membaca komponen tombol'",
-          ),
+          .describe("Judul progres singkat dalam bahasa Indonesia."),
         detail: z
           .string()
           .optional()
-          .describe(
-            "User-friendly Indonesian progress detail, e.g. 'Melihat struktur dan varian button yang tersedia'",
-          ),
+          .describe("Detail progres singkat dalam bahasa Indonesia."),
       }),
       execute: async ({
         path,
@@ -386,14 +727,20 @@ export async function runAgenticGenerate(input: {
         label?: string;
         detail?: string;
       }) => {
+        const normalizedPath = normalizeGeneratedPath(path);
+        const preloadedContent = preloadedRevisionContents.get(normalizedPath);
+        if (isPartialRevisionMode && preloadedContent !== undefined) {
+          return { content: preloadedContent };
+        }
+
         opSeq++;
-        const filename = path.split("/").pop() || path;
+        const filename = normalizedPath.split("/").pop() || normalizedPath;
         const op = {
           id: `op-${opSeq}`,
           type: "read_file",
           title: label?.trim() || `Membaca ${filename}`,
           detail: detail?.trim() || `Melihat isi ${path}`,
-          path,
+          path: normalizedPath,
           state: "succeeded" as const,
         };
         operationTrace.push(op);
@@ -401,11 +748,11 @@ export async function runAgenticGenerate(input: {
           onEvent("operation", op);
         }
 
-        if (fileMap.has(path)) {
-          return { content: fileMap.get(path)! };
+        if (fileMap.has(normalizedPath)) {
+          return { content: fileMap.get(normalizedPath)! };
         }
-        if (path.startsWith("src/components/ui/")) {
-          const compName = path
+        if (normalizedPath.startsWith("src/components/ui/")) {
+          const compName = normalizedPath
             .replace("src/components/ui/", "")
             .replace(/\.tsx?$/, "");
           if (SHADCN_COMPONENT_BY_NAME.has(compName)) {
@@ -424,9 +771,7 @@ export async function runAgenticGenerate(input: {
       description:
         "Copy one official bundled shadcn/ui component and its local dependencies into the project.",
       inputSchema: z.object({
-        name: z
-          .string()
-          .describe("Official shadcn component name, e.g. accordion or sheet"),
+        name: z.string().describe("Nama komponen resmi yang tersedia."),
         label: z.string().optional(),
         detail: z.string().optional(),
       }),
@@ -439,6 +784,19 @@ export async function runAgenticGenerate(input: {
         label?: string;
         detail?: string;
       }) => {
+        if (
+          isPartialRevisionMode &&
+          input.editPlan &&
+          !getEditPlanOperations(input.editPlan).has("redesign_layout") &&
+          !getEditPlanOperations(input.editPlan).has("reorder_layout") &&
+          !getEditPlanOperations(input.editPlan).has("add_section") &&
+          !getEditPlanOperations(input.editPlan).has("remove_section")
+        ) {
+          return {
+            error:
+              "Edit scope restriction: this edit plan does not allow new interface components.",
+          };
+        }
         const component = SHADCN_COMPONENT_BY_NAME.get(name);
         if (!component) {
           return {
@@ -479,13 +837,64 @@ export async function runAgenticGenerate(input: {
         operationTrace.push(operation);
         onEvent?.("operation", operation);
 
-        return { copiedPaths, name };
+        return {
+          name,
+          copiedPaths,
+        };
+      },
+    }),
+
+    set_design_direction: tool({
+      description:
+        "Commit the visual direction and first-viewport thesis before writing the landing page.",
+      inputSchema: designDirectionSchema,
+      execute: async (direction: {
+        thesis: string;
+        conversionThesis: string;
+        ownWorld: string;
+        story: string;
+        contentArchitecture: string;
+        firstViewport: string;
+        responsiveIntent: string;
+        sparseDataStrategy: string;
+        form: string;
+        seedKey: string;
+        motionThesis: string;
+      }) => {
+        if (
+          isPartialRevisionMode &&
+          input.editPlan &&
+          !getEditPlanOperations(input.editPlan).has("redesign_layout") &&
+          !getEditPlanOperations(input.editPlan).has("reorder_layout") &&
+          !getEditPlanOperations(input.editPlan).has("add_section") &&
+          !getEditPlanOperations(input.editPlan).has("remove_section")
+        ) {
+          return {
+            ok: false,
+            error:
+              "Edit scope restriction: this edit plan does not allow a direction change.",
+          };
+        }
+        designDirectionAccepted = true;
+        designDirectionState = direction;
+        refreshDesignDoc();
+        opSeq++;
+        const operation = {
+          detail: "Arah visual, komposisi awal, dan gerak utama sudah dipilih.",
+          id: `op-${opSeq}`,
+          state: "succeeded" as const,
+          title: "Menetapkan arah visual",
+          type: "set_design_direction" as const,
+        };
+        operationTrace.push(operation);
+        onEvent?.("operation", operation);
+        return { ok: true, direction };
       },
     }),
 
     set_design_system: tool({
       description:
-        "Choose the complete semantic color, typography, and radius system for this specific business. The platform validates contrast and compiles protected theme CSS.",
+        "Apply a semantic theme to the protected stylesheet. The platform validates contrast before accepting it.",
       inputSchema: z.object({
         accent: z.string(),
         accentForeground: z.string(),
@@ -514,7 +923,23 @@ export async function runAgenticGenerate(input: {
         ring: z.string(),
       }),
       execute: async (proposal: GeneratedDesignSystemProposalV1) => {
-        const result = compileOutcomeDesignSystem(proposal);
+        if (
+          isPartialRevisionMode &&
+          input.editPlan &&
+          !getEditPlanOperations(input.editPlan).has("update_style") &&
+          !getEditPlanOperations(input.editPlan).has("redesign_layout")
+        ) {
+          return {
+            ok: false,
+            error:
+              "Edit scope restriction: this edit plan does not allow a visual system change.",
+          };
+        }
+        let result = compileGeneratedDesignSystem(proposal);
+        if (!result.ok) {
+          const repairedProposal = repairDesignSystemContrast(proposal);
+          result = compileGeneratedDesignSystem(repairedProposal);
+        }
         opSeq++;
         if (!result.ok) {
           const operation = {
@@ -526,11 +951,17 @@ export async function runAgenticGenerate(input: {
           };
           operationTrace.push(operation);
           onEvent?.("operation", operation);
-          return result;
+          return {
+            ok: false,
+            error: `Kombinasi warna belum memenuhi standar kontras: ${result.issues.map((i) => `${i.pair} (rasio ${i.ratio.toFixed(1)}, butuh ${i.required})`).join(", ")}. Pilih kombinasi warna dengan kontras yang lebih tinggi.`,
+            issues: result.issues,
+          };
         }
-        fileMap.set("src/index.css", result.css);
+        fileMap.set("src/index.css", `${result.css}\n${MOTION_PRESET_CSS}`);
         touched.add("src/index.css");
+        designSystemState = proposal;
         designSystemAccepted = true;
+        refreshDesignDoc();
         const operation = {
           detail:
             "Warna dan tipografi sudah nyaman dibaca di seluruh tampilan.",
@@ -542,7 +973,9 @@ export async function runAgenticGenerate(input: {
         operationTrace.push(operation);
         onEvent?.("operation", operation);
         onFileStaged?.({ content: result.css, path: "src/index.css" });
-        return { ok: true };
+        return {
+          ok: true,
+        };
       },
     }),
 
@@ -550,26 +983,18 @@ export async function runAgenticGenerate(input: {
       description:
         "Create or overwrite a source file in the project (routes, components, utilities).",
       inputSchema: z.object({
-        path: z
-          .string()
-          .describe(
-            "Target file path under src/, e.g. 'src/routes/index.tsx' or 'src/components/site/ValueShowcase.tsx'",
-          ),
+        path: z.string().describe("Path file di bawah src/."),
         content: z
           .string()
           .describe("Full raw TypeScript/TSX code without markdown fences."),
         label: z
           .string()
           .optional()
-          .describe(
-            "User-friendly Indonesian progress title, e.g. 'Membuat Hero & Kartu Donasi'",
-          ),
+          .describe("Judul progres singkat dalam bahasa Indonesia."),
         detail: z
           .string()
           .optional()
-          .describe(
-            "User-friendly Indonesian progress detail, e.g. 'Menambahkan tombol WhatsApp dan live counter sembako'",
-          ),
+          .describe("Detail progres singkat dalam bahasa Indonesia."),
       }),
       execute: async ({
         path,
@@ -594,12 +1019,35 @@ export async function runAgenticGenerate(input: {
               "Design restriction: call set_design_system with a contrast-safe business-specific visual system before writing source.",
           };
         }
+        if (!designDirectionAccepted) {
+          return {
+            error:
+              "Design restriction: commit a design direction with set_design_direction before writing source.",
+          };
+        }
+        if (!isEditWriteAllowed(path, isPartialRevisionMode, input.editPlan)) {
+          return {
+            error:
+              "Edit scope restriction: this file is outside the approved edit plan.",
+          };
+        }
+        const canEditContentFile = canWriteEditableContentFile(
+          path,
+          isPartialRevisionMode,
+          input.editPlan,
+        );
         if (
-          isProtectedScaffoldPath(path) ||
+          (isProtectedScaffoldPath(path) && !canEditContentFile) ||
           path === "src/routes/not-found.tsx"
         ) {
           return {
             error: `Security restriction: Protected scaffold file cannot be written: ${path}.`,
+          };
+        }
+        if (canEditContentFile && !hasStableSiteModuleShape(content)) {
+          return {
+            error:
+              "Content restriction: preserve the named and default site exports when updating src/content/site.ts.",
           };
         }
         if (!path.startsWith("src/") && !path.startsWith("public/")) {
@@ -608,10 +1056,126 @@ export async function runAgenticGenerate(input: {
               "Security restriction: Only files under src/ and public/ can be written.",
           };
         }
-        if (ARBITRARY_TAILWIND_COLOR_PATTERN.test(content)) {
+        if (HASH_CTA_FALLBACK_PATTERN.test(content)) {
           return {
             error:
-              "Design safety restriction: use semantic theme tokens such as bg-accent, text-foreground, and border-border instead of arbitrary color values.",
+              "Action restriction: use site.primaryCtaTarget or omit the business action instead of a hash CTA fallback.",
+          };
+        }
+        if (
+          ARBITRARY_TAILWIND_COLOR_PATTERN.test(content) ||
+          ARBITRARY_INLINE_COLOR_PATTERN.test(content)
+        ) {
+          const err =
+            "Design safety restriction: use semantic theme tokens and the protected design system instead of hardcoded color values.";
+          devLog("generate", "write_file.rejected", {
+            path,
+            reason: "arbitrary_color",
+            error: err,
+          });
+          return {
+            error: err,
+          };
+        }
+        if (hasDisallowedAssetReference(content)) {
+          const err =
+            "Asset restriction: use one approved permanent project asset or CSS-only decoration; temporary and remote image URLs are not allowed.";
+          devLog("generate", "write_file.rejected", {
+            path,
+            reason: "unapproved_asset_reference",
+          });
+          return { error: err };
+        }
+        if (DATA_IMAGE_PATTERN.test(content)) {
+          const err =
+            "Asset restriction: do not embed data-image assets. Use approved media paths or CSS-only decoration.";
+          devLog("generate", "write_file.rejected", {
+            path,
+            reason: "embedded_asset",
+            error: err,
+          });
+          return {
+            error: err,
+          };
+        }
+        const acceptedFactStrings = extractAcceptedFactStrings(
+          schema,
+          input.brief.factLedger,
+        );
+        const unsupportedClaims = scanSourceClaims(
+          content,
+          { file: path },
+          acceptedFactStrings,
+        );
+        if (unsupportedClaims.length > 0) {
+          const err =
+            "Fact restriction: high-risk literals must come from accepted facts in src/content/site.ts.";
+          devLog("generate", "write_file.rejected", {
+            path,
+            reason: "unsupported_claims",
+            categories: unsupportedClaims.map((c) => c.category),
+          });
+          return {
+            error: err,
+            categories: Array.from(
+              new Set(unsupportedClaims.map((claim) => claim.category)),
+            ),
+            examples: unsupportedClaims.map((claim) => ({
+              category: claim.category,
+              text: claim.normalizedValue.slice(0, 160),
+            })),
+          };
+        }
+        for (const match of content.matchAll(
+          /['\"]@\/components\/ui\/([a-z0-9-]+)['\"/]/g,
+        )) {
+          const name = match[1];
+          const component = name
+            ? SHADCN_COMPONENT_BY_NAME.get(name)
+            : undefined;
+          if (!component || fileMap.has(component.path)) {
+            continue;
+          }
+          const currentFiles = Array.from(fileMap, ([p, c]) => ({
+            content: c,
+            path: p,
+          }));
+          for (const file of [
+            ...resolveShadcnDeps(component, currentFiles),
+            component,
+          ]) {
+            if (!fileMap.has(file.path)) {
+              fileMap.set(file.path, file.content);
+              touched.add(file.path);
+            }
+          }
+          opSeq++;
+          const operation = {
+            detail: `Disalin otomatis karena diimpor oleh ${path}`,
+            id: `op-${opSeq}`,
+            path: component.path,
+            state: "succeeded" as const,
+            title: `Menyiapkan komponen ${name}`,
+            type: "copy_component" as const,
+          };
+          operationTrace.push(operation);
+          onEvent?.("operation", operation);
+        }
+        const unresolvedImports = collectUnresolvedImports(
+          content,
+          path,
+          fileMap,
+        );
+        if (unresolvedImports.length > 0) {
+          const err = `Unresolved imports in ${path}: ${unresolvedImports.join(" ")}`;
+          devLog("generate", "write_file.rejected", {
+            path,
+            reason: "unresolved_imports",
+            unresolved: unresolvedImports,
+          });
+          return {
+            error: err,
+            unresolved: unresolvedImports,
           };
         }
         const oldContent = fileMap.get(path) ?? "";
@@ -671,15 +1235,11 @@ export async function runAgenticGenerate(input: {
         label: z
           .string()
           .optional()
-          .describe(
-            "User-friendly Indonesian progress title, e.g. 'Memeriksa build website'",
-          ),
+          .describe("Judul progres singkat dalam bahasa Indonesia."),
         detail: z
           .string()
           .optional()
-          .describe(
-            "User-friendly Indonesian progress detail, e.g. 'Memastikan tidak ada error TypeScript dan Vite'",
-          ),
+          .describe("Detail progres singkat dalam bahasa Indonesia."),
       }),
       execute: async ({
         label,
@@ -695,6 +1255,33 @@ export async function runAgenticGenerate(input: {
               `Security restriction: Read the required skills before checking: ${missing.join(", ")}.`,
             ],
             failureReason: "skill_read_required",
+            ok: false,
+          };
+        }
+        if (!designDirectionAccepted) {
+          return {
+            errors: [
+              "Design restriction: commit a design direction before checking the website.",
+            ],
+            failureReason: "design_direction_required",
+            ok: false,
+          };
+        }
+        if (!conceptSeedScriptRun) {
+          return {
+            errors: [
+              "Design restriction: run the Impeccable concept-seed script before checking the website.",
+            ],
+            failureReason: "design_script_required",
+            ok: false,
+          };
+        }
+        if (!paletteScriptRun) {
+          return {
+            errors: [
+              "Design restriction: run the applicable Impeccable palette script before checking the website.",
+            ],
+            failureReason: "design_script_required",
             ok: false,
           };
         }
@@ -732,7 +1319,60 @@ export async function runAgenticGenerate(input: {
           };
         }
 
-        autoAssembleHomeRouteIfNeeded(fileMap, touched);
+        ensureAllShadcnImportsResolved(fileMap, touched);
+        const unsafeDesignFiles = Array.from(fileMap.entries())
+          .filter(
+            ([file, content]) =>
+              file !== "src/index.css" &&
+              (file.startsWith("src/components/") ||
+                file.startsWith("src/routes/")) &&
+              (ARBITRARY_INLINE_COLOR_PATTERN.test(content) ||
+                DATA_IMAGE_PATTERN.test(content)),
+          )
+          .map(([file]) => file);
+        if (unsafeDesignFiles.length > 0) {
+          return {
+            ok: false,
+            failureReason: "unsafe_generated_design",
+            errors: [
+              `Generated source uses unapproved inline colors or embedded image data in ${unsafeDesignFiles.join(", ")}. Use semantic theme tokens and CSS-only decoration.`,
+            ],
+          };
+        }
+        const acceptedFactStrings = extractAcceptedFactStrings(
+          schema,
+          input.brief.factLedger,
+        );
+        const hashCtaFiles = Array.from(fileMap.entries())
+          .filter(
+            ([file, content]) =>
+              file !== "src/routes/not-found.tsx" &&
+              HASH_CTA_FALLBACK_PATTERN.test(content),
+          )
+          .map(([file]) => file);
+        if (hashCtaFiles.length > 0) {
+          return {
+            ok: false,
+            failureReason: "hash_cta_fallback",
+            errors: [
+              `Business CTA fallback found in ${hashCtaFiles.join(", ")}.`,
+            ],
+          };
+        }
+        const sourceClaimIssues = Array.from(fileMap.entries()).flatMap(
+          ([file, content]) =>
+            scanSourceClaims(content, { file }, acceptedFactStrings),
+        );
+        if (sourceClaimIssues.length > 0) {
+          return {
+            ok: false,
+            failureReason: "unsupported_source_claims",
+            errors: sourceClaimIssues.map(
+              (claim) =>
+                `${claim.category} claim in ${claim.location.file}: remove or bind this unsupported literal (${claim.normalizedValue.slice(0, 160)}).`,
+            ),
+          };
+        }
         const homeRouteContent = fileMap.get("src/routes/index.tsx") ?? "";
         if (
           !homeRouteContent.trim() ||
@@ -742,9 +1382,52 @@ export async function runAgenticGenerate(input: {
             ok: false,
             failureReason: "home_route_not_assembled",
             errors: [
-              "Home route 'src/routes/index.tsx' has not been assembled yet. Write the complete home route assembling your modular components before checking.",
+              "Home route has not been written yet. Write the complete home route before checking.",
             ],
           };
+        }
+
+        const incompleteRoutes = (schema.routes ?? [])
+          .map((route) => ({
+            path: route.path,
+            filePath:
+              route.path === "/"
+                ? "src/routes/index.tsx"
+                : `src/routes/${route.path.slice(1)}.tsx`,
+          }))
+          .filter(({ filePath }) => {
+            const content = fileMap.get(filePath) ?? "";
+            return (
+              !content.trim() || content.includes("data-route-placeholder")
+            );
+          });
+        if (incompleteRoutes.length > 0) {
+          return {
+            ok: false,
+            failureReason: "route_not_assembled",
+            errors: [
+              `Accepted route files are incomplete: ${incompleteRoutes.map((route) => route.path).join(", ")}.`,
+            ],
+          };
+        }
+
+        if ((!isRevisionMode || input.fullRebuild) && !input.motionOptOut) {
+          const customSourceHasMotion = Array.from(fileMap.entries()).some(
+            ([file, content]) =>
+              (file.startsWith("src/routes/") ||
+                file.startsWith("src/components/") ||
+                file.startsWith("src/content/")) &&
+              hasAuthoredMotionMarker(content),
+          );
+          if (!customSourceHasMotion) {
+            return {
+              ok: false,
+              failureReason: MOTION_MISSING_REASON,
+              errors: [
+                "Motion gate: author one deliberate entrance or scroll moment using the preset keyframes in src/index.css. Keep content visible and honor prefers-reduced-motion.",
+              ],
+            };
+          }
         }
 
         const currentFiles: GeneratedProjectFile[] = Array.from(
@@ -758,7 +1441,6 @@ export async function runAgenticGenerate(input: {
           workspaceKey: `${projectId}-agentic-check`,
         });
         lastCheckOk = buildResult.ok;
-        lastCheckLog = buildResult.log ?? null;
         const op = {
           id: `op-${opSeq}`,
           type: "check_app",
@@ -772,8 +1454,8 @@ export async function runAgenticGenerate(input: {
             (buildResult.ok
               ? "Build sukses dan terverifikasi"
               : "Menyesuaikan kode website"),
-          state: (buildResult.ok ? "succeeded" : "active") as
-            "succeeded" | "active",
+          state: (buildResult.ok ? "succeeded" : "failed") as
+            "succeeded" | "failed",
         };
         operationTrace.push(op);
         if (onEvent) {
@@ -790,214 +1472,94 @@ export async function runAgenticGenerate(input: {
         };
       },
     }),
-
-    run_design_audit: tool({
-      description:
-        "Scan generated components for design anti-patterns, low contrast, layout monotony, and unstyled defaults using the Impeccable detector.",
-      inputSchema: z.object({
-        path: z
-          .string()
-          .optional()
-          .describe(
-            "Optional target component path, e.g. 'src/components/site/Hero.tsx'. Omit to audit all components.",
-          ),
-        label: z
-          .string()
-          .optional()
-          .describe("User-friendly Indonesian progress title"),
-        detail: z
-          .string()
-          .optional()
-          .describe("User-friendly Indonesian progress detail"),
-      }),
-      execute: async ({
-        path: targetPath,
-        label,
-        detail,
-      }: {
-        path?: string;
-        label?: string;
-        detail?: string;
-      }) => {
-        opSeq++;
-        const audit = await runDesignAuditInMemory(fileMap, targetPath);
-        const op = {
-          detail:
-            detail?.trim() ||
-            (audit.ok
-              ? "Semua komponen memenuhi standar Impeccable"
-              : `Ditemukan ${audit.issuesCount} catatan perbaikan visual`),
-          id: `op-${opSeq}`,
-          path: targetPath,
-          state: (audit.ok ? "succeeded" : "failed") as "succeeded" | "failed",
-          title: label?.trim() || "Audit Kualitas Desain Impeccable",
-          type: "design_audit",
-        };
-        operationTrace.push(op);
-        if (onEvent) {
-          onEvent("operation", op);
-        }
-        return audit;
-      },
-    }),
-
-    generate_palette: tool({
-      description:
-        "Generate contrast-safe OKLCH color formulas and mood guidance based on brand seed.",
-      inputSchema: z.object({
-        seedKey: z
-          .string()
-          .optional()
-          .describe(
-            "Business name, niche keyword, or brand hue, e.g. 'streetwear clothing', 'coffee shop', 'laundry'",
-          ),
-      }),
-      execute: async ({ seedKey }: { seedKey?: string }) => {
-        return generatePaletteInMemory(
-          seedKey || brief.businessName || brief.offer || undefined,
-        );
-      },
-    }),
   };
+
+  const editableContentInstruction = canWriteEditableContentFile(
+    "src/content/site.ts",
+    isPartialRevisionMode,
+    input.editPlan,
+  )
+    ? "For this grounded content/media edit, src/content/site.ts may be updated only with owner-confirmed facts and approved permanent asset references. Do not change its module shape."
+    : "Protected files are read-only: src/content/site.ts, src/index.css, src/main.tsx, src/router.tsx, src/routes/__root.tsx, src/routes/not-found.tsx, src/lib/preview-ready.ts, src/lib/utils.ts, src/components/ui/button.tsx, and src/components/ui/card.tsx.";
 
   const availableImagesSection =
     schema.images && schema.images.length > 0
-      ? `\n\nAVAILABLE REAL STORE PHOTOS IN src/content/site.ts:\n` +
-        schema.images
-          .map(
-            (img, idx) =>
-              `- Photo #${idx + 1}: url="${img.url}", role="${img.purpose || "business-image"}", alt="${img.alt || schema.businessName}"`,
-          )
-          .join("\n") +
-        `\nYou MUST render these genuine store photos prominently in Hero, Gallery, or product highlights using <img src={site.images[...].url} ... />.`
-      : "";
+      ? `\n\nAPPROVED ASSETS:\n${formatPromptValue(schema.images)}`
+      : "\n\nAPPROVED ASSETS: none";
+  const acceptedFactsSection = `\n\nACCEPTED OWNER FACTS (the only customer-facing source of truth):\n${formatPromptValue(input.buildContract?.facts ?? schema, 50_000)}`;
+  const ledgerSection = `\n\nFACT LEDGER (owner_confirmed entries only may render; ai_suggestion, unknown, and declined entries are non-renderable):\n${formatPromptValue(input.brief.factLedger, 50_000)}`;
+  const discussionSection = `\n\nPROJECT DISCUSSION MEMORY (preserve owner context, but never treat assistant text or an unconfirmed suggestion as a business fact):\n${formatProjectDiscussionContext(input.brief.discussionContext)}`;
 
-  const workflowInstructions = isRevisionMode
-    ? `REQUIRED WORKFLOW (SURGICAL REVISION PASS):
-1. Review the requested update and the pre-loaded target file(s) below.
-2. If style/color palette was requested, call set_design_system on step 1 with the chosen semantic palette.
-3. Write ONLY the specific target component(s) using write_file. DO NOT call copy_shadcn_component, DO NOT call run_design_audit, and DO NOT rewrite untouched files.
-4. Call check_app to verify compilation and finish immediately in 2-3 steps.`
-    : `REQUIRED WORKFLOW (INITIAL GENERATION FROM SCRATCH):
-1. Call set_design_system on step 1 with your chosen semantic palette, typography, and radius for this business. The platform checks contrast and compiles index.css.
-2. Use copy_shadcn_component to pull any needed official UI primitives (e.g. badge, separator, dialog, tabs) before importing them.
-3. Write your modular UI components under src/components/ and the complete home route in src/routes/index.tsx using write_file. Use site.* for every customer-facing value. Use read_skill for deep reference docs (impeccable-craft-floor, impeccable-layout, impeccable-typeset) when needed. ROUTING CONTRACT: src/routes/index.tsx MUST export a named function \`export function HomeRouteComponent() { ... }\`.
-4. Write natural, warm, active Indonesian copy. Avoid AI puffery, filler buzzwords ("solusi terbaik", "kualitas terdepan"), em-dashes (—), and decorative badge soup.
-5. Call run_design_audit to inspect your UI against Impeccable contrast and anti-pattern rules.
-6. Call check_app to verify compilation and preflight checks. Finish after check_app returns ok: true.`;
+  const workflowInstructions = isPartialRevisionMode
+    ? skillContext.digest
+      ? "Use the supplied versioned skill digest and the existing project files, make the requested change, preserve unrelated work, and finish with check_app. Do not reread those required skills unless a missing detail requires it."
+      : "Read the supplied project files, make the requested change, preserve unrelated work, and finish with check_app."
+    : "Read every required skill, run the applicable design workflow, commit a direction, write the required source, and finish with check_app.";
+  const skillDigestSection = skillContext.digest
+    ? `\n\n<project-skill-digest>\n${formatProjectSkillDigest(skillContext.digest)}\n</project-skill-digest>`
+    : "";
 
-  const systemPrompt = `You are the implementation agent for a portable static Vite + React + TanStack Router website.
+  const hueDiversityLine = buildHueDiversityPromptLine(
+    await readRecentHueFamilies(input.userId).catch(() => [] as string[]),
+  );
 
-Your job is to turn the accepted business data into a credible, distinctive, editable customer-facing Indonesian UMKM website. You are not building a backend, SaaS dashboard, checkout, login, payment flow, persistence layer, or fake interactive demo.${availableImagesSection}
+  const systemPrompt = `You implement a standalone static Vite + React + TanStack Router website for an Indonesian UMKM.
 
-CREATIVE AUTHORITY & IMPECCABLE CRAFT DIRECTIVES:
-- Follow Impeccable Craft (reference-first visual loop):
-  1. Determine Art Direction & Visual Concept: Establish a clear visual identity (e.g. "Warm artisanal coffee atelier with tactile espresso tones and deep serif typography") before writing JSX.
-  2. One Signature Moment: Create one distinctive visual or interaction anchor (e.g. asymmetrical hero photo framing, editorial typographic lockup, or textured pricing showcase).
-  3. Anti-Default Hierarchy: Avoid standard SaaS 3-card monotony, generic gradients, meaningless pill badges, or equal-box symmetry. Let typography scale, whitespace (py-20 to py-28), and real store photos carry the layout.
-- Read impeccable first for craft floor standards, layout composition, typography pairings, and color palettes.
-- Read shadcn for component composition, Radix accessibility, and semantic Tailwind v4 tokens.
-- Specialized sub-skills available via read_skill when needed: soft-skill (luxury/calm), minimalist-skill (editorial/clean), brutalist-skill (raw/high-contrast), redesign-skill (audit/remediation).
-- These skills provide high-level design intelligence. The accepted src/content/site.ts snapshot and protected scaffold always outrank design suggestions.
+The accepted build contract and plan are authoritative. Use their facts, approved assets, actions, omissions, and routes. Do not invent business information or capabilities. Use your own design judgment and the available Impeccable and shadcn skills.
 
-${workflowInstructions}
+Use the tools to read skills, inspect or write source, and run check_app before finishing. Do not stop with a conversational response. The platform owns protected scaffold files and validates source, claims, imports, and compilation.
 
-FACT AND SAFETY RULES:
-- src/content/site.ts is read-only and is the sole customer-facing fact source. You may write concise connective Indonesian copy grounded in those facts, but never add guarantees, rankings, popularity, metrics, prices, turnaround promises, or other factual claims absent from site.*. Absolute unsupported claims fail check_app.
-- Do not invent phone numbers, addresses, hours, prices, discounts, testimonials, ratings, awards, certifications, metrics, stock, guarantees, delivery, payment methods, or customer results.
-- Do not turn NOT PROVIDED into a confident claim, decorative badge, empty placeholder, or fake state.
-- Strictly forbid fake interactive mechanisms: no mock shopping carts, no checkout modals, no dead search/filter bars, no fake booking calendars, and no fake urgency countdowns.
-- Sourced facts only: If the business has no customer reviews in site.ts, render ZERO review cards. Do not fabricate testimonials.
-- Use only hash links and routes that exist in the scaffold or that you write and register safely.
-- Keep the primary action obvious. When site.primaryCtaTarget or site.contact (e.g. WhatsApp wa.me link) is available in src/content/site.ts, primary CTA buttons (in Header, Hero, and Footer/Contact sections) must link directly to it via <a href={site.primaryCtaTarget} target="_blank" rel="noopener noreferrer">.
-- Do not add remote images, placeholder media, external URLs, packages, config files, API calls, or platform metadata.
-- Keep interactive parent controls at least 44px without enlarging their inner SVG icons. Preserve focus-visible states and reduced motion.
-- Incorporate tasteful scroll and entrance motion using \`motion\` from \`motion/react\` (e.g. \`initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-30px" }}\` on sections and cards).
-- Avoid nested cards, equal-card soup, gradient-tech styling, technical headings, starter residue, fake progress, and decorative interaction.
+For a new site, read the Unslop skill and every listed Impeccable reference, run the concept-seed entrypoint with args { scope: "direction", mode: "persuade" } and the palette entrypoint, then call set_design_direction with a specific thesis, conversion thesis, own-world concept, content architecture, first-viewport intent, responsive intent, sparse-data strategy, and motion intent. Call set_design_system before writing. Sparse facts constrain claims, not craft: avoid generic SaaS cards, default gradients, stock imagery, and filler copy. Use typography, composition, hierarchy, CSS texture, and deliberate responsive form to make a distinctive world when owner evidence is sparse. Use the business facts to make the world specific without inventing benefits, proof, prices, places, or capabilities. Use Unslop rules on every customer-facing string and progress label.
 
-ANTI-SLOP & REFINED VISUAL STANDARDS:
-- REAL UPLOADED PHOTOS: If \`site.images\` is populated in \`src/content/site.ts\`, you MUST display these genuine store photos prominently (e.g. as Hero showcase visual, gallery cards, or menu highlight images) with rounded borders, responsive aspect ratio, and clean framing (\`<img src={site.images[0].url} alt={site.images[0].alt || site.businessName} className="w-full h-72 sm:h-96 lg:h-[420px] object-cover rounded-2xl shadow-xl" />\`).
-- ZERO DUPLICATE IMAGES (STRICT RULE): NEVER render the same photo URL more than once across the entire website. Each photo in \`site.images\` must appear at most ONCE. Do NOT loop or duplicate photos just to artificially fill out a grid or card count.
-- ADAPTIVE PHOTO LAYOUT: Adapt your section and gallery layouts to the EXACT number of real photos in \`site.images\`:
-  • 1 Photo: Render prominently in Hero only. Do not create an empty or repeated gallery section.
-  • 2 Photos: 1 in Hero + 1 in About or Featured section.
-  • 3 Photos: 1 in Hero + 2 in Gallery side-by-side (2-column split).
-  • 4+ Photos: Clean grid displaying each unique photo exactly once.
-- NEVER CREATE "NO PHOTO / TIDAK ADA FOTO" PLACEHOLDERS: If photos are missing or \`site.images\` is empty, NEVER render boxes saying "Tidak ada foto", gray placeholder squares, or camera icons. Instead, design a purely typographic, content-led layout (H1, headline, USP grid, pricing badges, address and hours info).
-- NO FAKE/SIMULATED PRODUCT SHAPES: If the user did not upload photos, NEVER draw fake CSS/SVG t-shirt silhouettes, coffee cup wireframes, or mockup graphics. Instead, present clean, elegant editorial typographic cards with bold titles, price tags, specification bullets, and WhatsApp action buttons.
-- NO PILL / BADGE OVERLOAD (STRICT BAN): NEVER place floating badge/pill chips, uppercase eyebrow tags, or category capsules above section headings (e.g. absolutely no "[• Profil Kedai]", no "[• Tentang Kami]", no "[• Menu Pilihan]", no "[• Kenapa Memilih Kami]"). Max 1 subtle badge in the entire Hero only if strictly relevant. In all other sections, let clean, bold H2 typography and brief descriptive subheadings carry the hierarchy directly without any badge clutter.
-- UNSLOP COPY & PUNCTUATION STANDARDS: Write natural, confident, human Indonesian copy. Strictly avoid AI filler words ("solusi terbaik", "kualitas terdepan", "menghadirkan sensasi", "pilihan terpercaya"), puffery, and em-dash punctuation (—). Use plain commas, periods, or clean whitespace.
-- NO FAKE LOGO BOXES: In Header/Navbar, render the brand as a confident typographic wordmark (e.g. bold serif or sans title). DO NOT create colored square icon boxes with single letters ("D", "K") or generic icon circles to fake a logo.
-- NO ICON SPAM: Cut gratuitous icons across headings and card headers. Only use functional icons (e.g. MessageCircle on WhatsApp CTA, MapPin on address).
-- GENEROUS WHITESPACE & CONCISE COPY: Use generous section vertical spacing (py-20 to py-28). Write short, punchy Indonesian copy (1-2 sentences per paragraph). Avoid walls of text or repeating the same USP multiple times.
-- DIVERSE COLOR PALETTES: Tailor colors to the business niche (e.g. coffee gets warm espresso and crema tones; streetwear gets bold monochrome/electric accent; services get clean ocean/teal). Never force the same orange/terracotta palette across different industries.
-- CONSISTENT SCROLL MOTION: Use \`motion\` from \`motion/react\` for subtle, tasteful scroll entrance on Hero, feature cards, and CTA banners (\`initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-30px" }}\`).
+${workflowInstructions}${skillDigestSection}${acceptedFactsSection}${ledgerSection}${discussionSection}${availableImagesSection}
 
-TRUTHFULNESS & ZERO HALLUCINATION (IRON LAW):
-- NEVER generate fake testimonials or made-up customer reviews with imaginary names ("Budi", "Siti", etc.) unless real testimonials were explicitly provided in the brief. If testimonials are missing, omit the review section completely and focus on product quality, materials, pricing, and consultation.
-- NEVER invent fake physical addresses or imaginary storefront locations for online-only businesses.
-- ONLY display products, services, and prices that align with the user's brief.
+${editableContentInstruction}
 
-WHATSAPP-FIRST ACTION FLOW:
-- Primary CTA buttons (Navbar, Hero, Catalog items, and Sticky/Footer banner) must link directly to \`site.primaryCtaTarget\` (the business's WhatsApp link) with a friendly pre-filled text parameter.
+Keep customer-facing copy grounded in site data. Omit unknown facts. Use approved /media paths only. Never use href=\"#\" or href=\"#/\" as a business CTA fallback. Use site.primaryCtaTarget when it exists; otherwise omit the action or render it as non-interactive text. Do not add packages, APIs, remote assets, fake transactions, login, persistence, or unsupported interactions. Use semantic theme tokens and preserve keyboard access, readable contrast, reduced motion, and safe mobile overflow. Do not invent package sizes, quantities, dates, hours, addresses, ratings, certifications, guarantees, or promotional adjectives. Bind every price, phone number, delivery area, product fact, and USP directly from site; do not repeat those literals in JSX. If a source write is rejected for a fact restriction, remove the reported unsupported literal rather than moving the same claim to another file.
 
-SURGICAL TARGETED EDITS:
-- When performing revisions or edits, modify ONLY the specific 1-2 components or content files requested by the user.
-- DO NOT rewrite or regenerate untouched files. Preserve all existing working code and styling to save build energy and maintain continuity.
+${buildMotionPromptLine(
+  resolveMotionIntensity(input.buildContract?.preferences.motion ?? null),
+  input.motionOptOut ?? false,
+)}${hueDiversityLine}
 
-BUTTON AND LINK COMPOSITION:
-- When using \`Button\` as a link (e.g. CTA or navigation), use either \`render={<a href="..." />}\`, \`<Button asChild><a href="...">...</a></Button>\`, or \`className={cn(buttonVariants({ ... }))}\`. Both \`render\` and \`asChild\` are fully supported and valid.
-- Primary CTA buttons (in Header, Hero, and Footer/Contact) must link directly to \`site.primaryCtaTarget\` (e.g. WhatsApp wa.me link) when available.
+Progress labels and details must be plain Indonesian. Do not expose file names, compiler terms, implementation jargon, or raw errors.`;
 
-PROTECTED FILES:
-The platform owns src/content/site.ts, src/index.css, src/main.tsx, src/router.tsx, src/routes/__root.tsx, src/routes/not-found.tsx, src/lib/preview-ready.ts, src/lib/utils.ts, src/components/ui/button.tsx, and src/components/ui/card.tsx. Never write them. Write src/routes/index.tsx, modular components under src/components/, supported data modules under src/content/ when needed, and approved public assets only.
-
-${getFormattedShadcnRegistryPrompt()}
-
-USER-FRIENDLY PROGRESS REPORTING RULES:
-The website owner is a non-technical Indonesian business owner (UMKM). They watch every progress step live on their screen.
-- \`label\` and \`detail\` in EVERY tool call MUST be plain, warm, friendly Indonesian describing customer-facing store features.
-- Frame actions around the store and visitor experience:
-  - Good label examples: "Menata bagian menu dan harga", "Menyambungkan tombol WhatsApp", "Menyiapkan info lokasi & jam buka", "Menata tampilan utama (Hero)", "Memeriksa kerapian tampilan website".
-  - Good detail examples: "Menampilkan daftar produk kopi beserta harga dan catatan rasa", "Memastikan tombol WhatsApp membuka pesan pemesanan langsung", "Memeriksa agar tata letak pas dan nyaman dibaca di HP".
-- STRICTLY FORBIDDEN in label/detail (will intimidate the owner):
-  - No file names or file extensions: \`.tsx\`, \`.css\`, \`.json\`, \`.d.ts\`, \`index.tsx\`, \`site.ts\`, \`button.tsx\`, \`tsconfig\`.
-  - No developer/compiler jargon: \`TypeScript\`, \`augmentasi\`, \`props\`, \`interface\`, \`AST\`, \`Vite\`, \`bundler\`, \`scaffold\`, \`component tree\`, \`import\`, \`export\`.
-  - Never show raw error traces in progress detail. When checking or repairing, state what visual part is being polished.`;
-
+  const acceptedRoutes = input.buildPlan?.pages ?? schema.routes ?? [];
   const routesInstruction =
-    schema.routes && schema.routes.length > 1
-      ? `\nREQUIRED ROUTES TO IMPLEMENT:\nThis project has multiple accepted pages. You MUST write and render all required routes:\n${schema.routes.map((r) => `- "${r.path}" (${r.title}) -> write component or route for it`).join("\n")}`
-      : `\nREQUIRED ROUTES:\nThis project is a single-page storefront. Implement the complete home page in src/routes/index.tsx with all relevant sections.`;
+    acceptedRoutes.length > 0
+      ? `\nACCEPTED ROUTES:\n${acceptedRoutes.map((route) => `- ${route.path}: ${route.title}`).join("\n")}`
+      : "\nACCEPTED ROUTES: /";
 
   const hasExistingComponents = Boolean(
+    isRevisionMode &&
     input.initialFiles?.some(
       (f) =>
         f.path.startsWith("src/components/site/") ||
-        f.path === "src/routes/index.tsx",
+        (f.path === "src/routes/index.tsx" &&
+          !f.content.includes("data-generated-site-starter")),
     ),
   );
 
-  const editIntent = isRevisionMode
+  const editIntent = isPartialRevisionMode
     ? classifyEditIntent({
         existingFiles: Array.from(fileMap.keys()),
-        hasUploadedImages: Boolean(schema.images && schema.images.length > 0),
         instruction:
-          input.brief.prompt ||
-          (typeof input.revisionBrief === "string" ? input.revisionBrief : ""),
+          typeof input.revisionBrief === "string" && input.revisionBrief.trim()
+            ? input.revisionBrief
+            : input.brief.prompt,
       })
     : null;
 
   let targetFilesPreload = "";
-  if (isRevisionMode && editIntent) {
+  if (isPartialRevisionMode && editIntent) {
     const preloadedBlocks: string[] = [];
     for (const targetPath of editIntent.targetFiles) {
       const content = fileMap.get(targetPath);
-      if (
-        content &&
-        targetPath !== "src/content/site.ts" &&
-        targetPath !== "src/index.css"
-      ) {
+      if (content) {
+        preloadedRevisionContents.set(
+          normalizeGeneratedPath(targetPath),
+          content,
+        );
         preloadedBlocks.push(
           `=== CURRENT CODE: ${targetPath} ===\n${content}\n=== END OF ${targetPath} ===`,
         );
@@ -1021,58 +1583,59 @@ The website owner is a non-technical Indonesian business owner (UMKM). They watc
       .map((f) => `- ${f.path}`)
       .join("\n") || "";
 
-  const executionSequence = hasExistingComponents
-    ? `EXISTING SITE FILES:
-${existingFileList}${targetFilesPreload}
+  const editPlanContext =
+    isPartialRevisionMode && input.editPlan
+      ? `\n\nACCEPTED EDIT PLAN (authoritative scope):\n${formatPromptValue(input.editPlan)}\nFollow its dimensions, operations, target files, and completion criteria while preserving verified facts.`
+      : "";
+  const executionContext = hasExistingComponents
+    ? `EXISTING SITE FILES:\n${existingFileList}${targetFilesPreload}\n\nEDIT CATEGORY: ${editIntent?.category ?? "site update"}\n${
+        editIntent
+          ? `ROUTING BUDGET: no more than ${editIntent.suggestedMaxSteps} agent steps before the mandatory check_app.\n${editIntent.guidelines.map((guideline) => `- ${guideline}`).join("\n")}`
+          : ""
+      }${editPlanContext}\nPreserve unrelated files, behavior, facts, routes, and working component boundaries.`
+    : "Create the source required by the accepted routes and facts. Choose the composition and component boundaries yourself.";
 
-SURGICAL INTENT: ${editIntent ? editIntent.category.toUpperCase() : "SURGICAL_EDIT"} (Target Steps: <= ${editIntent?.suggestedMaxSteps || 3})
-${editIntent?.guidelines ? editIntent.guidelines.map((g) => `- ${g}`).join("\n") : ""}
-
-MANDATORY UPDATE SEQUENCE (SURGICAL, NON-DESTRUCTIVE & FAST):
-1. PRESERVE EXISTING SITE STRUCTURE: You MUST keep the existing layout, section arrangement, component names, and typography untouched. DO NOT rewrite unrelated components or change the look of the site drastically.
-2. SURGICAL MODIFICATION ONLY: Modify ONLY the 1 designated target component or data file (e.g. swap image slot in Hero/Gallery or update text in site.ts).
-3. If style/palette was requested, call set_design_system on step 1 with the new semantic palette.
-4. Call check_app immediately to verify compilation and finish in <= 3 steps.`
-    : `MANDATORY EXECUTION SEQUENCE (STRICT SPEED & COMPLETION):
-1. Call set_design_system on step 1 with your chosen semantic palette and typography suited for this business.
-2. Call copy_shadcn_component to vendor needed components (e.g. badge, separator).
-3. Immediately write the site components under src/components/site/ (Header.tsx, Hero.tsx, MenuOrCatalog.tsx, LocationAndContact.tsx, Footer.tsx) using write_file. If site.images is present, render <img src={site.images[0].url} alt={site.images[0].alt || site.businessName} /> in Hero or Gallery.
-4. Immediately write src/routes/index.tsx assembling all components.
-5. Run check_app to verify compilation and finish. Do not loop reading files or idling.`;
-
+  const contractContext = input.buildContract
+    ? `\n\nACCEPTED BUILD CONTRACT:\n${formatPromptValue(input.buildContract)}`
+    : "";
+  const planContext = input.buildPlan
+    ? `\n\nACCEPTED ROUTE PLAN:\n${formatPromptValue({
+        capabilities: input.buildPlan.capabilities,
+        navigation: input.buildPlan.navigation,
+        pages: input.buildPlan.pages.map((page) => ({
+          id: page.id,
+          path: page.path,
+          title: page.title,
+          visitorJobIds: page.visitorJobIds,
+          requiredFactIds: page.requiredFactIds,
+        })),
+      })}`
+    : "";
+  const designAnchorContext =
+    isRevisionMode && !input.fullRebuild
+      ? buildDesignAnchorContext(input.initialFiles ?? [])
+      : "";
+  const repairContextSection = input.repairContext
+    ? `\n\nREPAIR CONTEXT: the previous build failed. Fix the reported problems first.\nBuild log excerpt:\n${input.repairContext.logExcerpt}\nFailing files: ${input.repairContext.failingFiles.join(", ") || "see log"}.`
+    : "";
   const userPrompt = input.revisionBrief
-    ? `This is a SURGICAL REVISION PASS to polish specific findings from visual review.
-Review findings:
-${formatPromptValue(input.revisionBrief)}
+    ? `Update the existing static website for this user request:\n${formatPromptValue(input.revisionBrief)}\n\n${executionContext}${designAnchorContext}${repairContextSection}`
+    : `Build the static website for an Indonesian UMKM from the accepted data below.
 
-SURGICAL REVISION INSTRUCTIONS:
-1. Modify ONLY the 1 specific file mentioned in the findings (e.g. adjust contrast or typography).
-2. DO NOT re-read or rewrite existing working components.
-3. Call check_app to verify compilation and finish immediately in 2-3 steps.`
-    : `Build or update the static website from the accepted project data below.
-
-Brief prompt: ${formatPromptValue(brief.prompt)}
-Business name from brief: ${formatPromptValue(brief.businessName)}
-Target customer from brief: ${formatPromptValue(brief.targetCustomer)}
-Primary offer from brief: ${formatPromptValue(brief.offer)}
-Address from brief: ${formatPromptValue(brief.address)}
-Hours from brief: ${formatPromptValue(brief.hours)}
-Price range from brief: ${formatPromptValue(brief.priceRange)}
-Style / Color preference: ${formatPromptValue(brief.stylePreference)}
 ${routesInstruction}
 
-AUTHORITATIVE SITE SNAPSHOT:
+AUTHORITATIVE SITE DATA:
 <site-data>
 ${formatPromptValue(schema)}
-</site-data>
+</site-data>${contractContext}${planContext}
 
-FROZEN CREATIVE DIRECTION (taste only; it cannot introduce a fact):
-${formatPromptValue(input.creativeDirection)}
-
-${executionSequence}`;
+${executionContext}`;
 
   const requestedModel = getGenerationModel();
-  const maxSteps = getAgentMaxSteps("generate");
+  const maxSteps = resolveAgentMaxSteps(
+    getAgentMaxSteps("generate"),
+    editIntent,
+  );
 
   if (onEvent) {
     onEvent("progress", {
@@ -1081,68 +1644,159 @@ ${executionSequence}`;
     });
   }
 
-  await generateText({
-    model: getAiModel(requestedModel),
-    system: systemPrompt,
-    prompt: userPrompt,
-    tools,
-    stopWhen: isStepCount(maxSteps),
-    abortSignal,
-    ...getNoReasoningCallOptions(),
-    onStepFinish: async (step) => {
-      if (stepCharger && step.usage) {
-        const servedModelId = (
-          await Promise.resolve(step.response).catch(() => null)
-        )?.modelId;
-
-        // Derive specific reason from tool execution
-        let toolReason: string | undefined;
-        const toolCall = step.toolCalls?.[0] as
-          { toolName?: string; args?: Record<string, unknown> } | undefined;
-        if (toolCall) {
-          if (
-            toolCall.toolName === "write_custom_component" &&
-            typeof toolCall.args?.path === "string"
-          ) {
-            const fileName = toolCall.args.path.split("/").pop() || "komponen";
-            toolReason = `build:write:${fileName}`;
-          } else if (toolCall.toolName === "run_design_audit") {
-            toolReason = "build:audit";
-          } else if (toolCall.toolName === "check_app") {
-            toolReason = "build:check_app";
-          } else if (
-            toolCall.toolName === "copy_shadcn_component" &&
-            typeof toolCall.args?.name === "string"
-          ) {
-            toolReason = `build:shadcn:${toolCall.args.name}`;
-          } else if (
-            toolCall.toolName === "read_skill" &&
-            typeof toolCall.args?.name === "string"
-          ) {
-            toolReason = `build:skill:${toolCall.args.name}`;
-          }
-        }
-
-        await stepCharger.onStepFinish({
-          usage: step.usage,
-          response: { modelId: servedModelId },
-          reason: toolReason,
-        });
-
-        if (stepCharger.isExhausted()) {
-          throw new Error(
-            "Energi akun telah habis. Silakan isi ulang energi untuk melanjutkan pembuatan website.",
-          );
-        }
+  let modelStepCount = 0;
+  let continuationAttempts = 0;
+  const hasCustomSource = (): boolean => {
+    const engineEmittedDocs = new Set([PRODUCT_DOC_PATH, DESIGN_DOC_PATH]);
+    return isPartialRevisionMode
+      ? Array.from(touched).some((p) => !engineEmittedDocs.has(p))
+      : Array.from(touched).some(
+          (p) => p !== "src/index.css" && !engineEmittedDocs.has(p),
+        );
+  };
+  const unfinishedRequirements = (): string[] => {
+    const requirements: string[] = [];
+    if (!isPartialRevisionMode) {
+      const missing = missingCoreSkills();
+      if (missing.length > 0) {
+        requirements.push(`Read every required skill: ${missing.join(", ")}.`);
       }
-    },
-    telemetry: getAiTelemetry("project-agentic-generate", {
-      projectId,
-      userId: input.userId,
-    }),
-  });
+      if (!conceptSeedScriptRun) {
+        requirements.push(
+          'Run the impeccable concept-seed entrypoint with args { scope: "direction", mode: "persuade" }.',
+        );
+      }
+      if (!paletteScriptRun) {
+        requirements.push("Run the impeccable palette entrypoint.");
+      }
+      if (!designDirectionAccepted) {
+        requirements.push(
+          "Call set_design_direction with the required direction fields.",
+        );
+      }
+      if (!designSystemAccepted) {
+        requirements.push("Call set_design_system before writing source.");
+      }
+    }
+    if (!hasCustomSource()) {
+      requirements.push("Write the required custom source file now.");
+    }
+    if (!checkAppCalls || lastCheckOk !== true) {
+      requirements.push("Call check_app and keep working until it passes.");
+    }
+    return requirements;
+  };
 
-  autoAssembleHomeRouteIfNeeded(fileMap, touched);
+  while (true) {
+    const requirements = unfinishedRequirements();
+    const continuationPrompt =
+      continuationAttempts === 0
+        ? userPrompt
+        : `Continue the same build using the in-memory project state. Do not stop with a conversational response. Complete these remaining requirements with tools now:\n${requirements.map((requirement) => `- ${requirement}`).join("\n")}`;
+
+    try {
+      await generateText({
+        model: getAiModel(requestedModel),
+        system: systemPrompt,
+        prompt: continuationPrompt,
+        tools,
+        toolChoice: "required",
+        stopWhen: (step) => lastCheckOk === true || isStepCount(maxSteps)(step),
+        abortSignal,
+        ...getNoReasoningCallOptions(),
+        timeout: {
+          chunkMs: getAiTimeoutMs("agenticGenerate"),
+          firstChunkMs: getAiTimeoutMs("agenticGenerate"),
+          stepMs: getAiTimeoutMs("agenticGenerate"),
+        },
+        onStepFinish: async (step) => {
+          modelStepCount += 1;
+          devLog("generate", "step.detail", {
+            toolCallsCount: step.toolCalls?.length,
+            toolNames: step.toolCalls?.map((t) => t.toolName),
+            text: step.text?.slice(0, 200),
+          });
+          if (stepCharger && step.usage) {
+            const servedModelId = (
+              await Promise.resolve(step.response).catch(() => null)
+            )?.modelId;
+
+            // Derive specific reason from tool execution
+            let toolReason: string | undefined;
+            const toolCall = step.toolCalls?.[0] as
+              { toolName?: string; args?: Record<string, unknown> } | undefined;
+            if (toolCall) {
+              if (
+                toolCall.toolName === "write_file" &&
+                typeof toolCall.args?.path === "string"
+              ) {
+                const fileName =
+                  toolCall.args.path.split("/").pop() || "komponen";
+                toolReason = `build:write:${fileName}`;
+              } else if (toolCall.toolName === "check_app") {
+                toolReason = "build:check_app";
+              } else if (
+                toolCall.toolName === "copy_shadcn_component" &&
+                typeof toolCall.args?.name === "string"
+              ) {
+                toolReason = `build:shadcn:${toolCall.args.name}`;
+              } else if (
+                toolCall.toolName === "read_skill" &&
+                typeof toolCall.args?.name === "string"
+              ) {
+                toolReason = `build:skill:${toolCall.args.name}`;
+              }
+            }
+
+            await stepCharger.onStepFinish({
+              usage: step.usage,
+              response: { modelId: servedModelId },
+              reason: toolReason,
+            });
+
+            if (stepCharger.isExhausted()) {
+              throw new Error(
+                "Energi akun telah habis. Silakan isi ulang energi untuk melanjutkan pembuatan website.",
+              );
+            }
+          }
+        },
+        telemetry: getAiTelemetry("project-agentic-generate", {
+          projectId,
+          userId: input.userId,
+        }),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (stepCharger && !message.includes("Energi akun telah habis")) {
+        stepCharger.onStepError(error);
+      }
+      throw error;
+    }
+
+    const remainingRequirements = unfinishedRequirements();
+    if (
+      remainingRequirements.length === 0 ||
+      modelStepCount >= maxSteps ||
+      continuationAttempts >= MAX_GENERATION_CONTINUATIONS
+    ) {
+      break;
+    }
+    continuationAttempts += 1;
+  }
+
+  ensureAllShadcnImportsResolved(fileMap, touched);
+
+  const engineEmittedDocs = new Set([PRODUCT_DOC_PATH, DESIGN_DOC_PATH]);
+  const customFilesWritten = isPartialRevisionMode
+    ? Array.from(touched).some((p) => !engineEmittedDocs.has(p))
+    : Array.from(touched).some(
+        (p) => p !== "src/index.css" && !engineEmittedDocs.has(p),
+      );
+
+  if (!customFilesWritten) {
+    throw new Error("Agent did not write a custom source file.");
+  }
 
   if (!checkAppCalls || lastCheckOk !== true) {
     const finalCheckRes = (await tools.check_app.execute(
@@ -1165,20 +1819,11 @@ ${executionSequence}`;
       `Agent did not read required skills before finishing: ${missing.join(", ")}.`,
     );
   }
-  const customFilesWritten = isRevisionMode
-    ? touched.size > 0
-    : Array.from(touched).some((p) => p !== "src/index.css");
-
-  if (!customFilesWritten) {
-    throw new Error("Agent did not write a custom source file.");
-  }
   if (!checkAppCalls) {
     throw new Error("Agent did not call check_app before finishing.");
   }
   if (lastCheckOk !== true) {
-    throw new Error(
-      `Agent did not finish with a passing check_app: ${typeof lastCheckLog === "string" ? lastCheckLog.slice(0, 1000) : "Unknown build failure"}`,
-    );
+    throw new Error("Agent did not finish with a passing check_app.");
   }
 
   const finalFiles: GeneratedProjectFile[] = Array.from(fileMap.entries()).map(
@@ -1200,8 +1845,14 @@ ${executionSequence}`;
     generationMode: "agentic",
     summary: `Website successfully generated by Agent with ${touched.size} custom files.`,
     touchedFiles: Array.from(touched),
-    repairAttempts: 0,
     operationTrace,
     skillsRead: PROJECT_SKILL_NAMES.filter((name) => skillsRead.has(name)),
+    skillDigest: skillContext.digest
+      ? {
+          hash: skillContext.digest.hash,
+          skillNames: skillContext.digest.entries.map((entry) => entry.name),
+          version: skillContext.digest.version,
+        }
+      : undefined,
   };
 }

@@ -1,165 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
-import { Check, Copy, Mail, Plus, X } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useState } from "react";
 
 import { ScrollReveal } from "@/components/home/ScrollReveal";
-import { SponsorTable } from "@/components/home/SponsorTable";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Image } from "@/components/ui/image";
-import {
-  type ContributionWeek,
-  type ContributorCard,
-  formatCompact,
-} from "@/lib/community-contributors";
-import { fetchJson } from "@/lib/query-client";
-
-const ALL_CONTRIBUTORS_URL =
-  "https://github.com/suryaelidanto/umkmcepat/graphs/contributors";
-const REPOSITORY_URL = "https://github.com/suryaelidanto/umkmcepat";
-
-const SPONSOR_EMAIL = "surya@umkmcepat.com";
-const SPONSOR_MAILTO = `mailto:${SPONSOR_EMAIL}?subject=${encodeURIComponent(
-  "Sponsorship UMKM Cepat - [Nama / Brand]",
-)}&body=${encodeURIComponent(
-  `Halo Surya & Tim UMKM Cepat,
-
-Saya tertarik menjadi sponsor UMKM Cepat:
-
-- Nama / Perusahaan: 
-- Website / Profil: 
-- Bentuk dukungan / sponsor: 
-- Nilai / Budget dukungan: 
-- Pesan / Catatan tambahan: 
-
-Terima kasih.`,
-)}`;
-
-function SponsorModal() {
-  const [copied, setCopied] = useState(false);
-
-  const copyEmail = async () => {
-    try {
-      await navigator.clipboard.writeText(SPONSOR_EMAIL);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setCopied(false);
-    }
-  };
-
-  return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <button
-          type="button"
-          className="w-fit rounded-md border border-black/15 bg-transparent px-spacing-6 py-spacing-4 text-sm font-semibold text-[#1c1c1c] transition hover:bg-black/5 dark:border-white/14 dark:text-surface-warm-white dark:hover:bg-white/5"
-        >
-          Ikut sponsor
-        </button>
-      </DialogTrigger>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Menjadi Sponsor UMKM Cepat</DialogTitle>
-          <DialogDescription>
-            Kirim penawaran sponsor ke{" "}
-            <span className="font-mono text-xs text-[#1c1c1c] dark:text-surface-warm-white">
-              {SPONSOR_EMAIL}
-            </span>
-            .
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-spacing-4 text-xs text-[#5f5f5d] dark:text-surface-warm-white/70">
-          <div className="rounded-lg border border-black/10 bg-black/[0.02] p-spacing-4 dark:border-white/10 dark:bg-white/[0.02]">
-            <p className="font-semibold text-[#1c1c1c] dark:text-surface-warm-white">
-              Contoh Format Email:
-            </p>
-            <pre className="mt-spacing-2 whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-[#5f5f5d] dark:text-surface-warm-white/80">
-              {`- Nama / Perusahaan:
-- Website / Profil:
-- Bentuk dukungan / sponsor:
-- Nilai / Budget dukungan:
-- Pesan / Catatan tambahan:`}
-            </pre>
-          </div>
-
-          <div className="flex flex-col gap-spacing-3 pt-spacing-2 sm:flex-row sm:items-center">
-            <Button asChild size="sm" className="flex-1">
-              <a href={SPONSOR_MAILTO}>
-                <Mail className="size-4" />
-                Kirim Email Sponsor
-              </a>
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={copyEmail}
-              className="gap-spacing-2"
-            >
-              {copied ? (
-                <>
-                  <Check className="size-4 text-status-success-light dark:text-status-success-dark" />
-                  Email Tersalin
-                </>
-              ) : (
-                <>
-                  <Copy className="size-4" />
-                  Salin Email
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-const CONTRIBUTOR_QUERY_OPTIONS = {
-  staleTime: 15 * 60_000,
-  gcTime: 15 * 60_000,
-  refetchOnWindowFocus: false,
-} as const;
-
-function useCommunityContributors() {
-  return useQuery({
-    queryKey: ["community", "contributors"],
-    queryFn: () => fetchJson<ContributorCard[]>("/api/community/contributors"),
-    enabled: typeof window !== "undefined",
-    ...CONTRIBUTOR_QUERY_OPTIONS,
-  });
-}
-
-export function reserveContributorHeight(
-  current: number | undefined,
-  measured: number,
-) {
-  if (!Number.isFinite(measured) || measured <= 0) {
-    return current;
-  }
-
-  return current === undefined ? measured : Math.max(current, measured);
-}
-
-const sponsors = [
-  {
-    donorName: "Ogya",
-    brandName: "Zenhosta",
-    brandUrl: "https://zenhosta.com/",
-    date: "17 Juni 2026",
-    support: "Domain",
-    value: "Rp250.000",
-  },
-];
 
 const faqs = [
   {
@@ -178,234 +20,70 @@ const faqs = [
       "Kami hanya meminta informasi yang kamu tulis untuk membuat website. Jangan masukkan password, nomor kartu, atau data rahasia.",
   },
   {
-    question: "Siapa yang mengembangkan UMKM Cepat?",
-    answer:
-      "UMKM Cepat dikembangkan sebagai proyek open source. Daftar kontributor membantu kamu melihat siapa saja yang ikut merawat produk ini.",
-  },
-  {
     question: "Bagaimana agar hasilnya maksimal?",
     answer:
-      "Mulai dari mode Diskusi untuk mematangkan kebutuhan. Kalau arahnya sudah jelas, lanjutkan dengan mode Buat.",
+      "Berikan informasi usahamu selengkap mungkin saat berdiskusi dengan AI. Jangan lewati pertanyaan agar struktur halaman, penawaran, dan teks yang dihasilkan lebih akurat dan sesuai kebutuhan usahamu.",
   },
 ];
 
-function MiniChart({
-  weeks,
-  maxCommits,
-}: {
-  weeks: ContributionWeek[];
-  maxCommits: number;
-}) {
-  return (
-    <div className="mt-spacing-3 flex h-14 items-end gap-spacing-1.5">
-      {weeks.map((week) => {
-        const height = maxCommits
-          ? Math.max((week.commits / maxCommits) * 100, week.commits ? 8 : 3)
-          : 3;
-        return (
-          <div
-            key={`${week.label}-${week.commits}`}
-            className="group/bar relative flex h-full min-w-0 flex-1 items-end"
-          >
-            <div
-              className="w-full rounded-t-[2px] bg-github-blue-deep transition-transform duration-150 group-hover/bar:scale-x-125 group-hover/bar:bg-github-blue"
-              style={{ height: `${height}%` }}
-            />
-            <div className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 z-10 w-32 -translate-x-1/2 scale-95 rounded-md border border-black/10 bg-white px-spacing-3 py-spacing-2 text-xs text-[#1c1c1c] opacity-0 shadow-lg transition duration-150 group-hover/bar:scale-100 group-hover/bar:opacity-100 dark:border-white/10 dark:bg-[#1c1c1a] dark:text-surface-warm-white dark:shadow-[0_12px_32px_rgba(0,0,0,0.45)]">
-              <p className="font-semibold">{week.label}</p>
-              <p className="mt-spacing-1 text-[#5f5f5d] dark:text-surface-warm-white/68">
-                {week.commits} commit
-              </p>
-              <p className="mt-spacing-1">
-                <span className="text-github-blue">+{week.additions}</span>
-                <span className="ml-spacing-2 text-github-red">
-                  -{week.deletions}
-                </span>
-              </p>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function ContributorSkeleton() {
-  return (
-    <>
-      {[0, 1, 2].map((index) => (
-        <div
-          key={index}
-          className="flex flex-col gap-spacing-5 py-spacing-6 sm:flex-row sm:items-center sm:justify-between"
-        >
-          <div className="flex min-w-0 items-center gap-spacing-4">
-            <span className="w-5 shrink-0" />
-            <div className="size-10 shrink-0 animate-pulse rounded-full bg-black/10 dark:bg-white/10" />
-            <div className="min-h-[42px] min-w-0 space-y-spacing-2">
-              <div className="h-4 w-28 animate-pulse rounded bg-black/10 dark:bg-white/10" />
-              <div className="h-3 w-40 animate-pulse rounded bg-black/10 dark:bg-white/10" />
-            </div>
-          </div>
-          <div className="mt-spacing-5 h-16 w-full animate-pulse rounded bg-white/10 sm:w-48" />
-        </div>
-      ))}
-    </>
-  );
-}
-
 export function CommunitySection() {
-  const contributorsQuery = useCommunityContributors();
-  const contributors = contributorsQuery.data ?? [];
-  const maxCommits = Math.max(
-    1,
-    ...contributors.flatMap((contributor) =>
-      (contributor.weeks ?? []).map((week) => week.commits),
-    ),
-  );
-  const isLoaded = contributors.length > 0;
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+
+  const toggle = (index: number) => {
+    setOpenIndex((current) => (current === index ? null : index));
+  };
 
   return (
-    <section className="bg-[#eceae4] px-4 py-spacing-14 text-[#1c1c1c] dark:bg-[#151515] dark:text-surface-warm-white sm:px-spacing-9 lg:px-spacing-10">
-      <div className="mx-auto max-w-6xl space-y-spacing-14">
+    <section className="bg-[#eceae4] px-4 py-spacing-10 text-[#1c1c1c] dark:bg-[#151515] dark:text-surface-warm-white sm:px-spacing-9 sm:py-spacing-12 lg:px-spacing-10">
+      <div className="mx-auto max-w-5xl">
         <ScrollReveal>
-          <div>
-            <div className="flex flex-col gap-spacing-5 text-left sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <h2 className="text-3xl font-semibold tracking-[-0.05em] text-[#1c1c1c] dark:text-surface-warm-white sm:text-4xl">
-                  Top kontributor proyek
-                </h2>
-                <p className="mt-spacing-3 text-sm text-[#5f5f5d] dark:text-surface-warm-white/58">
-                  Dikerjakan terbuka di Github, jadi perkembangannya bisa ikut
-                  dilihat.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-spacing-3">
-                <a
-                  href={ALL_CONTRIBUTORS_URL}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex w-fit items-center justify-center rounded-md border border-black/15 bg-black/[0.04] px-spacing-6 py-spacing-4 text-sm font-semibold text-[#1c1c1c] transition hover:bg-black/[0.08] dark:border-white/14 dark:bg-transparent dark:text-surface-warm-white dark:hover:bg-white/[0.06]"
-                >
-                  Lihat semua kontributor
-                </a>
-                <a
-                  href={REPOSITORY_URL}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex w-fit items-center justify-center rounded-md bg-[#1c1c1c] px-spacing-6 py-spacing-4 text-sm font-semibold text-white transition hover:bg-[#1c1c1c]/90 dark:bg-white dark:text-[#141413] dark:hover:bg-white/90"
-                >
-                  Buka Github
-                </a>
-              </div>
-            </div>
-
-            <div>
-              <div className="mt-spacing-8 divide-y divide-black/10 border-t border-black/10 dark:divide-white/[0.07] dark:border-white/[0.07]">
-                {!isLoaded ? (
-                  <ContributorSkeleton />
-                ) : (
-                  contributors.map((contributor, index) => (
-                    <div
-                      key={contributor.login}
-                      className="flex flex-col gap-spacing-5 py-spacing-6 sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <div className="flex min-w-0 items-center gap-spacing-4">
-                        <span className="w-5 shrink-0 font-mono text-sm text-[#5f5f5d] dark:text-surface-warm-white/44">
-                          #{index + 1}
-                        </span>
-                        <a
-                          href={contributor.profileUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="shrink-0"
-                        >
-                          <Image
-                            src={contributor.avatarUrl}
-                            alt={contributor.login}
-                            width={40}
-                            height={40}
-                            className="size-10 rounded-full border border-black/10 bg-black/5 dark:border-white/10 dark:bg-white/10"
-                          />
-                        </a>
-                        <div className="min-w-0">
-                          <a
-                            href={contributor.profileUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="truncate text-base font-semibold text-[#1c1c1c] hover:underline dark:text-surface-warm-white"
-                          >
-                            {contributor.login}
-                          </a>
-                          <p className="text-xs text-[#5f5f5d] dark:text-surface-warm-white/58">
-                            {formatCompact(contributor.totalCommits)} commit
-                          </p>
-                        </div>
-                      </div>
-
-                      {contributor.weeks ? (
-                        <div className="mt-spacing-5 h-16 w-full sm:mt-0 sm:w-48">
-                          <MiniChart
-                            weeks={contributor.weeks}
-                            maxCommits={maxCommits}
-                          />
-                        </div>
-                      ) : null}
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-        </ScrollReveal>
-
-        <ScrollReveal>
-          <div className="text-left">
-            <div className="flex flex-col gap-spacing-5 text-left sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <h2 className="text-3xl font-semibold tracking-[-0.05em] text-[#1c1c1c] dark:text-surface-warm-white sm:text-4xl">
-                  Sponsor
-                </h2>
-                <p className="mt-spacing-3 text-sm text-[#5f5f5d] dark:text-surface-warm-white/58">
-                  Terima kasih sudah bantu UMKM Cepat tetap 100% gratis.
-                </p>
-              </div>
-              <SponsorModal />
-            </div>
-
-            <SponsorTable sponsors={sponsors} flat />
-          </div>
-        </ScrollReveal>
-
-        <ScrollReveal>
-          <div className="text-left">
-            <h2 className="text-3xl font-semibold tracking-[-0.05em] text-[#1c1c1c] dark:text-surface-warm-white sm:text-4xl">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-3xl font-semibold tracking-[-0.04em] text-[#1c1c1c] dark:text-surface-warm-white sm:text-4xl">
               Pertanyaan yang sering muncul
             </h2>
-            <div className="mt-spacing-8 divide-y divide-black/10 border-t border-black/10 dark:divide-white/[0.07] dark:border-white/[0.07]">
-              {faqs.map((faq) => (
-                <details
-                  key={faq.question}
-                  className="group transition-all duration-200"
-                >
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-spacing-6 py-spacing-5 text-base font-semibold text-[#1c1c1c] outline-none transition dark:text-surface-warm-white [&::-webkit-details-marker]:hidden">
-                    {faq.question}
-                    <span className="relative grid size-6 shrink-0 place-items-center text-black/50 dark:text-surface-warm-white/50">
-                      <Plus className="absolute size-4 transition-all duration-300 ease-out group-open:rotate-90 group-open:opacity-0" />
-                      <X className="absolute size-4 -rotate-90 opacity-0 transition-all duration-300 ease-out group-open:rotate-0 group-open:opacity-100" />
-                    </span>
-                  </summary>
-                  <div className="grid grid-rows-[0fr] transition-[grid-template-rows] duration-300 ease-out group-open:grid-rows-[1fr]">
-                    <div className="overflow-hidden">
-                      <p className="pb-spacing-6 text-sm leading-6 text-[#5f5f5d] transition-opacity duration-300 dark:text-surface-warm-white/68">
-                        {faq.answer}
-                      </p>
-                    </div>
-                  </div>
-                </details>
-              ))}
-            </div>
+            <p className="mt-spacing-3 text-sm text-[#5f5f5d] dark:text-surface-warm-white/60 sm:text-base">
+              Hal-hal yang sering ditanyakan sebelum mulai membuat website.
+            </p>
           </div>
         </ScrollReveal>
+
+        <div className="mt-spacing-8 divide-y divide-black/10 border-t border-black/10 dark:divide-white/[0.08] dark:border-white/[0.08]">
+          {faqs.map((faq, index) => {
+            const isOpen = openIndex === index;
+            return (
+              <div key={faq.question} className="overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => toggle(index)}
+                  aria-expanded={isOpen}
+                  className="flex w-full cursor-pointer items-center justify-between gap-spacing-6 py-spacing-5 text-left text-base font-semibold text-[#1c1c1c] outline-none transition-colors duration-200 hover:text-accent-orange sm:text-lg dark:text-surface-warm-white dark:hover:text-accent-orange"
+                >
+                  <span>{faq.question}</span>
+                  <span
+                    className={`grid size-7 shrink-0 place-items-center text-black/50 transition-transform duration-300 ease-out dark:text-surface-warm-white/50 ${
+                      isOpen ? "rotate-45 text-accent-orange" : "rotate-0"
+                    }`}
+                  >
+                    <Plus className="size-5" />
+                  </span>
+                </button>
+                <div
+                  className={`grid transition-[grid-template-rows,opacity] duration-300 ease-out ${
+                    isOpen
+                      ? "grid-rows-[1fr] opacity-100"
+                      : "grid-rows-[0fr] opacity-0"
+                  }`}
+                >
+                  <div className="overflow-hidden">
+                    <p className="pb-spacing-5 text-sm leading-relaxed text-[#5f5f5d] dark:text-surface-warm-white/70 sm:text-base">
+                      {faq.answer}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </section>
   );

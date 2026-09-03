@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   evaluateTieredBriefReadiness,
-  fallbackUspOptions,
   getNextTieredEnrichmentCard,
   isExplicitBuildRequest,
 } from "./brief-tiered-readiness";
@@ -41,6 +40,65 @@ describe("evaluateTieredBriefReadiness", () => {
     expect(readiness.canBuild).toBe(true);
     expect(readiness.tier2.satisfied).toBe(false);
     expect(readiness.tier2.missing).toEqual(["usp", "location", "photos"]);
+  });
+
+  it("asks for an offer when the existing offer is only an AI suggestion", () => {
+    const brief = parseCanonicalBrief({
+      businessName: "Fresh Clean Laundry",
+      productOrService: [{ name: "Jasa laundry", isPrimary: true }],
+      contact: {
+        channel: "whatsapp",
+        value: "08123456789",
+        label: "Chat WhatsApp",
+      },
+      factLedger: {
+        version: 1,
+        entries: [
+          {
+            id: "business-name-primary",
+            field: "businessName",
+            label: "Nama usaha",
+            value: "Fresh Clean Laundry",
+            state: "owner_confirmed",
+            origin: "owner_message",
+            source: "owner",
+            sourceTurnId: "turn-1",
+          },
+          {
+            id: "offers-primary",
+            field: "offers",
+            label: "Produk atau layanan",
+            value: [{ name: "Jasa laundry", isPrimary: true }],
+            state: "ai_suggestion",
+            origin: "safe_derivation",
+            source: "assistant",
+            sourceTurnId: "turn-1",
+          },
+          {
+            id: "contact-primary",
+            field: "contact",
+            label: "Kontak",
+            value: "08123456789",
+            state: "owner_confirmed",
+            origin: "owner_message",
+            source: "owner",
+            sourceTurnId: "turn-1",
+          },
+        ],
+      },
+    });
+
+    const card = getNextTieredEnrichmentCard(brief);
+
+    expect(card).toMatchObject({
+      type: "question",
+      question: {
+        id: "services",
+        answerMode: "choice",
+        selectionMode: "single",
+        options: [{ label: "Jasa laundry", description: expect.any(String) }],
+      },
+    });
   });
 
   it("identifies Tier 2 enrichment fields correctly", () => {
@@ -119,6 +177,8 @@ describe("getNextTieredEnrichmentCard", () => {
       businessName: "Bengkel Ayah",
       productOrService: [{ name: "Servis Motor", isPrimary: true }],
       contact: { channel: "whatsapp", value: "08123456789" },
+      targetCustomer: "Pengendara harian",
+      stylePreference: "Tegas",
     });
     const card = getNextTieredEnrichmentCard(brief);
     expect(card).not.toBeNull();
@@ -134,6 +194,8 @@ describe("getNextTieredEnrichmentCard", () => {
       productOrService: [{ name: "Servis Motor", isPrimary: true }],
       contact: { channel: "whatsapp", value: "08123456789" },
       address: "Jl. Kenangan No 4 Jakarta Utara",
+      targetCustomer: "Pengendara harian",
+      stylePreference: "Tegas",
     });
     const card = getNextTieredEnrichmentCard(brief);
     expect(card).not.toBeNull();
@@ -143,7 +205,7 @@ describe("getNextTieredEnrichmentCard", () => {
     }
   });
 
-  it("returns usp choice card when pricing is filled but usp is empty", () => {
+  it("returns usp text card when pricing is filled but usp is empty", () => {
     const brief = parseCanonicalBrief({
       businessName: "Bengkel Ayah",
       productOrService: [
@@ -151,14 +213,16 @@ describe("getNextTieredEnrichmentCard", () => {
       ],
       contact: { channel: "whatsapp", value: "08123456789" },
       address: "Jl. Kenangan No 4 Jakarta Utara",
+      targetCustomer: "Pengendara harian",
+      stylePreference: "Tegas",
     });
     const card = getNextTieredEnrichmentCard(brief);
     expect(card).not.toBeNull();
     expect(card?.type).toBe("question");
     if (card?.type === "question") {
       expect(card.question.id).toBe("usp");
-      expect(card.question.answerMode).toBe("choice");
-      expect(card.question.options.length).toBeGreaterThan(1);
+      expect(card.question.answerMode).toBe("text");
+      expect(card.question.options).toEqual([]);
     }
   });
 
@@ -170,11 +234,104 @@ describe("getNextTieredEnrichmentCard", () => {
       ],
       contact: { channel: "whatsapp", value: "08123456789" },
       address: "Jl. Kenangan No 4 Jakarta Utara",
+      targetCustomer: "Pengendara harian",
+      stylePreference: "Tegas",
       usp: ["Mekanik Berpengalaman"],
     });
     const card = getNextTieredEnrichmentCard(brief, { uploadsEnabled: true });
     expect(card).not.toBeNull();
     expect(card?.type).toBe("image_upload");
+  });
+
+  it("prioritizes audience before lower-information enrichment", () => {
+    const brief = parseCanonicalBrief({
+      businessName: "Bengkel Ayah",
+      productOrService: [{ name: "Servis Motor", isPrimary: true }],
+      contact: { channel: "whatsapp", value: "08123456789" },
+    });
+
+    const card = getNextTieredEnrichmentCard(brief);
+    expect(card?.type).toBe("question");
+    if (card?.type === "question") {
+      expect(card.question.id).toBe("audience");
+      expect(card.question.required).toBe(false);
+    }
+  });
+
+  it("asks for visual direction after audience is resolved", () => {
+    const brief = parseCanonicalBrief({
+      businessName: "Bengkel Ayah",
+      productOrService: [{ name: "Servis Motor", isPrimary: true }],
+      contact: { channel: "whatsapp", value: "08123456789" },
+      targetCustomer: "Pengendara harian",
+    });
+
+    const card = getNextTieredEnrichmentCard(brief);
+    expect(card?.type).toBe("question");
+    if (card?.type === "question") {
+      expect(card.question.id).toBe("visual_direction");
+    }
+  });
+
+  it("does not repeat an explicitly omitted audience", () => {
+    const brief = parseCanonicalBrief({
+      businessName: "Bengkel Ayah",
+      productOrService: [{ name: "Servis Motor", isPrimary: true }],
+      contact: { channel: "whatsapp", value: "08123456789" },
+      fieldState: { audience: "declined" },
+    });
+
+    const card = getNextTieredEnrichmentCard(brief);
+    expect(card?.type).toBe("question");
+    if (card?.type === "question") {
+      expect(card.question.id).toBe("visual_direction");
+    }
+  });
+
+  it("does not repeat an explicitly omitted visual direction", () => {
+    const brief = parseCanonicalBrief({
+      businessName: "Bengkel Ayah",
+      productOrService: [{ name: "Servis Motor", isPrimary: true }],
+      contact: { channel: "whatsapp", value: "08123456789" },
+      fieldState: { visual_direction: "declined" },
+    });
+
+    const card = getNextTieredEnrichmentCard(brief);
+    expect(card?.type).toBe("question");
+    if (card?.type === "question") {
+      expect(card.question.id).toBe("audience");
+    }
+  });
+
+  it("emits one active question instead of a questionnaire", () => {
+    const brief = parseCanonicalBrief({
+      businessName: "Bengkel Ayah",
+      productOrService: [{ name: "Servis Motor", isPrimary: true }],
+      contact: { channel: "whatsapp", value: "08123456789" },
+    });
+
+    const card = getNextTieredEnrichmentCard(brief);
+    expect(card?.type).toBe("question");
+    if (card?.type === "question") {
+      expect(card.question.id).toBeTruthy();
+      expect(card.question.options).toEqual([]);
+    }
+  });
+
+  it("moves to operations only after higher-information domains are resolved", () => {
+    const brief = parseCanonicalBrief({
+      businessName: "Bengkel Ayah",
+      productOrService: [{ name: "Servis Motor", isPrimary: true }],
+      contact: { channel: "whatsapp", value: "08123456789" },
+      targetCustomer: "Pengendara harian",
+      stylePreference: "Tegas",
+    });
+
+    const card = getNextTieredEnrichmentCard(brief);
+    expect(card?.type).toBe("question");
+    if (card?.type === "question") {
+      expect(card.question.id).toBe("address");
+    }
   });
 
   it("returns null when all Tier 2 enrichment fields are satisfied", () => {
@@ -185,23 +342,12 @@ describe("getNextTieredEnrichmentCard", () => {
       ],
       contact: { channel: "whatsapp", value: "08123456789" },
       address: "Jl. Kenangan No 4 Jakarta Utara",
+      targetCustomer: "Pengendara harian",
+      stylePreference: "Tegas",
       usp: ["Mekanik Berpengalaman"],
       assets: [{ id: "photo-1", purpose: "business-image" }],
     });
     const card = getNextTieredEnrichmentCard(brief);
     expect(card).toBeNull();
-  });
-});
-
-describe("fallbackUspOptions", () => {
-  it("produces universal structured options", () => {
-    const options = fallbackUspOptions("Usaha Lokal");
-    expect(options.length).toBeGreaterThanOrEqual(3);
-    const hasQuality = options.some(
-      (o) =>
-        o.label.toLowerCase().includes("kualitas") ||
-        o.label.toLowerCase().includes("harga"),
-    );
-    expect(hasQuality).toBe(true);
   });
 });

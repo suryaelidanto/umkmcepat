@@ -3,13 +3,19 @@ import { createFileRoute } from "@tanstack/react-router";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/prisma";
 import { isPrismaDatabaseUnavailable } from "@/lib/prisma-errors";
-import { selectActivePreviewDeployment } from "@/lib/projects/deployment-resolution";
+import {
+  isProjectDeploymentForProject,
+  selectActivePreviewDeployment,
+} from "@/lib/projects/deployment-resolution";
 import { parseGeneratedDistFiles } from "@/lib/projects/generated-source";
 import {
   PREVIEW_ASSET_TOKEN_PARAM,
   verifyPreviewAssetToken,
 } from "@/lib/projects/preview-asset-token";
-import { readProjectDistArtifact } from "@/lib/projects/runtime-artifacts";
+import {
+  isProjectArtifactRefFor,
+  readProjectDistArtifact,
+} from "@/lib/projects/runtime-artifacts";
 import {
   applyPreviewSandboxHeaders,
   proxyDeploymentRequest,
@@ -68,6 +74,8 @@ async function getAssetResponse({
           artifactRef: true,
           createdAt: true,
           id: true,
+          projectId: true,
+          snapshot: { select: { id: true, projectId: true } },
           snapshotId: true,
           status: true,
           updatedAt: true,
@@ -78,29 +86,39 @@ async function getAssetResponse({
       id: true,
       kind: true,
       projectId: true,
+      snapshot: { select: { id: true, projectId: true } },
       snapshotId: true,
       status: true,
       updatedAt: true,
     },
   });
-  const deployment = selectActivePreviewDeployment(deployments);
+  const projectDeployments = deployments.filter((candidate) =>
+    isProjectDeploymentForProject(candidate, id),
+  );
+  const activeDeployment = selectActivePreviewDeployment(projectDeployments);
   const requestUrl = new URL(request.url);
   const assetToken = requestUrl.searchParams.get(PREVIEW_ASSET_TOKEN_PARAM);
-
-  const hasValidToken =
-    deployment?.build?.artifactRef &&
-    (verifyPreviewAssetToken({
-      deploymentId: deployment.id,
-      projectId: deployment.projectId,
-      token: assetToken,
-    }) ||
+  const tokenDeployment = projectDeployments.find(
+    (candidate) =>
+      Boolean(candidate.build?.artifactRef) &&
+      verifyPreviewAssetToken({
+        deploymentId: candidate.id,
+        projectId: id,
+        token: assetToken,
+      }),
+  );
+  const deployment = tokenDeployment ?? activeDeployment;
+  const hasValidToken = Boolean(
+    tokenDeployment?.build?.artifactRef ||
+    (activeDeployment?.build?.artifactRef &&
       verifyPreviewAssetToken({
         deploymentId: "stored",
         projectId: id,
         token: assetToken,
-      }));
+      })),
+  );
 
-  if (hasValidToken) {
+  if (hasValidToken && deployment) {
     const response = await proxyDeploymentRequest({
       deploymentId: deployment.id,
       deploymentStatus: deployment.status,
@@ -117,6 +135,7 @@ async function getAssetResponse({
     }
 
     const staticResponse = await getStoredAssetResponse({
+      artifactId: deployment.build?.id,
       artifactRef: deployment.build?.artifactRef,
       path: assetPath,
       projectId: id,
@@ -149,7 +168,7 @@ async function getAssetResponse({
     return sandboxJson({ message: "Proyek tidak ditemukan." }, { status: 404 });
   }
 
-  if (deployment?.build?.artifactRef) {
+  if (deployment && deployment.build?.artifactRef) {
     const response = await proxyDeploymentRequest({
       deploymentId: deployment.id,
       deploymentStatus: deployment.status,
@@ -166,6 +185,7 @@ async function getAssetResponse({
     }
 
     const staticResponse = await getStoredAssetResponse({
+      artifactId: deployment.build.id,
       artifactRef: deployment.build.artifactRef,
       path: assetPath,
       projectId: id,
@@ -195,36 +215,29 @@ async function getAssetResponse({
 }
 
 async function getStoredAssetResponse({
+  artifactId,
   artifactRef,
   path,
   projectId,
 }: {
+  artifactId?: string;
   artifactRef?: string | null;
   path: string[];
   projectId: string;
 }) {
   const requestedPath = path.join("/");
-  const candidateArtifacts: string[] = [];
+  const candidateArtifact = isProjectArtifactRefFor(
+    artifactRef,
+    "dist",
+    artifactId ?? "",
+  )
+    ? artifactRef
+    : null;
 
-  if (artifactRef) {
-    candidateArtifacts.push(artifactRef);
-  }
-
-  // Also query recent successful builds for this project to resolve versioned snapshot assets
-  const recentBuilds = await prisma.projectBuild.findMany({
-    where: { projectId, status: "succeeded", artifactRef: { not: null } },
-    orderBy: { createdAt: "desc" },
-    take: 10,
-    select: { artifactRef: true },
-  });
-  for (const build of recentBuilds) {
-    if (build.artifactRef && !candidateArtifacts.includes(build.artifactRef)) {
-      candidateArtifacts.push(build.artifactRef);
-    }
-  }
-
-  for (const ref of candidateArtifacts) {
-    const distFiles = await readProjectDistArtifact(ref).catch(() => []);
+  if (candidateArtifact) {
+    const distFiles = await readProjectDistArtifact(candidateArtifact).catch(
+      () => [],
+    );
     const file = distFiles.find(
       (item) =>
         item.path === requestedPath || item.path === `assets/${requestedPath}`,
@@ -240,6 +253,10 @@ async function getStoredAssetResponse({
         ),
       });
     }
+  }
+
+  if (artifactId !== undefined || artifactRef !== undefined) {
+    return null;
   }
 
   const storedFiles = await readStoredProjectDistFiles(projectId);

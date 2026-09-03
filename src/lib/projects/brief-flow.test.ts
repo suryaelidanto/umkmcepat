@@ -294,7 +294,7 @@ describe("normalizeWorkspaceTurn", () => {
             id: "business_name",
             answerMode: "text",
             question: "Nama restorannya apa?",
-            placeholder: "Contoh: Dapur Sari Laut",
+            placeholder: "Dapur Sari Laut",
           },
         },
       },
@@ -305,9 +305,7 @@ describe("normalizeWorkspaceTurn", () => {
     if (turn.workspaceCard.type === "question") {
       expect(turn.workspaceCard.question.answerMode).toBe("text");
       expect(turn.workspaceCard.question.options).toEqual([]);
-      expect(turn.workspaceCard.question.placeholder).toBe(
-        "Contoh: Dapur Sari Laut",
-      );
+      expect(turn.workspaceCard.question.placeholder).toBe("Dapur Sari Laut");
     }
   });
 
@@ -322,7 +320,7 @@ describe("normalizeWorkspaceTurn", () => {
             answerMode: "text",
             text: "Nama laundry kamu apa?",
             hint: "Nama ini akan jadi judul utama website.",
-            placeholder: "Misal: Laundry Bekasi Fresh",
+            placeholder: "Laundry Bekasi Fresh",
           },
         },
       },
@@ -634,6 +632,31 @@ describe("normalizeWorkspaceTurn", () => {
     }
   });
 
+  it("allows an explicit build-now request with only the four safety minimums", () => {
+    const brief = parseProjectBrief(
+      {
+        businessName: "Kedai Pagi",
+        offer: "Kopi susu",
+        contactOrCta: "Lihat menu",
+      },
+      "jualan kopi",
+    );
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "build_recommendation",
+          title: "Buat sekarang",
+          summary: [],
+        },
+      },
+      brief,
+      { lastUserText: "buat sekarang" },
+    );
+
+    expect(turn.workspaceCard.type).toBe("build_recommendation");
+    expect(turn.readyForBuild).toBe(true);
+  });
+
   it("accepts brief_review as build_recommendation when min brief is filled (even if confidence low)", () => {
     const brief = parseBuildReadyBrief(
       {
@@ -866,6 +889,11 @@ describe("normalizeWorkspaceTurn", () => {
         },
       },
       brief,
+      {
+        ownerTexts: [
+          "Nama usaha Kopi Lanang, menu utama Kopi Susu Gula Aren, WhatsApp 081234567890, pelanggan Anak muda di Jogja, gaya Modern & Minimalis.",
+        ],
+      },
     );
 
     expect(turn.brief.businessName).toBe("Kopi Lanang");
@@ -1141,6 +1169,113 @@ describe("normalizeWorkspaceTurn", () => {
     expect(turn.workspaceCard.type).toBe("none");
   });
 
+  it("promotes a model clarification to an update card for an explicit post-build edit", () => {
+    const brief = parseProjectBrief(
+      {
+        businessName: "Kopi Senja Roastery",
+        businessType: "Kopi Senja Roastery",
+        offer: "Biji kopi roasting",
+        targetCustomer: "Pecinta kopi lokal",
+        contactOrCta: "WhatsApp 08123456789",
+        stylePreference: "Warm and cozy",
+      },
+      "jualan kopi",
+    );
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "question",
+          question: {
+            id: "refinement",
+            question: "Bagian mana yang ingin kamu perbaiki?",
+          },
+        },
+      },
+      brief,
+      {
+        hasBuiltSite: true,
+        lastUserText:
+          "Ubah teks semua tombol ajakan utama menjadi 'Hubungi via WhatsApp'. Hanya ubah teks tombol, jangan ubah tata letak, warna, gambar, isi lain, atau file lain.",
+      },
+    );
+
+    expect(turn.workspaceCard.type).toBe("build_recommendation");
+    if (turn.workspaceCard.type === "build_recommendation") {
+      expect(turn.workspaceCard.postBuildUpdate).toBe(true);
+      expect(turn.workspaceCard.title).toBe("Perbarui website");
+    }
+  });
+
+  it("keeps an AI-expanded visual preference grounded in the owner update", () => {
+    const brief = parseProjectBrief(
+      {
+        businessName: "Fresh Clean Laundry",
+        businessType: "Laundry",
+        offer: "Cuci pakaian",
+        targetCustomer: "Keluarga",
+        contactOrCta: "WhatsApp 08123456789",
+        stylePreference: "Minimalis & Praktis",
+      },
+      "laundry",
+    );
+    const turn = normalizeWorkspaceTurn(
+      {
+        briefPatch: {
+          stylePreference: "Mewah & Premium (Elegan, Nuansa Emas/Navy Gelap)",
+        },
+        workspaceCard: {
+          summary: ["Terapkan tema premium"],
+          title: "Terapkan tema premium",
+          type: "build_recommendation",
+        },
+      },
+      brief,
+      {
+        hasBuiltSite: true,
+        lastUserText: "aku pengin jadi lebih premium",
+        ownerTexts: ["aku pengin jadi lebih premium"],
+      },
+    );
+
+    expect(turn.brief.stylePreference).toBe(
+      "Mewah & Premium (Elegan, Nuansa Emas/Navy Gelap)",
+    );
+  });
+
+  it("allows a pending update preflight to preserve a recommendation after a checkpoint", () => {
+    const brief = parseProjectBrief(
+      {
+        businessName: "Kopi Senja Roastery",
+        businessType: "Kedai kopi",
+        offer: "Biji kopi roasting",
+        targetCustomer: "Pecinta kopi lokal",
+        contactOrCta: "WhatsApp 08123456789",
+        stylePreference: "Warm and cozy",
+      },
+      "jualan kopi",
+    );
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "build_recommendation",
+          title: "Perbarui website",
+          summary: ["Ubah tema"],
+        },
+      },
+      brief,
+      {
+        hasBuiltSite: true,
+        hasPendingUpdate: true,
+        preflight: "update",
+      },
+    );
+
+    expect(turn.workspaceCard.type).toBe("build_recommendation");
+    if (turn.workspaceCard.type === "build_recommendation") {
+      expect(turn.workspaceCard.postBuildUpdate).toBe(true);
+    }
+  });
+
   it("allows a build_recommendation card post-build when user asks to update or rebuild", () => {
     const brief = parseProjectBrief(
       {
@@ -1169,6 +1304,9 @@ describe("normalizeWorkspaceTurn", () => {
     );
 
     expect(turn.workspaceCard.type).toBe("build_recommendation");
+    if (turn.workspaceCard.type === "build_recommendation") {
+      expect(turn.workspaceCard.postBuildUpdate).toBe(true);
+    }
   });
 
   it("automatically emits build_recommendation post-build when user asks for an edit even if model emitted type none", () => {
@@ -1195,6 +1333,9 @@ describe("normalizeWorkspaceTurn", () => {
     );
 
     expect(turn.workspaceCard.type).toBe("build_recommendation");
+    if (turn.workspaceCard.type === "build_recommendation") {
+      expect(turn.workspaceCard.postBuildUpdate).toBe(true);
+    }
   });
 
   it("still allows a question card pre-build (hasBuiltSite: false / omitted) — same input as the built-site test above", () => {

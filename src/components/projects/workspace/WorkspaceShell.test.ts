@@ -8,6 +8,11 @@ import {
   WorkspaceShell,
   canStartBuild,
   chatBubbleClass,
+  resolveBuildAction,
+  resolveBuildRequestMode,
+  resolvePendingEditInstruction,
+  resolvePrimaryComposerIntent,
+  sanitizeWorkspaceCard,
 } from "./WorkspaceShell";
 
 import type { ProjectBrief } from "@/lib/projects/brief";
@@ -54,6 +59,29 @@ function makeBrief(overrides: Partial<ProjectBrief>): ProjectBrief {
   };
 }
 
+describe("sanitizeWorkspaceCard", () => {
+  it("hides legacy recommendations that cannot be confirmed", () => {
+    expect(
+      sanitizeWorkspaceCard({
+        summary: ["Ubah tema"],
+        title: "Perbarui website",
+        type: "build_recommendation",
+      }),
+    ).toEqual({ type: "none" });
+  });
+
+  it("keeps a proof-carrying recommendation actionable", () => {
+    const card = {
+      reviewHash: "a".repeat(64),
+      handoffId: "h1",
+      summary: ["Ubah tema"],
+      title: "Perbarui website",
+      type: "build_recommendation" as const,
+    };
+    expect(sanitizeWorkspaceCard(card)).toEqual(card);
+  });
+});
+
 describe("canStartBuild", () => {
   it("requires handoff proof for contract cards", () => {
     const contractCard = {
@@ -89,6 +117,104 @@ describe("canStartBuild", () => {
   it("returns false when card is null or undefined", () => {
     expect(canStartBuild(null)).toBe(false);
     expect(canStartBuild(undefined)).toBe(false);
+  });
+});
+
+describe("resolveBuildAction", () => {
+  it("routes a post-build update to the source-preserving edit worker", () => {
+    expect(
+      resolveBuildAction({
+        buildComplete: true,
+        buildStatus: "ready",
+        hasPendingChatEdit: false,
+        hasPostBuildUpdate: true,
+      }),
+    ).toBe("edit");
+  });
+
+  it("keeps failed builds on the generate retry path", () => {
+    expect(
+      resolveBuildAction({
+        buildComplete: false,
+        buildStatus: "failed",
+        hasPendingChatEdit: false,
+        hasPostBuildUpdate: false,
+      }),
+    ).toBe("generate");
+  });
+});
+
+describe("resolvePrimaryComposerIntent", () => {
+  it("keeps draft text on the chat path and preflights only an empty composer", () => {
+    expect(
+      resolvePrimaryComposerIntent({
+        buildComplete: true,
+        hasActionableRecommendation: false,
+        hasDraft: false,
+      }),
+    ).toBe("prepare_update");
+    expect(
+      resolvePrimaryComposerIntent({
+        buildComplete: false,
+        hasActionableRecommendation: false,
+        hasDraft: false,
+      }),
+    ).toBe("prepare_build");
+    expect(
+      resolvePrimaryComposerIntent({
+        buildComplete: true,
+        hasActionableRecommendation: false,
+        hasDraft: true,
+      }),
+    ).toBeNull();
+    expect(
+      resolvePrimaryComposerIntent({
+        buildComplete: true,
+        hasActionableRecommendation: true,
+        hasDraft: false,
+      }),
+    ).toBeNull();
+    expect(
+      resolvePrimaryComposerIntent({
+        buildComplete: false,
+        hasActionableRecommendation: false,
+        hasDraft: false,
+        hasPendingQuestion: true,
+      }),
+    ).toBeNull();
+  });
+});
+
+describe("resolvePendingEditInstruction", () => {
+  it("keeps the requested edit when the next message only confirms it", () => {
+    expect(
+      resolvePendingEditInstruction(
+        "aku pengin jadi lebih premium",
+        "ya silahkan buat",
+      ),
+    ).toBe("aku pengin jadi lebih premium");
+    expect(resolvePendingEditInstruction(null, "ya silahkan buat")).toBeNull();
+  });
+
+  it("replaces an older edit when the owner gives a new explicit request", () => {
+    expect(
+      resolvePendingEditInstruction(
+        "aku pengin jadi lebih premium",
+        "ubah warna jadi merah",
+      ),
+    ).toBe("ubah warna jadi merah");
+  });
+});
+
+describe("resolveBuildRequestMode", () => {
+  it("requests source-preserving retry after a failed build", () => {
+    expect(resolveBuildRequestMode("failed")).toBe("retry_build");
+  });
+
+  it("starts a fresh generation for non-failed states", () => {
+    expect(resolveBuildRequestMode("discussing")).toBe("first_generate");
+    expect(resolveBuildRequestMode("building")).toBe("first_generate");
+    expect(resolveBuildRequestMode("ready")).toBe("first_generate");
   });
 });
 

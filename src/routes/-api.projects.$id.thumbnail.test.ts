@@ -1,18 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { authMock, findFirstMock, readProjectThumbnailMock } = vi.hoisted(
-  () => ({
-    authMock: vi.fn(),
-    findFirstMock: vi.fn(),
-    readProjectThumbnailMock: vi.fn(),
-  }),
-);
+const {
+  authMock,
+  findFirstMock,
+  parseProjectThumbnailRefMock,
+  readProjectThumbnailMock,
+} = vi.hoisted(() => ({
+  authMock: vi.fn(),
+  findFirstMock: vi.fn(),
+  parseProjectThumbnailRefMock: vi.fn(),
+  readProjectThumbnailMock: vi.fn(),
+}));
 
 vi.mock("@/lib/auth/auth", () => ({ auth: authMock }));
 vi.mock("@/lib/prisma", () => ({
   prisma: { project: { findFirst: findFirstMock } },
 }));
 vi.mock("@/lib/projects/project-thumbnail", () => ({
+  parseProjectThumbnailRef: parseProjectThumbnailRefMock,
   readProjectThumbnail: readProjectThumbnailMock,
 }));
 
@@ -27,8 +32,9 @@ describe("project thumbnail route", () => {
     vi.clearAllMocks();
     authMock.mockResolvedValue({ user: { id: "user_1" } });
     findFirstMock.mockResolvedValue({
-      thumbnailRef: "project-thumbnail:local:project_1",
+      thumbnailRef: "project-thumbnail:s3-private:project_1",
     });
+    parseProjectThumbnailRefMock.mockReturnValue("project_1");
     readProjectThumbnailMock.mockResolvedValue(
       Buffer.from([0xff, 0xd8, 0xff, 0xff, 0xd9]),
     );
@@ -69,5 +75,16 @@ describe("project thumbnail route", () => {
     });
 
     expect(response.status).toBe(404);
+  });
+
+  it("does not read a thumbnail reference belonging to another project", async () => {
+    parseProjectThumbnailRefMock.mockReturnValue("project_2");
+
+    const response = await GET(new Request("http://localhost/thumbnail"), {
+      id: "project_1",
+    });
+
+    expect(response.status).toBe(404);
+    expect(readProjectThumbnailMock).not.toHaveBeenCalled();
   });
 });

@@ -43,15 +43,21 @@ export function isAllowedAssetPurpose(purpose: string): purpose is string {
   return ALLOWED_PURPOSES.includes(purpose);
 }
 
+export function getProjectAssetUrl(projectId: string, assetId: string): string {
+  return `/api/projects/${encodeURIComponent(projectId)}/asset/${encodeURIComponent(assetId)}`;
+}
+
 export async function uploadProjectAsset({
   bytes,
   projectId,
   purpose,
+  sourceTempAssetId,
   userId,
 }: {
   bytes: Buffer;
   projectId: string;
   purpose: string;
+  sourceTempAssetId?: string;
   userId: string;
 }): Promise<UploadedProjectAsset> {
   const kind = PURPOSE_TO_KIND[purpose];
@@ -59,6 +65,35 @@ export async function uploadProjectAsset({
     throw new Error(
       `Invalid asset purpose '${purpose}'. Allowed: ${ALLOWED_PURPOSES.join(", ")}.`,
     );
+  }
+
+  const sourceTempAssetKey = sourceTempAssetId?.trim() || null;
+  if (sourceTempAssetKey) {
+    const existing = await prisma.projectAsset.findFirst({
+      where: {
+        projectId,
+        purpose,
+        sourceTempAssetId: sourceTempAssetKey,
+        userId,
+      },
+      select: {
+        contentType: true,
+        id: true,
+        publicUrl: true,
+        ref: true,
+        sizeBytes: true,
+      },
+    });
+    if (existing) {
+      return {
+        contentType: existing.contentType,
+        id: existing.id,
+        publicUrl: existing.publicUrl,
+        ref: existing.ref,
+        sizeBytes: existing.sizeBytes,
+        url: getProjectAssetUrl(projectId, existing.id),
+      };
+    }
   }
 
   const existing = await prisma.projectAsset.aggregate({
@@ -93,6 +128,7 @@ export async function uploadProjectAsset({
       purpose,
       ref,
       sizeBytes: bytes.length,
+      sourceTempAssetId: sourceTempAssetKey,
       userId,
     },
     select: { id: true, publicUrl: true, ref: true },
@@ -113,15 +149,33 @@ export async function uploadProjectAsset({
     publicUrl: asset.publicUrl,
     ref: asset.ref,
     sizeBytes: bytes.length,
-    url: `/api/projects/${projectId}/assets/${asset.id}`,
+    url: getProjectAssetUrl(projectId, asset.id),
   };
 }
 
-export async function readProjectAssetById(assetId: string) {
-  const asset = await prisma.projectAsset.findUnique({
-    where: { id: assetId },
-    select: { ref: true, projectId: true, userId: true },
-  });
+export type ProjectAssetOwner = {
+  projectId: string;
+  userId: string;
+};
+
+export async function readProjectAssetById(
+  assetId: string,
+  owner?: ProjectAssetOwner,
+) {
+  const select = { ref: true, projectId: true, userId: true } as const;
+  const asset = owner
+    ? await prisma.projectAsset.findFirst({
+        where: {
+          id: assetId,
+          projectId: owner.projectId,
+          userId: owner.userId,
+        },
+        select,
+      })
+    : await prisma.projectAsset.findUnique({
+        where: { id: assetId },
+        select,
+      });
   if (!asset) {
     return null;
   }

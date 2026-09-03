@@ -42,11 +42,40 @@ describe("resolveProjectSourceFiles", () => {
         files: [],
         sourceRef: "ref-1",
       },
-      readArtifact: async (ref) => {
+      readArtifact: async (ref, snapshot) => {
         expect(ref).toBe("ref-1");
+        expect(snapshot.id).toBe("s");
         return sample;
       },
     });
     expect(files).toEqual(sample);
+  });
+
+  it("uses embedded files from the selected snapshot when its artifact is unavailable", async () => {
+    const files = await resolveProjectSourceFiles({
+      latestAttemptSnapshot: {
+        id: "selected",
+        files: sample,
+        sourceRef: "ref-selected",
+      },
+      projectSourceFiles: [{ path: "unrelated.tsx", content: "unrelated" }],
+      readArtifact: async () => [],
+    });
+
+    expect(files).toEqual(sample);
+  });
+
+  it("does not fall back to unrelated project files when the selected artifact is unavailable", async () => {
+    const files = await resolveProjectSourceFiles({
+      latestAttemptSnapshot: {
+        id: "selected",
+        files: [],
+        sourceRef: "ref-selected",
+      },
+      projectSourceFiles: sample,
+      readArtifact: async () => [],
+    });
+
+    expect(files).toEqual([]);
   });
 });

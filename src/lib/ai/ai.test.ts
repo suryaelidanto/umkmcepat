@@ -3,13 +3,16 @@ import { describe, expect, it } from "vitest";
 import { getNoReasoningCallOptions } from "@/lib/ai/ai";
 
 describe("getNoReasoningCallOptions", () => {
-  it("returns AI SDK reasoning none preference", () => {
-    expect(getNoReasoningCallOptions()).toMatchObject({ reasoning: "none" });
+  // ponytail: "minimal" avoids quota-limited "none" route in 9router combos.
+  it("returns the lowest healthy reasoning effort", () => {
+    expect(getNoReasoningCallOptions()).toMatchObject({
+      reasoning: "minimal",
+    });
   });
 
-  it("sets the 9Router provider reasoning effort to none", () => {
+  it("sets the 9Router provider reasoning effort to minimal", () => {
     expect(getNoReasoningCallOptions()).toMatchObject({
-      providerOptions: { "9router": { reasoningEffort: "none" } },
+      providerOptions: { "9router": { reasoningEffort: "minimal" } },
     });
   });
 });

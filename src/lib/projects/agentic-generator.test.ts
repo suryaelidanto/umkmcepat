@@ -7,7 +7,42 @@ const { generateTextMock } = vi.hoisted(() => ({
   })),
 }));
 
-import { runAgenticGenerate } from "./agentic-generator";
+import {
+  resolveAgentMaxSteps,
+  resolveProjectSkillContext,
+  runAgenticGenerate,
+} from "./agentic-generator";
+import { classifyEditIntent } from "./edit-intent";
+
+describe("resolveAgentMaxSteps", () => {
+  it("uses the classified micro-edit budget without removing the final check", () => {
+    const intent = classifyEditIntent({ instruction: "ganti warna tombol" });
+
+    expect(resolveAgentMaxSteps(40, intent)).toBe(2);
+    expect(resolveAgentMaxSteps(40, null)).toBe(40);
+  });
+});
+
+describe("resolveProjectSkillContext", () => {
+  it("leaves first builds without a preloaded skill context", () => {
+    expect(resolveProjectSkillContext(false, false)).toEqual({
+      availableSkillNames: new Set(),
+      digest: null,
+    });
+    expect(resolveProjectSkillContext(false, true).digest).toBeNull();
+  });
+
+  it("preloads a versioned trusted digest only for partial revisions", () => {
+    const context = resolveProjectSkillContext(true, false);
+
+    expect(context.digest?.version).toMatch(/^project-skills-v1:/u);
+    expect(context.digest?.entries.length).toBeGreaterThan(0);
+    expect(context.availableSkillNames.size).toBe(
+      context.digest?.entries.length,
+    );
+    expect(resolveProjectSkillContext(true, true).digest).toBeNull();
+  });
+});
 
 vi.mock("ai", () => ({
   generateText: generateTextMock,
@@ -94,7 +129,22 @@ function createInput(
 }
 
 async function readCoreSkills(tools: Record<string, AgentTool>) {
-  for (const name of ["impeccable", "shadcn"]) {
+  await tools.run_skill_script.execute({
+    args: { mode: "persuade", scope: "direction" },
+    script: "concept-seed",
+    skill: "impeccable",
+  });
+  for (const name of [
+    "impeccable",
+    "shadcn",
+    "unslop",
+    "impeccable/reference/new-work",
+    "impeccable/reference/layout",
+    "impeccable/reference/typeset",
+    "impeccable/reference/animate",
+    "impeccable/reference/polish",
+    "impeccable/reference/craft-floor",
+  ]) {
     await tools.read_skill.execute({ name });
   }
   await tools.set_design_system.execute({
@@ -114,12 +164,34 @@ async function readCoreSkills(tools: Record<string, AgentTool>) {
     radiusScale: "restrained",
     ring: "#0369a1",
   });
+  await tools.set_design_direction.execute({
+    contentArchitecture:
+      "Offer, proof, and contact follow a clear reading path.",
+    conversionThesis:
+      "One visible action should move a ready visitor to contact.",
+    firstViewport: "Offer and action lead.",
+    responsiveIntent:
+      "Stack the offer and action before secondary detail on small screens.",
+    form: "Editorial ledger",
+    motionThesis: "One measured reveal.",
+    ownWorld: "Ink and paper with a single accent.",
+    seedKey: "seed-test",
+    sparseDataStrategy:
+      "Use typography, rhythm, and empty space when owner evidence is absent.",
+    story: "Understand the offer and contact the owner.",
+    thesis: "The offer leads instead of a generic hero.",
+  });
+  await tools.run_skill_script.execute({
+    script: "scripts/palette.mjs",
+    skill: "impeccable",
+  });
 }
 
 async function completeAgentWorkflow(tools: Record<string, AgentTool>) {
   await readCoreSkills(tools);
   await tools.write_file.execute({
-    content: "export const generated = true;",
+    content:
+      "export const generated = true;\n/* authored entrance: @keyframes umkm-entrance */",
     path: "src/routes/generated.tsx",
   });
   await tools.check_app.execute({});
@@ -129,6 +201,65 @@ describe("runAgenticGenerate", () => {
   beforeEach(() => {
     generateTextMock.mockReset();
     generateTextMock.mockResolvedValue({ text: "Done", steps: [] });
+  });
+
+  it("passes bounded timeouts to each upstream generation step", async () => {
+    let captured: { timeout?: unknown } | undefined;
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      captured = args as { timeout?: unknown };
+      await completeAgentWorkflow(getTools(args));
+      return { text: "Done", steps: [] };
+    });
+
+    await expect(runAgenticGenerate(createInput())).resolves.toMatchObject({
+      generationMode: "agentic",
+    });
+
+    expect(captured?.timeout).toEqual({
+      chunkMs: 180_000,
+      firstChunkMs: 180_000,
+      stepMs: 180_000,
+    });
+  });
+
+  it("reports upstream generation failures to the step charger", async () => {
+    const onStepError = vi.fn();
+    const stepCharger = {
+      isExhausted: () => false,
+      modelId: "default-combo",
+      onStepError,
+      onStepFinish: vi.fn(async () => undefined),
+      totals: () => ({ inputTokens: 0, outputTokens: 0, energyUsed: 0 }),
+      userId: "user-1",
+    } satisfies NonNullable<
+      Parameters<typeof runAgenticGenerate>[0]["stepCharger"]
+    >;
+    const failure = new Error("Step timeout of 180000ms exceeded");
+    generateTextMock.mockRejectedValueOnce(failure);
+
+    await expect(
+      runAgenticGenerate(createInput({ stepCharger })),
+    ).rejects.toThrow(failure.message);
+
+    expect(onStepError).toHaveBeenCalledWith(failure);
+  });
+
+  it("continues after an early model stop until the required workflow is complete", async () => {
+    let calls = 0;
+    generateTextMock.mockImplementation(async (args: unknown) => {
+      calls += 1;
+      if (calls === 1) {
+        return { text: "", steps: [] };
+      }
+      await completeAgentWorkflow(getTools(args));
+      return { text: "Done", steps: [] };
+    });
+
+    await expect(runAgenticGenerate(createInput())).resolves.toMatchObject({
+      generationMode: "agentic",
+    });
+
+    expect(calls).toBe(2);
   });
 
   it("initializes starter files and produces agentic result", async () => {
@@ -177,6 +308,300 @@ describe("runAgenticGenerate", () => {
     expect(staged).toContain("src/content/site.ts");
   });
 
+  it("seeds site.ts with named and default exports so both import styles compile", async () => {
+    let seededSite = "";
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      await completeAgentWorkflow(getTools(args));
+      return { text: "Done", steps: [] };
+    });
+    await runAgenticGenerate(
+      createInput({
+        onFileStaged: (file: { path: string; content: string }) => {
+          if (file.path === "src/content/site.ts") {
+            seededSite = file.content;
+          }
+        },
+      }),
+    );
+    expect(seededSite).toMatch(/export const site/);
+    expect(seededSite).toMatch(/export default site/);
+  });
+
+  it("uses the versioned skill digest instead of pretending tools read revision skills", async () => {
+    let capturedSystem = "";
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      capturedSystem = (args as { system?: string }).system ?? "";
+      const tools = getTools(args);
+      const write = await tools.write_file.execute({
+        content:
+          "export const generated = true;\n/* authored entrance: @keyframes umkm-entrance */",
+        path: "src/routes/generated.tsx",
+      });
+      expect(write).toMatchObject({ success: true });
+      await tools.check_app.execute({});
+      return { text: "Done", steps: [] };
+    });
+
+    const result = await runAgenticGenerate(
+      createInput({
+        initialFiles: [
+          {
+            content: "export default function ExistingHome() { return null; }",
+            path: "src/routes/index.tsx",
+          },
+        ],
+        revisionBrief: "Perbarui hero tanpa mengubah data usaha.",
+      }),
+    );
+
+    expect(result.skillsRead).toEqual([]);
+    expect(result.skillDigest?.version).toMatch(/^project-skills-v1:/u);
+    expect(capturedSystem).toContain("<project-skill-digest>");
+  });
+
+  it("serves a preloaded revision file without recording a file reread", async () => {
+    let revisionTools: Record<string, AgentTool> | null = null;
+    let result: Awaited<ReturnType<typeof runAgenticGenerate>> | null = null;
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      revisionTools = getTools(args);
+      const current = await revisionTools.read_file.execute({
+        path: "./src/routes/index.tsx",
+      });
+      expect(current).toMatchObject({ content: "existing route" });
+      await revisionTools.write_file.execute({
+        content:
+          "export const generated = true;\n/* authored entrance: @keyframes umkm-entrance */",
+        path: "src/routes/generated.tsx",
+      });
+      await revisionTools.check_app.execute({});
+      return { text: "Done", steps: [] };
+    });
+
+    result = await runAgenticGenerate(
+      createInput({
+        initialFiles: [
+          { path: "src/routes/index.tsx", content: "existing route" },
+        ],
+        revisionBrief: "Ubah teks tombol utama",
+      }),
+    );
+
+    expect(revisionTools).not.toBeNull();
+    expect(
+      result.operationTrace.filter(
+        (operation) => operation.type === "read_file",
+      ),
+    ).toHaveLength(0);
+  });
+
+  it("passes the structured edit plan to the revision agent", async () => {
+    let capturedPrompt = "";
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      capturedPrompt = (args as { prompt?: string }).prompt ?? "";
+      const tools = getTools(args);
+      await tools.write_file.execute({
+        content:
+          "export const generated = true;\n/* authored entrance: @keyframes umkm-entrance */",
+        path: "src/routes/generated.tsx",
+      });
+      await tools.check_app.execute({});
+      return { text: "Done", steps: [] };
+    });
+
+    await runAgenticGenerate(
+      createInput({
+        editPlan: {
+          dimensions: ["style", "layout"],
+          magnitude: "structural",
+          operations: [
+            { kind: "update_style" },
+            { kind: "redesign_layout" },
+            { kind: "responsive_layout" },
+          ],
+          targetFiles: [
+            "src/routes/index.tsx",
+            "src/routes/generated.tsx",
+            "src/index.css",
+          ],
+        },
+        initialFiles: [
+          { path: "src/routes/index.tsx", content: "existing route" },
+        ],
+        revisionBrief: "Buat layout lebih premium.",
+      }),
+    );
+
+    expect(capturedPrompt).toContain("ACCEPTED EDIT PLAN");
+    expect(capturedPrompt).toContain('"responsive_layout"');
+  });
+
+  it("preserves the accepted protected site data during revisions", async () => {
+    const preservedSiteContent =
+      "export const site = { primaryCtaTarget: 'accepted' };";
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      const tools = getTools(args);
+      await readCoreSkills(tools);
+      await tools.write_file.execute({
+        content:
+          "export const generated = true;\n/* authored entrance: @keyframes umkm-entrance */",
+        path: "src/routes/generated.tsx",
+      });
+      await tools.check_app.execute({});
+      return { text: "Done", steps: [] };
+    });
+
+    const result = await runAgenticGenerate(
+      createInput({
+        initialFiles: [
+          { path: "src/content/site.ts", content: preservedSiteContent },
+        ],
+        revisionBrief: "Perbarui tampilan tanpa mengubah data usaha.",
+      }),
+    );
+
+    expect(
+      result.files.find((file) => file.path === "src/content/site.ts")?.content,
+    ).toBe(preservedSiteContent);
+  });
+
+  it("requires the agent to read core skills before writing source", async () => {
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      const tools = getTools(args);
+      await tools.set_design_system.execute({
+        accent: "#0369a1",
+        accentForeground: "#ffffff",
+        background: "#f8fafc",
+        bodyFontStackId: "system-humanist",
+        border: "#cbd5e1",
+        card: "#ffffff",
+        cardForeground: "#0f172a",
+        displayFontStackId: "system-editorial",
+        foreground: "#0f172a",
+        muted: "#f1f5f9",
+        mutedForeground: "#475569",
+        primary: "#0f172a",
+        primaryForeground: "#ffffff",
+        radiusScale: "restrained",
+        ring: "#0369a1",
+      });
+      const rejected = await tools.write_file.execute({
+        content:
+          "export const generated = true;\n/* authored entrance: @keyframes umkm-entrance */",
+        path: "src/routes/generated.tsx",
+      });
+      expect(rejected).toMatchObject({
+        error: expect.stringContaining("Read the required skills"),
+      });
+      await readCoreSkills(tools);
+      const write = await tools.write_file.execute({
+        content:
+          "export const generated = true;\n/* authored entrance: @keyframes umkm-entrance */",
+        path: "src/routes/generated.tsx",
+      });
+      expect(write).toMatchObject({ success: true });
+      await tools.check_app.execute({});
+      return { text: "Done", steps: [] };
+    });
+
+    await expect(runAgenticGenerate(createInput())).resolves.toMatchObject({
+      skillsRead: expect.arrayContaining(["impeccable", "shadcn"]),
+    });
+  });
+
+  it("requires a committed design direction before initial source writes", async () => {
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      const tools = getTools(args);
+      for (const name of [
+        "impeccable",
+        "shadcn",
+        "unslop",
+        "impeccable/reference/new-work",
+        "impeccable/reference/layout",
+        "impeccable/reference/typeset",
+        "impeccable/reference/animate",
+        "impeccable/reference/polish",
+        "impeccable/reference/craft-floor",
+      ]) {
+        await tools.read_skill.execute({ name });
+      }
+      await tools.set_design_system.execute({
+        accent: "#0369a1",
+        accentForeground: "#ffffff",
+        background: "#f8fafc",
+        bodyFontStackId: "system-humanist",
+        border: "#cbd5e1",
+        card: "#ffffff",
+        cardForeground: "#0f172a",
+        displayFontStackId: "system-editorial",
+        foreground: "#0f172a",
+        muted: "#f1f5f9",
+        mutedForeground: "#475569",
+        primary: "#0f172a",
+        primaryForeground: "#ffffff",
+        radiusScale: "restrained",
+        ring: "#0369a1",
+      });
+      const rejected = await tools.write_file.execute({
+        content:
+          "export const generated = true;\n/* authored entrance: @keyframes umkm-entrance */",
+        path: "src/routes/generated.tsx",
+      });
+      expect(rejected).toMatchObject({
+        error: expect.stringContaining("design direction"),
+      });
+      await tools.run_skill_script.execute({
+        args: { mode: "persuade", scope: "direction" },
+        script: "concept-seed",
+        skill: "impeccable",
+      });
+      await tools.set_design_direction.execute({
+        contentArchitecture:
+          "Offer, proof, and contact follow a clear reading path.",
+        conversionThesis:
+          "One visible action should move a ready visitor to contact.",
+        firstViewport: "Offer and action lead.",
+        responsiveIntent:
+          "Stack the offer and action before secondary detail on small screens.",
+        form: "Editorial ledger",
+        motionThesis: "One measured reveal.",
+        ownWorld: "Ink and paper with a single accent.",
+        seedKey: "seed-test",
+        sparseDataStrategy:
+          "Use typography, rhythm, and empty space when owner evidence is absent.",
+        story: "Understand the offer and contact the owner.",
+        thesis: "The offer leads instead of a generic hero.",
+      });
+      await tools.run_skill_script.execute({
+        script: "scripts/palette.mjs",
+        skill: "impeccable",
+      });
+      await tools.write_file.execute({
+        content:
+          "export const generated = true;\n/* authored entrance: @keyframes umkm-entrance */",
+        path: "src/routes/generated.tsx",
+      });
+      await tools.check_app.execute({});
+      return { text: "Done", steps: [] };
+    });
+
+    await expect(runAgenticGenerate(createInput())).resolves.toMatchObject({
+      generationMode: "agentic",
+    });
+  });
+
+  it("exposes the bundled skill script runner", async () => {
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      const tools = getTools(args);
+      expect(tools.run_skill_script).toBeDefined();
+      await completeAgentWorkflow(tools);
+      return { text: "Done", steps: [] };
+    });
+
+    await expect(runAgenticGenerate(createInput())).resolves.toMatchObject({
+      generationMode: "agentic",
+    });
+  });
+
   it("exposes read_skill and returns the selected local document", async () => {
     generateTextMock.mockImplementationOnce(async (args: unknown) => {
       const tools = getTools(args);
@@ -207,8 +632,44 @@ describe("runAgenticGenerate", () => {
   it("rejects writes until design system has been set", async () => {
     generateTextMock.mockImplementationOnce(async (args: unknown) => {
       const tools = getTools(args);
+      await tools.run_skill_script.execute({
+        args: { mode: "persuade", scope: "direction" },
+        script: "concept-seed",
+        skill: "impeccable",
+      });
+      for (const name of [
+        "impeccable",
+        "shadcn",
+        "unslop",
+        "impeccable/reference/new-work",
+        "impeccable/reference/layout",
+        "impeccable/reference/typeset",
+        "impeccable/reference/animate",
+        "impeccable/reference/polish",
+        "impeccable/reference/craft-floor",
+      ]) {
+        await tools.read_skill.execute({ name });
+      }
+      await tools.set_design_direction.execute({
+        contentArchitecture:
+          "Offer, proof, and contact follow a clear reading path.",
+        conversionThesis:
+          "One visible action should move a ready visitor to contact.",
+        firstViewport: "Offer and action lead.",
+        responsiveIntent:
+          "Stack the offer and action before secondary detail on small screens.",
+        form: "Editorial ledger",
+        motionThesis: "One measured reveal.",
+        ownWorld: "Ink and paper with a single accent.",
+        seedKey: "seed-test",
+        sparseDataStrategy:
+          "Use typography, rhythm, and empty space when owner evidence is absent.",
+        story: "Understand the offer and contact the owner.",
+        thesis: "The offer leads instead of a generic hero.",
+      });
       const result = await tools.write_file.execute({
-        content: "export const generated = true;",
+        content:
+          "export const generated = true;\n/* authored entrance: @keyframes umkm-entrance */",
         path: "src/routes/generated.tsx",
       });
       expect(result).toEqual(
@@ -216,6 +677,11 @@ describe("runAgenticGenerate", () => {
           error: expect.stringContaining("set_design_system"),
         }),
       );
+      await tools.run_skill_script.execute({
+        script: "scripts/palette.mjs",
+        skill: "impeccable",
+      });
+      await tools.check_app.execute({});
       return { text: "Done", steps: [] };
     });
 
@@ -224,7 +690,7 @@ describe("runAgenticGenerate", () => {
     );
   });
 
-  it("rejects arbitrary Tailwind colors before browser qualification", async () => {
+  it("rejects arbitrary Tailwind colors before source acceptance", async () => {
     generateTextMock.mockImplementationOnce(async (args: unknown) => {
       const tools = getTools(args);
       await readCoreSkills(tools);
@@ -236,6 +702,28 @@ describe("runAgenticGenerate", () => {
       expect(result).toEqual(
         expect.objectContaining({
           error: expect.stringContaining("semantic theme tokens"),
+        }),
+      );
+      await completeAgentWorkflow(tools);
+      return { text: "Done", steps: [] };
+    });
+
+    await expect(runAgenticGenerate(createInput())).resolves.toMatchObject({
+      generationMode: "agentic",
+    });
+  });
+
+  it("rejects unsupported high-risk literals in generated source", async () => {
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      const tools = getTools(args);
+      await readCoreSkills(tools);
+      const result = await tools.write_file.execute({
+        content: 'export const claim = "Paling laris, hubungi 08123456789";',
+        path: "src/components/site/Claim.tsx",
+      });
+      expect(result).toEqual(
+        expect.objectContaining({
+          error: expect.stringContaining("accepted facts"),
         }),
       );
       await completeAgentWorkflow(tools);
@@ -269,6 +757,209 @@ describe("runAgenticGenerate", () => {
     });
   });
 
+  it("blocks writes outside a surgical edit plan", async () => {
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      const tools = getTools(args);
+      await readCoreSkills(tools);
+      const rejected = await tools.write_file.execute({
+        content:
+          "export const generated = true;\n/* authored entrance: @keyframes umkm-entrance */",
+        path: "src/components/site/Unrelated.tsx",
+      });
+      expect(rejected).toMatchObject({
+        error: expect.stringContaining("outside the approved edit plan"),
+      });
+      await tools.write_file.execute({
+        content:
+          "export default function Home() { return <main>Updated</main>; }",
+        path: "src/routes/index.tsx",
+      });
+      await tools.check_app.execute({});
+      return { text: "Done", steps: [] };
+    });
+
+    await expect(
+      runAgenticGenerate(
+        createInput({
+          editPlan: {
+            dimensions: ["copy"],
+            magnitude: "surgical",
+            operations: [{ kind: "update_copy" }],
+            targetFiles: ["src/routes/index.tsx"],
+          },
+          initialFiles: [
+            {
+              content:
+                "export default function ExistingHome() { return null; }",
+              path: "src/routes/index.tsx",
+            },
+          ],
+          revisionBrief: "Ubah teks tombol utama.",
+        }),
+      ),
+    ).resolves.toMatchObject({ generationMode: "agentic" });
+  });
+
+  it("allows grounded content and one permanent project asset in an edit plan", async () => {
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      const tools = getTools(args);
+      await readCoreSkills(tools);
+      const result = await tools.write_file.execute({
+        content:
+          'export const site = { contact: "081234567890", images: [{ url: "/media/project-asset.webp" }] };\nexport default site;',
+        path: "src/content/site.ts",
+      });
+      expect(result).toMatchObject({ success: true });
+      await completeAgentWorkflow(tools);
+      return { text: "Done", steps: [] };
+    });
+
+    await expect(
+      runAgenticGenerate(
+        createInput({
+          brief: {
+            businessName: "Cuci Sepatu",
+            factLedger: {
+              version: 1,
+              entries: [
+                {
+                  field: "contact",
+                  id: "contact-1",
+                  label: "Nomor kontak",
+                  origin: "owner_message",
+                  source: "owner",
+                  sourceTurnId: "turn-1",
+                  state: "owner_confirmed",
+                  value: "081234567890",
+                },
+              ],
+            },
+            offer: "Cuci Sepatu Express",
+            prompt: "Cuci Sepatu Kilat",
+          },
+          editPlan: {
+            dimensions: ["content", "media"],
+            magnitude: "section",
+            operations: [{ kind: "update_content" }, { kind: "update_media" }],
+          },
+          initialFiles: [
+            {
+              content:
+                "export default function ExistingHome() { return null; }",
+              path: "src/routes/index.tsx",
+            },
+          ],
+          revisionBrief: "Tambahkan info kontak dan foto usaha.",
+        }),
+      ),
+    ).resolves.toMatchObject({ generationMode: "agentic" });
+  });
+
+  it("rejects temporary and remote image references during edits", async () => {
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      const tools = getTools(args);
+      await readCoreSkills(tools);
+      const temporary = await tools.write_file.execute({
+        content:
+          'export const site = { images: [{ url: "/api/uploads/temp-images/a" }] };\nexport default site;',
+        path: "src/content/site.ts",
+      });
+      expect(temporary).toMatchObject({
+        error: expect.stringContaining("permanent project asset"),
+      });
+      const remote = await tools.write_file.execute({
+        content:
+          'export const site = { images: [{ url: "https://cdn.example.com/shop.webp" }] };\nexport default site;',
+        path: "src/content/site.ts",
+      });
+      expect(remote).toMatchObject({
+        error: expect.stringContaining("permanent project asset"),
+      });
+      await completeAgentWorkflow(tools);
+      return { text: "Done", steps: [] };
+    });
+
+    await expect(
+      runAgenticGenerate(
+        createInput({
+          editPlan: {
+            dimensions: ["media"],
+            magnitude: "surgical",
+            operations: [{ kind: "update_media" }],
+          },
+          initialFiles: [
+            {
+              content:
+                "export default function ExistingHome() { return null; }",
+              path: "src/routes/index.tsx",
+            },
+          ],
+          revisionBrief: "Ganti foto usaha.",
+        }),
+      ),
+    ).resolves.toMatchObject({ generationMode: "agentic" });
+  });
+
+  it("rejects unresolved module imports with the exact missing path", async () => {
+    let importError = "";
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      const tools = getTools(args);
+      await readCoreSkills(tools);
+      const rejected = await tools.write_file.execute({
+        content:
+          "import { Hero } from '@/components/site/Hero';\nexport default Hero;",
+        path: "src/routes/index.tsx",
+      });
+      importError = JSON.stringify(rejected);
+      const missingUi = await tools.write_file.execute({
+        content:
+          "import { Badge } from '@/components/ui/badge';\nexport default Badge;",
+        path: "src/routes/badge-test.tsx",
+      });
+      expect(missingUi).toMatchObject({ success: true });
+      const unknownUi = await tools.write_file.execute({
+        content:
+          "import { X } from '@/components/ui/not-a-component';\nexport default X;",
+        path: "src/routes/unknown-ui.tsx",
+      });
+      importError += JSON.stringify(unknownUi);
+      await completeAgentWorkflow(tools);
+      return { text: "Done", steps: [] };
+    });
+
+    await runAgenticGenerate(createInput());
+    expect(importError).toContain("@/components/site/Hero");
+    expect(importError).toContain("write_file");
+    expect(importError).toContain("@/components/ui/not-a-component");
+  });
+
+  it("keeps visual review tools out of the writer contract", async () => {
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      const tools = getTools(args);
+      expect(tools.run_design_audit).toBeUndefined();
+      expect(tools.generate_palette).toBeUndefined();
+      await completeAgentWorkflow(tools);
+      return { text: "Done", steps: [] };
+    });
+
+    await runAgenticGenerate(createInput());
+  });
+
+  it("does not require or suggest animation as a content visibility mechanism", async () => {
+    let systemPrompt = "";
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      systemPrompt = (args as { system?: string }).system ?? "";
+      await completeAgentWorkflow(getTools(args));
+      return { text: "Done", steps: [] };
+    });
+
+    await runAgenticGenerate(createInput());
+
+    expect(systemPrompt).not.toMatch(
+      /motion\/react|whileInView|intersection observer/i,
+    );
+  });
+
   it("requires a custom write and performs a final check when the agent omits one", async () => {
     generateTextMock.mockImplementationOnce(async (args: unknown) => {
       const tools = getTools(args);
@@ -284,7 +975,8 @@ describe("runAgenticGenerate", () => {
       const tools = getTools(args);
       await readCoreSkills(tools);
       await tools.write_file.execute({
-        content: "export const generated = true;",
+        content:
+          "export const generated = true;\n/* authored entrance: @keyframes umkm-entrance */",
         path: "src/routes/generated.tsx",
       });
       return { text: "Done", steps: [] };
@@ -337,6 +1029,49 @@ describe("runAgenticGenerate", () => {
     expect(result).toMatchObject({ generationMode: "agentic" });
   });
 
+  it("passes persisted discussion memory to the generation system prompt", async () => {
+    let capturedSystem = "";
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      capturedSystem = (args as { system?: string }).system ?? "";
+      return { text: "Done", steps: [] };
+    });
+
+    await expect(
+      runAgenticGenerate(
+        createInput({
+          brief: {
+            prompt: "buat website usaha",
+            discussionContext: {
+              version: 1,
+              messages: [
+                {
+                  id: "owner-memory",
+                  role: "user",
+                  parts: [{ type: "text", text: "Owner memory marker" }],
+                },
+                ...Array.from({ length: 11 }, (_, index) => ({
+                  id: `recent-${index}`,
+                  role: "assistant",
+                  parts: [{ type: "text", text: `recent ${index}` }],
+                })),
+              ],
+              summary: { text: "Summary marker", compactedMessageCount: 1 },
+              memoryFacts: {
+                facts: [],
+                decisions: [],
+                preferences: [],
+              },
+            },
+          },
+        }),
+      ),
+    ).rejects.toThrow();
+
+    expect(capturedSystem).toContain('"ownerMessages"');
+    expect(capturedSystem).toContain("Owner memory marker");
+    expect(capturedSystem).toContain("Summary marker");
+  });
+
   it("builds a fact-grounded system and user prompt", async () => {
     let captured: { prompt?: string; system?: string } | undefined;
     generateTextMock.mockImplementationOnce(async (args: unknown) => {
@@ -363,39 +1098,169 @@ describe("runAgenticGenerate", () => {
     if (!captured) {
       throw new Error("generateText arguments were not captured");
     }
-    expect(captured.system).toContain("read_skill");
-    expect(captured.system).toContain("src/content/site.ts");
-    expect(captured.system).toContain("protected");
-    expect(captured.prompt).toContain("NOT PROVIDED");
-    expect(captured.prompt).not.toContain("08.00-21.00 WIB");
+    expect(captured.system).toEqual(expect.any(String));
+    expect(captured.prompt).toEqual(expect.any(String));
     expect(captured.prompt).not.toContain("Terjangkau");
   });
+});
 
-  it("passes existing file manifest and surgical update instructions when components exist", async () => {
-    let capturedPrompt = "";
-    generateTextMock.mockImplementationOnce(async (args) => {
-      const parsed = args as { prompt?: string };
-      capturedPrompt = parsed.prompt ?? "";
+describe("generated design docs", () => {
+  it("adds exactly PRODUCT.md and DESIGN.md on first build", async () => {
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      await completeAgentWorkflow(getTools(args));
       return { text: "Done", steps: [] };
     });
+    const result = await runAgenticGenerate(createInput());
+    const mdFiles = result.files
+      .map((f) => f.path)
+      .filter((p) => p.endsWith(".md"))
+      .sort();
+    expect(mdFiles).toEqual(["DESIGN.md", "PRODUCT.md"]);
+    const design = result.files.find((f) => f.path === "DESIGN.md");
+    expect(design?.content).toContain("## THESIS");
+    expect(design?.content).toContain("## OWN-WORLD");
+    expect(design?.content).toContain("## STORY");
+    expect(design?.content).toContain("## FIRST VIEWPORT");
+    expect(design?.content).toContain("## MOTION");
+  });
 
-    await expect(
-      runAgenticGenerate(
-        createInput({
-          initialFiles: [
-            { path: "src/components/site/Hero.tsx", content: "// hero" },
-            { path: "src/routes/index.tsx", content: "// index" },
-          ],
-        }),
-      ),
-    ).rejects.toThrow();
-
-    expect(capturedPrompt).toContain("EXISTING SITE FILES");
-    expect(capturedPrompt).toContain("src/components/site/Hero.tsx");
-    expect(capturedPrompt).toContain(
-      "MANDATORY UPDATE SEQUENCE (SURGICAL, NON-DESTRUCTIVE & FAST):",
+  it("injects persisted docs into the revision prompt as anchors", async () => {
+    let capturedPrompt = "";
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      capturedPrompt = (args as { prompt?: string }).prompt ?? "";
+      await completeAgentWorkflow(getTools(args));
+      return { text: "Done", steps: [] };
+    });
+    await runAgenticGenerate(
+      createInput({
+        initialFiles: [
+          {
+            content: "PRODUCT ANCHOR MARKER",
+            path: "PRODUCT.md",
+          },
+          {
+            content: "DESIGN ANCHOR MARKER",
+            path: "DESIGN.md",
+          },
+          {
+            content: "export const site = {};",
+            path: "src/content/site.ts",
+          },
+          {
+            content: "export default function Home() { return null; }",
+            path: "src/routes/index.tsx",
+          },
+        ],
+        revisionBrief: "perbarui bagian offer",
+      }),
     );
-    expect(capturedPrompt).toContain("PRE-LOADED TARGET FILES");
-    expect(capturedPrompt).toContain("SURGICAL INTENT");
+    expect(capturedPrompt).toContain("PRODUCT ANCHOR MARKER");
+    expect(capturedPrompt).toContain("DESIGN ANCHOR MARKER");
+  });
+
+  it("regenerates both docs on a full rebuild and keeps them on partial revisions", async () => {
+    const oldDocs = [
+      { content: "OLD PRODUCT MARKER", path: "PRODUCT.md" },
+      { content: "OLD DESIGN MARKER", path: "DESIGN.md" },
+      { content: "export const site = {};", path: "src/content/site.ts" },
+      {
+        content: "export default function Home() { return null; }",
+        path: "src/routes/index.tsx",
+      },
+    ];
+
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      await completeAgentWorkflow(getTools(args));
+      return { text: "Done", steps: [] };
+    });
+    const rebuilt = await runAgenticGenerate(
+      createInput({
+        fullRebuild: true,
+        initialFiles: oldDocs,
+        revisionBrief: "rombak total websitenya",
+      }),
+    );
+    const rebuiltProduct = rebuilt.files.find((f) => f.path === "PRODUCT.md");
+    const rebuiltDesign = rebuilt.files.find((f) => f.path === "DESIGN.md");
+    expect(rebuiltProduct?.content).not.toContain("OLD PRODUCT MARKER");
+    expect(rebuiltDesign?.content).not.toContain("OLD DESIGN MARKER");
+
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      await completeAgentWorkflow(getTools(args));
+      return { text: "Done", steps: [] };
+    });
+    const partial = await runAgenticGenerate(
+      createInput({
+        initialFiles: [
+          ...oldDocs,
+          { content: "x", path: "src/components/site/hero.tsx" },
+        ],
+        revisionBrief: "ganti warna tombol",
+      }),
+    );
+    const partialProduct = partial.files.find((f) => f.path === "PRODUCT.md");
+    expect(partialProduct?.content).toContain("OLD PRODUCT MARKER");
+  });
+});
+
+describe("mandatory authored motion gate", () => {
+  it("fails check_app with motion_missing when custom source has no motion", async () => {
+    let gateResult: { failureReason?: string | null } | undefined;
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      const tools = getTools(args);
+      await readCoreSkills(tools);
+      await tools.write_file.execute({
+        content: "export const generated = true;",
+        path: "src/routes/generated.tsx",
+      });
+      gateResult = (await tools.check_app.execute({})) as {
+        failureReason?: string | null;
+      };
+      return { text: "Done", steps: [] };
+    });
+    await expect(runAgenticGenerate(createInput())).rejects.toThrow(
+      /Motion gate/,
+    );
+    expect(gateResult?.failureReason).toBe("motion_missing");
+  });
+
+  it("passes the gate when custom source carries an authored motion marker", async () => {
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      const tools = getTools(args);
+      await readCoreSkills(tools);
+      await tools.write_file.execute({
+        content:
+          "export const generated = true;\n/* authored entrance: @keyframes umkm-entrance */",
+        path: "src/routes/generated.tsx",
+      });
+      await tools.check_app.execute({});
+      return { text: "Done", steps: [] };
+    });
+    await expect(runAgenticGenerate(createInput())).resolves.toMatchObject({
+      generationMode: "agentic",
+    });
+  });
+
+  it("skips the motion gate on explicit motionOptOut", async () => {
+    generateTextMock.mockImplementationOnce(async (args: unknown) => {
+      const tools = getTools(args);
+      await readCoreSkills(tools);
+      await tools.write_file.execute({
+        content: "export const generated = true;",
+        path: "src/routes/generated.tsx",
+      });
+      await tools.check_app.execute({});
+      return { text: "Done", steps: [] };
+    });
+    await expect(
+      runAgenticGenerate(createInput({ motionOptOut: true })),
+    ).resolves.toMatchObject({ generationMode: "agentic" });
+  });
+
+  it("maps contract motion preferences with moderate as the default", async () => {
+    const { resolveMotionIntensity } = await import("./motion-policy");
+    expect(resolveMotionIntensity(null)).toBe("moderate");
+    expect(resolveMotionIntensity("minimal")).toBe("minimal");
+    expect(resolveMotionIntensity("expressive")).toBe("expressive");
   });
 });

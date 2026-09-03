@@ -5,6 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   applyPreviewSandboxHeaders,
   buildImageFallbackScript,
+  getPreviewDocumentMetadata,
+  getPublishedDocumentMetadata,
   injectPreviewAnnotationBridge,
   injectPublishedHead,
   pickPreviewAnnotationCandidateIndex,
@@ -17,38 +19,35 @@ import {
 let server: Server | null = null;
 
 describe("runtime proxy", () => {
-  it("injects the private preview annotation bridge once", () => {
+  it("derives stable metadata for a private generated preview", () => {
+    expect(getPreviewDocumentMetadata("Beras GG")).toEqual({
+      description: "Website usaha Beras GG.",
+      title: "Beras GG",
+      viewport: "width=device-width, initial-scale=1",
+    });
+    expect(getPreviewDocumentMetadata(null).title).toBe("UMKM Cepat");
+  });
+
+  it("derives stable metadata for a published generated site", () => {
+    expect(getPublishedDocumentMetadata("Beras GG")).toEqual({
+      description: "Website usaha Beras GG. Dibuat dengan UMKM Cepat.",
+      name: "Beras GG",
+      title: "Beras GG — Website UMKM Cepat",
+      viewport: "width=device-width, initial-scale=1",
+    });
+  });
+
+  it("injects a single unified inspector bridge script", () => {
     const html = injectPreviewAnnotationBridge(
       "<html><body><main></main></body></html>",
     );
 
-    expect(html).toContain("data-umkm-annotation-bridge");
-    expect(html).toContain(
-      "element.closest('.umkm-annotation-marker,.umkm-annotation-hover')",
-    );
-    expect(html).toContain("function selectionAt");
-    expect(html).toContain("function deepElementFromPoint");
-    expect(html).toContain("function pickElement");
-    expect(html).toContain(
-      "if (!isIgnorableDecoration(element)) return element;",
-    );
-    expect(html).not.toContain("const hovered = recentHoverTargetAt");
+    expect(html).toContain("data-umkm-inspector-bridge");
+    expect(html).toContain("getReactComponentAncestry");
+    expect(html).toContain("__reactFiber");
+    expect(html).toContain("componentHierarchy");
+    expect(html).not.toContain("data-umkm-edit-bridge");
     expect(injectPreviewAnnotationBridge(html)).toBe(html);
-  });
-
-  it("injects the direct edit-mode bridge", () => {
-    const html = injectPreviewAnnotationBridge("<html><body></body></html>");
-    expect(html).toContain("data-umkm-edit-bridge");
-    expect(html).toContain("umkmcepat-edit-mode");
-    expect(html).toContain("umkmcepat-edit-hit-test");
-    expect(html).toContain("umkmcepat-edit-target");
-    expect(html).toContain("elementFromPoint");
-    expect(html).toContain("umkm-edit-hover");
-    expect(html).toContain("setHoverBox");
-    expect(html).toContain('data-umkm-origin="*"');
-    expect(html).toContain("umkmcepat-edit-action");
-    expect(html).toContain("moveSelected");
-    expect(html).toContain("data-umkm-id");
   });
   afterEach(async () => {
     vi.restoreAllMocks();
@@ -122,13 +121,28 @@ describe("runtime proxy", () => {
       ).toBe(1);
     });
 
-    it("selects an image directly", () => {
+    it("selects an image directly and ignores decorative backgrounds", () => {
       expect(
         pickPreviewAnnotationCandidateIndex([
+          { ignored: true, className: "decorative-gradient", tag: "div" },
           { tag: "img" },
           { tag: "section" },
         ]),
-      ).toBe(0);
+      ).toBe(1);
+    });
+
+    it("prioritizes interactive buttons when inner icons are present", () => {
+      expect(
+        pickPreviewAnnotationCandidateIndex([
+          { ignored: true, tag: "svg" },
+          { tag: "span", text: "Hubungi WhatsApp" },
+          {
+            className: "primary-action",
+            tag: "button",
+            text: "Hubungi WhatsApp",
+          },
+        ]),
+      ).toBe(2);
     });
 
     it("keeps the exact card padding element clicked", () => {

@@ -27,9 +27,11 @@ export function usePublicConfig() {
 function ThemedApp({
   children,
   initialTheme,
+  nonce,
 }: {
   children: React.ReactNode;
   initialTheme?: string;
+  nonce?: string;
 }) {
   const theme = useDefaultThemeSetting(initialTheme);
 
@@ -39,6 +41,7 @@ function ThemedApp({
       defaultTheme={theme}
       enableSystem={theme === "system"}
       forcedTheme={undefined}
+      nonce={nonce}
     >
       <SessionProvider>{children}</SessionProvider>
     </ThemeProvider>
@@ -48,12 +51,14 @@ function ThemedApp({
 export function AppProviders({
   children,
   initialTheme,
+  nonce,
   turnstileSiteKey = "",
   maintenanceMode = false,
   maintenanceMessage = "",
 }: {
   children: React.ReactNode;
   initialTheme?: string;
+  nonce?: string;
   turnstileSiteKey?: string;
   maintenanceMode?: boolean;
   maintenanceMessage?: string;
@@ -67,7 +72,9 @@ export function AppProviders({
   return (
     <PublicConfigContext.Provider value={publicConfig}>
       <QueryClientProvider client={queryClient}>
-        <ThemedApp initialTheme={initialTheme}>{children}</ThemedApp>
+        <ThemedApp initialTheme={initialTheme} nonce={nonce}>
+          {children}
+        </ThemedApp>
       </QueryClientProvider>
     </PublicConfigContext.Provider>
   );

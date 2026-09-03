@@ -28,6 +28,7 @@ describe("project operation lease", () => {
           activeOperationToken: result.token,
           buildStatus: "running",
           status: "building",
+          workspaceCard: { type: "none" },
         }),
       }),
     );

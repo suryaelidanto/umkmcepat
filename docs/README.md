@@ -6,6 +6,7 @@ Obsidian-compatible knowledge base for UMKM Cepat.
 
 - **[[architecture/overview]]**: System architecture and core design principles
 - **[[guides/local-development]]**: Local setup, environment, and development commands
+- **[[research/sparse-data-design-synthesis]]**: Firecrawl research synthesis on distinctive design from sparse business data
 - **[[notes/backlog]]**: Product backlog with `[#XX]` task codes and Kanban board
 - **[[notes/notes]]**: Private local second brain for casual notes, rants, and scratchpads (gitignored)
 - **[[notes/ideas]]**: Private local scratchpad for ideas to triage into backlog (gitignored)

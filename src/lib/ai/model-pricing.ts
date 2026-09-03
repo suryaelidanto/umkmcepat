@@ -57,7 +57,7 @@ export function findCatalogEntry(rawModelId: string): CatalogEntry | null {
   if (catalog[normalized]) {
     return catalog[normalized];
   }
-  // Suffix fallback for vendor prefixes (e.g. "cmc/openai/gpt-5.6-luna" or "openrouter/openai/gpt-5.6-luna")
+  // Suffix fallback for vendor-prefixed model identifiers.
   for (const [key, entry] of Object.entries(catalog)) {
     if (key.endsWith(`/${trimmed}`) || key === trimmed) {
       return entry;

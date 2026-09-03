@@ -16,9 +16,20 @@ const {
   getSettingSyncMock,
   primeSettingCacheMock,
   prepareBuildHandoffMock,
+  moderateProjectRequestMock,
+  chargeModerationEnergyMock,
+  readTempImageMock,
+  claimTempImageMock,
+  deleteTempImageMock,
+  uploadProjectAssetMock,
+  filterOwnedBusinessAssetIdsMock,
+  listProjectBusinessImagesForDiscussionMock,
+  readProjectAssetByIdMock,
 } = vi.hoisted(() => ({
   streamTextMock: vi.fn(),
-  convertToModelMessagesMock: vi.fn(async () => []),
+  convertToModelMessagesMock: vi.fn<
+    (messages: unknown[]) => Promise<unknown[]>
+  >(async () => []),
   generateTextMock: vi.fn(),
   prismaExecuteRawMock: vi.fn(),
   finalizeDiscussTurnMock: vi.fn(async () => undefined),
@@ -33,6 +44,42 @@ const {
   }),
   primeSettingCacheMock: vi.fn(async () => undefined),
   prepareBuildHandoffMock: vi.fn(),
+  chargeModerationEnergyMock: vi.fn(async () => undefined),
+  moderateProjectRequestMock: vi.fn<
+    (
+      prompt: string,
+      images?: unknown[],
+      timeoutMs?: number,
+      correlation?: unknown,
+    ) => Promise<{
+      allowed: boolean;
+      message?: string;
+      modelId?: string;
+      usage?: { inputTokens: number; outputTokens: number };
+    }>
+  >(async () => ({
+    allowed: true,
+    modelId: "mod-model",
+    usage: { inputTokens: 0, outputTokens: 0 },
+  })),
+  readTempImageMock: vi.fn(),
+  claimTempImageMock: vi.fn(),
+  deleteTempImageMock: vi.fn(),
+  uploadProjectAssetMock: vi.fn(),
+  filterOwnedBusinessAssetIdsMock: vi.fn<
+    (
+      assetIds: string[],
+      projectId?: string,
+      userId?: string,
+    ) => Promise<string[]>
+  >(async () => []),
+  listProjectBusinessImagesForDiscussionMock: vi.fn<
+    (
+      projectId: string,
+      userId: string,
+    ) => Promise<Array<{ contentType: string; id: string }>>
+  >(async () => []),
+  readProjectAssetByIdMock: vi.fn(),
   normalizeWorkspaceTurnMock: vi.fn(() => ({
     brief: { prompt: "p", confidence: 0 },
     projectTitle: "t",
@@ -69,6 +116,7 @@ vi.mock("@/lib/ai/ai-models", () => ({
   getDiscussModel: vi.fn(() => "test/model"),
   getModerationModel: vi.fn(() => "test/model"),
   getGenerationModel: vi.fn(() => "test/model"),
+  getVisionModel: vi.fn(() => "test/model"),
 }));
 
 vi.mock("@/lib/config/app-settings", () => ({
@@ -140,6 +188,29 @@ vi.mock("@/lib/projects/ai-error-log", () => ({
     e instanceof Error ? e.message : String(e),
 }));
 
+vi.mock("@/lib/ai/ai-moderation", () => ({
+  chargeModerationEnergy: chargeModerationEnergyMock,
+  getModerationTimeoutMs: () => 2500,
+  moderateProjectRequest: moderateProjectRequestMock,
+}));
+
+vi.mock("@/lib/storage/uploads/temp-image-storage", () => ({
+  readTempImage: readTempImageMock,
+  claimTempImage: claimTempImageMock,
+  deleteTempImage: deleteTempImageMock,
+}));
+
+vi.mock("@/lib/projects/project-assets", () => ({
+  filterOwnedBusinessAssetIds: filterOwnedBusinessAssetIdsMock,
+  listProjectBusinessImagesForDiscussion:
+    listProjectBusinessImagesForDiscussionMock,
+}));
+
+vi.mock("@/lib/projects/project-asset-upload", () => ({
+  readProjectAssetById: readProjectAssetByIdMock,
+  uploadProjectAsset: uploadProjectAssetMock,
+}));
+
 vi.mock("@/lib/projects/brief-rich-fields", async (importOriginal) => ({
   ...(await importOriginal<
     typeof import("@/lib/projects/brief-rich-fields")
@@ -191,6 +262,84 @@ const baseSummary = createEmptyChatSummary();
 
 describe("runDiscussTurn worker", () => {
   afterEach(() => vi.clearAllMocks());
+
+  it("keeps an empty update preflight on a question card instead of a build recommendation", async () => {
+    normalizeWorkspaceTurnMock.mockReturnValueOnce({
+      brief: baseBrief,
+      projectTitle: "T",
+      workspaceCard: {
+        summary: [],
+        title: "Update",
+        type: "build_recommendation",
+      },
+      readyForBuild: true,
+    } as never);
+    streamTextMock.mockReturnValueOnce(makeStreamResult([]));
+
+    await runDiscussTurn({
+      turnId: "ct_update_preflight",
+      project: { ...baseProject, status: "failed" },
+      chatContext: baseChatContext,
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages: baseMessages,
+      summary: baseSummary,
+      userId: "u1",
+      hasBuiltSite: true,
+      preflight: "update",
+      modelOverride: "test-model" as never,
+    });
+
+    const toolOutput = publishProgressMock.mock.calls.find(
+      (call) => call[1]?.type === "tool-output-available",
+    );
+    expect(toolOutput?.[1]?.output?.workspaceCard?.type).toBe("question");
+    expect(prismaExecuteRawMock).toHaveBeenCalled();
+  });
+
+  it("preserves a pending update recommendation during preflight", async () => {
+    normalizeWorkspaceTurnMock.mockReturnValueOnce({
+      brief: baseBrief,
+      projectTitle: "T",
+      workspaceCard: {
+        summary: [],
+        title: "Update",
+        type: "build_recommendation",
+      },
+      readyForBuild: false,
+    } as never);
+    streamTextMock.mockReturnValueOnce(makeStreamResult([]));
+
+    await runDiscussTurn({
+      turnId: "ct_pending_update_preflight",
+      project: { ...baseProject, status: "failed" },
+      chatContext: baseChatContext,
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages: baseMessages,
+      summary: baseSummary,
+      userId: "u1",
+      hasBuiltSite: true,
+      hasPendingUpdate: true,
+      preflight: "update",
+      modelOverride: "test-model" as never,
+    });
+
+    expect(normalizeWorkspaceTurnMock).toHaveBeenCalledWith(
+      null,
+      baseBrief,
+      expect.objectContaining({
+        hasPendingUpdate: true,
+        preflight: "update",
+      }),
+    );
+    const toolOutput = publishProgressMock.mock.calls.find(
+      (call) => call[1]?.type === "tool-output-available",
+    );
+    expect(toolOutput?.[1]?.output?.workspaceCard?.type).toBe(
+      "build_recommendation",
+    );
+  });
 
   it("persists the assistant reply + finalizes succeeded + publishes finish on happy path", async () => {
     // normalizeWorkspaceTurn returns a non-none card → primaryToolFailed=false
@@ -498,6 +647,61 @@ describe("runDiscussTurn worker", () => {
     );
   });
 
+  it("keeps a tool-only post-build card instead of dropping it as none", async () => {
+    normalizeWorkspaceTurnMock.mockReturnValue({
+      brief: baseBrief,
+      projectTitle: "T",
+      workspaceCard: {
+        type: "question",
+        question: {
+          id: "refinement",
+          question: "Bagian mana yang ingin kamu perbaiki?",
+          answerMode: "text",
+          options: [],
+        },
+      },
+      readyForBuild: false,
+    } as never);
+    streamTextMock.mockReturnValueOnce(
+      makeStreamResult([
+        {
+          type: "tool-call",
+          toolCallId: "tc-built-tool-only",
+          toolName: "presentWorkspaceCard",
+          input: { workspaceCard: { type: "question" } },
+        },
+      ]),
+    );
+
+    await runDiscussTurn({
+      turnId: "ct_built_tool_only",
+      project: { ...baseProject, status: "ready" },
+      chatContext: baseChatContext,
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages: baseMessages,
+      summary: baseSummary,
+      userId: "u1",
+      modelOverride: "test-model" as never,
+    });
+
+    expect(publishProgressMock).toHaveBeenCalledWith(
+      "ct_built_tool_only",
+      expect.objectContaining({
+        type: "tool-output-available",
+        output: expect.objectContaining({
+          workspaceCard: expect.objectContaining({ type: "question" }),
+        }),
+      }),
+    );
+    expect(finalizeDiscussTurnMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        turnId: "ct_built_tool_only",
+        status: "succeeded",
+      }),
+    );
+  });
+
   it("forced tool-only: streams assistantText incrementally from tool-input-delta", async () => {
     const card = {
       type: "question",
@@ -629,6 +833,7 @@ describe("runDiscussTurn worker", () => {
       modelOverride: "test-model" as never,
     });
 
+    expect(generateTextMock).toHaveBeenCalledTimes(1);
     const repairText = "Aku siap bantu. Pertama, nama usahanya apa?";
     const textDeltas = publishProgressMock.mock.calls
       .filter(
@@ -651,14 +856,89 @@ describe("runDiscussTurn worker", () => {
     expect(persistedValues).toContain(repairText);
   });
 
-  it("contract gate demotes the HP Surya recommendation while required canonical fields are missing", async () => {
+  it("applies the contract gate after card repair before persisting a recommendation", async () => {
+    const incompleteBrief = {
+      businessName: "Fresh Clean Laundry",
+      businessType: "jasa_lokal",
+      productOrService: [{ name: "Jasa laundry", isPrimary: true }],
+      targetCustomer: "Keluarga dan Anak Kos",
+      contact: {
+        channel: "whatsapp",
+        value: "08123456789",
+      },
+      contactOrCta: "Chat WhatsApp",
+      stylePreference: "Minimalis & Praktis",
+      address: "Jl. Kenanga No. 12",
+      usp: ["Antar jemput gratis"],
+    };
+    normalizeWorkspaceTurnMock.mockReturnValueOnce({
+      brief: incompleteBrief,
+      projectTitle: "Website Fresh Clean Laundry",
+      workspaceCard: {
+        type: "build_recommendation",
+        title: "Website siap dibuat",
+        summary: ["Fresh Clean Laundry"],
+      },
+      readyForBuild: true,
+    } as never);
+    streamTextMock.mockReturnValueOnce(makeStreamResult([]));
+    generateTextMock.mockResolvedValueOnce({
+      response: { modelId: "test-model" },
+      text: "",
+      toolCalls: [
+        {
+          input: {
+            assistantText: "Data lengkap",
+            workspaceCard: {
+              type: "build_recommendation",
+              title: "Website siap dibuat",
+              summary: ["Fresh Clean Laundry"],
+            },
+          },
+          toolCallId: "repair-card",
+          toolName: "presentWorkspaceCard",
+        },
+      ],
+      usage: { inputTokens: 11, outputTokens: 4 },
+    } as never);
+
+    await runDiscussTurn({
+      turnId: "ct_repair_tiered_intercept",
+      project: { ...baseProject, generationEngine: "contract-v1" },
+      chatContext: baseChatContext,
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages: baseMessages,
+      summary: baseSummary,
+      userId: "u1",
+      modelOverride: "test-model" as never,
+    });
+
+    const cardEvent = publishProgressMock.mock.calls
+      .filter(
+        ([publishedTurnId, event]) =>
+          publishedTurnId === "ct_repair_tiered_intercept" &&
+          event.type === "tool-output-available",
+      )
+      .map(([, event]) => event.output.workspaceCard)[0] as {
+      type: "question";
+      question: { id: string };
+    };
+    expect(cardEvent).toMatchObject({
+      type: "question",
+      question: { id: "price_range" },
+    });
+    expect(prepareBuildHandoffMock).not.toHaveBeenCalled();
+  });
+
+  it("contract gate demotes an explicit build request while a required offer is missing", async () => {
     normalizeWorkspaceTurnMock.mockReturnValue({
       brief: {
         businessName: "HP Surya",
         businessType: "retail",
-        offer: "HP bekas semua merek",
+        offer: "",
         productOrService: null,
-        targetCustomer: "",
+        targetCustomer: "Pembeli HP terjangkau",
         contactOrCta: "Lihat stok & harga",
         contact: null,
         stylePreference: "Bersih dan modern",
@@ -697,7 +977,14 @@ describe("runDiscussTurn worker", () => {
       chatContext: baseChatContext,
       effectiveBrief: baseBrief,
       memoryFacts: baseMemoryFacts,
-      messages: baseMessages,
+      messages: [
+        ...baseMessages,
+        {
+          id: "m-explicit-build",
+          role: "user",
+          parts: [{ type: "text", text: "langsung buat sekarang" }],
+        },
+      ],
       summary: baseSummary,
       userId: "u1",
       modelOverride: "test-model" as never,
@@ -715,7 +1002,7 @@ describe("runDiscussTurn worker", () => {
     };
     expect(cardEvent).toMatchObject({
       type: "question",
-      question: { id: "audience" },
+      question: { id: "services" },
     });
     expect(prepareBuildHandoffMock).not.toHaveBeenCalled();
   });
@@ -1004,6 +1291,433 @@ describe("runDiscussTurn worker", () => {
     expect(cardEvent.handoffId).toBe("h-ready");
     expect(finalizeDiscussTurnMock).toHaveBeenCalledWith(
       expect.objectContaining({ turnId: "ct_gate_eager", status: "succeeded" }),
+    );
+  });
+});
+
+const TEMP_URL = (assetId: string) =>
+  `/api/uploads/temp-images/${encodeURIComponent(assetId)}`;
+
+function imageMessage(text: string): UIMessage[] {
+  return [
+    {
+      id: "m_img",
+      parts: [
+        {
+          filename: "gambar.jpg",
+          mediaType: "image/jpeg",
+          type: "file",
+          url: TEMP_URL("tok_1"),
+        },
+        { text, type: "text" },
+      ],
+      role: "user",
+    } as never as UIMessage,
+  ];
+}
+
+describe("runDiscussTurn asset + moderation phase", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+    filterOwnedBusinessAssetIdsMock.mockResolvedValue([]);
+    listProjectBusinessImagesForDiscussionMock.mockResolvedValue([]);
+  });
+
+  function mockAllowedModeration() {
+    moderateProjectRequestMock.mockResolvedValue({
+      allowed: true,
+      modelId: "vision-model",
+      usage: { inputTokens: 10, outputTokens: 1 },
+    });
+  }
+
+  function mockReadableTempImage() {
+    readTempImageMock.mockResolvedValue({
+      body: Buffer.from("image-bytes"),
+      contentType: "image/jpeg",
+    });
+    deleteTempImageMock.mockResolvedValue(undefined);
+    uploadProjectAssetMock.mockResolvedValue({ id: "asset_saved" });
+  }
+
+  function mockSuccessfulCardTurn() {
+    normalizeWorkspaceTurnMock.mockReturnValue({
+      brief: baseBrief,
+      projectTitle: "T",
+      workspaceCard: {
+        type: "question",
+        question: {
+          id: "q1",
+          question: "Pilih?",
+          answerMode: "text",
+          options: [],
+        },
+      },
+      readyForBuild: false,
+    } as never);
+    streamTextMock.mockReturnValue(
+      makeStreamResult([
+        { type: "text-delta", text: "Halo" },
+        {
+          type: "tool-call",
+          toolCallId: "tc1",
+          toolName: "presentWorkspaceCard",
+          input: { workspaceCard: { type: "question" } },
+        },
+      ]),
+    );
+  }
+
+  it("hydrates a home-uploaded project asset into the model context", async () => {
+    mockSuccessfulCardTurn();
+    listProjectBusinessImagesForDiscussionMock.mockResolvedValue([
+      { contentType: "image/webp", id: "asset_from_home" },
+    ]);
+    readProjectAssetByIdMock.mockResolvedValue({
+      body: Buffer.from("image-bytes"),
+      contentType: "image/webp",
+      projectId: "p1",
+      userId: "u1",
+    });
+    const messages: UIMessage[] = [
+      {
+        id: "m_home",
+        parts: [{ text: "buat website laundry", type: "text" }],
+        role: "user",
+      } as never,
+    ];
+
+    await runDiscussTurn({
+      turnId: "ct_home_asset",
+      project: baseProject,
+      chatContext: { messages, systemContext: "" },
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages,
+      summary: baseSummary,
+      userId: "u1",
+    });
+
+    expect(listProjectBusinessImagesForDiscussionMock).toHaveBeenCalledWith(
+      "p1",
+      "u1",
+    );
+    expect(readProjectAssetByIdMock).toHaveBeenCalledWith("asset_from_home", {
+      projectId: "p1",
+      userId: "u1",
+    });
+    const modelCall = convertToModelMessagesMock.mock.calls[0] as
+      [unknown[]] | undefined;
+    const modelMessages = modelCall?.[0] as UIMessage[] | undefined;
+    const hydratedPart = modelMessages?.[0]?.parts.find(
+      (part) => part.type === "file",
+    );
+    expect(hydratedPart).toMatchObject({
+      mediaType: "image/webp",
+      type: "file",
+      url: "data:image/webp;base64,aW1hZ2UtYnl0ZXM=",
+    });
+  });
+
+  it("moderates + saves attached images before the model call and persists permanent media URLs", async () => {
+    mockSuccessfulCardTurn();
+    mockAllowedModeration();
+    mockReadableTempImage();
+    filterOwnedBusinessAssetIdsMock.mockResolvedValue(["asset_saved"]);
+    const messages = imageMessage("1 gambar diunggah.");
+
+    await runDiscussTurn({
+      turnId: "ct_img_ok",
+      project: baseProject,
+      chatContext: { messages, systemContext: "" },
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages,
+      summary: baseSummary,
+      userId: "u1",
+    });
+
+    const order = moderateProjectRequestMock.mock.invocationCallOrder[0]!;
+    const saveOrder = uploadProjectAssetMock.mock.invocationCallOrder[0]!;
+    const modelOrder = streamTextMock.mock.invocationCallOrder[0]!;
+    expect(order).toBeLessThan(saveOrder);
+    expect(saveOrder).toBeLessThan(modelOrder);
+    expect(moderateProjectRequestMock).toHaveBeenCalledTimes(1);
+    expect(moderateProjectRequestMock).toHaveBeenCalledWith(
+      "",
+      [expect.objectContaining({ mediaType: "image/jpeg" })],
+      expect.any(Number),
+      { projectId: "p1", turnId: "ct_img_ok" },
+    );
+    expect(uploadProjectAssetMock).toHaveBeenCalledWith(
+      expect.objectContaining({ purpose: "business-image" }),
+    );
+    expect(deleteTempImageMock).toHaveBeenCalledWith("u1", "tok_1");
+    expect(filterOwnedBusinessAssetIdsMock).toHaveBeenCalledWith(
+      ["asset_saved"],
+      "p1",
+      "u1",
+    );
+    const persistedValues = prismaExecuteRawMock.mock.calls
+      .flatMap((call) => call.slice(1))
+      .join("\n");
+    expect(persistedValues).toContain("/api/media/asset_saved");
+    expect(persistedValues).not.toContain("temp-images");
+    expect(finalizeDiscussTurnMock).toHaveBeenCalledWith(
+      expect.objectContaining({ turnId: "ct_img_ok", status: "succeeded" }),
+    );
+  });
+
+  it("persists successful image rewrites when a later image promotion fails", async () => {
+    prismaExecuteRawMock.mockResolvedValue(1);
+    mockAllowedModeration();
+    mockReadableTempImage();
+    uploadProjectAssetMock
+      .mockResolvedValueOnce({ id: "asset_a" })
+      .mockRejectedValueOnce(new Error("asset store unavailable"));
+    const messages: UIMessage[] = [
+      {
+        id: "m_img_partial",
+        parts: [
+          {
+            filename: "gambar-a.jpg",
+            mediaType: "image/jpeg",
+            type: "file",
+            url: TEMP_URL("tok_a"),
+          },
+          {
+            filename: "gambar-b.jpg",
+            mediaType: "image/jpeg",
+            type: "file",
+            url: TEMP_URL("tok_b"),
+          },
+        ],
+        role: "user",
+      } as never as UIMessage,
+    ];
+
+    await runDiscussTurn({
+      turnId: "ct_img_partial",
+      project: baseProject,
+      chatContext: { messages, systemContext: "" },
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages,
+      summary: baseSummary,
+      userId: "u1",
+    });
+
+    const persistedValues = prismaExecuteRawMock.mock.calls
+      .flatMap((call) => call.slice(1))
+      .join("\n");
+    expect(persistedValues).toContain("/api/media/asset_a");
+    expect(persistedValues).toContain(TEMP_URL("tok_b"));
+    expect(finalizeDiscussTurnMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        errorMessage: "Gambar belum berhasil disimpan. Coba lagi sebentar.",
+        status: "failed",
+        turnId: "ct_img_partial",
+      }),
+    );
+    expect(streamTextMock).not.toHaveBeenCalled();
+  });
+
+  it("persists promoted media before a later text moderation failure", async () => {
+    prismaExecuteRawMock.mockResolvedValue(1);
+    mockReadableTempImage();
+    moderateProjectRequestMock.mockImplementation(
+      async (_prompt: string, images?: unknown[]) => {
+        if (images?.length) {
+          return {
+            allowed: true,
+            modelId: "vision-model",
+            usage: { inputTokens: 10, outputTokens: 1 },
+          };
+        }
+        throw new Error("moderation unavailable");
+      },
+    );
+    const messages = imageMessage("halo");
+
+    await runDiscussTurn({
+      turnId: "ct_img_text_moderation_down",
+      project: baseProject,
+      chatContext: { messages, systemContext: "" },
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages,
+      summary: baseSummary,
+      userId: "u1",
+    });
+
+    const persistedValues = prismaExecuteRawMock.mock.calls
+      .flatMap((call) => call.slice(1))
+      .join("\n");
+    expect(persistedValues).toContain("/api/media/asset_saved");
+    expect(persistedValues).toContain("business-image");
+    expect(persistedValues).not.toContain("temp-images");
+    expect(finalizeDiscussTurnMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        errorMessage:
+          "Pemeriksaan keamanan belum berhasil. Coba lagi sebentar.",
+        status: "failed",
+        turnId: "ct_img_text_moderation_down",
+      }),
+    );
+    expect(streamTextMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps the temp source when rewritten chat persistence fails", async () => {
+    prismaExecuteRawMock.mockRejectedValueOnce(
+      new Error("database unavailable"),
+    );
+    mockAllowedModeration();
+    mockReadableTempImage();
+    const messages = imageMessage("1 gambar diunggah.");
+
+    await runDiscussTurn({
+      turnId: "ct_img_persist_down",
+      project: baseProject,
+      chatContext: { messages, systemContext: "" },
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages,
+      summary: baseSummary,
+      userId: "u1",
+    });
+
+    expect(deleteTempImageMock).not.toHaveBeenCalled();
+  });
+
+  it("fails the turn without calling the model when an attached image is blocked", async () => {
+    mockSuccessfulCardTurn();
+    moderateProjectRequestMock.mockResolvedValue({
+      allowed: false,
+      message: "Gambar tidak memenuhi syarat.",
+      modelId: "vision-model",
+      usage: { inputTokens: 10, outputTokens: 1 },
+    });
+    mockReadableTempImage();
+    const messages = imageMessage("1 gambar diunggah.");
+
+    await runDiscussTurn({
+      turnId: "ct_img_blocked",
+      project: baseProject,
+      chatContext: { messages, systemContext: "" },
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages,
+      summary: baseSummary,
+      userId: "u1",
+    });
+
+    expect(finalizeDiscussTurnMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "failed",
+        errorMessage: "Gambar tidak memenuhi syarat.",
+        turnId: "ct_img_blocked",
+      }),
+    );
+    expect(publishProgressMock).toHaveBeenCalledWith(
+      "ct_img_blocked",
+      expect.objectContaining({
+        errorText: "Gambar tidak memenuhi syarat.",
+        type: "error",
+      }),
+    );
+    expect(streamTextMock).not.toHaveBeenCalled();
+    expect(deleteTempImageMock).not.toHaveBeenCalled();
+    expect(uploadProjectAssetMock).not.toHaveBeenCalled();
+    expect(prismaExecuteRawMock).not.toHaveBeenCalled();
+  });
+
+  it("fails the turn and keeps the temp upload when image moderation is unavailable", async () => {
+    mockSuccessfulCardTurn();
+    moderateProjectRequestMock.mockRejectedValue(new Error("provider down"));
+    mockReadableTempImage();
+    const messages = imageMessage("1 gambar diunggah.");
+
+    await runDiscussTurn({
+      turnId: "ct_img_down",
+      project: baseProject,
+      chatContext: { messages, systemContext: "" },
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages,
+      summary: baseSummary,
+      userId: "u1",
+    });
+
+    expect(finalizeDiscussTurnMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        errorMessage:
+          "Pemeriksaan keamanan belum berhasil. Coba lagi sebentar.",
+        status: "failed",
+      }),
+    );
+    expect(streamTextMock).not.toHaveBeenCalled();
+    expect(claimTempImageMock).not.toHaveBeenCalled();
+  });
+
+  it("fails the turn when non-boilerplate text is blocked by moderation", async () => {
+    mockSuccessfulCardTurn();
+    moderateProjectRequestMock.mockResolvedValue({
+      allowed: false,
+      message: "Maaf, AI tidak bisa membantu membuat website untuk topik ini.",
+      modelId: "mod-model",
+      usage: { inputTokens: 10, outputTokens: 1 },
+    });
+
+    await runDiscussTurn({
+      turnId: "ct_text_blocked",
+      project: baseProject,
+      chatContext: baseChatContext,
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages: baseMessages,
+      summary: baseSummary,
+      userId: "u1",
+    });
+
+    expect(moderateProjectRequestMock).toHaveBeenCalledWith(
+      "hai",
+      [],
+      undefined,
+      { projectId: "p1", turnId: "ct_text_blocked" },
+    );
+    expect(finalizeDiscussTurnMock).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "failed", turnId: "ct_text_blocked" }),
+    );
+    expect(streamTextMock).not.toHaveBeenCalled();
+    expect(prismaExecuteRawMock).not.toHaveBeenCalled();
+  });
+
+  it("skips text moderation for image-upload boilerplate answers with no attachments", async () => {
+    mockSuccessfulCardTurn();
+    mockAllowedModeration();
+    const messages: UIMessage[] = [
+      {
+        id: "m_boiler",
+        parts: [{ text: "1 gambar diunggah.", type: "text" }],
+        role: "user",
+      } as never as UIMessage,
+    ];
+
+    await runDiscussTurn({
+      turnId: "ct_boiler",
+      project: baseProject,
+      chatContext: { messages, systemContext: "" },
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages,
+      summary: baseSummary,
+      userId: "u1",
+    });
+
+    expect(moderateProjectRequestMock).not.toHaveBeenCalled();
+    expect(streamTextMock).toHaveBeenCalled();
+    expect(finalizeDiscussTurnMock).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "succeeded", turnId: "ct_boiler" }),
     );
   });
 });

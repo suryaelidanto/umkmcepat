@@ -1,6 +1,6 @@
 import { getSettingSync } from "@/lib/config/app-settings";
 
-export type AiAgentStepKey = "generate" | "repair" | "subagent";
+export type AiAgentStepKey = "generate";
 
 type AiAgentStepConfig = {
   key: string;
@@ -17,20 +17,6 @@ const AI_AGENT_STEPS = {
     defaultSteps: 40,
     minSteps: 15,
     maxSteps: 60,
-  },
-  repair: {
-    key: "ai.agent.repair_max_steps",
-    env: "AI_AGENT_REPAIR_MAX_STEPS",
-    defaultSteps: 12,
-    minSteps: 4,
-    maxSteps: 40,
-  },
-  subagent: {
-    key: "ai.agent.subagent_max_steps",
-    env: "AI_AGENT_SUBAGENT_MAX_STEPS",
-    defaultSteps: 8,
-    minSteps: 2,
-    maxSteps: 15,
   },
 } satisfies Record<AiAgentStepKey, AiAgentStepConfig>;
 

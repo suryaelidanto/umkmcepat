@@ -11,3 +11,14 @@ export function hashCanonicalBrief(brief: ProjectBriefV2): string {
     .update(BRIEF_HASH_PREFIX + canonicalJson(brief), "utf8")
     .digest("hex");
 }
+
+export function hashCanonicalBriefContent(brief: ProjectBriefV2): string {
+  const {
+    discussionContext: _discussionContext,
+    factLedger: _factLedger,
+    ...content
+  } = brief;
+  return createHash("sha256")
+    .update(BRIEF_HASH_PREFIX + canonicalJson(content), "utf8")
+    .digest("hex");
+}

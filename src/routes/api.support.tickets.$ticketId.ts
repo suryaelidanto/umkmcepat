@@ -17,33 +17,12 @@ export const Route = createFileRoute("/api/support/tickets/$ticketId")({
           );
         }
 
-        // Mark admin messages as read when User opens /support/$ticketId
-        await prisma.supportMessage
-          .updateMany({
-            where: {
-              ticketId: params.ticketId,
-              authorRole: "admin",
-              readAt: null,
-            },
-            data: {
-              readAt: new Date(),
-            },
-          })
-          .catch(() => {});
-
-        // Invalidate unread cache so counts sync immediately
-        invalidateUnreadCache(session.user.id);
-
-        const ticket = await prisma.supportTicket.findUnique({
+        const ticketAccess = await prisma.supportTicket.findUnique({
           where: { id: params.ticketId },
-          include: {
-            messages: {
-              orderBy: { createdAt: "asc" },
-            },
-          },
+          select: { userId: true },
         });
 
-        if (!ticket) {
+        if (!ticketAccess) {
           return Response.json(
             { message: "Tiket tidak ditemukan." },
             { status: 404 },
@@ -51,7 +30,8 @@ export const Route = createFileRoute("/api/support/tickets/$ticketId")({
         }
 
         const isAuthorizedUser =
-          ticket.userId === session.user.id || session.user.admin === true;
+          ticketAccess.userId === session.user.id ||
+          session.user.admin === true;
 
         if (!isAuthorizedUser) {
           const dbUser = await prisma.user.findUnique({
@@ -71,6 +51,38 @@ export const Route = createFileRoute("/api/support/tickets/$ticketId")({
               { status: 403 },
             );
           }
+        }
+
+        // Mark admin messages as read only after the actor can access the ticket.
+        await prisma.supportMessage
+          .updateMany({
+            where: {
+              ticketId: params.ticketId,
+              authorRole: "admin",
+              readAt: null,
+            },
+            data: {
+              readAt: new Date(),
+            },
+          })
+          .catch(() => {});
+
+        invalidateUnreadCache(session.user.id);
+
+        const ticket = await prisma.supportTicket.findUnique({
+          where: { id: params.ticketId },
+          include: {
+            messages: {
+              orderBy: { createdAt: "asc" },
+            },
+          },
+        });
+
+        if (!ticket) {
+          return Response.json(
+            { message: "Tiket tidak ditemukan." },
+            { status: 404 },
+          );
         }
 
         return Response.json({ ticket });
@@ -96,27 +108,8 @@ export const Route = createFileRoute("/api/support/tickets/$ticketId")({
           );
         }
 
-        const isAuthorizedPoster =
-          ticket.userId === session.user.id || session.user.admin === true;
-
-        if (!isAuthorizedPoster) {
-          const dbUser = await prisma.user.findUnique({
-            where: { id: session.user.id },
-            select: { email: true },
-          });
-          const adminEmails = (process.env.ADMIN_EMAILS || "")
-            .split(",")
-            .map((e) => e.trim().toLowerCase());
-          const isDbAdmin = dbUser?.email
-            ? adminEmails.includes(dbUser.email.toLowerCase())
-            : false;
-
-          if (!isDbAdmin) {
-            return Response.json(
-              { message: "Akses ditolak." },
-              { status: 403 },
-            );
-          }
+        if (ticket.userId !== session.user.id) {
+          return Response.json({ message: "Akses ditolak." }, { status: 403 });
         }
 
         const body = (await request.json().catch(() => ({}))) as {

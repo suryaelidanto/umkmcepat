@@ -12,6 +12,14 @@ vi.mock("@/lib/ai/ai-call-record", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/ai/ai-call-record")>()),
   recordAiCall: recordAiCallMock,
 }));
+
+const { chargeMock } = vi.hoisted(() => ({
+  chargeMock: vi.fn(async (..._args: unknown[]) => null),
+}));
+
+vi.mock("@/lib/payment/user-credits", () => ({
+  chargeEnergyForAiUsage: (...args: unknown[]) => chargeMock(...args),
+}));
 vi.mock("@/lib/ai/ai", () => ({
   getAiModel: vi.fn(() => "test/model"),
   getAiTelemetry: vi.fn(() => ({ isEnabled: false })),
@@ -27,7 +35,10 @@ vi.mock("@/lib/ai/ai-models", () => ({
 
 const generateTextMock = generateText as Mock;
 
-import { moderateProjectRequest } from "./ai-moderation";
+import {
+  chargeModerationEnergy,
+  moderateProjectRequest,
+} from "./ai-moderation";
 
 describe("moderateProjectRequest", () => {
   it("allows ALLOW responses", async () => {
@@ -56,16 +67,54 @@ describe("moderateProjectRequest", () => {
     });
   });
 
-  it("defaults to ALLOW for empty/unexpected model responses", async () => {
-    generateTextMock.mockResolvedValueOnce({
-      text: "",
-      usage: { inputTokens: 5, outputTokens: 0 },
-    } as never);
+  it("fails closed for empty or unexpected model responses", async () => {
+    generateTextMock
+      .mockResolvedValueOnce({
+        text: "",
+        usage: { inputTokens: 5, outputTokens: 0 },
+      } as never)
+      .mockResolvedValueOnce({
+        text: "",
+        usage: { inputTokens: 6, outputTokens: 0 },
+      } as never);
 
-    await expect(moderateProjectRequest("jual teh kosong")).resolves.toEqual({
+    await expect(moderateProjectRequest("jual teh kosong")).rejects.toThrow(
+      "AI moderation returned an invalid response",
+    );
+  });
+
+  it("retries an empty moderation response and includes both usages", async () => {
+    generateTextMock.mockClear();
+    recordAiCallMock.mockClear();
+    generateTextMock
+      .mockResolvedValueOnce({
+        text: "",
+        usage: { inputTokens: 5, outputTokens: 2 },
+      } as never)
+      .mockResolvedValueOnce({
+        text: "ALLOW",
+        usage: { inputTokens: 7, outputTokens: 1 },
+      } as never);
+
+    await expect(
+      moderateProjectRequest("jual teh empty retry"),
+    ).resolves.toEqual({
       allowed: true,
       modelId: "default-combo",
-      usage: { inputTokens: 5, outputTokens: 0 },
+      usage: { inputTokens: 12, outputTokens: 3 },
+    });
+    expect(generateTextMock).toHaveBeenCalledTimes(2);
+    expect(recordAiCallMock).toHaveBeenCalledTimes(2);
+    expect(recordAiCallMock.mock.calls[0]?.[0]).toMatchObject({
+      errorClass: "parse",
+      retryCount: 0,
+      status: "error",
+      task: "moderation",
+    });
+    expect(recordAiCallMock.mock.calls[1]?.[0]).toMatchObject({
+      retryCount: 1,
+      status: "ok",
+      task: "moderation",
     });
   });
 
@@ -103,13 +152,19 @@ describe("moderateProjectRequest", () => {
       }),
     ).rejects.toThrow("provider down");
 
-    expect(recordAiCallMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        projectId: "prj-1",
-        status: "error",
-        task: "moderation",
-      }),
-    );
+    expect(recordAiCallMock).toHaveBeenCalledTimes(2);
+    expect(recordAiCallMock.mock.calls[0][0]).toMatchObject({
+      projectId: "prj-1",
+      retryCount: 0,
+      status: "error",
+      task: "moderation",
+    });
+    expect(recordAiCallMock.mock.calls[1][0]).toMatchObject({
+      projectId: "prj-1",
+      retryCount: 1,
+      status: "error",
+      task: "moderation",
+    });
   });
 
   it("times out", async () => {
@@ -214,5 +269,40 @@ describe("moderation prompt", () => {
     expect(source).toMatch(/exactly ALLOW or BLOCK/);
     expect(source).not.toMatch(/CLARIFY/);
     expect(source).not.toMatch(/checker keamanan lagi lambat/i);
+  });
+});
+
+describe("moderation energy accounting", () => {
+  it("charges exactly once with 1:1 usage when the owner is billed", async () => {
+    chargeMock.mockClear();
+    generateTextMock.mockResolvedValueOnce({
+      text: "ALLOW",
+      usage: { inputTokens: 12, outputTokens: 2 },
+    } as never);
+
+    const result = await moderateProjectRequest("jual teh energi");
+    await chargeModerationEnergy("u1", result);
+
+    expect(chargeMock).toHaveBeenCalledTimes(1);
+    expect(chargeMock).toHaveBeenCalledWith({
+      userId: "u1",
+      modelId: "default-combo",
+      inputTokens: 12,
+      outputTokens: 2,
+      reason: "moderation",
+    });
+  });
+
+  it("skips energy charging without an owner", async () => {
+    chargeMock.mockClear();
+    generateTextMock.mockResolvedValueOnce({
+      text: "ALLOW",
+      usage: { inputTokens: 12, outputTokens: 2 },
+    } as never);
+
+    const result = await moderateProjectRequest("jual teh anon");
+    await chargeModerationEnergy(undefined, result);
+
+    expect(chargeMock).not.toHaveBeenCalled();
   });
 });

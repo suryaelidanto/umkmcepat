@@ -33,11 +33,7 @@ vi.mock("@/lib/prisma", () => {
   };
 });
 
-const ENV_KEYS = [
-  "AI_AGENT_GENERATE_MAX_STEPS",
-  "AI_AGENT_REPAIR_MAX_STEPS",
-  "AI_AGENT_SUBAGENT_MAX_STEPS",
-] as const;
+const ENV_KEYS = ["AI_AGENT_GENERATE_MAX_STEPS"] as const;
 
 function clearEnv() {
   for (const key of ENV_KEYS) {
@@ -49,9 +45,8 @@ beforeEach(clearEnv);
 afterEach(clearEnv);
 
 describe("getAgentMaxSteps", () => {
-  it("defaults generate to 40 and repair to 12", () => {
+  it("defaults generate to 40", () => {
     expect(getAgentMaxSteps("generate")).toBe(40);
-    expect(getAgentMaxSteps("repair")).toBe(12);
   });
 
   it("clamps generate steps to [15, 60]", () => {
@@ -63,26 +58,9 @@ describe("getAgentMaxSteps", () => {
     expect(getAgentMaxSteps("generate")).toBe(40);
   });
 
-  it("clamps repair steps to [4, 40]", () => {
-    process.env.AI_AGENT_REPAIR_MAX_STEPS = "1";
-    expect(getAgentMaxSteps("repair")).toBe(4);
-    process.env.AI_AGENT_REPAIR_MAX_STEPS = "100";
-    expect(getAgentMaxSteps("repair")).toBe(40);
-  });
-
   it("falls back on invalid values", () => {
     process.env.AI_AGENT_GENERATE_MAX_STEPS = "nope";
     expect(getAgentMaxSteps("generate")).toBe(40);
-  });
-
-  it("defaults subagent to 8 and clamps to [2, 15]", () => {
-    expect(getAgentMaxSteps("subagent")).toBe(8);
-    process.env.AI_AGENT_SUBAGENT_MAX_STEPS = "1";
-    expect(getAgentMaxSteps("subagent")).toBe(2);
-    process.env.AI_AGENT_SUBAGENT_MAX_STEPS = "100";
-    expect(getAgentMaxSteps("subagent")).toBe(15);
-    process.env.AI_AGENT_SUBAGENT_MAX_STEPS = "10";
-    expect(getAgentMaxSteps("subagent")).toBe(10);
   });
 });
 

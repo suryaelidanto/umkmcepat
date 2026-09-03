@@ -1,13 +1,22 @@
+import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { promisify } from "node:util";
+
+import {
+  MAX_SCRIPT_OUTPUT_BYTES,
+  SCRIPT_OUTPUT_TRUNCATION_MARKER,
+  SCRIPT_SPAWN_MAX_BUFFER_BYTES,
+  SCRIPT_TIMEOUT_MS,
+} from "./script-sandbox";
 
 export interface DiscoveredSkill {
   name: string;
   isRootSkill: boolean;
   parentSkillName?: string;
   markdownFiles: Map<string, string>;
-  executableScripts: Map<string, string>;
+  entrypoints: Map<string, string>;
 }
 
 export interface SkillExecutionResult {
@@ -16,7 +25,46 @@ export interface SkillExecutionResult {
   error?: string;
 }
 
+export type ProjectSkillDigestEntry = {
+  content: string;
+  hash: string;
+  name: string;
+};
+
+export type ProjectSkillDigest = {
+  entries: ProjectSkillDigestEntry[];
+  hash: string;
+  version: string;
+};
+
 const SKILLS_ROOT_DIR = path.resolve(process.cwd(), "src/lib/projects/skills");
+const execFileAsync = promisify(execFile);
+let skillRegistryRevision = 0;
+let skillDigestCache: {
+  digest: ProjectSkillDigest;
+  key: string;
+  revision: number;
+} | null = null;
+
+function argsToCli(value: unknown): string[] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return [];
+  }
+  return Object.entries(value as Record<string, unknown>).flatMap(
+    ([key, item]) => {
+      const flag = key.startsWith("-")
+        ? key
+        : `--${key.replace(/[A-Z]/gu, (character) => `-${character.toLowerCase()}`)}`;
+      if (typeof item === "boolean") {
+        return item ? [flag] : [];
+      }
+      if (typeof item === "string" || typeof item === "number") {
+        return [flag, String(item)];
+      }
+      return [];
+    },
+  );
+}
 
 class DynamicSkillEngine {
   private skills = new Map<string, DiscoveredSkill>();
@@ -27,6 +75,8 @@ class DynamicSkillEngine {
   }
 
   public refresh(): void {
+    skillRegistryRevision += 1;
+    skillDigestCache = null;
     this.skills.clear();
     this.markdownMap.clear();
 
@@ -54,7 +104,7 @@ class DynamicSkillEngine {
         name: skillName,
         isRootSkill: true,
         markdownFiles: new Map(),
-        executableScripts: new Map(),
+        entrypoints: new Map(),
       };
 
       this.scanDirectoryRecursively(skillDir, skillDir, discoveredSkill);
@@ -103,13 +153,11 @@ class DynamicSkillEngine {
             this.markdownMap.set(shortPath, content);
           }
         } else if (
-          entry.name.endsWith(".js") ||
-          entry.name.endsWith(".mjs") ||
-          entry.name.endsWith(".ts")
+          currentDir === path.join(skillBaseDir, "scripts") &&
+          /\.(mjs|js)$/u.test(entry.name)
         ) {
-          skillRecord.executableScripts.set(relPath, fullPath);
-          const scriptSlug = `${skillRecord.name}/${relPath}`;
-          skillRecord.executableScripts.set(scriptSlug, fullPath);
+          const entrypointId = entry.name.replace(/\.(mjs|js)$/u, "");
+          skillRecord.entrypoints.set(entrypointId, fullPath);
         }
       }
     }
@@ -117,6 +165,13 @@ class DynamicSkillEngine {
 
   public getRootSkillNames(): string[] {
     return Array.from(this.skills.keys()).sort();
+  }
+
+  public getScriptSkillNames(): string[] {
+    return Array.from(this.skills.values())
+      .filter((skill) => skill.entrypoints.size > 0)
+      .map((skill) => skill.name)
+      .sort();
   }
 
   public getAllMarkdownTopics(): string[] {
@@ -138,45 +193,81 @@ class DynamicSkillEngine {
 
   public async executeSkillScript(
     skillName: string,
-    scriptRelativePath: string,
+    scriptId: string,
     args?: unknown,
+    options?: { timeoutMs?: number },
   ): Promise<SkillExecutionResult> {
     const skill = this.skills.get(skillName);
     if (!skill) {
       return { ok: false, error: `Skill "${skillName}" not found.` };
     }
 
+    const scriptTokens = scriptId.trim().split(/\s+/u).filter(Boolean);
+    const primaryScript = scriptTokens[0] ?? "";
+    const inlineCliArgs = scriptTokens.slice(1);
+    const normalized = primaryScript
+      .replaceAll("\\", "/")
+      .replace(/^\.\//u, "")
+      .replace(/^\/+/u, "")
+      .replace(/\.(mjs|js)$/iu, "");
+    const withoutSkillPrefix = normalized.startsWith(`${skillName}/`)
+      ? normalized.slice(skillName.length + 1)
+      : normalized;
+    const withoutScriptsPrefix = withoutSkillPrefix.replace(/^scripts\//u, "");
+
     const scriptPath =
-      skill.executableScripts.get(scriptRelativePath) ||
-      skill.executableScripts.get(`${skillName}/${scriptRelativePath}`);
+      skill.entrypoints.get(withoutScriptsPrefix) ??
+      skill.entrypoints.get(withoutSkillPrefix) ??
+      skill.entrypoints.get(normalized);
 
     if (!scriptPath) {
       return {
         ok: false,
-        error: `Script "${scriptRelativePath}" not found in skill "${skillName}".`,
+        error: `Script "${scriptId}" is not a callable entrypoint of skill "${skillName}". Only direct entrypoints are callable; helper and nested scripts cannot be invoked.`,
       };
     }
 
+    const timeoutMs = options?.timeoutMs ?? SCRIPT_TIMEOUT_MS;
+    const cliArgs =
+      args == null
+        ? inlineCliArgs
+        : typeof args === "string"
+          ? args.split(/\s+/).filter(Boolean)
+          : argsToCli(args);
     try {
-      const module = await import(
-        /* @vite-ignore */ pathToFileURL(scriptPath).href
+      const { stdout, stderr } = await execFileAsync(
+        process.execPath,
+        [scriptPath, ...cliArgs],
+        {
+          cwd: process.cwd(),
+          env: {
+            PATH: process.env.PATH ?? process.env.Path ?? "",
+            DO_NOT_TRACK: "1",
+          },
+          maxBuffer: SCRIPT_SPAWN_MAX_BUFFER_BYTES,
+          timeout: timeoutMs,
+          killSignal: "SIGKILL",
+        },
       );
-      const runner =
-        module.run || module.default || module.execute || module.detectCli;
-
-      if (typeof runner === "function") {
-        const output = await runner(args);
-        return { ok: true, output };
+      let output = stderr.trim() ? `${stdout}${stderr}` : stdout;
+      if (output.length > MAX_SCRIPT_OUTPUT_BYTES) {
+        output =
+          output.slice(0, MAX_SCRIPT_OUTPUT_BYTES) +
+          SCRIPT_OUTPUT_TRUNCATION_MARKER;
       }
-
       return {
         ok: true,
-        output: module,
+        output,
       };
     } catch (err: unknown) {
+      const killed = (err as { killed?: boolean }).killed === true;
       return {
         ok: false,
-        error: err instanceof Error ? err.message : String(err),
+        error: killed
+          ? `Skill script "${scriptId}" timed out after ${timeoutMs}ms.`
+          : err instanceof Error
+            ? err.message
+            : String(err),
       };
     }
   }
@@ -186,9 +277,65 @@ export const skillEngine = new DynamicSkillEngine();
 
 export const PROJECT_SKILL_NAMES = skillEngine.getAllMarkdownTopics();
 
-export const PROJECT_CORE_SKILL_NAMES = ["impeccable", "shadcn"] as const;
+export const PROJECT_CORE_SKILL_NAMES = [
+  "impeccable",
+  "shadcn",
+  "unslop",
+  "impeccable/reference/new-work",
+  "impeccable/reference/layout",
+  "impeccable/reference/typeset",
+  "impeccable/reference/animate",
+  "impeccable/reference/polish",
+  "impeccable/reference/craft-floor",
+] as const;
+
+export const PROJECT_SCRIPT_SKILL_NAMES = skillEngine.getScriptSkillNames() as [
+  string,
+  ...string[],
+];
 
 export type ProjectSkillName = string;
+
+export function getProjectSkillDigest(
+  names: readonly string[] = PROJECT_CORE_SKILL_NAMES,
+): ProjectSkillDigest {
+  const key = names.join("\u0000");
+  if (
+    skillDigestCache?.revision === skillRegistryRevision &&
+    skillDigestCache.key === key
+  ) {
+    return skillDigestCache.digest;
+  }
+
+  const entries = names.map((name) => {
+    const content = readProjectSkill(name).content;
+    const hash = createHash("sha256").update(content, "utf8").digest("hex");
+    return { content, hash, name };
+  });
+  const hash = createHash("sha256")
+    .update(
+      entries.map((entry) => `${entry.name}\u0000${entry.hash}`).join("\u0000"),
+      "utf8",
+    )
+    .digest("hex");
+  const digest = {
+    entries,
+    hash,
+    version: `project-skills-v1:${hash.slice(0, 16)}`,
+  };
+  skillDigestCache = { digest, key, revision: skillRegistryRevision };
+  return digest;
+}
+
+export function formatProjectSkillDigest(digest: ProjectSkillDigest): string {
+  return [
+    `PROJECT SKILL DIGEST ${digest.version}`,
+    "The following trusted local skill documents are already available in this context. Apply them before writing source; do not claim that a read_skill tool call happened unless you actually make one.",
+    ...digest.entries.map(
+      (entry) => `### ${entry.name}\n${entry.content.trim()}`,
+    ),
+  ].join("\n\n");
+}
 
 export function readProjectSkill(name: string): {
   content: string;
@@ -199,8 +346,9 @@ export function readProjectSkill(name: string): {
 
 export async function executeSkillScript(
   skillName: string,
-  scriptRelPath: string,
+  scriptId: string,
   args?: unknown,
+  options?: { timeoutMs?: number },
 ): Promise<SkillExecutionResult> {
-  return skillEngine.executeSkillScript(skillName, scriptRelPath, args);
+  return skillEngine.executeSkillScript(skillName, scriptId, args, options);
 }

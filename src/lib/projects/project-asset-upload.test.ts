@@ -5,6 +5,7 @@ import {
   MAX_PROJECT_ASSETS,
   MAX_TURN_IMAGES,
   contentTypeFromRef,
+  getProjectAssetUrl,
   isAllowedAssetPurpose,
 } from "@/lib/projects/project-asset-upload";
 
@@ -36,6 +37,12 @@ describe("contentTypeFromRef", () => {
 });
 
 describe("asset quotas and purpose validation", () => {
+  it("builds the owner-scoped asset route returned after upload", () => {
+    expect(getProjectAssetUrl("project/1", "asset/1")).toBe(
+      "/api/projects/project%2F1/asset/asset%2F1",
+    );
+  });
+
   it("defines reasonable anti-abuse quota constants", () => {
     expect(MAX_PROJECT_ASSETS).toBe(10);
     expect(MAX_PROJECT_ASSET_BYTES).toBe(8 * 1024 * 1024);

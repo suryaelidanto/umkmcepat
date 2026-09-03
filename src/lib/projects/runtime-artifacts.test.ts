@@ -6,7 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   deleteProjectArtifact,
+  isProjectArtifactRefFor,
   materializeProjectDistArtifact,
+  parseProjectArtifactRef,
   readProjectDistArtifact,
   readProjectSourceArtifact,
   resolveArtifactFilesDir,
@@ -169,6 +171,49 @@ describe("project runtime artifacts", () => {
       "public",
       "project-artifacts/source/ghost/manifest.json",
     );
+  });
+
+  it("rejects artifact references with extra segments", async () => {
+    const files = await readProjectSourceArtifact(
+      "project-artifact:s3:source:source_1:extra",
+    );
+
+    expect(files).toEqual([]);
+    expect(getMock).not.toHaveBeenCalled();
+  });
+
+  it("requires an exact artifact kind and id for an owning record", () => {
+    expect(
+      isProjectArtifactRefFor(
+        "project-artifact:s3:source:snapshot_1",
+        "source",
+        "snapshot_1",
+      ),
+    ).toBe(true);
+    expect(
+      isProjectArtifactRefFor(
+        "project-artifact:s3:dist:snapshot_1",
+        "source",
+        "snapshot_1",
+      ),
+    ).toBe(false);
+    expect(
+      isProjectArtifactRefFor(
+        "project-artifact:s3:source:other_snapshot",
+        "source",
+        "snapshot_1",
+      ),
+    ).toBe(false);
+    expect(
+      isProjectArtifactRefFor(
+        "project-artifact:s3:source:../snapshot_1",
+        "source",
+        "snapshot_1",
+      ),
+    ).toBe(false);
+    expect(
+      parseProjectArtifactRef("project-artifact:s3:source:snapshot_1"),
+    ).toEqual({ artifactId: "snapshot_1", kind: "source" });
   });
 
   it("rejects unsafe generated artifact paths", async () => {

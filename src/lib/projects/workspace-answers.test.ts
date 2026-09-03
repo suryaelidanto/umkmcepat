@@ -155,6 +155,36 @@ describe("buildBriefPatchFromWorkspaceAnswers", () => {
     });
   });
 
+  it("promotes the services question to the typed offer field", () => {
+    const patch = buildBriefPatchFromWorkspaceAnswers({
+      card: {
+        type: "question",
+        question: {
+          id: "services",
+          question: "Layanan utamanya apa?",
+          options: [
+            {
+              label: "Jasa laundry kiloan",
+              description: "Layanan utama.",
+            },
+          ],
+        },
+      },
+      fallbackText: "",
+      workspaceAnswers: [
+        {
+          answer: "Jasa laundry kiloan",
+          questionId: "services",
+          source: "option",
+        },
+      ],
+    });
+
+    expect(patch).toEqual(
+      expect.objectContaining({ offer: "Jasa laundry kiloan" }),
+    );
+  });
+
   it("promotes contact / visual_direction question ids to typed brief fields", () => {
     const contactPatch = buildBriefPatchFromWorkspaceAnswers({
       card: {
