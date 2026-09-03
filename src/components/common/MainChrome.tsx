@@ -82,10 +82,6 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
     waitlistQuery.isSuccess,
   ]);
 
-  if (isWaitlistPage) {
-    return <>{children}</>;
-  }
-
   // During a pending transition keep the previous chrome so header/footer
   if (isWorkspace || (isRoutePending && pathname.startsWith("/projects/"))) {
     return <main className="min-h-dvh bg-[#1b1b19]">{children}</main>;
