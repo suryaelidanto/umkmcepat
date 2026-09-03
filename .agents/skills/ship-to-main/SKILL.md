@@ -1,32 +1,33 @@
 ---
-name: push-main
-description: "Use when completed work on `dev` must be released to protected `main` branch via individual PRs per task."
+name: ship-to-main
+description: "Use when completed work on the active branch must be released to protected `main` branch via individual PRs per task."
 disable-model-invocation: true
 ---
 
-# Push Main
+# Ship To Main
 
-Use this skill to release work from `dev` to protected `main`. Every distinct task/commit on `dev` is released as its own individual PR and squash-merged to `main`, maintaining clean, traceable PR history.
+Use this skill to release work from the current active feature branch (e.g. `feat/engine-update`, `feat/...`, `fix/...`) to protected `main`. Every distinct task/commit is released as its own individual PR and squash-merged to `main`, maintaining clean, traceable PR history.
 
 ## Workflow Steps
 
-### 1. Ensure Local Commits and Dev CI Green (Sub-skills)
+### 1. Ensure Local Commits and Branch CI Green (Sub-skills)
 
 1. **Commit current task's uncommitted work**:
    If uncommitted changes from current task exist, invoke `atomic-commit` first (stage only current task files). Never discard or stash uncommitted changes from other agents.
-2. **Sync and verify `dev`**:
-   Invoke `push-dev` to push task commits to `origin dev` and ensure CI passes.
-   Do NOT proceed if `dev` CI is failing.
+2. **Sync and verify active branch**:
+   Invoke `push-branch` to push task commits to origin and ensure CI passes.
+   Do NOT proceed if branch CI is failing.
 
 ### 2. Identify Tasks / Commits to Release
 
-Fetch latest remotes and list unmerged commits on `dev`:
+Fetch latest remotes and list unmerged commits on the active branch:
 ```bash
-git fetch origin main dev
-COMMITS=$(git log --reverse --format="%H" origin/main..dev)
+CURRENT_BRANCH=$(git branch --show-current)
+git fetch origin main "$CURRENT_BRANCH"
+COMMITS=$(git log --reverse --format="%H" origin/main.."$CURRENT_BRANCH")
 ```
 
-If no commits found (`origin/main..dev` empty), `main` is already up to date. Exit cleanly.
+If no commits found (`origin/main..$CURRENT_BRANCH` empty), `main` is already up to date. Exit cleanly.
 If releasing only specific task commit(s), set `COMMITS` to only those commit hashes; do not include other agents' unmerged commits unless explicitly instructed.
 
 ### 3. Release Each Task via Individual PR
@@ -60,7 +61,7 @@ For each commit hash `$SHA` in `$COMMITS`:
    ```bash
    gh pr checks "$PR_NUM" --watch --interval 10
    ```
-   If checks fail: stop, fix on `dev`, and restart flow.
+   If checks fail: stop, fix on the active branch, and restart flow.
 
 5. **Squash merge into `main` and delete remote topic branch**:
    ```bash
@@ -76,23 +77,11 @@ For each commit hash `$SHA` in `$COMMITS`:
    fi
    ```
 
-7. **Update remote reference for next iteration**:
-   ```bash
-   git fetch origin main
-   ```
+### 4. Return to Active Branch
 
-### 4. Resync `dev` and Return
-
-After all individual PRs are merged into `main`:
-
+Switch back to the original active branch and rebase/sync with updated `origin/main`:
 ```bash
-git checkout dev
+git checkout "$CURRENT_BRANCH"
 git fetch origin main
-git merge origin/main -m "chore(sync): sync main into dev"
-git push origin dev
-```
-
-Leave working tree clean on `dev`:
-```bash
-git status --short
+git rebase origin/main
 ```
