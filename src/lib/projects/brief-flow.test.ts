@@ -908,7 +908,7 @@ describe("normalizeWorkspaceTurn", () => {
     expect(turn.readyForBuild).toBe(true);
   });
 
-  it("promotes build_confirm question to build_recommendation when brief is enough", () => {
+  it("promotes build_confirm question to build_recommendation when brief is enough and user affirmed", () => {
     const brief = parseBuildReadyBrief(
       {
         businessName: "Surya Beauty",
@@ -935,10 +935,55 @@ describe("normalizeWorkspaceTurn", () => {
         },
       },
       brief,
+      {
+        lastUserText: "ya, buat sekarang",
+      },
     );
     expect(turn.workspaceCard.type).toBe("build_recommendation");
     expect(turn.readyForBuild).toBe(true);
     expect(turn.brief.confidence).toBeGreaterThanOrEqual(95);
+  });
+
+  it("preserves build_confirm question card if user has not affirmed yet", () => {
+    const brief = parseBuildReadyBrief(
+      {
+        businessName: "Surya Beauty",
+        businessType: "Salon",
+        offer: "Perawatan",
+        targetCustomer: "Wanita",
+        contactOrCta: "WA",
+        stylePreference: "Elegan",
+        confidence: 1,
+      },
+      "salon",
+    );
+    const turn = normalizeWorkspaceTurn(
+      {
+        workspaceCard: {
+          type: "question",
+          question: {
+            id: "build_confirm",
+            question:
+              "Semua data penting usahamu sudah lengkap! Mau langsung buat websitenya sekarang?",
+            answerMode: "choice",
+            options: [
+              {
+                label: "Ya, buat websitenya sekarang",
+                description: "Mulai susun website.",
+              },
+              {
+                label: "Masih ada info tambahan",
+                description: "Ceritakan jam operasional atau promo.",
+              },
+            ],
+            selectionMode: "single",
+          },
+        },
+      },
+      brief,
+    );
+    expect(turn.workspaceCard.type).toBe("question");
+    expect(turn.readyForBuild).toBe(false);
   });
 
   it("accepts build_recommendation when confidence is low but brief is enough", () => {

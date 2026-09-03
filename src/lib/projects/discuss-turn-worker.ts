@@ -37,6 +37,7 @@ import { parseProjectBrief, type WorkspaceCard } from "@/lib/projects/brief";
 import { normalizeWorkspaceTurn } from "@/lib/projects/brief-flow";
 import { isBuildConfirmCard } from "@/lib/projects/brief-flow";
 import {
+  createBuildConfirmationCard,
   evaluateTieredBriefReadiness,
   getNextTieredEnrichmentCard,
 } from "@/lib/projects/brief-tiered-readiness";
@@ -1090,6 +1091,23 @@ export async function runDiscussTurn({
             missingTier2: tieredReadiness.tier2.missing,
           });
         }
+      } else if (
+        workspaceTurn.workspaceCard.type === "build_recommendation" &&
+        !isExplicitBuild &&
+        !isPendingUpdatePreflight &&
+        !isBuildConfirmCard(previousWorkspaceCard)
+      ) {
+        const confirmCard = createBuildConfirmationCard(canonicalBrief);
+        workspaceTurn = {
+          ...workspaceTurn,
+          readyForBuild: false,
+          workspaceCard: confirmCard,
+        };
+        chatText = confirmCard.question.question;
+        devLog("discuss", "contract-build-confirmation-gated", {
+          projectId: project.id,
+          turnId,
+        });
       }
     }
 

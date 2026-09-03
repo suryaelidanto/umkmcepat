@@ -70,10 +70,14 @@ export function evaluateBuildReadiness(brief: ProjectBriefV2): BuildReadiness {
       reason: "primary offer not selected",
     });
   }
-  if (
-    !brief.audience?.trim() ||
-    !isFactLedgerFieldApproved(brief.factLedger, "audience")
-  ) {
+  const fieldState = brief.fieldState as Record<string, string> | undefined;
+  const isAudienceResolved =
+    (Boolean(brief.audience?.trim()) &&
+      isFactLedgerFieldApproved(brief.factLedger, "audience")) ||
+    ["declined", "answered", "explicitly_empty"].includes(
+      fieldState?.audience ?? fieldState?.target_customer ?? "",
+    );
+  if (!isAudienceResolved) {
     blockers.push({
       field: "audience",
       reason: "target audience missing or not owner-confirmed",
@@ -89,10 +93,13 @@ export function evaluateBuildReadiness(brief: ProjectBriefV2): BuildReadiness {
       reason: "primary action missing or has no destination",
     });
   }
-  if (
-    !brief.visualDirection?.trim() ||
-    !isFactLedgerFieldApproved(brief.factLedger, "visualDirection")
-  ) {
+  const isVisualResolved =
+    (Boolean(brief.visualDirection?.trim()) &&
+      isFactLedgerFieldApproved(brief.factLedger, "visualDirection")) ||
+    ["declined", "answered", "explicitly_empty"].includes(
+      fieldState?.visual_direction ?? fieldState?.style_preference ?? "",
+    );
+  if (!isVisualResolved) {
     blockers.push({
       field: "visualDirection",
       reason: "visual direction missing or not owner-confirmed",
