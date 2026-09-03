@@ -79,6 +79,20 @@ describe("resolveModelPricing", () => {
     });
   });
 
+  it("resolves Gemini 3.8 and its ag/ prefix aliases with floor pricing", async () => {
+    const gemini38 = await resolveModelPricing("gemini-3.8-flash");
+    expect(gemini38).toMatchObject({
+      pricingSource: "catalog",
+    });
+    expect(gemini38.promptPrice).toBeLessThanOrEqual(0.000001);
+
+    const agGemini38 = await resolveModelPricing("ag/gemini-3.8-flash");
+    expect(agGemini38).toMatchObject({
+      pricingSource: "catalog",
+    });
+    expect(agGemini38.promptPrice).toBeLessThanOrEqual(0.000001);
+  });
+
   it("matches models with vendor suffixes like -tiered or -latest to catalog base models", async () => {
     const tiered = await resolveModelPricing("gemini-3.7-flash-tiered");
     expect(tiered).toMatchObject({
