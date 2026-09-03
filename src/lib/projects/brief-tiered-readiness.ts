@@ -122,12 +122,30 @@ export function getNextTieredEnrichmentCard(
       type: "question",
       question: {
         id: "audience",
-        question: `Siapa yang paling ingin kamu bantu dengan ${name}?`,
-        answerMode: "text",
+        question: `Siapa target pembeli utama untuk ${name}?`,
+        answerMode: "choice",
         selectionMode: "single",
         required: false,
-        placeholder: "Contoh: pekerja sekitar atau keluarga",
-        options: [],
+        recommendedOptionLabel: "Pelanggan umum / sekitar",
+        options: [
+          {
+            label: "Pelanggan umum / sekitar",
+            description:
+              "Warga lokal, keluarga, atau perorangan di sekitar lokasi.",
+          },
+          {
+            label: "Pekerja & profesional",
+            description: "Karyawan kantor, pekerja harian, atau instansi.",
+          },
+          {
+            label: "Pelajar & anak muda",
+            description: "Siswa, mahasiswa, atau komunitas muda.",
+          },
+          {
+            label: "Toko / reseller grosir",
+            description: "Pembeli partai besar atau pedagang lain.",
+          },
+        ],
       },
     };
   }
@@ -141,11 +159,24 @@ export function getNextTieredEnrichmentCard(
       question: {
         id: "visual_direction",
         question: `Nuansa visual seperti apa yang cocok untuk ${name}?`,
-        answerMode: "text",
+        answerMode: "choice",
         selectionMode: "single",
         required: false,
-        placeholder: "Contoh: tenang, tegas, atau penuh warna",
-        options: [],
+        recommendedOptionLabel: "Bersih & Modern",
+        options: [
+          {
+            label: "Bersih & Modern",
+            description: "Tampilan rapi, minimalis, dan profesional.",
+          },
+          {
+            label: "Hangat & Bersahabat",
+            description: "Warna ramah, kekeluargaan, dan merakyat.",
+          },
+          {
+            label: "Tegas & Berani",
+            description: "Kontras kuat, dinamis, dan menarik perhatian cepat.",
+          },
+        ],
       },
     };
   }
@@ -199,11 +230,28 @@ export function getNextTieredEnrichmentCard(
       question: {
         id: "usp",
         question: `Apa keunggulan utama ${name} yang paling disukai pelanggan?`,
-        answerMode: "text",
-        selectionMode: "single",
+        answerMode: "choice",
+        selectionMode: "multiple",
         required: false,
-        placeholder: "Tulis keunggulan yang benar-benar kamu tawarkan",
-        options: [],
+        recommendedOptionLabel: "Kualitas terjamin & konsisten",
+        options: [
+          {
+            label: "Kualitas terjamin & konsisten",
+            description: "Bahan atau pengerjaan terbaik tanpa kompromi.",
+          },
+          {
+            label: "Harga terjangkau & hemat",
+            description: "Bersaing dan pas di kantong pelanggan.",
+          },
+          {
+            label: "Pelayanan cepat & ramah",
+            description: "Respon sigap dan proses tidak berbelit.",
+          },
+          {
+            label: "Bisa antar / pesan online",
+            description: "Praktis langsung sampai tempat tujuan.",
+          },
+        ],
       },
     };
   }

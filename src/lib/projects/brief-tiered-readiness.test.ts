@@ -193,7 +193,7 @@ describe("getNextTieredEnrichmentCard", () => {
     }
   });
 
-  it("returns usp text card when pricing is filled but usp is empty", () => {
+  it("returns usp card when pricing is filled but usp is empty", () => {
     const brief = parseCanonicalBrief({
       businessName: "Bengkel Ayah",
       productOrService: [
@@ -209,8 +209,9 @@ describe("getNextTieredEnrichmentCard", () => {
     expect(card?.type).toBe("question");
     if (card?.type === "question") {
       expect(card.question.id).toBe("usp");
-      expect(card.question.answerMode).toBe("text");
-      expect(card.question.options).toEqual([]);
+      expect(card.question.answerMode).toBe("choice");
+      expect(card.question.selectionMode).toBe("multiple");
+      expect(card.question.options.length).toBeGreaterThanOrEqual(2);
     }
   });
 
@@ -302,7 +303,7 @@ describe("getNextTieredEnrichmentCard", () => {
     expect(card?.type).toBe("question");
     if (card?.type === "question") {
       expect(card.question.id).toBeTruthy();
-      expect(card.question.options).toEqual([]);
+      expect(Array.isArray(card.question.options)).toBe(true);
     }
   });
 

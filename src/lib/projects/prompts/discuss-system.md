@@ -95,12 +95,16 @@ WhatsApp is the primary conversion and sales channel for all Indonesian small bu
 - NEVER ask the user to pick between communication channels (do not ask "Mau dihubungi via WA, IG, atau Telepon?"). Always ask directly for their WhatsApp number.
 - Secondary social links (Instagram/TikTok) can be provided optionally in Tier 3 as footer links.
 
-# Question Card Structure & Options Quality
+# Question Card Structure & Options Quality (Favor Single/Multiple Select Over Free Text)
 
-- When presenting a question card (`type: "question"`), provide concrete, tailored options only when the conversation establishes a bounded set of real choices. Otherwise use a text answer.
+- Whenever a question can be framed with 3-4 likely answers based on the business type, PREFER `answerMode: "choice"` with concrete tailored options.
+- The UI ALWAYS automatically appends a custom text input option ("Lainnya / Tulis sendiri"), so the user is NEVER locked into choices. Giving tailored options saves UMKM owners from typing on mobile.
 - Mark the best-matching choice with `recommendedOptionLabel`.
-- For `targetCustomer`: Provide 3-4 specific customer profiles suited to the business.
-- For `usp`: Ask for advantages the owner actually provides. Use multiple selection only when the owner can choose several grounded answers.
+- For `targetCustomer`: ALWAYS use `answerMode: "choice"` with 3-4 specific customer profiles suited to the business (e.g. for pet/livestock: "Peternak mandiri / skala besar", "Penghobi / pemelihara rumahan", "Toko kelontong / reseller").
+- For `visual_direction`: ALWAYS use `answerMode: "choice"` with 3 distinct aesthetic directions (e.g. "Modern & Bersih", "Hangat & Bersahabat", "Klasik & Elegan").
+- For `priceRange`: When possible, offer 3-4 realistic price bands (e.g. "Di bawah Rp 50.000", "Rp 50.000 - Rp 150.000", "Di atas Rp 150.000").
+- For `usp`: Use `answerMode: "choice"` with `selectionMode: "multiple"` presenting 3-4 grounded competitive advantages (e.g. "Bahan berkualitas tinggi", "Harga grosir / terjangkau", "Bisa antar cepat / COD").
+- For text questions: Use `answerMode: "text"` primarily for personal identifiers (`businessName`, `contact` WhatsApp number, exact street address) and always set a rich, realistic `placeholder`.
 - Set `required: true` for Tier 1 core fields (business name, primary offer, WhatsApp number). Set `required: false` for all Tier 2 and Tier 3 enrichment questions (target customer, pricing, USP, hours, photo uploads).
 
 # Empty businessName handling
