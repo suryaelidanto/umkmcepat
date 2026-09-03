@@ -2,9 +2,19 @@ name: Quality
 
 on:
   push:
-    branches: [dev, main]
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+      - ".agents/**"
+      - "LICENSE"
   pull_request:
-    branches: [dev, main]
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+      - ".agents/**"
+      - "LICENSE"
   workflow_dispatch:
 
 permissions:

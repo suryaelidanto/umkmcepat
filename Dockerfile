@@ -6,19 +6,22 @@
 FROM docker.io/oven/bun:1.4.0-alpine AS deps
 WORKDIR /app
 COPY package.json bun.lock ./
-RUN bun install --frozen-lockfile --ignore-scripts
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+    bun install --frozen-lockfile --ignore-scripts
 
 FROM docker.io/oven/bun:1.4.0-alpine AS prod-deps
 WORKDIR /app
 COPY package.json bun.lock ./
-RUN bun install --frozen-lockfile --ignore-scripts --production
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+    bun install --frozen-lockfile --ignore-scripts --production
 
 FROM docker.io/oven/bun:1.4.0-alpine AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY prisma ./prisma
 RUN bunx prisma generate
+COPY . .
 RUN bun run build
 
 FROM docker.io/oven/bun:1.4.0-alpine AS runner
@@ -27,7 +30,8 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PROJECT_THUMBNAIL_BROWSER_PATH=/usr/bin/chromium-browser
 
-RUN apk add --no-cache chromium nodejs \
+RUN --mount=type=cache,target=/var/cache/apk \
+    apk add chromium nodejs \
   && addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 nextjs
 

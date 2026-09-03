@@ -11,7 +11,7 @@ export type LinkProps = Omit<RouterLinkProps, "to"> & {
 
 function useHasRouter(): boolean {
   try {
-    const router = useRouter();
+    const router = useRouter({ warn: false });
     return Boolean(router?.state);
   } catch {
     return false;
