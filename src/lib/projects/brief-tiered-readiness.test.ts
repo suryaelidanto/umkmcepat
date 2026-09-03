@@ -141,22 +141,10 @@ describe("evaluateTieredBriefReadiness", () => {
 });
 
 describe("isExplicitBuildRequest", () => {
-  it("recognizes affirmative build commands", () => {
-    expect(isExplicitBuildRequest("buat website sekarang")).toBe(true);
-    expect(isExplicitBuildRequest("langsung buat aja")).toBe(true);
-    expect(isExplicitBuildRequest("bangun webnya")).toBe(true);
-    expect(isExplicitBuildRequest("bikin websitenya")).toBe(true);
-    expect(isExplicitBuildRequest("udah cukup")).toBe(true);
-    expect(isExplicitBuildRequest("cukup segitu")).toBe(true);
-    expect(isExplicitBuildRequest("mulai buat sekarang")).toBe(true);
-  });
-
-  it("returns false for regular conversational turns and data inputs", () => {
+  it("does not trigger build from text to prevent false positives", () => {
+    expect(isExplicitBuildRequest("buat website sekarang")).toBe(false);
+    expect(isExplicitBuildRequest("langsung buat aja")).toBe(false);
     expect(isExplicitBuildRequest("08123456789")).toBe(false);
-    expect(isExplicitBuildRequest("Jl. Kenangan No 4")).toBe(false);
-    expect(isExplicitBuildRequest("Bengkel Ayah")).toBe(false);
-    expect(isExplicitBuildRequest("Sepeda Motor")).toBe(false);
-    expect(isExplicitBuildRequest("gak tau")).toBe(false);
   });
 });
 

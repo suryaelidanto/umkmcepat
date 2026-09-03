@@ -650,7 +650,10 @@ describe("normalizeWorkspaceTurn", () => {
         },
       },
       brief,
-      { lastUserText: "buat sekarang" },
+      {
+        preflight: "build",
+        lastUserText: "buat sekarang",
+      },
     );
 
     expect(turn.workspaceCard.type).toBe("build_recommendation");

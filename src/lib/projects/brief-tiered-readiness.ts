@@ -31,22 +31,11 @@ const TIER1_LABELS: Record<Tier1MissingField, string> = {
   contact: "Nomor kontak / WhatsApp",
 };
 
-export function isExplicitBuildRequest(text: string): boolean {
-  const normalized = text.toLowerCase().trim();
-  if (!normalized) {
-    return false;
-  }
-  const patterns = [
-    /buat\s+(sekarang|website|web|aja|langsung)/,
-    /bangun\s+(sekarang|website|web|aja|langsung)/,
-    /bikin\s+(sekarang|website|web|aja|langsung|webnya)/,
-    /build\s+(sekarang|now|aja|langsung)/,
-    /langsung\s+(buat|bikin|bangun|build|generate)/,
-    /cukup\s+(itu|segitu|ini|dulu|aja)/,
-    /udah\s+(cukup|lengkap|pas)/,
-    /mulai\s+(buat|bikin|bangun|build)/,
-  ];
-  return patterns.some((p) => p.test(normalized));
+export function isExplicitBuildRequest(
+  _text: string,
+  _previousCard?: WorkspaceCard,
+): boolean {
+  return false;
 }
 
 export function getNextTieredEnrichmentCard(

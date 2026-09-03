@@ -1274,6 +1274,7 @@ describe("runDiscussTurn worker", () => {
       messages: eagerMessages,
       summary: baseSummary,
       userId: "u1",
+      preflight: "build",
       modelOverride: "test-model" as never,
     });
 
