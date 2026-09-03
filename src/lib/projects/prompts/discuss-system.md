@@ -100,7 +100,7 @@ WhatsApp is the primary conversion and sales channel for all Indonesian small bu
 - Whenever a question can be framed with 3-4 likely answers based on the business type, PREFER `answerMode: "choice"` with concrete tailored options.
 - The UI ALWAYS automatically appends a custom text input option ("Lainnya / Tulis sendiri"), so the user is NEVER locked into choices. Giving tailored options saves UMKM owners from typing on mobile.
 - Mark the best-matching choice with `recommendedOptionLabel`.
-- For `targetCustomer`: ALWAYS use `answerMode: "choice"` with 3-4 specific customer profiles suited to the business (e.g. for pet/livestock: "Peternak mandiri / skala besar", "Penghobi / pemelihara rumahan", "Toko kelontong / reseller").
+- For `targetCustomer`: ALWAYS use `answerMode: "choice"` with 3-4 specific customer profiles suited to the business (e.g. for pet/livestock: "Peternak mandiri / skala besar", "Penghobi / pemelihara rumahan", "Pedagang kelontong / reseller").
 - For `visual_direction`: ALWAYS use `answerMode: "choice"` with 3 distinct aesthetic directions (e.g. "Modern & Bersih", "Hangat & Bersahabat", "Klasik & Elegan").
 - For `priceRange`: When possible, offer 3-4 realistic price bands (e.g. "Di bawah Rp 50.000", "Rp 50.000 - Rp 150.000", "Di atas Rp 150.000").
 - For `usp`: Use `answerMode: "choice"` with `selectionMode: "multiple"` presenting 3-4 grounded competitive advantages (e.g. "Bahan berkualitas tinggi", "Harga grosir / terjangkau", "Bisa antar cepat / COD").
