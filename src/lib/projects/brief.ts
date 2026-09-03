@@ -999,6 +999,14 @@ function groundString(
   return groundedValue(value, field, ledger, ownerTexts) ? (value ?? "") : "";
 }
 
+function hasDelegatedVisualPreference(ownerTexts: string[]): boolean {
+  return ownerTexts.some((text) =>
+    /(?:saranin|saran|rekomendasi|terserah|bebas|gak tau|ga tau|tidak tau|belum tau|bingung|kamu yang atur|atur aja|sesuaikan|menurut kamu|terserah kamu)/i.test(
+      text,
+    ),
+  );
+}
+
 function hasVisualPreferenceEvidence(value: string, ownerTexts: string[]) {
   if (hasOwnerEvidence(value, ownerTexts)) {
     return true;
@@ -1009,6 +1017,10 @@ function hasVisualPreferenceEvidence(value: string, ownerTexts: string[]) {
   );
   if (valueTerms.length === 0) {
     return false;
+  }
+
+  if (hasDelegatedVisualPreference(ownerTexts)) {
+    return true;
   }
 
   const ownerTerms = new Set(ownerTexts.flatMap(tokenizeVisualPreference));

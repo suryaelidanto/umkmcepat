@@ -458,245 +458,197 @@ function WaitlistPage() {
   }
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-xl flex-col items-stretch px-spacing-4 pb-24 pt-spacing-8 text-[#1c1c1c] dark:text-surface-warm-white sm:px-spacing-8">
-      <header className="flex flex-col items-center gap-spacing-3 pb-spacing-6 text-center">
-        <h1 className="text-heading-xl font-semibold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white">
-          Daftar Tunggu
-        </h1>
-      </header>
+    <div className="mx-auto flex w-full max-w-xl flex-col items-stretch px-spacing-4 py-spacing-8 text-[#1c1c1c] dark:text-surface-warm-white sm:px-spacing-6">
+      <div className="rounded-3xl border border-black/10 bg-[#fcfbf8] p-spacing-6 shadow-sm dark:border-white/10 dark:bg-[#1c1c1a] dark:shadow-[0_20px_40px_rgba(0,0,0,0.35)] sm:p-spacing-9">
+        <ProgressBar currentStep={step} />
 
-      {wasRejected ? (
-        <div className="mb-spacing-6 rounded-radius-lg border border-destructive/30 bg-destructive/10 px-spacing-5 py-spacing-4 text-sm text-[#1c1c1c] dark:text-surface-warm-white/85">
-          <p className="font-semibold text-destructive dark:text-surface-warm-white">
-            Pendaftaran sebelumnya belum bisa kami terima
-          </p>
-          {statusQuery.data?.own?.rejectionReason ? (
-            <p className="mt-spacing-2 text-[#5f5f5d] dark:text-surface-warm-white/70">
-              Alasan: {statusQuery.data.own.rejectionReason}
+        {wasRejected ? (
+          <div className="mb-spacing-6 rounded-radius-lg border border-destructive/30 bg-destructive/10 px-spacing-5 py-spacing-4 text-sm text-[#1c1c1c] dark:text-surface-warm-white/85">
+            <p className="font-semibold text-destructive dark:text-surface-warm-white">
+              Pendaftaran sebelumnya belum bisa kami terima
             </p>
+            {statusQuery.data?.own?.rejectionReason ? (
+              <p className="mt-spacing-2 text-[#5f5f5d] dark:text-surface-warm-white/70">
+                Alasan: {statusQuery.data.own.rejectionReason}
+              </p>
+            ) : null}
+            <p className="mt-spacing-2 text-[#5f5f5d] dark:text-surface-warm-white/70">
+              Silakan perbaiki dan ajukan lagi di bawah ini.
+            </p>
+          </div>
+        ) : null}
+
+        {isDev && ownIsDevSkip && isApproved ? (
+          <div className="mt-spacing-4 flex flex-col items-center gap-spacing-3 rounded-radius-lg border border-black/10 bg-black/[0.02] px-spacing-5 py-spacing-4 text-center text-sm text-[#1c1c1c] dark:border-white/10 dark:bg-white/[0.02] dark:text-surface-warm-white/85">
+            <p>
+              Akun kamu sudah auto-approved lewat dev skip. Kamu bisa pakai
+              aplikasi penuh.
+            </p>
+            <button
+              className="text-xs text-destructive underline-offset-4 hover:underline disabled:opacity-50"
+              disabled={devResetMutation.isPending}
+              onClick={() => devResetMutation.mutate()}
+              type="button"
+            >
+              {devResetMutation.isPending
+                ? "Mereset..."
+                : "Reset approval biar bisa tes gate lagi (admin bypass)"}
+            </button>
+          </div>
+        ) : null}
+
+        <form
+          className="mt-spacing-6 flex w-full flex-col"
+          onSubmit={(event) => event.preventDefault()}
+        >
+          {step === 1 ? (
+            <Step1
+              errorMessage={form.errorMessage}
+              markTouched={form.markTouched}
+              onChange={form.setField}
+              values={form.values}
+            />
           ) : null}
-          <p className="mt-spacing-2 text-[#5f5f5d] dark:text-surface-warm-white/70">
-            Silakan perbaiki dan ajukan lagi di bawah ini.
-          </p>
-        </div>
-      ) : null}
-
-      <ProgressBar currentStep={step} />
-
-      {isDev && ownIsDevSkip && isApproved ? (
-        <div className="mt-spacing-4 flex flex-col items-center gap-spacing-3 rounded-radius-lg border border-accent-orange-border bg-accent-orange-subtle px-spacing-5 py-spacing-4 text-center text-sm text-[#1c1c1c] dark:text-surface-warm-white/85">
-          <p>
-            Akun kamu sudah auto-approved lewat dev skip. Kamu bisa pakai
-            aplikasi penuh.
-          </p>
-          <button
-            className="text-xs text-destructive underline-offset-4 hover:underline disabled:opacity-50"
-            disabled={devResetMutation.isPending}
-            onClick={() => devResetMutation.mutate()}
-            type="button"
-          >
-            {devResetMutation.isPending
-              ? "Mereset..."
-              : "Reset approval biar bisa tes gate lagi (admin bypass)"}
-          </button>
-        </div>
-      ) : null}
-
-      <form
-        className="flex w-full flex-col"
-        onSubmit={(event) => event.preventDefault()}
-      >
-        {step === 1 ? (
-          <Step1
-            errorMessage={form.errorMessage}
-            markTouched={form.markTouched}
-            onChange={form.setField}
-            values={form.values}
-          />
-        ) : null}
-        {step === 2 ? (
-          <Step2
-            errorMessage={form.errorMessage}
-            hasError={form.hasError}
-            markTouched={form.markTouched}
-            onChange={form.setField}
-            storyTooShort={storyTooShort}
-            touched={form.touched}
-            values={form.values}
-          />
-        ) : null}
-        {step === 3 ? (
-          <Step3
-            errorMessage={form.errorMessage}
-            onAddPhotos={async (newFiles) => {
-              const startLen = form.values.photo.length;
-              const combined = [...form.values.photo, ...newFiles].slice(0, 3);
-              const accepted = combined.slice(startLen);
-              form.setField("photo", combined as WaitlistValues["photo"]);
-              const keys = accepted.map(waitlistPhotoKey);
-              setUploadingPhotoKeys((prev) => new Set([...prev, ...keys]));
-              for (const file of accepted) {
-                const key = waitlistPhotoKey(file);
-                try {
-                  const { assetId } = await uploadTempImageFile(file);
-                  setPhotoAssetIds((prev) => [...prev, assetId]);
-                } catch {
-                  toast.error("Gagal mengunggah foto.");
-                } finally {
+          {step === 2 ? (
+            <Step2
+              errorMessage={form.errorMessage}
+              hasError={form.hasError}
+              markTouched={form.markTouched}
+              onChange={form.setField}
+              storyTooShort={storyTooShort}
+              touched={form.touched}
+              values={form.values}
+            />
+          ) : null}
+          {step === 3 ? (
+            <Step3
+              errorMessage={form.errorMessage}
+              onAddPhotos={async (newFiles) => {
+                const startLen = form.values.photo.length;
+                const combined = [...form.values.photo, ...newFiles].slice(
+                  0,
+                  3,
+                );
+                const accepted = combined.slice(startLen);
+                form.setField("photo", combined as WaitlistValues["photo"]);
+                const keys = accepted.map(waitlistPhotoKey);
+                setUploadingPhotoKeys((prev) => new Set([...prev, ...keys]));
+                for (const file of accepted) {
+                  const key = waitlistPhotoKey(file);
+                  try {
+                    const { assetId } = await uploadTempImageFile(file);
+                    setPhotoAssetIds((prev) => [...prev, assetId]);
+                  } catch {
+                    toast.error("Gagal mengunggah foto.");
+                  } finally {
+                    setUploadingPhotoKeys((prev) => {
+                      const next = new Set(prev);
+                      next.delete(key);
+                      return next;
+                    });
+                  }
+                }
+              }}
+              onRemovePhoto={(index) => {
+                const removed = form.values.photo[index];
+                if (removed) {
+                  const key = waitlistPhotoKey(removed);
                   setUploadingPhotoKeys((prev) => {
+                    if (!prev.has(key)) {
+                      return prev;
+                    }
                     const next = new Set(prev);
                     next.delete(key);
                     return next;
                   });
                 }
-              }
-            }}
-            onRemovePhoto={(index) => {
-              const removed = form.values.photo[index];
-              if (removed) {
-                const key = waitlistPhotoKey(removed);
-                setUploadingPhotoKeys((prev) => {
-                  if (!prev.has(key)) {
-                    return prev;
-                  }
-                  const next = new Set(prev);
-                  next.delete(key);
-                  return next;
-                });
-              }
-              const next = form.values.photo.filter((_, i) => i !== index);
-              form.setField("photo", next as WaitlistValues["photo"]);
-              setPhotoAssetIds((prev) => prev.filter((_, i) => i !== index));
-            }}
-            photoCount={form.values.photo.length}
-            photoPreviews={photoPreviews}
-            photoUploading={form.values.photo.map((file) =>
-              uploadingPhotoKeys.has(waitlistPhotoKey(file)),
-            )}
-          />
-        ) : null}
-
-        {hasTurnstile && step === 3 ? (
-          <p className="mt-spacing-4 text-xs text-[#5f5f5d] dark:text-surface-warm-white/50">
-            Ada cek keamanan sebelum kirim.
-          </p>
-        ) : null}
-
-        <div className="mt-spacing-8 flex items-center justify-between">
-          {step > 1 ? (
-            <button
-              type="button"
-              onClick={() => setStep((s) => Math.max(1, s - 1))}
-              className="flex items-center gap-spacing-2 text-sm text-[#5f5f5d] transition hover:text-[#1c1c1c] dark:text-surface-warm-white/60 dark:hover:text-surface-warm-white"
-            >
-              <ArrowLeft className="size-4" />
-              Kembali
-            </button>
-          ) : (
-            <span />
-          )}
-          {step < 3 ? (
-            <Button
-              type="button"
-              onClick={() => {
-                if (step === 1) {
-                  form.markTouched("businessName");
-                  if (form.errors.businessName) {
-                    toast.error(form.errors.businessName);
-                    return;
-                  }
-                }
-                if (step === 2) {
-                  form.markTouched("storyOffers");
-                  form.markTouched("storySince");
-                  form.markTouched("storyGoal");
-                  if (
-                    form.errors.storyOffers ||
-                    form.errors.storySince ||
-                    form.errors.storyGoal
-                  ) {
-                    toast.error(
-                      form.errors.storyOffers ||
-                        form.errors.storyGoal ||
-                        form.errors.storySince ||
-                        "Perbaiki dulu jawabannya.",
-                    );
-                    return;
-                  }
-                  if (storyTooShort) {
-                    toast.error(
-                      "Tulis minimal 80 karakter untuk melengkapi cerita usahamu.",
-                    );
-                    return;
-                  }
-                }
-                setStep((s) => Math.min(3, s + 1));
+                const next = form.values.photo.filter((_, i) => i !== index);
+                form.setField("photo", next as WaitlistValues["photo"]);
+                setPhotoAssetIds((prev) => prev.filter((_, i) => i !== index));
               }}
-              className="flex items-center gap-spacing-2"
-            >
-              Lanjut
-              <ArrowRight className="size-4" />
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              onClick={() => {
-                if (!canSubmit) {
-                  return;
-                }
-                form.markTouched("photo");
-                setConfirmOpen(true);
-              }}
-              disabled={!canSubmit}
-              size="lg"
-              className="flex items-center gap-spacing-2"
-            >
-              {submit.isPending ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  Mengirim...
-                </>
-              ) : (
-                <>
-                  Kirim Pendaftaran
-                  <Check className="size-4" />
-                </>
+              photoCount={form.values.photo.length}
+              photoPreviews={photoPreviews}
+              photoUploading={form.values.photo.map((file) =>
+                uploadingPhotoKeys.has(waitlistPhotoKey(file)),
               )}
-            </Button>
-          )}
-        </div>
+            />
+          ) : null}
 
-        <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-          <DialogContent showCloseButton className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Sebelum mengirim</DialogTitle>
-              <DialogDescription>
-                Cerita usaha dan foto yang kamu kirim bisa dipakai sebagai studi
-                kasus publik. Jangan isi data sensitif seperti alamat rumah,
-                nomor rekening, atau data pelanggan. Nama akun dan email tetap
-                privat.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="flex flex-col-reverse gap-spacing-3 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                className="rounded-radius-lg px-spacing-7 py-spacing-3 text-sm text-[#5f5f5d] transition hover:bg-black/5 hover:text-[#1c1c1c] dark:text-surface-warm-white/70 dark:hover:bg-white/[0.06] dark:hover:text-surface-warm-white"
-                onClick={() => setConfirmOpen(false)}
-                disabled={submit.isPending}
-              >
-                Batal
-              </button>
+          {hasTurnstile && step === 3 ? (
+            <p className="mt-spacing-4 text-xs text-[#5f5f5d] dark:text-surface-warm-white/50">
+              Ada cek keamanan sebelum kirim.
+            </p>
+          ) : null}
+
+          <div className="mt-spacing-8 flex items-center justify-between border-t border-black/5 pt-spacing-4 dark:border-white/5">
+            {step > 1 ? (
               <Button
                 type="button"
-                className="flex items-center gap-spacing-2"
-                disabled={!canSubmit}
+                variant="ghost"
+                onClick={() => setStep((s) => Math.max(1, s - 1))}
+                className="flex items-center gap-spacing-2 text-sm text-[#5f5f5d] hover:bg-black/5 hover:text-[#1c1c1c] dark:text-surface-warm-white/70 dark:hover:bg-white/10 dark:hover:text-surface-warm-white"
+              >
+                <ArrowLeft className="size-4" />
+                Kembali
+              </Button>
+            ) : (
+              <span />
+            )}
+            {step < 3 ? (
+              <Button
+                type="button"
+                onClick={() => {
+                  if (step === 1) {
+                    form.markTouched("businessName");
+                    if (form.errors.businessName) {
+                      toast.error(form.errors.businessName);
+                      return;
+                    }
+                  }
+                  if (step === 2) {
+                    form.markTouched("storyOffers");
+                    form.markTouched("storySince");
+                    form.markTouched("storyGoal");
+                    if (
+                      form.errors.storyOffers ||
+                      form.errors.storySince ||
+                      form.errors.storyGoal
+                    ) {
+                      toast.error(
+                        form.errors.storyOffers ||
+                          form.errors.storyGoal ||
+                          form.errors.storySince ||
+                          "Perbaiki dulu jawabannya.",
+                      );
+                      return;
+                    }
+                    if (storyTooShort) {
+                      toast.error(
+                        "Tulis minimal 80 karakter untuk melengkapi cerita usahamu.",
+                      );
+                      return;
+                    }
+                  }
+                  setStep((s) => Math.min(3, s + 1));
+                }}
+                className="flex items-center gap-spacing-2 bg-action-primary text-surface-warm-white hover:bg-action-primary/90 dark:bg-surface-warm-white dark:text-action-primary dark:hover:bg-white"
+              >
+                Lanjut
+                <ArrowRight className="size-4" />
+              </Button>
+            ) : (
+              <Button
+                type="button"
                 onClick={() => {
                   if (!canSubmit) {
                     return;
                   }
-                  setConfirmOpen(false);
-                  submit.mutate();
+                  form.markTouched("photo");
+                  setConfirmOpen(true);
                 }}
+                disabled={!canSubmit}
+                size="default"
+                className="flex items-center gap-spacing-2 bg-action-primary text-surface-warm-white hover:bg-action-primary/90 dark:bg-surface-warm-white dark:text-action-primary dark:hover:bg-white"
               >
                 {submit.isPending ? (
                   <>
@@ -704,87 +656,129 @@ function WaitlistPage() {
                     Mengirim...
                   </>
                 ) : (
-                  "Saya paham, kirim"
+                  <>
+                    Kirim Pendaftaran
+                    <Check className="size-4" />
+                  </>
                 )}
               </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            )}
+          </div>
 
-        {isDev && isAdmin ? (
-          <div className="mt-spacing-6 flex flex-col items-center gap-spacing-3">
-            <div className="flex w-full items-center gap-spacing-3 text-[10px] uppercase tracking-wider text-[#5f5f5d]/70 dark:text-surface-warm-white/40">
-              <span className="h-px flex-1 bg-black/10 dark:bg-surface-warm-white/10" />
-              <span>atau</span>
-              <span className="h-px flex-1 bg-black/10 dark:bg-surface-warm-white/10" />
-            </div>
-            <button
-              className="text-xs text-[#5f5f5d] underline-offset-4 hover:text-[#1c1c1c] hover:underline disabled:opacity-50 dark:text-surface-warm-white/60 dark:hover:text-surface-warm-white"
-              disabled={devSkipMutation.isPending}
-              onClick={() => devSkipMutation.mutate()}
-              type="button"
-            >
-              {devSkipMutation.isPending
-                ? "Melewati..."
-                : "Lewati pendaftaran (admin bypass)"}
-            </button>
-            {statusQuery.data?.own ? (
+          <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+            <DialogContent showCloseButton className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Sebelum mengirim</DialogTitle>
+                <DialogDescription>
+                  Cerita usaha dan foto yang kamu kirim bisa dipakai sebagai
+                  studi kasus publik. Jangan isi data sensitif seperti alamat
+                  rumah, nomor rekening, atau data pelanggan. Nama akun dan
+                  email tetap privat.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex flex-col-reverse gap-spacing-3 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  className="rounded-radius-lg px-spacing-7 py-spacing-3 text-sm text-[#5f5f5d] transition hover:bg-black/5 hover:text-[#1c1c1c] dark:text-surface-warm-white/70 dark:hover:bg-white/[0.06] dark:hover:text-surface-warm-white"
+                  onClick={() => setConfirmOpen(false)}
+                  disabled={submit.isPending}
+                >
+                  Batal
+                </button>
+                <Button
+                  type="button"
+                  className="flex items-center gap-spacing-2"
+                  disabled={!canSubmit}
+                  onClick={() => {
+                    if (!canSubmit) {
+                      return;
+                    }
+                    setConfirmOpen(false);
+                    submit.mutate();
+                  }}
+                >
+                  {submit.isPending ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" />
+                      Mengirim...
+                    </>
+                  ) : (
+                    "Saya paham, kirim"
+                  )}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {isDev && isAdmin ? (
+            <div className="mt-spacing-6 flex flex-col items-center gap-spacing-3">
+              <div className="flex w-full items-center gap-spacing-3 text-[10px] uppercase tracking-wider text-[#5f5f5d]/70 dark:text-surface-warm-white/40">
+                <span className="h-px flex-1 bg-black/10 dark:bg-surface-warm-white/10" />
+                <span>atau</span>
+                <span className="h-px flex-1 bg-black/10 dark:bg-surface-warm-white/10" />
+              </div>
               <button
-                className="text-[10px] uppercase tracking-wider text-destructive/70 underline-offset-4 hover:text-destructive hover:underline disabled:opacity-50"
-                disabled={devResetMutation.isPending}
-                onClick={() => devResetMutation.mutate()}
+                className="text-xs text-[#5f5f5d] underline-offset-4 hover:text-[#1c1c1c] hover:underline disabled:opacity-50 dark:text-surface-warm-white/60 dark:hover:text-surface-warm-white"
+                disabled={devSkipMutation.isPending}
+                onClick={() => devSkipMutation.mutate()}
                 type="button"
               >
-                {devResetMutation.isPending
-                  ? "Mereset..."
-                  : "Reset pendaftaran (admin bypass)"}
+                {devSkipMutation.isPending
+                  ? "Melewati..."
+                  : "Lewati pendaftaran (admin bypass)"}
               </button>
-            ) : null}
-          </div>
-        ) : null}
-      </form>
+              {statusQuery.data?.own ? (
+                <button
+                  className="text-[10px] uppercase tracking-wider text-destructive/70 underline-offset-4 hover:text-destructive hover:underline disabled:opacity-50"
+                  disabled={devResetMutation.isPending}
+                  onClick={() => devResetMutation.mutate()}
+                  type="button"
+                >
+                  {devResetMutation.isPending
+                    ? "Mereset..."
+                    : "Reset pendaftaran (admin bypass)"}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </form>
+      </div>
     </div>
   );
 }
 
 function ProgressBar({ currentStep }: { currentStep: number }) {
   const steps = ["Usaha", "Cerita", "Foto"];
+  const totalSteps = steps.length;
+  const currentLabel = steps[currentStep - 1] ?? "";
+
   return (
-    <div className="mb-spacing-8 flex items-center justify-center gap-spacing-3">
-      {steps.map((label, index) => {
-        const stepNumber = index + 1;
-        const isActive = stepNumber === currentStep;
-        const isDone = stepNumber < currentStep;
-        return (
-          <div key={label} className="flex items-center gap-spacing-3">
-            <div className="flex flex-col items-center gap-spacing-1">
-              <div
-                className={`flex size-8 items-center justify-center rounded-full text-xs font-semibold transition ${
-                  isActive
-                    ? "bg-accent-orange text-white"
-                    : isDone
-                      ? "bg-accent-orange-subtle text-accent-orange border border-accent-orange-border"
-                      : "bg-black/10 text-[#5f5f5d] dark:bg-surface-warm-white/10 dark:text-surface-warm-white/60"
-                }`}
-              >
-                {isDone ? <Check className="size-4" /> : stepNumber}
-              </div>
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-[#5f5f5d] dark:text-surface-warm-white/60">
-                {label}
-              </span>
-            </div>
-            {index < steps.length - 1 ? (
-              <div
-                className={`mb-4 h-px w-10 transition ${
-                  isDone
-                    ? "bg-accent-orange/40"
-                    : "bg-black/10 dark:bg-surface-warm-white/10"
-                }`}
-              />
-            ) : null}
-          </div>
-        );
-      })}
+    <div className="mb-spacing-7 flex flex-col gap-spacing-3 border-b border-black/10 pb-spacing-5 dark:border-white/10">
+      <div className="flex items-center justify-between text-xs font-medium text-[#5f5f5d] dark:text-surface-warm-white/60">
+        <span className="font-semibold text-[#1c1c1c] dark:text-surface-warm-white">
+          Langkah {currentStep} dari {totalSteps}: {currentLabel}
+        </span>
+        <span className="tabular-nums">
+          {Math.round((currentStep / totalSteps) * 100)}% selesai
+        </span>
+      </div>
+
+      <div className="flex gap-1.5">
+        {steps.map((_, index) => {
+          const stepNum = index + 1;
+          const isFilled = stepNum <= currentStep;
+          return (
+            <div
+              key={index}
+              className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
+                isFilled
+                  ? "bg-action-primary dark:bg-surface-warm-white"
+                  : "bg-black/10 dark:bg-white/10"
+              }`}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -998,7 +992,7 @@ function Step3({
           />
         ))}
         {canAdd ? (
-          <label className="flex size-20 cursor-pointer flex-col items-center justify-center rounded-radius-md border border-dashed border-black/20 bg-black/[0.03] text-[#5f5f5d] transition hover:border-accent-orange hover:bg-black/[0.06] hover:text-[#1c1c1c] dark:border-surface-warm-white/20 dark:bg-surface-warm-white/5 dark:text-surface-warm-white/60 dark:hover:border-accent-orange/40 dark:hover:bg-surface-warm-white/10 dark:hover:text-surface-warm-white/80">
+          <label className="flex size-20 cursor-pointer flex-col items-center justify-center rounded-radius-md border border-dashed border-black/20 bg-black/[0.03] text-[#5f5f5d] transition hover:border-action-primary hover:bg-black/[0.06] hover:text-[#1c1c1c] dark:border-surface-warm-white/20 dark:bg-surface-warm-white/5 dark:text-surface-warm-white/60 dark:hover:border-surface-warm-white/50 dark:hover:bg-surface-warm-white/10 dark:hover:text-surface-warm-white">
             <ImagePlus className="size-5" />
             <span className="mt-1 text-[9px] font-semibold uppercase tracking-wide">
               Upload
@@ -1047,14 +1041,14 @@ function Step({
 }) {
   return (
     <div className="flex flex-col">
-      <h2 className="text-center text-heading-lg font-semibold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white">
+      <h2 className="text-xl font-semibold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white sm:text-2xl">
         {question}
         {required ? <span className="text-destructive"> *</span> : null}
       </h2>
-      <p className="mt-spacing-2 text-center text-sm text-[#5f5f5d] dark:text-surface-warm-white/60">
+      <p className="mt-1 text-xs text-[#5f5f5d] dark:text-surface-warm-white/60 sm:text-sm">
         {helper}
       </p>
-      <div className="mt-spacing-8">{children}</div>
+      <div className="mt-spacing-6">{children}</div>
     </div>
   );
 }

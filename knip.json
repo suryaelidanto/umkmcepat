@@ -15,7 +15,7 @@
     "!src/lib/projects/scaffold/shadcn-registry/**"
   ],
   "ignore": ["src/lib/projects/scaffold/shadcn-registry/**"],
-  "ignoreBinaries": ["graphify", "netstat"],
+  "ignoreBinaries": ["graphify", "netstat", "migrate", "db"],
   "ignoreDependencies": ["tailwindcss"],
   "ignoreExportsUsedInFile": true,
   "ignoreIssues": {

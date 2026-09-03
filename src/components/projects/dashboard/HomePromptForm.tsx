@@ -22,7 +22,9 @@ import { useSession } from "@/lib/auth/auth-client";
 import { useFeatureFlag } from "@/lib/config/use-feature-flag";
 import { useRouter } from "@/lib/navigation";
 import {
+  addAttachments,
   hasUploadingAttachments,
+  MAX_COMPOSER_IMAGES,
   removeAttachment,
   revokeAll,
   type PendingAttachment,
@@ -90,6 +92,126 @@ export function HomePromptForm({
   const uploadsEnabled = useFeatureFlag("feature.composer_uploads_enabled");
   const hasAutoContinued = useRef(false);
   const isSubmittingRef = useRef(false);
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
+  const [draggedFileCount, setDraggedFileCount] = useState(0);
+  const dragCounterRef = useRef(0);
+
+  const processDroppedFiles = useCallback(
+    (incomingFiles: File[]) => {
+      if (!incomingFiles.length) {
+        return;
+      }
+
+      if (status !== "authenticated") {
+        setLoginOpen(true);
+        return;
+      }
+
+      if (!uploadsEnabled) {
+        toast.error("Fitur unggah gambar sedang tidak aktif.");
+        return;
+      }
+
+      const result = addAttachments(attachments, incomingFiles);
+
+      if (result.unaccepted.length > 0) {
+        toast.error(
+          "Hanya format JPG, JPEG, PNG, dan WebP yang diperbolehkan.",
+        );
+      }
+
+      if (result.rejected.length > 0) {
+        toast.error(
+          `Maksimal ${MAX_COMPOSER_IMAGES} gambar dan kurang dari 5MB per gambar.`,
+        );
+      }
+
+      if (!result.next.length) {
+        return;
+      }
+
+      const added = result.next.filter(
+        (item) => !attachments.some((prev) => prev.id === item.id),
+      );
+
+      setAttachments(result.next);
+
+      for (const item of added) {
+        void uploadTempImageFile(item.file)
+          .then((uploaded) =>
+            setAttachments((current) =>
+              current.map((candidate) =>
+                candidate.id === item.id
+                  ? {
+                      ...candidate,
+                      assetId: uploaded.assetId,
+                      status: "uploaded",
+                    }
+                  : candidate,
+              ),
+            ),
+          )
+          .catch((error) => {
+            setAttachments((current) => removeAttachment(current, item.id));
+            toast.error(
+              error instanceof Error
+                ? error.message
+                : "Gagal mengunggah gambar.",
+            );
+          });
+      }
+    },
+    [attachments, status, uploadsEnabled],
+  );
+
+  const handleDragEnter = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    dragCounterRef.current += 1;
+    if (event.dataTransfer.types.includes("Files")) {
+      const count = event.dataTransfer.items?.length || 0;
+      setDraggedFileCount(count);
+      setIsDraggingFiles(true);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.dataTransfer.types.includes("Files")) {
+      event.dataTransfer.dropEffect = "copy";
+      const count = event.dataTransfer.items?.length || 0;
+      if (count > 0) {
+        setDraggedFileCount(count);
+      }
+      setIsDraggingFiles(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    dragCounterRef.current -= 1;
+    if (dragCounterRef.current <= 0) {
+      dragCounterRef.current = 0;
+      setIsDraggingFiles(false);
+      setDraggedFileCount(0);
+    }
+  }, []);
+
+  const handleDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      dragCounterRef.current = 0;
+      setIsDraggingFiles(false);
+      setDraggedFileCount(0);
+
+      const files = Array.from(event.dataTransfer.files ?? []);
+      processDroppedFiles(files);
+    },
+    [processDroppedFiles],
+  );
 
   // Smooth clean typewriter placeholder
   const [placeholder, setPlaceholder] = useState("");
@@ -348,14 +470,34 @@ export function HomePromptForm({
     <>
       <form
         onSubmit={handleSubmit}
+        onDragEnter={handleDragEnter}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
         onFocus={() => onFocusChange?.(true)}
         onBlur={(event) => {
           if (!event.currentTarget.contains(event.relatedTarget as Node)) {
             onFocusChange?.(false);
           }
         }}
-        className="mx-auto mt-6 sm:mt-10 w-full max-w-3xl overflow-visible rounded-2xl border border-black/10 bg-white text-left shadow-[0_20px_48px_rgba(0,0,0,0.08)] ring-1 ring-black/[0.04] transition-all duration-300 ease-out focus-within:scale-[1.02] focus-within:border-accent-orange focus-within:ring-accent-orange/30 dark:border-white/10 dark:bg-[#1c1c1a] dark:shadow-[0_24px_48px_rgba(0,0,0,0.45)] dark:ring-white/[0.05] dark:focus-within:border-[#2f8cff]/55 dark:focus-within:ring-[#2f8cff]/35"
+        className={`relative mx-auto mt-6 sm:mt-10 w-full max-w-3xl overflow-visible rounded-2xl border bg-white text-left shadow-[0_20px_48px_rgba(0,0,0,0.08)] ring-1 transition-all duration-300 ease-out dark:bg-[#1c1c1a] dark:shadow-[0_24px_48px_rgba(0,0,0,0.45)] ${
+          isDraggingFiles
+            ? "border-action-primary ring-2 ring-action-primary/30 dark:border-surface-warm-white dark:ring-surface-warm-white/30 scale-[1.01]"
+            : "border-black/10 ring-black/[0.04] focus-within:scale-[1.02] focus-within:border-accent-orange focus-within:ring-accent-orange/30 dark:border-white/10 dark:ring-white/[0.05] dark:focus-within:border-[#2f8cff]/55 dark:focus-within:ring-[#2f8cff]/35"
+        }`}
       >
+        {isDraggingFiles ? (
+          <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center rounded-2xl bg-white/90 backdrop-blur-xs dark:bg-[#1c1c1a]/90">
+            <p className="text-sm font-semibold text-foreground dark:text-surface-warm-white">
+              {draggedFileCount > 1
+                ? `Lepaskan ${draggedFileCount} gambar di sini`
+                : "Lepaskan 1 gambar di sini"}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground dark:text-surface-warm-white/60">
+              Format JPG, JPEG, PNG, atau WebP (maks. 5 MB)
+            </p>
+          </div>
+        ) : null}
         <label htmlFor="hero-prompt" className="sr-only">
           Tulis kebutuhan usaha yang ingin dibuatkan website
         </label>
@@ -394,7 +536,12 @@ export function HomePromptForm({
               status === "authenticated" ? (
                 <ComposerAttachButton
                   attachments={attachments}
-                  onAdd={(next, rejected) => {
+                  onAdd={(next, rejected, unaccepted) => {
+                    if (unaccepted?.length) {
+                      toast.error(
+                        "Hanya format JPG, JPEG, PNG, dan WebP yang diperbolehkan.",
+                      );
+                    }
                     const added = next.filter(
                       (item) =>
                         !attachments.some((prev) => prev.id === item.id),
@@ -428,7 +575,7 @@ export function HomePromptForm({
                     }
                     if (rejected.length) {
                       toast.error(
-                        "Maksimal 6 gambar dan kurang dari 5MB per gambar.",
+                        `Maksimal ${MAX_COMPOSER_IMAGES} gambar dan kurang dari 5MB per gambar.`,
                       );
                     }
                   }}

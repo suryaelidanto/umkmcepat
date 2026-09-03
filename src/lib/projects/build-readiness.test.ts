@@ -168,6 +168,28 @@ describe("evaluateBuildReadiness", () => {
     expect(result).toEqual({ state: "ready", blockers: [] });
   });
 
+  it("does not block visualDirection when user declined or delegated in fieldState", () => {
+    const result = evaluateBuildReadiness(
+      readyBrief({
+        visualDirection: null,
+        fieldState: { visual_direction: "declined" },
+      }),
+    );
+
+    expect(result).toEqual({ state: "ready", blockers: [] });
+  });
+
+  it("does not block audience when user declined in fieldState", () => {
+    const result = evaluateBuildReadiness(
+      readyBrief({
+        audience: null,
+        fieldState: { audience: "declined" },
+      }),
+    );
+
+    expect(result).toEqual({ state: "ready", blockers: [] });
+  });
+
   it("still blocks a missing core field for a category business", () => {
     const result = evaluateBuildReadiness(
       readyBrief({

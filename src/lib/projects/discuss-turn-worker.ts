@@ -35,10 +35,11 @@ import { getSafeAiErrorLog } from "@/lib/projects/ai-error-log";
 import { enqueueAttemptJob } from "@/lib/projects/attempt-queue";
 import { parseProjectBrief, type WorkspaceCard } from "@/lib/projects/brief";
 import { normalizeWorkspaceTurn } from "@/lib/projects/brief-flow";
+import { isBuildConfirmCard } from "@/lib/projects/brief-flow";
 import {
+  createBuildConfirmationCard,
   evaluateTieredBriefReadiness,
   getNextTieredEnrichmentCard,
-  isExplicitBuildRequest,
 } from "@/lib/projects/brief-tiered-readiness";
 import { loadActiveHandoff } from "@/lib/projects/build-handoffs";
 import { prepareBuildHandoff } from "@/lib/projects/build-planner";
@@ -970,7 +971,7 @@ export async function runDiscussTurn({
         effectiveBrief,
         handoffNormalizeOptions,
       );
-      if (promoted.readyForBuild) {
+      if (promoted.readyForBuild && isBuildConfirmCard(previousWorkspaceCard)) {
         workspaceTurn = promoted;
         primaryToolFailed = false;
       }
@@ -994,9 +995,9 @@ export async function runDiscussTurn({
       const adaptiveReadiness =
         evaluateAdaptiveDiscussionReadiness(canonicalBrief);
       const tieredReadiness = evaluateTieredBriefReadiness(canonicalBrief);
-      const isExplicitBuild = isExplicitBuildRequest(lastUserTextValue ?? "");
       const isPendingUpdatePreflight =
         preflight === "update" && hasPendingUpdate;
+      const isExplicitBuild = preflight === "build";
       const minimumBlocker = readiness.blockers.find((blocker) =>
         ["business.name", "offers", "primaryOffer", "primaryAction"].includes(
           blocker.field,
@@ -1090,6 +1091,23 @@ export async function runDiscussTurn({
             missingTier2: tieredReadiness.tier2.missing,
           });
         }
+      } else if (
+        workspaceTurn.workspaceCard.type === "build_recommendation" &&
+        !isExplicitBuild &&
+        !isPendingUpdatePreflight &&
+        !isBuildConfirmCard(previousWorkspaceCard)
+      ) {
+        const confirmCard = createBuildConfirmationCard(canonicalBrief);
+        workspaceTurn = {
+          ...workspaceTurn,
+          readyForBuild: false,
+          workspaceCard: confirmCard,
+        };
+        chatText = confirmCard.question.question;
+        devLog("discuss", "contract-build-confirmation-gated", {
+          projectId: project.id,
+          turnId,
+        });
       }
     }
 

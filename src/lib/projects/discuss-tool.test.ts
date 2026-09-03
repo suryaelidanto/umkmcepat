@@ -268,7 +268,7 @@ describe("alignAssistantTextWithCard", () => {
           summary: [],
         },
       ),
-    ).toBe("Kisaran harganya sudah dicatat.");
+    ).toBe("Kisaran harganya sudah dicatat. Website kamu siap dibuat.");
   });
 
   it("keeps a build card message that asks nothing", () => {
@@ -290,7 +290,7 @@ describe("alignAssistantTextWithCard", () => {
         title: "Website siap dibuat",
         summary: [],
       }),
-    ).toBe("Semua yang penting sudah aku catat.");
+    ).toBe("Informasi usahamu sudah lengkap dan website siap dibuat.");
   });
 
   it("aligns to an image upload card's own question", () => {

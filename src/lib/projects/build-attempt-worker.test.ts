@@ -277,6 +277,13 @@ describe("runBuildAttempt — tool-loop generation", () => {
     resolveGenerateModeMock.mockReturnValue("first_generate");
   });
 
+  it("completes without error when abortSignal is omitted from arguments", async () => {
+    const context = baseContext();
+    delete (context as { abortSignal?: AbortSignal }).abortSignal;
+
+    await expect(runBuildAttempt(context)).resolves.not.toThrow();
+  });
+
   it("fails closed when a contract build has no accepted handoff", async () => {
     await runBuildAttempt(baseContext());
 

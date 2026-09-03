@@ -522,7 +522,16 @@ function formatBullets(items: string[]) {
 
 export type FieldState = "asked" | "answered" | "declined" | "explicitly_empty";
 
-export type FieldStateMap = Partial<Record<SoftFieldId, FieldState>>;
+export type FieldStateMap = Partial<
+  Record<
+    | SoftFieldId
+    | "visual_direction"
+    | "style_preference"
+    | "audience"
+    | "business_photos",
+    FieldState
+  >
+>;
 
 export function recordFieldAsk(
   map: FieldStateMap,

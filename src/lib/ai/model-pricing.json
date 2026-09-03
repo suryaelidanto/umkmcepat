@@ -3708,5 +3708,68 @@
     "completionPrice": 2.8e-7,
     "source": "https://openrouter.ai/xiaomi/mimo-v2.5",
     "checkedAt": "2026-08-20"
+  },
+  "google/gemini-3.8-flash": {
+    "sourceModelId": "google/gemini-3.8-flash",
+    "promptPrice": 7.5e-7,
+    "completionPrice": 0.00000375,
+    "source": "https://openrouter.ai/google/gemini-3.8-flash",
+    "checkedAt": "2026-09-03"
+  },
+  "openrouter/google/gemini-3.8-flash": {
+    "sourceModelId": "openrouter/google/gemini-3.8-flash",
+    "promptPrice": 7.5e-7,
+    "completionPrice": 0.00000375,
+    "source": "https://openrouter.ai/google/gemini-3.8-flash",
+    "checkedAt": "2026-09-03"
+  },
+  "gemini-3.8-flash": {
+    "sourceModelId": "gemini-3.8-flash",
+    "promptPrice": 7.5e-7,
+    "completionPrice": 0.00000375,
+    "source": "https://openrouter.ai/google/gemini-3.8-flash",
+    "checkedAt": "2026-09-03"
+  },
+  "ag/gemini-3.8-flash": {
+    "sourceModelId": "ag/gemini-3.8-flash",
+    "promptPrice": 7.5e-7,
+    "completionPrice": 0.00000375,
+    "source": "https://openrouter.ai/google/gemini-3.8-flash",
+    "checkedAt": "2026-09-03"
+  },
+  "ag/google/gemini-3.8-flash": {
+    "sourceModelId": "ag/google/gemini-3.8-flash",
+    "promptPrice": 7.5e-7,
+    "completionPrice": 0.00000375,
+    "source": "https://openrouter.ai/google/gemini-3.8-flash",
+    "checkedAt": "2026-09-03"
+  },
+  "antigravity/gemini-3.8-flash": {
+    "sourceModelId": "antigravity/gemini-3.8-flash",
+    "promptPrice": 7.5e-7,
+    "completionPrice": 0.00000375,
+    "source": "https://openrouter.ai/google/gemini-3.8-flash",
+    "checkedAt": "2026-09-03"
+  },
+  "antigravity/google/gemini-3.8-flash": {
+    "sourceModelId": "antigravity/google/gemini-3.8-flash",
+    "promptPrice": 7.5e-7,
+    "completionPrice": 0.00000375,
+    "source": "https://openrouter.ai/google/gemini-3.8-flash",
+    "checkedAt": "2026-09-03"
+  },
+  "gemini-3.8-flash-tiered": {
+    "sourceModelId": "gemini-3.8-flash-tiered",
+    "promptPrice": 7.5e-7,
+    "completionPrice": 0.00000375,
+    "source": "https://openrouter.ai/google/gemini-3.8-flash",
+    "checkedAt": "2026-09-03"
+  },
+  "ag/gemini-3.8-flash-tiered": {
+    "sourceModelId": "ag/gemini-3.8-flash-tiered",
+    "promptPrice": 7.5e-7,
+    "completionPrice": 0.00000375,
+    "source": "https://openrouter.ai/google/gemini-3.8-flash",
+    "checkedAt": "2026-09-03"
   }
 }

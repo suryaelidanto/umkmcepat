@@ -4,7 +4,6 @@ import { FolderKanban } from "lucide-react";
 import { useState } from "react";
 
 import { AdminSearchInput } from "@/components/admin/AdminSearchInput";
-import { projectStatusTone } from "@/components/admin/status/admin-status";
 import { AdminStatusBadge } from "@/components/admin/status/AdminStatusBadge";
 import { AdminStatusFilter } from "@/components/admin/status/AdminStatusFilter";
 import { SensitiveText } from "@/components/admin/streamer-mode/SensitiveText";
@@ -13,14 +12,18 @@ import { resolveAsyncListState } from "@/lib/async-list-state";
 import { fetchJson } from "@/lib/query-client";
 
 type AdminProject = {
+  accessStatus: "published" | "has_preview" | "none";
   buildStatus: string;
   createdAt: string;
+  hasWorkingSnapshot: boolean;
   id: string;
+  latestOperationOutcome: "failed" | "running" | "succeeded" | "idle";
   owner: {
     email: string | null;
     id: string;
     name: string | null;
   };
+  publishedUrl: string | null;
   status: string;
   thumbnailUrl: string | null;
   title: string;
@@ -29,13 +32,15 @@ type AdminProject = {
 
 type ProjectsResponse = {
   projects: AdminProject[];
+  total: number;
 };
 
 const PROJECT_STATUS_OPTIONS = [
-  { value: "ready", label: "Siap" },
-  { value: "active", label: "Berjalan" },
-  { value: "needs_attention", label: "Gagal" },
   { value: "all", label: "Semua" },
+  { value: "failed", label: "Gagal" },
+  { value: "running", label: "Sedang Proses" },
+  { value: "has_preview", label: "Ada Preview" },
+  { value: "published", label: "Sudah Terbit" },
 ] as const;
 
 export const Route = createFileRoute("/_main/admin/projects")({
@@ -72,7 +77,7 @@ function ProjectListSkeleton() {
 
 function ProjectsPage() {
   const streamerMode = useStreamerMode();
-  const [status, setStatus] = useState("ready");
+  const [status, setStatus] = useState("all");
   const [q, setQ] = useState("");
   const { data, isError, isPending, refetch } = useQuery({
     queryFn: () =>
@@ -120,19 +125,26 @@ function ProjectsPage() {
         <div className="flex flex-col items-center justify-center rounded-radius-lg border border-dashed border-black/10 py-spacing-12 text-center text-[#5f5f5d] dark:border-surface-warm-white/10 dark:text-surface-warm-white/40">
           <FolderKanban className="size-8 opacity-40" />
           <p className="mt-spacing-3 text-sm">
-            {status === "needs_attention"
+            {status === "failed"
               ? "Tidak ada proyek gagal."
-              : status === "active"
-                ? "Tidak ada proyek berjalan."
-                : q
-                  ? "Tidak ada proyek yang cocok dengan pencarian."
-                  : "Belum ada proyek."}
+              : status === "running"
+                ? "Tidak ada proyek sedang proses."
+                : status === "has_preview"
+                  ? "Tidak ada proyek dengan preview."
+                  : status === "published"
+                    ? "Tidak ada proyek yang sudah terbit."
+                    : q
+                      ? "Tidak ada proyek yang cocok dengan pencarian."
+                      : "Belum ada proyek."}
           </p>
         </div>
       ) : (
         <div className="flex flex-col gap-spacing-3">
           <div className="flex items-center justify-between px-1 text-xs text-[#5f5f5d] dark:text-surface-warm-white/60">
-            <span>Menampilkan {projects.length} proyek</span>
+            <span>
+              Menampilkan {projects.length} dari{" "}
+              {data?.total ?? projects.length} proyek
+            </span>
           </div>
           <div className="flex flex-col gap-spacing-2">
             {projects.map((project) => (
@@ -190,20 +202,64 @@ function ProjectsPage() {
                     </div>
                     <div className="flex flex-wrap gap-spacing-2 text-xs sm:justify-end">
                       <AdminStatusBadge
-                        tone={projectStatusTone(project.status)}
+                        tone={
+                          project.latestOperationOutcome === "failed"
+                            ? "danger"
+                            : project.latestOperationOutcome === "running"
+                              ? "pending"
+                              : project.latestOperationOutcome === "succeeded"
+                                ? "success"
+                                : "neutral"
+                        }
                       >
-                        {project.status}
+                        Aktivitas:{" "}
+                        {project.latestOperationOutcome === "failed"
+                          ? "Gagal"
+                          : project.latestOperationOutcome === "running"
+                            ? "Sedang Proses"
+                            : project.latestOperationOutcome === "succeeded"
+                              ? "Selesai"
+                              : "Diskusi"}
                       </AdminStatusBadge>
                       <AdminStatusBadge
-                        tone={projectStatusTone(project.buildStatus)}
+                        tone={
+                          project.accessStatus === "published"
+                            ? "success"
+                            : project.accessStatus === "has_preview"
+                              ? "neutral"
+                              : "neutral"
+                        }
                       >
-                        Build: {project.buildStatus}
+                        Akses:{" "}
+                        {project.accessStatus === "published"
+                          ? "Sudah Terbit"
+                          : project.accessStatus === "has_preview"
+                            ? "Ada Preview"
+                            : "Belum Ada"}
                       </AdminStatusBadge>
+                      {project.accessStatus === "has_preview" && (
+                        <a
+                          className="rounded-radius-sm border border-emerald-500/20 bg-emerald-500/10 px-spacing-2 py-spacing-1 text-emerald-700 underline-offset-2 hover:bg-emerald-500/15 dark:border-emerald-400/20 dark:text-emerald-300"
+                          href={`/projects/${project.id}`}
+                        >
+                          Buka Preview
+                        </a>
+                      )}
+                      {project.publishedUrl && (
+                        <a
+                          className="rounded-radius-sm border border-blue-500/20 bg-blue-500/10 px-spacing-2 py-spacing-1 text-blue-700 underline-offset-2 hover:bg-blue-500/15 dark:border-blue-400/20 dark:text-blue-300"
+                          href={project.publishedUrl}
+                          rel="noreferrer"
+                          target="_blank"
+                        >
+                          Lihat Live
+                        </a>
+                      )}
                       <a
                         className="rounded-radius-sm border border-black/15 px-spacing-2 py-spacing-1 text-[#1c1c1c] underline-offset-2 hover:bg-black/5 hover:underline dark:border-surface-warm-white/20 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/8"
                         href={`/projects/${project.id}`}
                       >
-                        Lihat detail
+                        Lihat Detail
                       </a>
                     </div>
                   </div>

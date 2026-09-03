@@ -314,4 +314,11 @@ describe("project runtime route", () => {
     expect(body.canPreview).toBe(true);
     expect(body.canPublish).toBe(true);
   });
+
+  it("allows cache invalidation for a specific project", async () => {
+    const { invalidateProjectRuntimeStateCache } =
+      await import("@/routes/api.projects.$id.runtime");
+    expect(typeof invalidateProjectRuntimeStateCache).toBe("function");
+    invalidateProjectRuntimeStateCache("project_1");
+  });
 });

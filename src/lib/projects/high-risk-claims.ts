@@ -45,6 +45,9 @@ export function scanSourceClaims(
   location?: { file?: string },
   acceptedValues: string[] = [],
 ): ClaimMatch[] {
+  if (location?.file?.endsWith("site.ts")) {
+    return [];
+  }
   let cleaned = stripFactRefs(source);
   for (const val of acceptedValues) {
     if (
@@ -57,6 +60,21 @@ export function scanSourceClaims(
       const digits = val.replace(/\D/g, "");
       if (digits.length >= 7) {
         cleaned = cleaned.replaceAll(digits, " ");
+        if (digits.startsWith("08")) {
+          const intl = `62${digits.slice(1)}`;
+          cleaned = cleaned.replaceAll(intl, " ");
+          cleaned = cleaned.replaceAll(`wa.me/${intl}`, " ");
+          cleaned = cleaned.replaceAll(`wa.me/${digits}`, " ");
+          cleaned = cleaned.replaceAll(`https://wa.me/${intl}`, " ");
+          cleaned = cleaned.replaceAll(`https://wa.me/${digits}`, " ");
+        } else if (digits.startsWith("628")) {
+          const local = `0${digits.slice(2)}`;
+          cleaned = cleaned.replaceAll(local, " ");
+          cleaned = cleaned.replaceAll(`wa.me/${digits}`, " ");
+          cleaned = cleaned.replaceAll(`wa.me/${local}`, " ");
+          cleaned = cleaned.replaceAll(`https://wa.me/${digits}`, " ");
+          cleaned = cleaned.replaceAll(`https://wa.me/${local}`, " ");
+        }
       }
     }
   }

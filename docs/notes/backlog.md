@@ -6,6 +6,18 @@ kanban-plugin: board
 
 ## Backlog
 
+
+
+## In Progress
+
+
+
+## Needs Revision / Check Again
+
+
+
+## Ready for Review
+
 - [ ] 🧭 **[#54] Checkpoint Success Boundary After Canceled Builds**: Derive post-build/update mode from the latest successful checkpoint or build rather than mutable `Project.status`, ensure update recommendations carry `postBuildUpdate`, route them to the surgical edit path, and never advance checkpoints for triggered, failed, or canceled operations #engine #data #workspace
 
 - [ ] 🔄 **[#55] Runtime Terminal-State Reconciliation and Cache Invalidation**: Invalidate the per-project runtime cache when an operation reaches success, failure, or cancellation, reconcile the latest `ProjectEditAttempt` with `ProjectBuild`, and refetch until the terminal state is authoritative so stale success/building states cannot remain visible #engine #data #workspace
@@ -16,25 +28,9 @@ kanban-plugin: board
 
 
 
-## In Progress
-
-
-
-
-
-## Needs Revision / Check Again
-
-
-
-## Ready for Review
-
-- [ ] ✍️ **[#58] Two-Phase Build and Update Preflight**: Keep chat sending and website actions separate; disable the build/update action while a draft exists, route empty actions through checkpoint-aware AI preflight, ask a proactive single-select update question when needed, show a recommendation before any build, and never persist synthetic readiness messages #ui #ux #workspace #engine #copy
-
-
-
-
 ## Done
 
+- [ ] ✍️ **[#58] Two-Phase Build and Update Preflight**: Keep chat sending and website actions separate; disable the build/update action while a draft exists, route empty actions through checkpoint-aware AI preflight, ask a proactive single-select update question when needed, show a recommendation before any build, and never persist synthetic readiness messages #ui #ux #workspace #engine #copy
 - [ ] 🧱 **[#52] Generation Pipeline Non-Regression Contract**: Add deterministic integration coverage for discuss-to-build handoff, workspace cards, protected source boundaries, snapshot creation, Preview preservation, history, surgical edits, publish pointers, energy accounting, and failure recovery before changing generation taste infrastructure #engine #workspace #data
 - [ ] 🛡️ **[#51] Accepted-Fact Claim Provenance Gate**: Trace every generated commercial claim, contact detail, price, date, delivery promise, popularity label, guarantee, and product attribute to accepted contract facts, fail closed on dummy or unsupported values, and preserve concise grounded connective copy #engine #security #copy
 - [ ] 🧭 **[#49] Multi-Direction Creative Exploration and Selection**: Generate three concise, materially distinct creative directions for each new build, rank them against business specificity, customer trust, factual grounding, differentiation, and asset feasibility, select one before implementation, and avoid multiplying full-site generation cost #engine #ux

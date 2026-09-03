@@ -8,7 +8,7 @@ const FIELD_REQUIRED_ICON = <span className="text-destructive"> *</span>;
 const FIELD_INPUT_BASE =
   "w-full rounded-radius-md border bg-transparent px-spacing-4 text-sm text-[#1c1c1c] outline-none transition placeholder:text-black/30 disabled:opacity-50 dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/30";
 const FIELD_INPUT_VALID =
-  "border-black/15 focus:border-accent-orange focus:ring-1 focus:ring-accent-orange dark:border-surface-warm-white/10";
+  "border-black/15 focus:border-action-primary focus:ring-1 focus:ring-action-primary dark:border-surface-warm-white/10 dark:focus:border-surface-warm-white dark:focus:ring-surface-warm-white";
 const FIELD_INPUT_INVALID =
   "border-destructive focus:border-destructive focus:ring-1 focus:ring-destructive";
 const FIELD_ERROR_CLASSES = "mt-spacing-1 text-xs text-destructive";
@@ -78,9 +78,9 @@ export const chipClass = ({
   invalid?: boolean;
 }) =>
   cn(
-    "rounded-radius-md border px-spacing-3 py-spacing-2 text-xs font-semibold transition",
+    "rounded-radius-md border px-spacing-3 py-spacing-2 text-xs font-semibold transition cursor-pointer",
     active
-      ? "border-accent-orange-border bg-accent-orange-subtle text-accent-orange"
+      ? "border-action-primary bg-action-primary text-surface-warm-white shadow-2xs dark:border-surface-warm-white dark:bg-surface-warm-white dark:text-action-primary"
       : invalid
         ? "border-destructive-border text-destructive hover:border-destructive"
         : "border-black/15 bg-black/[0.04] text-[#1c1c1c] hover:bg-black/[0.08] dark:border-surface-warm-white/10 dark:bg-transparent dark:text-surface-warm-white dark:hover:bg-surface-warm-white/5",

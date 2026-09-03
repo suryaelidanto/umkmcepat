@@ -560,7 +560,11 @@ function parseV2(
       : [],
     audience: cleaned.targetCustomer,
     primaryAction: parseCanonicalAction(source.primaryAction),
-    visualDirection: cleanOptionalText(source.visualDirection),
+    visualDirection:
+      cleanOptionalText(source.visualDirection) ??
+      cleanOptionalText(
+        (source as { stylePreference?: unknown }).stylePreference,
+      ),
     fieldState: parseFieldState(source.fieldState),
     content: contentFromCleaned(cleaned),
     assets: parseAssets(source.assets),

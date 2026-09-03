@@ -181,6 +181,33 @@ describe("project brief", () => {
     ).toBe("Mewah & Premium (Elegan, Nuansa Emas/Navy Gelap)");
   });
 
+  it("accepts AI visual recommendation when user delegates visual direction (e.g. 'saranin dong')", () => {
+    const brief = parseProjectBrief({
+      version: 1,
+      businessName: "Pakan Ayam Berkah",
+      businessType: "retail",
+      offer: "Pakan ayam mantap jos",
+      targetCustomer: "Peternak lokal",
+      contactOrCta: "Chat WhatsApp",
+      stylePreference: "Segar bernuansa hijau alami dan simpel",
+    });
+
+    const grounded = groundProjectBriefToOwnerFacts(brief, {
+      ownerTexts: ["gak tau sih, saranin dong"],
+    });
+
+    expect(grounded.stylePreference).toBe(
+      "Segar bernuansa hijau alami dan simpel",
+    );
+    expect(
+      grounded.factLedger?.entries.find(
+        (entry) =>
+          entry.field === "visualDirection" &&
+          entry.state === "owner_confirmed",
+      )?.value,
+    ).toBe("Segar bernuansa hijau alami dan simpel");
+  });
+
   it("does not promote an unrequested visual expansion", () => {
     const brief = parseProjectBrief({
       businessName: "Fresh Clean Laundry",

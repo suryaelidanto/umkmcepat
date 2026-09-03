@@ -175,9 +175,14 @@ vi.mock("@/lib/projects/chat-compaction", () => ({
   maybeCompactProjectChat: maybeCompactProjectChatMock,
 }));
 
-vi.mock("@/lib/projects/brief-flow", () => ({
-  normalizeWorkspaceTurn: normalizeWorkspaceTurnMock,
-}));
+vi.mock("@/lib/projects/brief-flow", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/projects/brief-flow")>();
+  return {
+    ...actual,
+    normalizeWorkspaceTurn: normalizeWorkspaceTurnMock,
+  };
+});
 
 vi.mock("@/lib/projects/strip-transport-diagnostic-messages", () => ({
   stripTransportDiagnosticMessages: (m: unknown) => m,
@@ -1079,6 +1084,84 @@ describe("runDiscussTurn worker", () => {
     expect(prepareBuildHandoffMock).not.toHaveBeenCalled();
   });
 
+  it("intercepts satisfied Tier 1 and Tier 2 with build confirmation question before recommending build", async () => {
+    const brief = {
+      businessName: "Bengkel Ayah",
+      businessType: "jasa_lokal",
+      productOrService: [
+        { name: "Servis Motor", priceRange: "35.000", isPrimary: true },
+      ],
+      targetCustomer: "Pengendara motor",
+      contact: {
+        channel: "whatsapp",
+        value: "08123456789",
+      },
+      contactOrCta: "Pesan via WhatsApp",
+      stylePreference: "Bersih dan modern",
+      address: "Jl. Kenangan No 4 Jakarta Utara",
+      usp: ["Mekanik Berpengalaman"],
+      businessImages: [{ id: "photo-1", purpose: "business-image" }],
+    };
+    normalizeWorkspaceTurnMock.mockReturnValueOnce({
+      brief,
+      projectTitle: "Bengkel Ayah",
+      workspaceCard: {
+        type: "build_recommendation",
+        title: "Rekomendasi build siap",
+        summary: ["Bengkel Ayah"],
+      },
+      readyForBuild: true,
+    } as never);
+    streamTextMock.mockReturnValueOnce(
+      makeStreamResult([
+        { type: "text-delta", text: "Informasi sudah lengkap" },
+        {
+          type: "tool-call",
+          toolCallId: "tc-confirm-gate",
+          toolName: "presentWorkspaceCard",
+          input: {
+            assistantText: "Informasi sudah lengkap",
+            workspaceCard: { type: "build_recommendation" },
+          },
+        },
+      ]),
+    );
+
+    await runDiscussTurn({
+      turnId: "ct_confirm_gate",
+      project: { ...baseProject, generationEngine: "contract-v1" },
+      chatContext: baseChatContext,
+      effectiveBrief: baseBrief,
+      memoryFacts: baseMemoryFacts,
+      messages: [
+        {
+          id: "m1",
+          role: "user",
+          parts: [{ type: "text", text: "Keren, terima kasih" }],
+        },
+      ],
+      summary: baseSummary,
+      userId: "u1",
+      modelOverride: "test-model" as never,
+    });
+
+    const cardEvent = publishProgressMock.mock.calls
+      .filter(
+        ([publishedTurnId, event]) =>
+          publishedTurnId === "ct_confirm_gate" &&
+          event.type === "tool-output-available",
+      )
+      .map(([, event]) => event.output.workspaceCard)[0] as {
+      type: "question";
+      question: { id: string; answerMode: string; options: unknown[] };
+    };
+    expect(cardEvent.type).toBe("question");
+    expect(cardEvent.question.id).toBe("confirm_build");
+    expect(cardEvent.question.answerMode).toBe("choice");
+    expect(cardEvent.question.options.length).toBe(2);
+    expect(prepareBuildHandoffMock).not.toHaveBeenCalled();
+  });
+
   it("contract gate never exposes a recommendation when handoff preparation fails", async () => {
     const brief = {
       businessName: "HP Surya",
@@ -1274,6 +1357,7 @@ describe("runDiscussTurn worker", () => {
       messages: eagerMessages,
       summary: baseSummary,
       userId: "u1",
+      preflight: "build",
       modelOverride: "test-model" as never,
     });
 

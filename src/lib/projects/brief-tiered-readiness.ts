@@ -31,27 +31,36 @@ const TIER1_LABELS: Record<Tier1MissingField, string> = {
   contact: "Nomor kontak / WhatsApp",
 };
 
-export function isExplicitBuildRequest(text: string): boolean {
-  const normalized = text.toLowerCase().trim();
-  if (!normalized) {
-    return false;
-  }
-  const patterns = [
-    /buat\s+(sekarang|website|web|aja|langsung)/,
-    /bangun\s+(sekarang|website|web|aja|langsung)/,
-    /bikin\s+(sekarang|website|web|aja|langsung|webnya)/,
-    /build\s+(sekarang|now|aja|langsung)/,
-    /langsung\s+(buat|bikin|bangun|build|generate)/,
-    /cukup\s+(itu|segitu|ini|dulu|aja)/,
-    /udah\s+(cukup|lengkap|pas)/,
-    /mulai\s+(buat|bikin|bangun|build)/,
-  ];
-  return patterns.some((p) => p.test(normalized));
+export function createBuildConfirmationCard(
+  brief: ProjectBriefV2,
+): Extract<WorkspaceCard, { type: "question" }> {
+  const name = brief.business.name.trim() || "usahamu";
+  return {
+    type: "question",
+    question: {
+      id: "confirm_build",
+      question: `Semua data penting ${name} sudah lengkap! Mau langsung buat websitenya sekarang atau ada info tambahan dulu?`,
+      answerMode: "choice",
+      selectionMode: "single",
+      required: true,
+      recommendedOptionLabel: "Ya, buat websitenya sekarang",
+      options: [
+        {
+          label: "Ya, buat websitenya sekarang",
+          description: "Mulai susun struktur dan tampilan website.",
+        },
+        {
+          label: "Masih ada info tambahan",
+          description: "Ceritakan jam operasional, promo, atau kontak lainnya.",
+        },
+      ],
+    },
+  };
 }
 
 export function getNextTieredEnrichmentCard(
   brief: ProjectBriefV2,
-  options?: { uploadsEnabled?: boolean },
+  options?: { uploadsEnabled?: boolean; includeTier3?: boolean },
 ): WorkspaceCard | null {
   const name = brief.business.name.trim() || "usahamu";
   // Tier 1 Missing:
@@ -133,12 +142,30 @@ export function getNextTieredEnrichmentCard(
       type: "question",
       question: {
         id: "audience",
-        question: `Siapa yang paling ingin kamu bantu dengan ${name}?`,
-        answerMode: "text",
+        question: `Siapa target pembeli utama untuk ${name}?`,
+        answerMode: "choice",
         selectionMode: "single",
         required: false,
-        placeholder: "Contoh: pekerja sekitar atau keluarga",
-        options: [],
+        recommendedOptionLabel: "Pelanggan umum / sekitar",
+        options: [
+          {
+            label: "Pelanggan umum / sekitar",
+            description:
+              "Warga lokal, keluarga, atau perorangan di sekitar lokasi.",
+          },
+          {
+            label: "Pekerja & profesional",
+            description: "Karyawan kantor, pekerja harian, atau instansi.",
+          },
+          {
+            label: "Pelajar & anak muda",
+            description: "Siswa, mahasiswa, atau komunitas muda.",
+          },
+          {
+            label: "Toko / reseller grosir",
+            description: "Pembeli partai besar atau pedagang lain.",
+          },
+        ],
       },
     };
   }
@@ -152,11 +179,24 @@ export function getNextTieredEnrichmentCard(
       question: {
         id: "visual_direction",
         question: `Nuansa visual seperti apa yang cocok untuk ${name}?`,
-        answerMode: "text",
+        answerMode: "choice",
         selectionMode: "single",
         required: false,
-        placeholder: "Contoh: tenang, tegas, atau penuh warna",
-        options: [],
+        recommendedOptionLabel: "Bersih & Modern",
+        options: [
+          {
+            label: "Bersih & Modern",
+            description: "Tampilan rapi, minimalis, dan profesional.",
+          },
+          {
+            label: "Hangat & Bersahabat",
+            description: "Warna ramah, kekeluargaan, dan merakyat.",
+          },
+          {
+            label: "Tegas & Berani",
+            description: "Kontras kuat, dinamis, dan menarik perhatian cepat.",
+          },
+        ],
       },
     };
   }
@@ -195,11 +235,29 @@ export function getNextTieredEnrichmentCard(
       question: {
         id: "price_range",
         question: `Berapa kisaran harga atau tarif layanan di ${name}?`,
-        answerMode: "text",
+        answerMode: "choice",
         selectionMode: "single",
         required: false,
-        placeholder: "Tulis kisaran harga atau tarif",
-        options: [],
+        recommendedOptionLabel: "Di bawah Rp 50.000",
+        options: [
+          {
+            label: "Di bawah Rp 50.000",
+            description: "Menu hemat, jajanan, atau tarif harian ringan.",
+          },
+          {
+            label: "Rp 50.000 - Rp 150.000",
+            description: "Porsi standar, belanja umum, atau servis berkala.",
+          },
+          {
+            label: "Rp 150.000 - Rp 500.000",
+            description:
+              "Paket keluarga, pesanan grosir, atau perawatan khusus.",
+          },
+          {
+            label: "Di atas Rp 500.000 / Custom",
+            description: "Paket borongan, katering besar, atau konsultasi.",
+          },
+        ],
       },
     };
   }
@@ -210,11 +268,28 @@ export function getNextTieredEnrichmentCard(
       question: {
         id: "usp",
         question: `Apa keunggulan utama ${name} yang paling disukai pelanggan?`,
-        answerMode: "text",
-        selectionMode: "single",
+        answerMode: "choice",
+        selectionMode: "multiple",
         required: false,
-        placeholder: "Tulis keunggulan yang benar-benar kamu tawarkan",
-        options: [],
+        recommendedOptionLabel: "Kualitas terjamin & konsisten",
+        options: [
+          {
+            label: "Kualitas terjamin & konsisten",
+            description: "Bahan atau pengerjaan terbaik tanpa kompromi.",
+          },
+          {
+            label: "Harga terjangkau & hemat",
+            description: "Bersaing dan pas di kantong pelanggan.",
+          },
+          {
+            label: "Pelayanan cepat & ramah",
+            description: "Respon sigap dan proses tidak berbelit.",
+          },
+          {
+            label: "Bisa antar / pesan online",
+            description: "Praktis langsung sampai tempat tujuan.",
+          },
+        ],
       },
     };
   }
@@ -244,6 +319,89 @@ export function getNextTieredEnrichmentCard(
         required: false,
       },
     };
+  }
+
+  // Tier 3 Optional Polish (if requested by user or continued probing):
+  if (options?.includeTier3) {
+    if (
+      brief.content.hours.length === 0 &&
+      !isResolvedField(fieldState, ["hours", "operational_hours"])
+    ) {
+      return {
+        type: "question",
+        question: {
+          id: "hours",
+          question: `Bagaimana jam dan hari operasional ${name}?`,
+          answerMode: "choice",
+          selectionMode: "single",
+          required: false,
+          recommendedOptionLabel: "Setiap hari (08:00 - 21:00)",
+          options: [
+            {
+              label: "Setiap hari (08:00 - 21:00)",
+              description: "Buka penuh sepanjang minggu.",
+            },
+            {
+              label: "Senin - Jumat (09:00 - 17:00)",
+              description: "Jam kerja reguler hari biasa.",
+            },
+            {
+              label: "Buka 24 Jam",
+              description: "Selalu melayani kapan saja.",
+            },
+          ],
+        },
+      };
+    }
+
+    if (
+      !brief.content.currentPromo?.trim() &&
+      !isResolvedField(fieldState, ["current_promo", "promo"])
+    ) {
+      return {
+        type: "question",
+        question: {
+          id: "current_promo",
+          question: `Apakah saat ini ada promo atau penawaran khusus di ${name}?`,
+          answerMode: "choice",
+          selectionMode: "single",
+          required: false,
+          recommendedOptionLabel: "Belum ada promo khusus",
+          options: [
+            {
+              label: "Belum ada promo khusus",
+              description: "Harga normal tanpa diskon tambahan.",
+            },
+            {
+              label: "Diskon / paket hemat",
+              description: "Potongan harga khusus atau bundling.",
+            },
+            {
+              label: "Gratis ongkir / bonus",
+              description: "Penawaran tambahan untuk pelanggan.",
+            },
+          ],
+        },
+      };
+    }
+
+    if (
+      brief.content.socialLinks.length === 0 &&
+      !isResolvedField(fieldState, ["social_links", "instagram", "social"])
+    ) {
+      return {
+        type: "question",
+        question: {
+          id: "social_links",
+          question: `Ada akun media sosial (Instagram/TikTok) untuk ${name}?`,
+          answerMode: "text",
+          selectionMode: "single",
+          required: false,
+          placeholder: "Contoh: @namabrand",
+          options: [],
+        },
+      };
+    }
   }
 
   return null;

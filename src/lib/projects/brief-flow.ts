@@ -274,8 +274,6 @@ const BUILD_CONFIRM_COPY_RE =
   /langsung\s*bangun|mulai\s*bangun|bangun\s*website|build\s*now|siap\s*dibuild|mulai\s*buat/i;
 const USER_AFFIRM_START_RE =
   /^(ya|iya|yoi|oke|ok|yes|yep|gas|lanjut|boleh|setuju|silakan|silahkan)\b/i;
-const USER_AFFIRM_BUILD_RE =
-  /langsung\s*bangun|bangun\s*aja|mulai\s*build|mulai\s*bangun|build\s*sekarang|buat\s*sekarang|perbarui|update|terapkan|ubah|ganti|pasang|simpan|udah\s*dulu|cukup(\s*sudah)?/i;
 
 const FACT_KEY_TO_BRIEF_FIELD: Record<string, string> = {
   business_name: "businessName",
@@ -313,7 +311,10 @@ export function isBuildConfirmQuestion(question: {
   return false;
 }
 
-export function isUserAffirmingBuild(text: string | undefined): boolean {
+export function isUserAffirmingBuild(
+  text: string | undefined,
+  previousCard?: WorkspaceCard,
+): boolean {
   if (!text || typeof text !== "string") {
     return false;
   }
@@ -321,12 +322,13 @@ export function isUserAffirmingBuild(text: string | undefined): boolean {
   if (!trimmed) {
     return false;
   }
-  return (
-    USER_AFFIRM_START_RE.test(trimmed) || USER_AFFIRM_BUILD_RE.test(trimmed)
-  );
+  if (previousCard && !isBuildConfirmCard(previousCard)) {
+    return false;
+  }
+  return USER_AFFIRM_START_RE.test(trimmed);
 }
 
-function isBuildConfirmCard(card: WorkspaceCard | undefined): boolean {
+export function isBuildConfirmCard(card: WorkspaceCard | undefined): boolean {
   return card?.type === "question" && isBuildConfirmQuestion(card.question);
 }
 
@@ -416,12 +418,17 @@ export function normalizeWorkspaceTurn(
   } else if (!options.hasBuiltSite) {
     // Reliable handoff: promote to build_recommendation when build-time is
     const readinessBrief = parseCanonicalBrief(brief);
+    const contractReadiness = evaluateBuildReadiness(readinessBrief);
     const adaptiveReadiness =
       evaluateAdaptiveDiscussionReadiness(readinessBrief);
-    const explicitBuildRequest = isUserAffirmingBuild(options.lastUserText);
+    const explicitBuildRequest =
+      options.preflight === "build" ||
+      isUserAffirmingBuild(options.lastUserText, options.previousWorkspaceCard);
     const briefIsReady =
       adaptiveReadiness.minimumSatisfied &&
-      (adaptiveReadiness.commercialSatisfied || explicitBuildRequest);
+      (explicitBuildRequest ||
+        (contractReadiness.state === "ready" &&
+          adaptiveReadiness.commercialSatisfied));
     const modelTitle =
       workspaceCard.type === "build_recommendation"
         ? workspaceCard.title
@@ -431,14 +438,21 @@ export function normalizeWorkspaceTurn(
         ? workspaceCard.summary
         : undefined;
 
-    const promoteBuildConfirmQuestion =
-      briefIsReady &&
+    const isBuildConfirmQuestionCard =
       workspaceCard.type === "question" &&
       isBuildConfirmQuestion(workspaceCard.question);
 
+    const promoteBuildConfirmQuestion =
+      briefIsReady &&
+      isBuildConfirmQuestionCard &&
+      isUserAffirmingBuild(options.lastUserText, options.previousWorkspaceCard);
+
     const promoteAfterAffirm =
       briefIsReady &&
-      isUserAffirmingBuild(options.lastUserText) &&
+      isUserAffirmingBuild(
+        options.lastUserText,
+        options.previousWorkspaceCard,
+      ) &&
       isBuildConfirmCard(options.previousWorkspaceCard);
 
     const isDuplicateStall = (() => {
@@ -643,8 +657,11 @@ export function normalizeWorkspaceTurn(
 
     const isExplicitBuildAffirmation =
       briefIsReady &&
-      typeof options.lastUserText === "string" &&
-      USER_AFFIRM_BUILD_RE.test(options.lastUserText.trim());
+      (options.preflight === "build" ||
+        isUserAffirmingBuild(
+          options.lastUserText,
+          options.previousWorkspaceCard,
+        ));
 
     const isUserSkippingOptionalQuestion =
       briefIsReady &&
@@ -653,7 +670,9 @@ export function normalizeWorkspaceTurn(
         options.lastUserText.trim(),
       );
 
-    if (
+    if (isBuildConfirmQuestionCard && !promoteBuildConfirmQuestion) {
+      // Keep the confirmation question active until user affirms or chooses an option
+    } else if (
       promoteBuildConfirmQuestion ||
       promoteAfterAffirm ||
       isExplicitBuildAffirmation ||

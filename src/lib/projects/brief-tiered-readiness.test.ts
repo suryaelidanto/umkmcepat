@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  createBuildConfirmationCard,
   evaluateTieredBriefReadiness,
   getNextTieredEnrichmentCard,
-  isExplicitBuildRequest,
 } from "./brief-tiered-readiness";
 import { parseCanonicalBrief } from "./canonical-brief";
 
@@ -140,23 +140,19 @@ describe("evaluateTieredBriefReadiness", () => {
   });
 });
 
-describe("isExplicitBuildRequest", () => {
-  it("recognizes affirmative build commands", () => {
-    expect(isExplicitBuildRequest("buat website sekarang")).toBe(true);
-    expect(isExplicitBuildRequest("langsung buat aja")).toBe(true);
-    expect(isExplicitBuildRequest("bangun webnya")).toBe(true);
-    expect(isExplicitBuildRequest("bikin websitenya")).toBe(true);
-    expect(isExplicitBuildRequest("udah cukup")).toBe(true);
-    expect(isExplicitBuildRequest("cukup segitu")).toBe(true);
-    expect(isExplicitBuildRequest("mulai buat sekarang")).toBe(true);
-  });
-
-  it("returns false for regular conversational turns and data inputs", () => {
-    expect(isExplicitBuildRequest("08123456789")).toBe(false);
-    expect(isExplicitBuildRequest("Jl. Kenangan No 4")).toBe(false);
-    expect(isExplicitBuildRequest("Bengkel Ayah")).toBe(false);
-    expect(isExplicitBuildRequest("Sepeda Motor")).toBe(false);
-    expect(isExplicitBuildRequest("gak tau")).toBe(false);
+describe("createBuildConfirmationCard", () => {
+  it("creates a confirmation card with structured options and recommendation", () => {
+    const brief = parseCanonicalBrief({
+      businessName: "Kopi Senja Nusantara",
+    });
+    const card = createBuildConfirmationCard(brief);
+    expect(card.type).toBe("question");
+    expect(card.question.id).toBe("confirm_build");
+    expect(card.question.answerMode).toBe("choice");
+    expect(card.question.options.length).toBe(2);
+    expect(card.question.recommendedOptionLabel).toBe(
+      "Ya, buat websitenya sekarang",
+    );
   });
 });
 
@@ -202,10 +198,12 @@ describe("getNextTieredEnrichmentCard", () => {
     expect(card?.type).toBe("question");
     if (card?.type === "question") {
       expect(card.question.id).toBe("price_range");
+      expect(card.question.answerMode).toBe("choice");
+      expect(card.question.options.length).toBeGreaterThanOrEqual(2);
     }
   });
 
-  it("returns usp text card when pricing is filled but usp is empty", () => {
+  it("returns usp card when pricing is filled but usp is empty", () => {
     const brief = parseCanonicalBrief({
       businessName: "Bengkel Ayah",
       productOrService: [
@@ -221,8 +219,9 @@ describe("getNextTieredEnrichmentCard", () => {
     expect(card?.type).toBe("question");
     if (card?.type === "question") {
       expect(card.question.id).toBe("usp");
-      expect(card.question.answerMode).toBe("text");
-      expect(card.question.options).toEqual([]);
+      expect(card.question.answerMode).toBe("choice");
+      expect(card.question.selectionMode).toBe("multiple");
+      expect(card.question.options.length).toBeGreaterThanOrEqual(2);
     }
   });
 
@@ -314,7 +313,7 @@ describe("getNextTieredEnrichmentCard", () => {
     expect(card?.type).toBe("question");
     if (card?.type === "question") {
       expect(card.question.id).toBeTruthy();
-      expect(card.question.options).toEqual([]);
+      expect(Array.isArray(card.question.options)).toBe(true);
     }
   });
 
@@ -349,5 +348,50 @@ describe("getNextTieredEnrichmentCard", () => {
     });
     const card = getNextTieredEnrichmentCard(brief);
     expect(card).toBeNull();
+  });
+
+  it("returns operational hours question when Tier 2 is satisfied and includeTier3 is true", () => {
+    const brief = parseCanonicalBrief({
+      businessName: "Bengkel Ayah",
+      productOrService: [
+        { name: "Servis Motor", priceRange: "35.000", isPrimary: true },
+      ],
+      contact: { channel: "whatsapp", value: "08123456789" },
+      address: "Jl. Kenangan No 4 Jakarta Utara",
+      targetCustomer: "Pengendara harian",
+      stylePreference: "Tegas",
+      usp: ["Mekanik Berpengalaman"],
+      assets: [{ id: "photo-1", purpose: "business-image" }],
+    });
+    const card = getNextTieredEnrichmentCard(brief, { includeTier3: true });
+    expect(card).not.toBeNull();
+    expect(card?.type).toBe("question");
+    if (card?.type === "question") {
+      expect(card.question.id).toBe("hours");
+      expect(card.question.answerMode).toBe("choice");
+      expect(card.question.options.length).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  it("returns promo question when Tier 2 and hours are filled and includeTier3 is true", () => {
+    const brief = parseCanonicalBrief({
+      businessName: "Bengkel Ayah",
+      productOrService: [
+        { name: "Servis Motor", priceRange: "35.000", isPrimary: true },
+      ],
+      contact: { channel: "whatsapp", value: "08123456789" },
+      address: "Jl. Kenangan No 4 Jakarta Utara",
+      targetCustomer: "Pengendara harian",
+      stylePreference: "Tegas",
+      usp: ["Mekanik Berpengalaman"],
+      assets: [{ id: "photo-1", purpose: "business-image" }],
+      hours: [{ dayRange: "Setiap hari", open: "08:00", close: "17:00" }],
+    });
+    const card = getNextTieredEnrichmentCard(brief, { includeTier3: true });
+    expect(card).not.toBeNull();
+    expect(card?.type).toBe("question");
+    if (card?.type === "question") {
+      expect(card.question.id).toBe("current_promo");
+    }
   });
 });
