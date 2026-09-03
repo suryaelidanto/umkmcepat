@@ -457,30 +457,10 @@ function WaitlistPage() {
     );
   }
 
-  const signupEnergyGrant = statusQuery.data?.signupEnergyGrant ?? 500_000;
-  const formattedEnergyGrant =
-    signupEnergyGrant >= 1000 && signupEnergyGrant % 1000 === 0
-      ? `${signupEnergyGrant / 1000} ribu`
-      : new Intl.NumberFormat("id-ID").format(signupEnergyGrant);
-
   return (
-    <div className="mx-auto flex w-full max-w-xl flex-col items-stretch px-spacing-4 py-spacing-10 text-[#1c1c1c] dark:text-surface-warm-white sm:px-spacing-6">
+    <div className="mx-auto flex w-full max-w-xl flex-col items-stretch px-spacing-4 py-spacing-8 text-[#1c1c1c] dark:text-surface-warm-white sm:px-spacing-6">
       <div className="rounded-3xl border border-black/10 bg-[#fcfbf8] p-spacing-6 shadow-sm dark:border-white/10 dark:bg-[#1c1c1a] dark:shadow-[0_20px_40px_rgba(0,0,0,0.35)] sm:p-spacing-9">
-        <header className="flex flex-col items-center gap-spacing-2 pb-spacing-6 text-center">
-          <div className="inline-flex items-center gap-spacing-2 rounded-full border border-black/10 bg-black/[0.03] px-spacing-3 py-1 text-xs font-medium text-[#5f5f5d] dark:border-white/10 dark:bg-white/[0.05] dark:text-surface-warm-white/70">
-            <span>Bonus Pendaftaran</span>
-            <span className="h-1 w-1 rounded-full bg-status-success" />
-            <span className="font-semibold text-[#1c1c1c] dark:text-surface-warm-white">
-              +{formattedEnergyGrant} Energi Gratis
-            </span>
-          </div>
-          <h1 className="text-2xl font-semibold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white sm:text-3xl">
-            Formulir Antrean
-          </h1>
-          <p className="text-xs text-[#5f5f5d] dark:text-surface-warm-white/60 sm:text-sm">
-            Isi data usaha kamu untuk mendapatkan akses awal dan energi gratis.
-          </p>
-        </header>
+        <ProgressBar currentStep={step} />
 
         {wasRejected ? (
           <div className="mb-spacing-6 rounded-radius-lg border border-destructive/30 bg-destructive/10 px-spacing-5 py-spacing-4 text-sm text-[#1c1c1c] dark:text-surface-warm-white/85">
@@ -497,8 +477,6 @@ function WaitlistPage() {
             </p>
           </div>
         ) : null}
-
-        <ProgressBar currentStep={step} />
 
         {isDev && ownIsDevSkip && isApproved ? (
           <div className="mt-spacing-4 flex flex-col items-center gap-spacing-3 rounded-radius-lg border border-black/10 bg-black/[0.02] px-spacing-5 py-spacing-4 text-center text-sm text-[#1c1c1c] dark:border-white/10 dark:bg-white/[0.02] dark:text-surface-warm-white/85">
@@ -602,16 +580,17 @@ function WaitlistPage() {
             </p>
           ) : null}
 
-          <div className="mt-spacing-8 flex items-center justify-between">
+          <div className="mt-spacing-8 flex items-center justify-between pt-spacing-4 border-t border-black/5 dark:border-white/5">
             {step > 1 ? (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
                 onClick={() => setStep((s) => Math.max(1, s - 1))}
-                className="flex items-center gap-spacing-2 text-sm text-[#5f5f5d] transition hover:text-[#1c1c1c] dark:text-surface-warm-white/60 dark:hover:text-surface-warm-white"
+                className="flex items-center gap-spacing-2 text-sm text-[#5f5f5d] hover:text-[#1c1c1c] dark:text-surface-warm-white/70 dark:hover:text-surface-warm-white"
               >
                 <ArrowLeft className="size-4" />
                 Kembali
-              </button>
+              </Button>
             ) : (
               <span />
             )}
@@ -652,7 +631,7 @@ function WaitlistPage() {
                   }
                   setStep((s) => Math.min(3, s + 1));
                 }}
-                className="flex items-center gap-spacing-2"
+                className="flex items-center gap-spacing-2 bg-action-primary text-surface-warm-white hover:bg-action-primary/90 dark:bg-surface-warm-white dark:text-action-primary dark:hover:bg-white"
               >
                 Lanjut
                 <ArrowRight className="size-4" />
@@ -668,8 +647,8 @@ function WaitlistPage() {
                   setConfirmOpen(true);
                 }}
                 disabled={!canSubmit}
-                size="lg"
-                className="flex items-center gap-spacing-2"
+                size="default"
+                className="flex items-center gap-spacing-2 bg-action-primary text-surface-warm-white hover:bg-action-primary/90 dark:bg-surface-warm-white dark:text-action-primary dark:hover:bg-white"
               >
                 {submit.isPending ? (
                   <>
@@ -770,50 +749,36 @@ function WaitlistPage() {
 
 function ProgressBar({ currentStep }: { currentStep: number }) {
   const steps = ["Usaha", "Cerita", "Foto"];
+  const totalSteps = steps.length;
+  const currentLabel = steps[currentStep - 1] ?? "";
+
   return (
-    <div className="mb-spacing-6 flex items-center justify-center gap-spacing-3">
-      {steps.map((label, index) => {
-        const stepNumber = index + 1;
-        const isActive = stepNumber === currentStep;
-        const isDone = stepNumber < currentStep;
-        return (
-          <div key={label} className="flex items-center gap-spacing-3">
-            <div className="flex flex-col items-center gap-spacing-1">
-              <div
-                className={`flex size-7 items-center justify-center rounded-full text-xs font-semibold transition ${
-                  isActive
-                    ? "bg-action-primary text-surface-warm-white dark:bg-surface-warm-white dark:text-action-primary"
-                    : isDone
-                      ? "border border-black/15 bg-black/5 text-[#1c1c1c] dark:border-white/15 dark:bg-white/10 dark:text-surface-warm-white"
-                      : "bg-black/5 text-[#5f5f5d]/60 dark:bg-surface-warm-white/5 dark:text-surface-warm-white/40"
-                }`}
-              >
-                {isDone ? <Check className="size-3.5" /> : stepNumber}
-              </div>
-              <span
-                className={`text-[10px] font-semibold uppercase tracking-wider ${
-                  isActive
-                    ? "text-[#1c1c1c] dark:text-surface-warm-white"
-                    : isDone
-                      ? "text-[#5f5f5d] dark:text-surface-warm-white/70"
-                      : "text-[#5f5f5d]/60 dark:text-surface-warm-white/40"
-                }`}
-              >
-                {label}
-              </span>
-            </div>
-            {index < steps.length - 1 ? (
-              <div
-                className={`mb-4 h-px w-10 transition ${
-                  isDone
-                    ? "bg-action-primary/30 dark:bg-surface-warm-white/30"
-                    : "bg-black/10 dark:bg-surface-warm-white/10"
-                }`}
-              />
-            ) : null}
-          </div>
-        );
-      })}
+    <div className="mb-spacing-7 flex flex-col gap-spacing-3 border-b border-black/10 pb-spacing-5 dark:border-white/10">
+      <div className="flex items-center justify-between text-xs font-medium text-[#5f5f5d] dark:text-surface-warm-white/60">
+        <span className="font-semibold text-[#1c1c1c] dark:text-surface-warm-white">
+          Langkah {currentStep} dari {totalSteps}: {currentLabel}
+        </span>
+        <span className="tabular-nums">
+          {Math.round((currentStep / totalSteps) * 100)}% selesai
+        </span>
+      </div>
+
+      <div className="flex gap-1.5">
+        {steps.map((_, index) => {
+          const stepNum = index + 1;
+          const isFilled = stepNum <= currentStep;
+          return (
+            <div
+              key={index}
+              className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
+                isFilled
+                  ? "bg-action-primary dark:bg-surface-warm-white"
+                  : "bg-black/10 dark:bg-white/10"
+              }`}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -1076,14 +1041,14 @@ function Step({
 }) {
   return (
     <div className="flex flex-col">
-      <h2 className="text-center text-heading-lg font-semibold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white">
+      <h2 className="text-xl font-semibold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white sm:text-2xl">
         {question}
         {required ? <span className="text-destructive"> *</span> : null}
       </h2>
-      <p className="mt-spacing-2 text-center text-sm text-[#5f5f5d] dark:text-surface-warm-white/60">
+      <p className="mt-1 text-xs text-[#5f5f5d] dark:text-surface-warm-white/60 sm:text-sm">
         {helper}
       </p>
-      <div className="mt-spacing-8">{children}</div>
+      <div className="mt-spacing-6">{children}</div>
     </div>
   );
 }

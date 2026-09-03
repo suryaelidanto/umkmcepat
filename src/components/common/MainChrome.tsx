@@ -108,7 +108,7 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
       >
         {children}
       </main>
-      {!isTicketDetail && <Footer />}
+      {!isTicketDetail && !isWaitlistPage && <Footer />}
     </div>
   );
 }
