@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import { ArrowRight, Zap } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useState, type CSSProperties } from "react";
 
 import { WhatsAppCommunityInvite } from "@/components/community/WhatsAppCommunityInvite";
@@ -248,18 +248,25 @@ function HomePage() {
   const waitlistBanner =
     ownStatus === "rejected"
       ? {
-          cta: "Perbaiki Pendaftaran Antrean",
+          cta: <span>Perbaiki Pendaftaran Antrean</span>,
           highlight: false,
           label: "Pendaftaran belum disetujui",
         }
       : ownStatus === "pending" || ownStatus === "waitlisted"
         ? {
-            cta: "Cek Status Antrean",
+            cta: <span>Cek Status Antrean</span>,
             highlight: false,
             label: "Pendaftaran sedang direview",
           }
         : {
-            cta: `Isi Formulir Antrean · Dapatkan ${waitlistEnergyText} Energi Gratis`,
+            cta: (
+              <span>
+                Isi formulir antrean & dapatkan{" "}
+                <strong className="font-semibold text-white dark:text-[#1c1c1c]">
+                  {waitlistEnergyText} Energi Gratis
+                </strong>
+              </span>
+            ),
             highlight: true,
             label: null,
           };
@@ -318,21 +325,21 @@ function HomePage() {
             <HeroMotionItem className="w-full">
               <div className="mx-auto mt-spacing-6 flex flex-col items-center justify-center">
                 {waitlistBanner.highlight ? (
-                  <Link
-                    href="/waitlist"
-                    className="group relative inline-flex h-13 items-center justify-center gap-3 overflow-hidden rounded-full bg-accent-orange px-8 text-sm sm:text-base font-semibold text-white shadow-lg shadow-accent-orange/25 transition-all duration-300 hover:scale-[1.02] hover:bg-accent-orange/90 hover:shadow-xl hover:shadow-accent-orange/35 active:scale-[0.99]"
+                  <Button
+                    asChild
+                    size="lg"
+                    className="group h-12 rounded-radius-lg bg-action-primary px-spacing-8 text-sm font-normal text-surface-warm-white/90 shadow-xs transition-colors hover:bg-action-primary/90 hover:text-surface-warm-white active:scale-[0.99] dark:bg-surface-warm-white dark:text-action-primary/90 dark:hover:bg-white dark:hover:text-action-primary"
                   >
-                    {/* Shimmer light sweep */}
-                    <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-1000 group-hover:translate-x-full" />
-
-                    <div className="flex size-7 items-center justify-center rounded-full bg-white/20">
-                      <Zap className="size-4 fill-amber-200 text-amber-200" />
-                    </div>
-                    <span>{waitlistBanner.cta}</span>
-                    <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
-                  </Link>
+                    <Link
+                      href="/waitlist"
+                      className="flex items-center gap-spacing-4"
+                    >
+                      {waitlistBanner.cta}
+                      <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+                    </Link>
+                  </Button>
                 ) : (
-                  <div className="flex flex-col items-center gap-2">
+                  <div className="flex flex-col items-center gap-spacing-2">
                     <span className="text-xs text-[#5f5f5d] dark:text-surface-warm-white/60">
                       {waitlistBanner.label}
                     </span>
@@ -340,7 +347,7 @@ function HomePage() {
                       asChild
                       size="default"
                       variant="outline"
-                      className="rounded-full"
+                      className="rounded-radius-lg"
                     >
                       <Link href="/waitlist">{waitlistBanner.cta}</Link>
                     </Button>
