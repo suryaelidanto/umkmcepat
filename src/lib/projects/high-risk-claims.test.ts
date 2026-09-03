@@ -75,6 +75,19 @@ describe("scanSourceClaims", () => {
     expect(matches[0]?.normalizedValue).toBe("5 kg");
   });
 
+  it("allows accepted phone numbers formatted as wa.me/628xxx when owner supplied 08xxx", () => {
+    const source = '<a href="https://wa.me/628123456789">Hubungi Kami</a>';
+    expect(scanSourceClaims(source, undefined, ["08123456789"])).toEqual([]);
+  });
+
+  it("skips claims scan on site.ts configuration file", () => {
+    const source =
+      'export const site = { primaryCtaTarget: "https://wa.me/628123456789" };';
+    expect(scanSourceClaims(source, { file: "src/content/site.ts" })).toEqual(
+      [],
+    );
+  });
+
   it("allows dynamic site.contact bindings and SVG paths without hardcoded phone literals", () => {
     const dynamicLink =
       "<a href={`https://wa.me/${site.contact}`}>Hubungi Kami</a>";
