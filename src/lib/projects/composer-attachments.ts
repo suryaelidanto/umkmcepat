@@ -1,5 +1,22 @@
 export const MAX_COMPOSER_IMAGES = 6;
 
+const ACCEPTED_IMAGE_TYPES = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+]);
+
+const ACCEPTED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"];
+
+export function isAcceptedImageFile(file: File): boolean {
+  if (file.type && ACCEPTED_IMAGE_TYPES.has(file.type.toLowerCase())) {
+    return true;
+  }
+  const lowerName = file.name.toLowerCase();
+  return ACCEPTED_EXTENSIONS.some((ext) => lowerName.endsWith(ext));
+}
+
 export function tempImageUrl(assetId: string): string {
   return `/api/uploads/temp-images/${encodeURIComponent(assetId)}`;
 }
@@ -21,9 +38,12 @@ function nextId(): string {
 export function addAttachments(
   current: PendingAttachment[],
   files: File[],
-): { next: PendingAttachment[]; rejected: File[] } {
+): { next: PendingAttachment[]; rejected: File[]; unaccepted: File[] } {
   const room = MAX_COMPOSER_IMAGES - current.length;
-  const uniqueNewFiles = files.filter(
+  const acceptedTypes = files.filter(isAcceptedImageFile);
+  const unaccepted = files.filter((f) => !isAcceptedImageFile(f));
+
+  const uniqueNewFiles = acceptedTypes.filter(
     (file) =>
       !current.some(
         (c) =>
@@ -34,7 +54,7 @@ export function addAttachments(
   );
   const accepted = uniqueNewFiles.slice(0, Math.max(0, room));
   const rejected = [
-    ...files.filter((f) => !uniqueNewFiles.includes(f)),
+    ...acceptedTypes.filter((f) => !uniqueNewFiles.includes(f)),
     ...uniqueNewFiles.slice(Math.max(0, room)),
   ];
   const additions: PendingAttachment[] = accepted.map((file) => ({
@@ -43,7 +63,7 @@ export function addAttachments(
     id: nextId(),
     status: "uploading",
   }));
-  return { next: [...current, ...additions], rejected };
+  return { next: [...current, ...additions], rejected, unaccepted };
 }
 
 export function removeAttachment(

@@ -61,7 +61,11 @@ export function ComposerAttachButton({
   onAdd,
 }: {
   attachments: PendingAttachment[];
-  onAdd: (next: PendingAttachment[], rejected: File[]) => void;
+  onAdd: (
+    next: PendingAttachment[],
+    rejected: File[],
+    unaccepted?: File[],
+  ) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -89,7 +93,7 @@ export function ComposerAttachButton({
           const files = Array.from(event.target.files ?? []);
           if (files.length) {
             const result = addAttachments(attachments, files);
-            onAdd(result.next, result.rejected);
+            onAdd(result.next, result.rejected, result.unaccepted);
           }
           event.target.value = "";
         }}

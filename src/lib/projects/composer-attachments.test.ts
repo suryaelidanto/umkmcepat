@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  isAcceptedImageFile,
   MAX_COMPOSER_IMAGES,
   addAttachments,
   removeAttachment,
@@ -8,8 +9,8 @@ import {
   type PendingAttachment,
 } from "@/lib/projects/composer-attachments";
 
-function file(name: string): File {
-  return new File(["x"], name, { type: "image/png" });
+function file(name: string, type = "image/png"): File {
+  return new File(["x"], name, { type });
 }
 
 const revoke = vi.fn();
@@ -62,5 +63,31 @@ describe("composer attachments", () => {
       { blobUrl: "blob:2", file: file("b.png"), id: "2", status: "uploaded" },
     ]);
     expect(revoke).toHaveBeenCalledTimes(2);
+  });
+
+  it("filters and accepts only JPG, JPEG, PNG, and WebP files", () => {
+    expect(isAcceptedImageFile(file("foto.jpg", "image/jpeg"))).toBe(true);
+    expect(isAcceptedImageFile(file("foto.jpeg", "image/jpeg"))).toBe(true);
+    expect(isAcceptedImageFile(file("foto.png", "image/png"))).toBe(true);
+    expect(isAcceptedImageFile(file("foto.webp", "image/webp"))).toBe(true);
+    expect(isAcceptedImageFile(file("dokumen.pdf", "application/pdf"))).toBe(
+      false,
+    );
+    expect(isAcceptedImageFile(file("script.js", "text/javascript"))).toBe(
+      false,
+    );
+
+    const res = addAttachments(
+      [],
+      [
+        file("valid.png", "image/png"),
+        file("invalid.pdf", "application/pdf"),
+        file("photo.jpg", "image/jpeg"),
+      ],
+    );
+
+    expect(res.next).toHaveLength(2);
+    expect(res.unaccepted).toHaveLength(1);
+    expect(res.unaccepted[0].name).toBe("invalid.pdf");
   });
 });
