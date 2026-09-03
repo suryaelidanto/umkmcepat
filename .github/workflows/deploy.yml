@@ -60,12 +60,19 @@ jobs:
             echo "=== 1. Authenticating to GHCR on VPS ==="
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
+            echo "=== 1.1 Freeing disk space on VPS ==="
+            docker image prune -af --filter "until=48h" || true
+            docker builder prune -af --filter "until=48h" || true
+
             echo "=== 2. Pulling latest images ==="
             cd /opt/umkmcepat
             docker compose pull app migrate
 
             echo "=== 3. Rolling update containers ==="
             docker compose up -d --remove-orphans
+
+            echo "=== 3.1 Pruning old superseded images ==="
+            docker image prune -f || true
 
             echo "=== 4. Verifying container health ==="
             sleep 5
