@@ -1,38 +1,58 @@
 import { Check, X } from "lucide-react";
 
 import { ScrollReveal } from "@/components/home/ScrollReveal";
-import { TextAnimate } from "@/components/ui/text-animate";
+import { Highlighter } from "@/components/ui/highlighter";
 
 const VALUE_POINTS = [
   {
     number: "01",
-    title: "2× hingga 3× lebih cepat closing.",
+    titlePrefix: "2× hingga 3× lebih cepat",
+    highlightText: "closing.",
+    titleSuffix: "",
+    highlightAction: "highlight" as const,
+    highlightColor: "rgba(16, 185, 129, 0.25)",
     description:
       "Pembeli masuk ke WhatsApp sudah tahu produk dan harga pasti, bukan baru tanya-tanya.",
   },
   {
     number: "02",
-    title: "Hemat ±10 jam kerja setiap minggu.",
+    titlePrefix: "Hemat",
+    highlightText: "±10 jam kerja",
+    titleSuffix: "setiap minggu.",
+    highlightAction: "highlight" as const,
+    highlightColor: "rgba(255, 122, 89, 0.25)",
     description:
       "Berhenti ketik ulang menu, cari foto lama di galeri, dan jawab pertanyaan yang sama.",
   },
   {
     number: "03",
-    title: "+20% potensi kenaikan nilai pesanan.",
+    titlePrefix: "Potensi",
+    highlightText: "+15% s/d 30%",
+    titleSuffix: "nilai pesanan naik.",
+    highlightAction: "underline" as const,
+    highlightColor: "rgba(16, 185, 129, 0.5)",
     description:
       "Katalog rapi membuat pembeli melihat menu pelengkap dan tergoda pesan ekstra.",
   },
   {
     number: "04",
-    title: "1 detik langsung terbuka di HP pembeli.",
+    titlePrefix: "",
+    highlightText: "1 detik langsung terbuka",
+    titleSuffix: "di HP pembeli.",
+    highlightAction: "highlight" as const,
+    highlightColor: "rgba(247, 164, 65, 0.25)",
     description:
       "Sangat ringan walau sinyal pas-pasan, hemat kuota, langsung ke tombol pesan WhatsApp.",
   },
   {
     number: "05",
-    title: "Rp 0 rupiah tanpa biaya langganan bulanan.",
+    titlePrefix: "Langsung dari HP,",
+    highlightText: "tanpa perlu laptop.",
+    titleSuffix: "",
+    highlightAction: "underline" as const,
+    highlightColor: "rgba(255, 122, 89, 0.5)",
     description:
-      "Tanpa sewa domain, tanpa bayar server hosting, dan tanpa biaya tersembunyi.",
+      "Ceritakan usahamu lewat chat santai. Website tokomu langsung jadi dan siap dipasang di bio.",
   },
 ] as const;
 
@@ -205,7 +225,7 @@ export function BeforeAfterSection() {
           </ScrollReveal>
         </div>
 
-        {/* BAGIAN 2: TIPOGRAFI TEKS ANIMASI (01 - 05) TURUN KE BAWAH */}
+        {/* BAGIAN 2: 5 PILAR NILAI BISNIS DENGAN HIGHLIGHTER */}
         <div className="mt-spacing-14 sm:mt-spacing-17">
           <ScrollReveal>
             <div className="mb-spacing-8">
@@ -227,17 +247,17 @@ export function BeforeAfterSection() {
                   </span>
 
                   <div className="flex-1">
-                    <TextAnimate
-                      animation="blurInUp"
-                      by="word"
-                      duration={0.3}
-                      startOnView={true}
-                      once={true}
-                      as="h4"
-                      className="text-xl font-semibold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white sm:text-2xl lg:text-3xl"
-                    >
-                      {point.title}
-                    </TextAnimate>
+                    <h4 className="text-xl font-semibold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white sm:text-2xl lg:text-3xl">
+                      {point.titlePrefix ? `${point.titlePrefix} ` : ""}
+                      <Highlighter
+                        action={point.highlightAction}
+                        color={point.highlightColor}
+                        strokeWidth={2}
+                      >
+                        {point.highlightText}
+                      </Highlighter>
+                      {point.titleSuffix ? ` ${point.titleSuffix}` : ""}
+                    </h4>
 
                     <p className="mt-1.5 text-xs leading-relaxed text-[#5f5f5d] dark:text-surface-warm-white/65 sm:text-sm">
                       {point.description}
