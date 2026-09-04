@@ -83,7 +83,7 @@ export function BeforeAfterSection() {
 
         <div className="mt-spacing-8 grid gap-spacing-5 sm:gap-spacing-6 lg:grid-cols-2">
           {/* KIRI: TANPA WEBSITE */}
-          <ScrollReveal>
+          <ScrollReveal delay={0.08}>
             <div className="flex h-full flex-col justify-between rounded-2xl border border-red-500/20 bg-white/70 p-4.5 transition-colors dark:border-red-500/25 dark:bg-white/[0.03] sm:p-6">
               <div>
                 <div className="flex items-center justify-between pb-3 border-b border-black/5 dark:border-white/5">
@@ -113,116 +113,139 @@ export function BeforeAfterSection() {
                     </div>
                   </div>
 
-                  <div className="mt-3 flex flex-col gap-2 text-xs">
-                    <div className="max-w-[88%] self-start rounded-xl rounded-tl-xs bg-white p-2.5 shadow-2xs dark:bg-[#20201e] dark:text-surface-warm-white">
-                      <p>P... kak pricelistnya mana?</p>
-                      <span className="mt-0.5 block text-right text-[9px] text-[#5f5f5d]/60 dark:text-surface-warm-white/40">
-                        10:02
+                  <div className="mt-3 space-y-2.5">
+                    <div className="max-w-[85%] rounded-lg rounded-tl-none bg-white p-2.5 shadow-2xs dark:bg-[#20201d]">
+                      <p className="text-xs text-[#1c1c1c] dark:text-surface-warm-white/90">
+                        Halo kak, mau tanya menunya apa aja ya?
+                      </p>
+                      <span className="mt-1 block text-right text-[9px] text-[#5f5f5d] dark:text-surface-warm-white/40">
+                        09.12
                       </span>
                     </div>
 
-                    <div className="max-w-[88%] self-start rounded-xl rounded-tl-xs bg-white p-2.5 shadow-2xs dark:bg-[#20201e] dark:text-surface-warm-white">
-                      <p>Menunya apa aja ya? Bisa minta foto aslinya?</p>
-                      <span className="mt-0.5 block text-right text-[9px] text-[#5f5f5d]/60 dark:text-surface-warm-white/40">
-                        10:03
+                    <div className="ml-auto max-w-[85%] rounded-lg rounded-tr-none bg-[#d9fdd3] p-2.5 shadow-2xs dark:bg-[#005c4b]">
+                      <p className="text-xs text-[#1c1c1c] dark:text-white">
+                        Halo, ada ayam geprek, lele terbang, bebek rempah kak.
+                      </p>
+                      <span className="mt-1 block text-right text-[9px] text-[#5f5f5d] dark:text-white/60">
+                        09.15
                       </span>
                     </div>
 
-                    <div className="max-w-[88%] self-start rounded-xl rounded-tl-xs bg-white p-2.5 shadow-2xs dark:bg-[#20201e] dark:text-surface-warm-white">
-                      <p>Lokasi toko di mana? Buka jam berapa?</p>
-                      <span className="mt-0.5 block text-right text-[9px] text-[#5f5f5d]/60 dark:text-surface-warm-white/40">
-                        10:04
+                    <div className="max-w-[85%] rounded-lg rounded-tl-none bg-white p-2.5 shadow-2xs dark:bg-[#20201d]">
+                      <p className="text-xs text-[#1c1c1c] dark:text-surface-warm-white/90">
+                        Harganya berapaan ya? Sambelnya pedes banget nggak? Ada
+                        level berapa aja?
+                      </p>
+                      <span className="mt-1 block text-right text-[9px] text-[#5f5f5d] dark:text-surface-warm-white/40">
+                        09.18
                       </span>
                     </div>
 
-                    <div className="self-center pt-1 text-center">
-                      <span className="rounded-full bg-black/5 px-2.5 py-0.5 text-[10px] text-red-600 dark:bg-white/5 dark:text-red-400">
-                        Kamu harus ketik ulang semuanya dari awal
+                    <div className="ml-auto max-w-[85%] rounded-lg rounded-tr-none bg-[#d9fdd3] p-2.5 shadow-2xs dark:bg-[#005c4b]">
+                      <p className="text-xs text-[#1c1c1c] dark:text-white">
+                        Ayam 18rb, lele 15rb, bebek 28rb kak. Level 1-5 ada kak.
+                      </p>
+                      <span className="mt-1 block text-right text-[9px] text-[#5f5f5d] dark:text-white/60">
+                        09.22
+                      </span>
+                    </div>
+
+                    <div className="max-w-[85%] rounded-lg rounded-tl-none bg-white p-2.5 shadow-2xs dark:bg-[#20201d]">
+                      <p className="text-xs text-[#1c1c1c] dark:text-surface-warm-white/90">
+                        Oke makasih infonya ya kak, saya pikir-pikir dulu 🙏
+                      </p>
+                      <span className="mt-1 block text-right text-[9px] text-[#5f5f5d] dark:text-surface-warm-white/40">
+                        09.26
                       </span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-4 flex items-center gap-1.5 border-t border-black/5 pt-3 text-xs font-semibold text-red-600 dark:border-white/5 dark:text-red-400">
-                <X className="size-4 shrink-0" />
-                <span>Waktu habis balas chat dasar, belum tentu beli.</span>
+              <div className="mt-4 rounded-xl border border-red-500/15 bg-red-500/5 p-3 text-xs text-red-700 dark:text-red-300">
+                <p className="font-medium">
+                  Habis waktu 15 menit cuma buat kirim foto menu &amp; list
+                  harga. Akhirnya pembeli malah hilang.
+                </p>
               </div>
             </div>
           </ScrollReveal>
 
           {/* KANAN: PAKAI UMKM CEPAT */}
-          <ScrollReveal>
-            <div className="flex h-full flex-col justify-between rounded-2xl border border-emerald-500/25 bg-white/70 p-4.5 transition-colors dark:border-emerald-500/25 dark:bg-white/[0.03] sm:p-6">
+          <ScrollReveal delay={0.2}>
+            <div className="flex h-full flex-col justify-between rounded-2xl border border-emerald-500/30 bg-white/70 p-4.5 transition-colors dark:border-emerald-500/30 dark:bg-white/[0.03] sm:p-6">
               <div>
                 <div className="flex items-center justify-between pb-3 border-b border-black/5 dark:border-white/5">
                   <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                     <Check className="size-3.5" />
                     Pakai UMKM Cepat
                   </span>
-                  <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-                    Tinggal kirim rekening
+                  <span className="text-[11px] text-emerald-600 dark:text-emerald-400">
+                    Langsung siap transfer
                   </span>
                 </div>
 
-                {/* Simulasi Chat Masuk: Sudah Jadi Order Siap Bayar */}
-                <div className="mt-4 rounded-xl border border-emerald-500/20 bg-[#ece8de] p-3.5 dark:border-white/5 dark:bg-[#141413]">
+                {/* Simulasi Chat Masuk: Format Order Lengkap */}
+                <div className="mt-4 rounded-xl border border-black/5 bg-[#ece8de] p-3.5 dark:border-white/5 dark:bg-[#141413]">
                   <div className="flex items-center gap-2.5 border-b border-black/5 pb-2.5 dark:border-white/5">
                     <AvatarFrame
                       seed="Dina Lestari"
-                      className="size-8 rounded-full border border-emerald-500/30 ring-1 ring-emerald-500/20"
+                      className="size-8 rounded-full border border-emerald-500/40 ring-1 ring-emerald-500/30"
                     />
                     <div>
                       <p className="text-xs font-semibold text-[#1c1c1c] dark:text-surface-warm-white">
-                        Pembeli dari Website
+                        Dina Lestari (Pelanggan)
                       </p>
-                      <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-                        klik dari bio Instagram
+                      <p className="text-[10px] text-emerald-600 dark:text-emerald-400">
+                        pesanan dari website
                       </p>
                     </div>
                   </div>
 
-                  <div className="mt-3 flex flex-col gap-2 text-xs">
-                    <div className="max-w-[95%] self-start rounded-xl rounded-tl-xs bg-white p-3 shadow-2xs dark:bg-[#20201e] dark:text-surface-warm-white">
-                      <p className="font-semibold text-emerald-700 dark:text-emerald-400">
-                        Pesanan Baru via Website:
+                  <div className="mt-3 space-y-2.5">
+                    <div className="max-w-[92%] rounded-lg rounded-tl-none bg-white p-3 shadow-2xs dark:bg-[#20201d]">
+                      <p className="text-xs font-medium text-[#1c1c1c] dark:text-surface-warm-white/90">
+                        Halo kak! Saya sudah pilih pesanan dari website:
                       </p>
-                      <ul className="mt-1.5 space-y-0.5 text-[#1c1c1c] dark:text-surface-warm-white">
-                        <li>• 2x Paket Nasi Kebuli (Rp 76.000)</li>
-                        <li>• 1x Es Teh Manis Jumbo (Rp 6.000)</li>
-                      </ul>
-                      <div className="mt-2 border-t border-black/5 pt-1.5 text-[11px] text-[#5f5f5d] dark:border-white/5 dark:text-surface-warm-white/70">
-                        <p>
-                          Total: <strong>Rp 82.000</strong>
-                        </p>
-                        <p>Alamat: Jl. Melati No. 4, Tebet</p>
-                        <p className="mt-1 text-emerald-700 dark:text-emerald-400 font-medium">
-                          &quot;Bisa bayar via transfer BCA / QRIS kak?&quot;
-                        </p>
+                      <div className="mt-2 rounded border border-black/5 bg-black/[0.02] p-2 font-mono text-[11px] leading-relaxed text-[#1c1c1c] dark:border-white/5 dark:bg-white/[0.02] dark:text-surface-warm-white/80">
+                        • 2x Ayam Geprek Sambal Korek (Lv 3)
+                        <br />
+                        • 1x Bebek Rempah Sambal Ijo
+                        <br />
+                        • 3x Es Teh Manis
+                        <br />
+                        <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                          Total: Rp 76.000
+                        </span>
                       </div>
-                      <span className="mt-1 block text-right text-[9px] text-[#5f5f5d]/60 dark:text-surface-warm-white/40">
-                        10:02
+                      <p className="mt-2 text-xs text-[#1c1c1c] dark:text-surface-warm-white/90">
+                        Bisa minta nomor rekening untuk transfer ya kak? Mau
+                        dikirim jam 12.00 ke Jl. Melati No. 14 🙏
+                      </p>
+                      <span className="mt-1 block text-right text-[9px] text-[#5f5f5d] dark:text-surface-warm-white/40">
+                        11.02
                       </span>
                     </div>
 
-                    <div className="max-w-[85%] self-end rounded-xl rounded-tr-xs bg-[#dcf8c6] p-2.5 text-[#0f2e14] shadow-2xs dark:bg-[#1a3821] dark:text-[#c7eccd]">
-                      <p className="font-medium">
-                        Bisa kak! Ini no rek BCA: 123-456-7890. Langsung kami
-                        proses ya.
+                    <div className="ml-auto max-w-[85%] rounded-lg rounded-tr-none bg-[#d9fdd3] p-2.5 shadow-2xs dark:bg-[#005c4b]">
+                      <p className="text-xs text-[#1c1c1c] dark:text-white">
+                        Siap kak Dina! Total Rp 76.000 via BCA 123456789 a/n
+                        Warung Berkah. Langsung kami siapkan ya! 🚀
                       </p>
-                      <span className="mt-0.5 block text-right text-[9px] text-[#0f2e14]/50 dark:text-[#c7eccd]/50">
-                        10:03
+                      <span className="mt-1 block text-right text-[9px] text-[#5f5f5d] dark:text-white/60">
+                        11.04
                       </span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-4 flex items-center gap-1.5 border-t border-black/5 pt-3 text-xs font-semibold text-emerald-600 dark:border-white/5 dark:text-emerald-400">
-                <Check className="size-4 shrink-0" />
-                <span>
-                  Pesan masuk sudah rapi. Tinggal kirim rekening &amp; closing.
-                </span>
+              <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-xs text-emerald-800 dark:text-emerald-300">
+                <p className="font-medium">
+                  Pembeli sudah paham menu, harga, dan total belanja sebelum
+                  chat. Kamu tinggal kirim nomor rekening.
+                </p>
               </div>
             </div>
           </ScrollReveal>
@@ -242,32 +265,38 @@ export function BeforeAfterSection() {
           </ScrollReveal>
 
           <div className="divide-y divide-black/10 border-t border-b border-black/10 dark:divide-white/10 dark:border-white/10">
-            {VALUE_POINTS.map((point) => (
-              <div key={point.number} className="py-spacing-7 sm:py-spacing-9">
-                <div className="flex flex-col gap-2.5 sm:flex-row sm:items-baseline sm:gap-spacing-7">
-                  <span className="shrink-0 font-mono text-xl font-bold tracking-tight text-[#5f5f5d]/60 dark:text-surface-warm-white/40 sm:text-2xl">
-                    {point.number}
-                  </span>
+            {VALUE_POINTS.map((point, index) => (
+              <ScrollReveal
+                key={point.number}
+                delay={index * 0.08}
+                yOffset={16}
+              >
+                <div className="py-spacing-7 sm:py-spacing-9">
+                  <div className="flex flex-col gap-2.5 sm:flex-row sm:items-baseline sm:gap-spacing-7">
+                    <span className="shrink-0 font-mono text-xl font-bold tracking-tight text-[#5f5f5d]/60 dark:text-surface-warm-white/40 sm:text-2xl">
+                      {point.number}
+                    </span>
 
-                  <div className="flex-1">
-                    <h4 className="text-xl font-semibold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white sm:text-2xl lg:text-3xl">
-                      {point.titlePrefix ? `${point.titlePrefix} ` : ""}
-                      <Highlighter
-                        action={point.highlightAction}
-                        color={point.highlightColor}
-                        strokeWidth={2}
-                      >
-                        {point.highlightText}
-                      </Highlighter>
-                      {point.titleSuffix ? ` ${point.titleSuffix}` : ""}
-                    </h4>
+                    <div className="flex-1">
+                      <h4 className="text-xl font-semibold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white sm:text-2xl lg:text-3xl">
+                        {point.titlePrefix ? `${point.titlePrefix} ` : ""}
+                        <Highlighter
+                          action={point.highlightAction}
+                          color={point.highlightColor}
+                          strokeWidth={2}
+                        >
+                          {point.highlightText}
+                        </Highlighter>
+                        {point.titleSuffix ? ` ${point.titleSuffix}` : ""}
+                      </h4>
 
-                    <p className="mt-1.5 text-xs leading-relaxed text-[#5f5f5d] dark:text-surface-warm-white/65 sm:text-sm">
-                      {point.description}
-                    </p>
+                      <p className="mt-1.5 text-xs leading-relaxed text-[#5f5f5d] dark:text-surface-warm-white/65 sm:text-sm">
+                        {point.description}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </ScrollReveal>
             ))}
           </div>
         </div>

@@ -61,7 +61,7 @@ export function EcosystemSection({
         </ScrollReveal>
 
         {publishedSiteCount >= MIN_PUBLISHED_SITES_SHOWN ? (
-          <ScrollReveal>
+          <ScrollReveal delay={0.12}>
             <div className="flex justify-center">
               <span className="flex items-center gap-spacing-2.5 rounded-full border border-black/10 bg-[#fcfbf8] px-spacing-5 py-spacing-3 text-sm font-medium text-[#1c1c1c] dark:border-white/10 dark:bg-[#1c1c1a] dark:text-surface-warm-white">
                 <Globe className="size-4 text-accent-orange" />

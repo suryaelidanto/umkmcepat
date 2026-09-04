@@ -107,7 +107,7 @@ export function HowItWorksSection() {
         </ScrollReveal>
 
         <div className="mt-spacing-10 grid items-center gap-spacing-8 lg:mt-spacing-12 lg:grid-cols-[400px_1fr] lg:gap-spacing-12">
-          <ScrollReveal>
+          <ScrollReveal delay={0.08}>
             <ol className="flex flex-col gap-spacing-3 sm:gap-spacing-3.5">
               {HOW_IT_WORKS_STEPS.map((step, index) => {
                 const isActive = index === activeIndex;
@@ -161,7 +161,7 @@ export function HowItWorksSection() {
             </ol>
           </ScrollReveal>
 
-          <ScrollReveal>
+          <ScrollReveal delay={0.16}>
             <div className="flex flex-col items-center gap-spacing-4">
               <div className="relative flex h-[360px] w-full max-w-full items-center justify-center overflow-hidden rounded-[26px] border border-black/8 bg-black/[0.02] p-2 dark:border-white/8 dark:bg-white/[0.02] sm:h-[440px] sm:p-4 lg:h-[480px]">
                 <div

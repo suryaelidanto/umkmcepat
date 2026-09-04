@@ -1,3 +1,4 @@
+import { ScrollReveal } from "@/components/home/ScrollReveal";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/components/ui/link";
 
@@ -46,29 +47,31 @@ export function WhatsAppCommunityInvite({
   const invitation = content.homepage;
   const invitationContent = (
     <div className="mx-auto max-w-6xl">
-      <div className="flex flex-col items-start justify-between gap-spacing-7 rounded-radius-2xl border border-black/10 bg-black/[0.02] px-spacing-7 py-spacing-7 transition-colors dark:border-surface-warm-white/12 dark:bg-surface-warm-white/[0.04] sm:flex-row sm:items-center sm:px-spacing-9 sm:py-spacing-8">
-        <div className="max-w-2xl">
-          <h2 className="text-2xl font-semibold tracking-[-0.04em] text-[#1c1c1c] dark:text-surface-warm-white sm:text-3xl">
-            {invitation.heading}
-          </h2>
-          <p className="mt-spacing-3 text-sm leading-6 text-[#5f5f5d] dark:text-surface-warm-white/68">
-            {invitation.body}
-          </p>
-        </div>
-        <Button
-          asChild
-          variant="outline"
-          className="border-black/15 bg-black/[0.04] text-[#1c1c1c] hover:bg-black/[0.08] dark:border-surface-warm-white/18 dark:bg-transparent dark:text-surface-warm-white dark:hover:bg-surface-warm-white/[0.07]"
-        >
-          <Link
-            href={WHATSAPP_UMKM_GROUP_URL}
-            rel="noopener noreferrer"
-            target="_blank"
+      <ScrollReveal yOffset={18}>
+        <div className="flex flex-col items-start justify-between gap-spacing-7 rounded-radius-2xl border border-black/10 bg-black/[0.02] px-spacing-7 py-spacing-7 transition-colors dark:border-surface-warm-white/12 dark:bg-surface-warm-white/[0.04] sm:flex-row sm:items-center sm:px-spacing-9 sm:py-spacing-8">
+          <div className="max-w-2xl">
+            <h2 className="text-2xl font-semibold tracking-[-0.04em] text-[#1c1c1c] dark:text-surface-warm-white sm:text-3xl">
+              {invitation.heading}
+            </h2>
+            <p className="mt-spacing-3 text-sm leading-6 text-[#5f5f5d] dark:text-surface-warm-white/68">
+              {invitation.body}
+            </p>
+          </div>
+          <Button
+            asChild
+            variant="outline"
+            className="border-black/15 bg-black/[0.04] text-[#1c1c1c] hover:bg-black/[0.08] dark:border-surface-warm-white/18 dark:bg-transparent dark:text-surface-warm-white dark:hover:bg-surface-warm-white/[0.07]"
           >
-            Join WhatsApp
-          </Link>
-        </Button>
-      </div>
+            <Link
+              href={WHATSAPP_UMKM_GROUP_URL}
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              Join WhatsApp
+            </Link>
+          </Button>
+        </div>
+      </ScrollReveal>
     </div>
   );
 
