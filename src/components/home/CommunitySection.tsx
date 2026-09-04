@@ -1,6 +1,7 @@
 import { Plus } from "lucide-react";
 import { useState } from "react";
 
+import { SectionContainer } from "@/components/common/layout/PageContainer";
 import { ScrollReveal } from "@/components/home/ScrollReveal";
 
 const faqs = [
@@ -39,65 +40,60 @@ export function CommunitySection() {
   };
 
   return (
-    <section
-      id="faq"
-      className="bg-background px-4 py-spacing-12 text-foreground sm:px-spacing-9 sm:py-spacing-13 lg:px-spacing-10 lg:py-spacing-14"
-    >
-      <div className="mx-auto max-w-5xl">
-        <ScrollReveal>
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-semibold tracking-[-0.04em] text-foreground sm:text-4xl">
-              Pertanyaan yang sering muncul
-            </h2>
-            <p className="mt-spacing-3 text-sm text-muted-foreground sm:text-base">
-              Hal-hal yang sering ditanyakan sebelum mulai membuat website.
-            </p>
-          </div>
-        </ScrollReveal>
+    <SectionContainer id="faq" size="default">
+      <ScrollReveal>
+        <div className="mx-auto max-w-2xl text-center">
+          <h2 className="text-3xl font-semibold tracking-[-0.04em] text-foreground sm:text-4xl">
+            Pertanyaan yang sering muncul
+          </h2>
+          <p className="mt-spacing-3 text-sm text-muted-foreground sm:text-base">
+            Hal-hal yang sering ditanyakan sebelum mulai membuat website.
+          </p>
+        </div>
+      </ScrollReveal>
 
-        <div className="mt-spacing-8 divide-y divide-border border-t border-border">
-          {faqs.map((faq, index) => {
-            const isOpen = openIndex === index;
-            return (
-              <ScrollReveal
-                key={faq.question}
-                delay={index * 0.06}
-                yOffset={14}
-                className="overflow-hidden"
+      <div className="mt-spacing-8 divide-y divide-border border-t border-border">
+        {faqs.map((faq, index) => {
+          const isOpen = openIndex === index;
+          return (
+            <ScrollReveal
+              key={faq.question}
+              delay={index * 0.06}
+              yOffset={14}
+              className="overflow-hidden"
+            >
+              <button
+                type="button"
+                onClick={() => toggle(index)}
+                aria-expanded={isOpen}
+                className="flex w-full cursor-pointer items-center justify-between gap-spacing-6 py-spacing-5 text-left text-base font-semibold text-foreground outline-none transition-colors duration-200 hover:text-accent-orange sm:text-lg"
               >
-                <button
-                  type="button"
-                  onClick={() => toggle(index)}
-                  aria-expanded={isOpen}
-                  className="flex w-full cursor-pointer items-center justify-between gap-spacing-6 py-spacing-5 text-left text-base font-semibold text-foreground outline-none transition-colors duration-200 hover:text-accent-orange sm:text-lg"
-                >
-                  <span>{faq.question}</span>
-                  <span
-                    className={`grid size-7 shrink-0 place-items-center text-muted-foreground transition-transform duration-300 ease-out ${
-                      isOpen ? "rotate-45 text-accent-orange" : "rotate-0"
-                    }`}
-                  >
-                    <Plus className="size-5" />
-                  </span>
-                </button>
-                <div
-                  className={`grid transition-[grid-template-rows,opacity] duration-300 ease-out ${
-                    isOpen
-                      ? "grid-rows-[1fr] opacity-100"
-                      : "grid-rows-[0fr] opacity-0"
+                <span>{faq.question}</span>
+                <span
+                  className={`grid size-7 shrink-0 place-items-center text-muted-foreground transition-transform duration-300 ease-out ${
+                    isOpen ? "rotate-45 text-accent-orange" : "rotate-0"
                   }`}
                 >
-                  <div className="overflow-hidden">
-                    <p className="pb-spacing-5 text-sm leading-relaxed text-muted-foreground sm:text-base">
-                      {faq.answer}
-                    </p>
-                  </div>
+                  <Plus className="size-5" />
+                </span>
+              </button>
+              <div
+                className={`grid transition-[grid-template-rows,opacity] duration-300 ease-out ${
+                  isOpen
+                    ? "grid-rows-[1fr] opacity-100"
+                    : "grid-rows-[0fr] opacity-0"
+                }`}
+              >
+                <div className="overflow-hidden">
+                  <p className="pb-spacing-5 text-sm leading-relaxed text-muted-foreground sm:text-base">
+                    {faq.answer}
+                  </p>
                 </div>
-              </ScrollReveal>
-            );
-          })}
-        </div>
+              </div>
+            </ScrollReveal>
+          );
+        })}
       </div>
-    </section>
+    </SectionContainer>
   );
 }
