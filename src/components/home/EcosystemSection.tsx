@@ -157,8 +157,12 @@ export function EcosystemSection({
         <ScrollReveal>
           <div className="text-center">
             <h3 className="text-xl font-semibold tracking-[-0.03em] text-[#1c1c1c] dark:text-surface-warm-white sm:text-2xl">
-              Dibangun &amp; dijalankan dengan teknologi terbuka
+              Cepat di HP Pembeli, Hemat Kuota, Selalu Online 24/7
             </h3>
+            <p className="mx-auto mt-spacing-2 max-w-xl text-sm text-[#5f5f5d] dark:text-surface-warm-white/60">
+              Dibangun &amp; dijalankan dengan teknologi terbuka standar
+              industri agar websitemu terbuka seketika di koneksi apa pun.
+            </p>
 
             {/* Infinite Horizontal Carousel on 1 single line with edge fade mask */}
             <div className="logo-marquee-mask relative mt-spacing-6 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">

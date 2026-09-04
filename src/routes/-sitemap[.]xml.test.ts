@@ -104,6 +104,8 @@ describe("sitemap", () => {
     const body = await res.text();
 
     expect(res.status).toBe(200);
+    expect(body).toContain("/sponsor");
+    expect(body).toContain("/support");
     expect(body).toContain("/waitlist");
     expect(body).toContain("/terms");
     expect(body).toContain("/privacy");

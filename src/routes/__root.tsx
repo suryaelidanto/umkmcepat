@@ -39,9 +39,10 @@ const loadRootConfig = createServerFn({ method: "GET" }).handler(async () => {
 });
 
 const siteUrl = "https://umkmcepat.com";
-const siteTitle = "Bikin Website UMKM dalam 5 Menit | UMKM Cepat";
+const siteTitle =
+  "Bikin Website Katalog UMKM, Chat WhatsApp Langsung Siap Beli | UMKM Cepat";
 const siteDescription =
-  "Tulis infomu, dapatkan website usaha rapi dengan daftar produk, promo, dan tombol pesan WhatsApp. 100% gratis, siap dipakai promosi hari ini.";
+  "Buat etalase web rapi untuk usahamu dalam hitungan menit. Calon pembeli paham menu, produk, dan harga sebelum kirim pesan, pesanan WhatsApp langsung siap transfer.";
 
 const jsonLd = {
   "@context": "https://schema.org",

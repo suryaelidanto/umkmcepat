@@ -7,17 +7,22 @@ const faqs = [
   {
     question: "Apakah UMKM Cepat benar-benar gratis?",
     answer:
-      "Iya, semua fitur bisa kamu pakai tanpa biaya. Cukup daftar dan mulai buat websitemu.",
+      "Kamu mendapatkan modal energi gratis saat mendaftar untuk membuat, mengedit, dan melihat pratinjau websitemu sampai puas tanpa perlu kartu kredit. Jika usahamu semakin berkembang, tersedia opsi booster energi terjangkau sesuai kebutuhan tanpa biaya tersembunyi.",
   },
   {
-    question: "Website saya dibuat oleh AI saja?",
+    question: "Pesanan dari pembeli masuknya ke mana?",
     answer:
-      "AI membantu membuat awal website. Kamu tetap bisa mengubah isi, arah, dan hasil akhirnya.",
+      "Langsung ke nomor WhatsApp pribadimu. Tombol pemesanan di website otomatis merangkum produk atau paket yang dipilih pembeli, jadi chat yang masuk sudah rapi dan siap transfer.",
   },
   {
-    question: "Apa data usaha saya aman?",
+    question: "Kalau ada harga atau menu baru, bagaimana cara gantinya?",
     answer:
-      "Kami hanya meminta informasi yang kamu tulis untuk membuat website. Jangan masukkan password, nomor kartu, atau data rahasia.",
+      "Tinggal ketik permintaan di kolom chat editor, misalnya: 'Tolong ganti harga Paket A jadi Rp 25.000'. AI akan langsung memperbarui websitemu dalam hitungan detik.",
+  },
+  {
+    question: "Apakah saya harus punya laptop atau paham coding?",
+    answer:
+      "Sama sekali tidak. Seluruh proses pembuatan, pengecekan pratinjau, hingga membagikan link website bisa dilakukan 100% dari HP lewat browser biasa.",
   },
   {
     question: "Bagaimana agar hasilnya maksimal?",
@@ -34,7 +39,10 @@ export function CommunitySection() {
   };
 
   return (
-    <section className="bg-[#eceae4] px-4 py-spacing-10 text-[#1c1c1c] dark:bg-[#151515] dark:text-surface-warm-white sm:px-spacing-9 sm:py-spacing-12 lg:px-spacing-10">
+    <section
+      id="faq"
+      className="bg-[#eceae4] px-4 py-spacing-10 text-[#1c1c1c] dark:bg-[#151515] dark:text-surface-warm-white sm:px-spacing-9 sm:py-spacing-12 lg:px-spacing-10"
+    >
       <div className="mx-auto max-w-5xl">
         <ScrollReveal>
           <div className="mx-auto max-w-2xl text-center">

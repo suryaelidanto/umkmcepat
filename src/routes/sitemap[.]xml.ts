@@ -16,6 +16,8 @@ export const Route = createFileRoute("/sitemap.xml")({
         const origin = process.env.GENERATED_PUBLIC_ORIGIN || siteUrl;
         const staticPages = [
           `  <url>\n    <loc>${origin}</loc>\n    <changefreq>weekly</changefreq>\n    <priority>1.0</priority>\n  </url>`,
+          `  <url>\n    <loc>${origin}/sponsor</loc>\n    <changefreq>monthly</changefreq>\n    <priority>0.8</priority>\n  </url>`,
+          `  <url>\n    <loc>${origin}/support</loc>\n    <changefreq>monthly</changefreq>\n    <priority>0.8</priority>\n  </url>`,
           `  <url>\n    <loc>${origin}/waitlist</loc>\n    <changefreq>monthly</changefreq>\n    <priority>0.7</priority>\n  </url>`,
           `  <url>\n    <loc>${origin}/terms</loc>\n    <changefreq>yearly</changefreq>\n    <priority>0.3</priority>\n  </url>`,
           `  <url>\n    <loc>${origin}/privacy</loc>\n    <changefreq>yearly</changefreq>\n    <priority>0.3</priority>\n  </url>`,
