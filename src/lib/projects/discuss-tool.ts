@@ -5,12 +5,11 @@ import { getSettingSync } from "@/lib/config/app-settings";
 import { parseCanonicalBrief } from "@/lib/projects/canonical-brief";
 import { getUnresolvedDiscussionDomains } from "@/lib/projects/discussion-domains";
 import { unstringifyJsonObject } from "@/lib/projects/json-unstringify";
-import { DISCUSS_SYSTEM_PROMPT } from "@/lib/projects/prompts/discuss-system";
+import { buildChatSystemPrompt } from "@/lib/projects/prompts/chat-system-prompt";
 import {
   UNSLOP_SYSTEM_INSTRUCTION,
   unslopUserFacingText,
 } from "@/lib/projects/unslop-policy";
-import { buildChatSystemPrompt } from "@/routes/api.projects.preview";
 
 export const PRESENT_WORKSPACE_CARD_TOOL_NAME = "presentWorkspaceCard";
 
