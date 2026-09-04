@@ -49,7 +49,7 @@ describe("WhatsApp discussion entry points", () => {
   });
 
   it("places the primary invitation on the waitlist success screen", () => {
-    const waitlistSource = source("../../routes/_main.waitlist.tsx");
+    const waitlistSource = source("../waitlist/WaitlistFeature.tsx");
 
     expect(waitlistSource).toContain(
       '<WhatsAppCommunityInvite variant="waitlist" />',
