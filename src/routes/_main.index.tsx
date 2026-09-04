@@ -5,6 +5,7 @@ import { ArrowRight } from "lucide-react";
 import { useState, type CSSProperties } from "react";
 
 import { WhatsAppCommunityInvite } from "@/components/community/WhatsAppCommunityInvite";
+import { BeforeAfterSection } from "@/components/home/BeforeAfterSection";
 import { CommunitySection } from "@/components/home/CommunitySection";
 import { EcosystemSection } from "@/components/home/EcosystemSection";
 import { HeroAuroraBackground } from "@/components/home/HeroAuroraBackground";
@@ -368,6 +369,7 @@ function HomePage() {
 
       {!hasUser ? (
         <>
+          <BeforeAfterSection />
           <HowItWorksSection />
           <EcosystemSection publishedSiteCount={publishedSiteCount} />
           <CommunitySection />
