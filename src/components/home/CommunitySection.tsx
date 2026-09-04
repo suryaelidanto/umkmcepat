@@ -59,7 +59,12 @@ export function CommunitySection() {
           {faqs.map((faq, index) => {
             const isOpen = openIndex === index;
             return (
-              <div key={faq.question} className="overflow-hidden">
+              <ScrollReveal
+                key={faq.question}
+                delay={index * 0.06}
+                yOffset={14}
+                className="overflow-hidden"
+              >
                 <button
                   type="button"
                   onClick={() => toggle(index)}
@@ -88,7 +93,7 @@ export function CommunitySection() {
                     </p>
                   </div>
                 </div>
-              </div>
+              </ScrollReveal>
             );
           })}
         </div>

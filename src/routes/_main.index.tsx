@@ -183,7 +183,8 @@ function HeroHeadline() {
         Siap Beli.
         <span
           aria-hidden="true"
-          className="absolute inset-x-0 -bottom-1 h-[5px] rounded-full bg-status-success"
+          className="hero-underline absolute inset-x-0 -bottom-1 h-[5px] rounded-full bg-status-success"
+          style={{ "--underline-delay": "0.4s" } as CSSProperties}
         />
       </span>
     </span>
