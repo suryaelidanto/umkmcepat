@@ -18,7 +18,7 @@ function StepVisual({
   if (step.id === "describe") {
     return (
       <div className="flex size-full items-center justify-center p-3 sm:p-5">
-        <div className="relative max-h-full max-w-full overflow-hidden rounded-2xl border border-black/10 bg-[#141413] shadow-[0_18px_44px_-12px_rgba(0,0,0,0.35)] dark:border-white/15">
+        <div className="relative max-h-full max-w-full overflow-hidden rounded-2xl border border-border bg-card shadow-[0_18px_44px_-12px_rgba(0,0,0,0.35)]">
           <img
             src={step.imageSrc[0]}
             alt={step.imageAlt}
@@ -32,7 +32,7 @@ function StepVisual({
   if (step.id === "generate") {
     return (
       <div className="flex size-full items-center justify-center p-3 sm:p-5">
-        <div className="relative max-h-full w-full max-w-full overflow-hidden rounded-2xl border border-black/10 bg-[#141413] shadow-[0_18px_44px_-12px_rgba(0,0,0,0.35)] dark:border-white/15">
+        <div className="relative max-h-full w-full max-w-full overflow-hidden rounded-2xl border border-border bg-card shadow-[0_18px_44px_-12px_rgba(0,0,0,0.35)]">
           <img
             src={step.imageSrc[0]}
             alt={step.imageAlt}
@@ -45,14 +45,14 @@ function StepVisual({
 
   return (
     <div className="flex size-full max-w-full flex-col items-center justify-center gap-3.5 p-3 sm:gap-4 sm:p-5">
-      <div className="max-h-[250px] w-full max-w-[560px] overflow-hidden rounded-2xl border border-black/10 bg-white shadow-[0_18px_44px_-12px_rgba(0,0,0,0.2)] dark:border-white/15 dark:bg-[#141413] sm:max-h-[330px]">
+      <div className="max-h-[250px] w-full max-w-[560px] overflow-hidden rounded-2xl border border-border bg-card shadow-[0_18px_44px_-12px_rgba(0,0,0,0.2)] sm:max-h-[330px]">
         <img
           src={step.imageSrc[0]}
           alt={step.imageAlt}
           className="size-full max-h-[250px] w-full object-contain sm:max-h-[330px]"
         />
       </div>
-      <div className="w-full max-w-[300px] overflow-hidden rounded-xl border border-black/10 bg-[#1c1c1c] p-1.5 shadow-md dark:border-white/15 sm:max-w-[380px]">
+      <div className="w-full max-w-[300px] overflow-hidden rounded-xl border border-border bg-primary p-1.5 shadow-md sm:max-w-[380px]">
         <img
           src={step.imageSrc[1]}
           alt="Tautan website publik yang siap dibagikan"
@@ -88,7 +88,7 @@ export function HowItWorksSection() {
 
   return (
     <section
-      className="bg-[#eceae4] px-4 py-spacing-12 text-[#1c1c1c] dark:bg-[#151515] dark:text-surface-warm-white sm:px-spacing-9 sm:py-spacing-13 lg:px-spacing-10 lg:py-spacing-14"
+      className="bg-background px-4 py-spacing-12 text-foreground sm:px-spacing-9 sm:py-spacing-13 lg:px-spacing-10 lg:py-spacing-14"
       id="cara-kerja"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
@@ -96,10 +96,10 @@ export function HowItWorksSection() {
       <div className="mx-auto max-w-6xl">
         <ScrollReveal>
           <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-semibold tracking-[-0.04em] text-[#1c1c1c] dark:text-surface-warm-white sm:text-4xl">
+            <h2 className="text-3xl font-semibold tracking-[-0.04em] text-foreground sm:text-4xl">
               Tiga langkah mudah
             </h2>
-            <p className="mt-spacing-3 text-sm leading-relaxed text-[#5f5f5d] dark:text-surface-warm-white/60 sm:text-base">
+            <p className="mt-spacing-3 text-sm leading-relaxed text-muted-foreground sm:text-base">
               Tanpa coding, tanpa desainer. Cukup ceritakan usahamu dan biarkan
               kami yang membuatkan websitenya.
             </p>
@@ -119,17 +119,17 @@ export function HowItWorksSection() {
                         setActiveIndex(index);
                       }}
                       aria-current={isActive ? "step" : undefined}
-                      className={`group flex w-full cursor-pointer items-start gap-spacing-4 rounded-2xl p-spacing-4 text-left outline-none transition-all duration-200 focus-visible:ring-2 focus-visible:ring-[#1c1c1c] sm:p-spacing-4.5 dark:focus-visible:ring-surface-warm-white ${
+                      className={`group flex w-full cursor-pointer items-start gap-spacing-4 rounded-2xl p-spacing-4 text-left outline-none transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary sm:p-spacing-4.5 ${
                         isActive
-                          ? "bg-white/80 shadow-xs dark:bg-white/[0.07]"
-                          : "bg-transparent hover:bg-black/[0.025] hover:translate-x-1 dark:hover:bg-white/[0.03]"
+                          ? "bg-card shadow-xs"
+                          : "bg-transparent hover:bg-muted/40 hover:translate-x-1"
                       }`}
                     >
                       <span
                         className={`mt-0.5 grid size-8 shrink-0 place-items-center rounded-xl font-mono text-xs font-bold transition-all duration-200 sm:size-8.5 ${
                           isActive
                             ? "bg-accent-orange text-white shadow-xs scale-105"
-                            : "bg-black/[0.05] text-black/50 group-hover:bg-black/10 group-hover:text-black/75 dark:bg-white/10 dark:text-surface-warm-white/45 dark:group-hover:bg-white/15 dark:group-hover:text-surface-warm-white"
+                            : "bg-muted text-muted-foreground group-hover:bg-muted/80 group-hover:text-foreground"
                         }`}
                       >
                         {step.number}
@@ -138,8 +138,8 @@ export function HowItWorksSection() {
                         <span
                           className={`block text-base font-semibold tracking-tight transition-colors duration-200 sm:text-lg ${
                             isActive
-                              ? "text-[#1c1c1c] dark:text-surface-warm-white"
-                              : "text-[#1c1c1c]/60 group-hover:text-[#1c1c1c] dark:text-surface-warm-white/60 dark:group-hover:text-surface-warm-white"
+                              ? "text-foreground"
+                              : "text-muted-foreground group-hover:text-foreground"
                           }`}
                         >
                           {step.title}
@@ -147,8 +147,8 @@ export function HowItWorksSection() {
                         <span
                           className={`mt-1 block text-xs leading-relaxed transition-colors duration-200 sm:text-sm ${
                             isActive
-                              ? "text-[#5f5f5d] dark:text-surface-warm-white/70"
-                              : "text-[#5f5f5d]/70 dark:text-surface-warm-white/40"
+                              ? "text-muted-foreground"
+                              : "text-muted-foreground/70"
                           }`}
                         >
                           {step.description}

@@ -84,12 +84,12 @@ export function MainChrome({ children }: { children: React.ReactNode }) {
 
   // During a pending transition keep the previous chrome so header/footer
   if (isWorkspace || (isRoutePending && pathname.startsWith("/projects/"))) {
-    return <main className="min-h-dvh bg-[#1b1b19]">{children}</main>;
+    return <main className="min-h-dvh bg-background">{children}</main>;
   }
 
   return (
     <div
-      className={`relative flex min-h-screen flex-col bg-[#eceae4] text-[#1c1c1c] dark:bg-[#151515] dark:text-[#fcfbf8] ${
+      className={`relative flex min-h-screen flex-col bg-background text-foreground ${
         isTicketDetail ? "h-dvh overflow-hidden" : ""
       }`}
     >
