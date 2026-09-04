@@ -1,6 +1,6 @@
 ---
 name: unslop
-description: Cut AI tells from any writing. Must always apply.
+description: Use when editing or reviewing text and code to eliminate AI clichés, fluff, and filler.
 ---
 
 # Unslop

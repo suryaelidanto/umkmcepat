@@ -26,7 +26,7 @@ export function ThemeToggle() {
       type="button"
       id="header-theme-toggle"
       onClick={toggleTheme}
-      className="inline-flex size-8 items-center justify-center rounded-lg border border-border/90 bg-card text-foreground shadow-2xs transition-all hover:border-foreground/30 hover:bg-muted cursor-pointer active:scale-95 focus-visible:outline-none dark:border-white/15 dark:bg-[#252522] dark:hover:bg-[#2e2e2a]"
+      className="inline-flex size-8 items-center justify-center rounded-lg border border-border/90 bg-card text-foreground shadow-2xs transition-all hover:border-foreground/30 hover:bg-muted cursor-pointer active:scale-95 focus-visible:outline-none"
       aria-label="Ganti mode tampilan"
       title={
         mounted
@@ -55,7 +55,7 @@ export function ThemeToggle() {
         strokeWidth="1.75"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="size-4 text-[#5f5f5d] transition-colors hover:text-[#1c1c1c] block dark:hidden"
+        className="size-4 text-muted-foreground transition-colors hover:text-foreground block dark:hidden"
         aria-hidden="true"
       >
         <circle cx="12" cy="12" r="4" />

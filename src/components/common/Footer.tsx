@@ -7,13 +7,13 @@ import { Link } from "@/components/ui/link";
 
 export function Footer() {
   return (
-    <footer className="border-t border-black/10 bg-[#eceae4] text-[#1c1c1c] dark:border-white/[0.07] dark:bg-[#151515] dark:text-surface-warm-white">
+    <footer className="border-t border-border bg-background text-foreground">
       <div className="mx-auto max-w-7xl px-4 py-spacing-12 sm:px-6 sm:py-spacing-13 lg:px-spacing-10 lg:py-spacing-14">
         <div className="grid grid-cols-1 gap-spacing-8 sm:grid-cols-2 md:grid-cols-5 lg:gap-spacing-10">
           <div className="flex flex-col items-start md:col-span-2">
             <Link
               href="/"
-              className="inline-flex items-center gap-2 rounded-radius-lg text-lg font-semibold tracking-tight outline-none focus-visible:ring-2 focus-visible:ring-[#1c1c1c] dark:focus-visible:ring-surface-warm-white"
+              className="inline-flex items-center gap-2 rounded-radius-lg text-lg font-semibold tracking-tight outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               <Image
                 src="/brand/umkmcepat-logo.svg"
@@ -23,12 +23,12 @@ export function Footer() {
               />
               <span>UMKM Cepat</span>
             </Link>
-            <p className="mt-3 max-w-sm text-sm leading-relaxed text-[#5f5f5d] dark:text-surface-warm-white/60">
+            <p className="mt-3 max-w-sm text-sm leading-relaxed text-muted-foreground">
               Etalase website rapi untuk usahamu, langsung terhubung ke
               WhatsApp. Calon pembeli paham produk dan harga sebelum kirim
               pesan.
             </p>
-            <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/70 px-3 py-1 text-xs text-[#5f5f5d] dark:border-white/10 dark:bg-white/[0.04] dark:text-surface-warm-white/70">
+            <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-border bg-card/70 px-3 py-1 text-xs text-muted-foreground">
               <ShieldCheck className="size-3.5 text-status-success" />
               <span>Dibuat untuk pelaku usaha Indonesia</span>
             </div>
@@ -39,14 +39,14 @@ export function Footer() {
             className="grid grid-cols-1 gap-spacing-8 sm:grid-cols-3 md:col-span-3 lg:gap-spacing-10"
           >
             <div className="flex flex-col items-start">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-[#1c1c1c] dark:text-surface-warm-white">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-foreground">
                 Solusi
               </h4>
-              <ul className="mt-3 space-y-2.5 text-sm text-[#5f5f5d] dark:text-surface-warm-white/60">
+              <ul className="mt-3 space-y-2.5 text-sm text-muted-foreground">
                 <li>
                   <Link
                     href="/#buat"
-                    className="transition-colors hover:text-[#1c1c1c] dark:hover:text-surface-warm-white"
+                    className="transition-colors hover:text-foreground"
                   >
                     Buat Website
                   </Link>
@@ -54,7 +54,7 @@ export function Footer() {
                 <li>
                   <Link
                     href="/#cara-kerja"
-                    className="transition-colors hover:text-[#1c1c1c] dark:hover:text-surface-warm-white"
+                    className="transition-colors hover:text-foreground"
                   >
                     Cara Kerja
                   </Link>
@@ -62,7 +62,7 @@ export function Footer() {
                 <li>
                   <Link
                     href="/#faq"
-                    className="transition-colors hover:text-[#1c1c1c] dark:hover:text-surface-warm-white"
+                    className="transition-colors hover:text-foreground"
                   >
                     Tanya Jawab (FAQ)
                   </Link>
@@ -71,14 +71,14 @@ export function Footer() {
             </div>
 
             <div className="flex flex-col items-start">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-[#1c1c1c] dark:text-surface-warm-white">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-foreground">
                 Bantuan
               </h4>
-              <ul className="mt-3 space-y-2.5 text-sm text-[#5f5f5d] dark:text-surface-warm-white/60">
+              <ul className="mt-3 space-y-2.5 text-sm text-muted-foreground">
                 <li>
                   <Link
                     href="/support"
-                    className="transition-colors hover:text-[#1c1c1c] dark:hover:text-surface-warm-white"
+                    className="transition-colors hover:text-foreground"
                   >
                     Pusat Bantuan
                   </Link>
@@ -86,7 +86,7 @@ export function Footer() {
                 <li>
                   <Link
                     href="/sponsor"
-                    className="inline-flex items-center gap-1.5 transition-colors hover:text-[#1c1c1c] dark:hover:text-surface-warm-white"
+                    className="inline-flex items-center gap-1.5 transition-colors hover:text-foreground"
                   >
                     <HeartHandshake className="size-3.5 text-accent-orange" />
                     <span>Sponsor</span>
@@ -97,7 +97,7 @@ export function Footer() {
                     href="https://github.com/suryaelidanto/umkmcepat"
                     target="_blank"
                     rel="noreferrer"
-                    className="transition-colors hover:text-[#1c1c1c] dark:hover:text-surface-warm-white"
+                    className="transition-colors hover:text-foreground"
                   >
                     GitHub
                   </a>
@@ -106,14 +106,14 @@ export function Footer() {
             </div>
 
             <div className="flex flex-col items-start">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-[#1c1c1c] dark:text-surface-warm-white">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-foreground">
                 Ketentuan
               </h4>
-              <ul className="mt-3 space-y-2.5 text-sm text-[#5f5f5d] dark:text-surface-warm-white/60">
+              <ul className="mt-3 space-y-2.5 text-sm text-muted-foreground">
                 <li>
                   <Link
                     href="/terms"
-                    className="transition-colors hover:text-[#1c1c1c] dark:hover:text-surface-warm-white"
+                    className="transition-colors hover:text-foreground"
                   >
                     Ketentuan Layanan
                   </Link>
@@ -121,7 +121,7 @@ export function Footer() {
                 <li>
                   <Link
                     href="/privacy"
-                    className="transition-colors hover:text-[#1c1c1c] dark:hover:text-surface-warm-white"
+                    className="transition-colors hover:text-foreground"
                   >
                     Kebijakan Privasi
                   </Link>
@@ -131,7 +131,7 @@ export function Footer() {
           </nav>
         </div>
 
-        <div className="mt-spacing-9 flex flex-col items-center justify-between gap-3 border-t border-black/10 pt-spacing-6 text-xs text-[#5f5f5d] sm:flex-row dark:border-white/[0.08] dark:text-surface-warm-white/50">
+        <div className="mt-spacing-9 flex flex-col items-center justify-between gap-3 border-t border-border pt-spacing-6 text-xs text-muted-foreground sm:flex-row">
           <p>© {new Date().getFullYear()} UMKM Cepat. Hak cipta dilindungi.</p>
           <p>Tanpa komisi, tanpa koding, tanpa biaya tersembunyi.</p>
         </div>

@@ -1,6 +1,6 @@
 ---
 name: ship-to-main
-description: "Use when completed work on the active branch must be released to protected `main` branch via individual PRs per task."
+description: Use when releasing completed branch changes to the main branch via pull requests.
 disable-model-invocation: true
 ---
 

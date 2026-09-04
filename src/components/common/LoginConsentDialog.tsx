@@ -199,18 +199,18 @@ export function LoginConsentDialog({
         ) : null}
 
         <div className="space-y-spacing-4">
-          <label className="flex gap-spacing-4 rounded-radius-xl border border-black/10 bg-black/[0.03] p-spacing-5 text-sm leading-6 text-[#1c1c1c] transition hover:bg-black/[0.05] dark:border-surface-warm-white/10 dark:bg-surface-warm-white/[0.055] dark:text-surface-warm-white/78 dark:hover:bg-surface-warm-white/[0.075]">
+          <label className="flex gap-spacing-4 rounded-radius-xl border border-border bg-muted/40 p-spacing-5 text-sm leading-6 text-foreground transition hover:bg-muted/70">
             <input
               type="checkbox"
               checked={agrees}
               onChange={(event) => setAgrees(event.target.checked)}
-              className="mt-1 size-4 accent-[#1c1c1c] dark:accent-surface-warm-white"
+              className="mt-1 size-4 accent-primary"
             />
             <span>
               Saya setuju dengan{" "}
               <button
                 type="button"
-                className="font-medium underline underline-offset-4 hover:text-black dark:hover:text-surface-warm-white"
+                className="font-medium underline underline-offset-4 hover:text-foreground"
                 onClick={(event) => {
                   event.preventDefault();
                   setActiveLegalDocument("terms");
@@ -221,7 +221,7 @@ export function LoginConsentDialog({
               dan{" "}
               <button
                 type="button"
-                className="font-medium underline underline-offset-4 hover:text-black dark:hover:text-surface-warm-white"
+                className="font-medium underline underline-offset-4 hover:text-foreground"
                 onClick={(event) => {
                   event.preventDefault();
                   setActiveLegalDocument("privacy");
@@ -235,7 +235,7 @@ export function LoginConsentDialog({
         </div>
 
         {activeLegalDocument ? (
-          <div className="max-h-[42vh] overflow-y-auto rounded-radius-lg border border-black/10 bg-black/[0.02] p-spacing-6 text-[#1c1c1c] dark:border-surface-warm-white/10 dark:bg-surface-warm-white/[0.045] dark:text-surface-warm-white">
+          <div className="max-h-[42vh] overflow-y-auto rounded-radius-lg border border-border bg-muted/30 p-spacing-6 text-foreground">
             <LegalDocumentContent compact documentKey={activeLegalDocument} />
           </div>
         ) : null}
@@ -244,7 +244,7 @@ export function LoginConsentDialog({
 
         <Button
           type="button"
-          className="h-12 w-full gap-spacing-4 bg-[#1c1c1c] text-white hover:bg-[#1c1c1c]/90 dark:bg-surface-warm-white dark:text-foreground-primary dark:hover:bg-surface-warm-white/86"
+          className="h-12 w-full gap-spacing-4 bg-primary text-primary-foreground hover:bg-primary/90"
           disabled={!canContinue || isVerifying}
           onClick={continueWithGoogle}
         >

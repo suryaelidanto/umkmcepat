@@ -1,5 +1,6 @@
 import { ScrollReveal } from "@/components/home/ScrollReveal";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Link } from "@/components/ui/link";
 
 export const WHATSAPP_UMKM_GROUP_URL =
@@ -25,12 +26,12 @@ export function WhatsAppCommunityInvite({
   if (!isHomepage) {
     return (
       <div className="flex w-full flex-col items-center gap-3 text-center">
-        <p className="text-sm leading-6 text-[#5f5f5d] dark:text-surface-warm-white/70">
+        <p className="text-sm leading-6 text-muted-foreground">
           {content.waitlist.heading}
         </p>
         <Button
           asChild
-          className="bg-[#1c1c1c] text-white hover:bg-[#1c1c1c]/90 dark:bg-surface-warm-white dark:text-[#141413] dark:hover:bg-surface-warm-white/90"
+          className="bg-primary text-primary-foreground hover:bg-primary/90"
         >
           <Link
             href={WHATSAPP_UMKM_GROUP_URL}
@@ -48,19 +49,22 @@ export function WhatsAppCommunityInvite({
   const invitationContent = (
     <div className="mx-auto max-w-6xl">
       <ScrollReveal yOffset={18}>
-        <div className="flex flex-col items-start justify-between gap-spacing-7 rounded-radius-2xl border border-black/10 bg-black/[0.02] px-spacing-7 py-spacing-7 transition-colors dark:border-surface-warm-white/12 dark:bg-surface-warm-white/[0.04] sm:flex-row sm:items-center sm:px-spacing-9 sm:py-spacing-8">
-          <div className="max-w-2xl">
-            <h2 className="text-2xl font-semibold tracking-[-0.04em] text-[#1c1c1c] dark:text-surface-warm-white sm:text-3xl">
+        <Card
+          variant="muted"
+          className="flex flex-col items-start justify-between gap-spacing-7 p-spacing-7 sm:flex-row sm:items-center sm:px-spacing-9 sm:py-spacing-8"
+        >
+          <CardContent className="max-w-2xl p-0">
+            <h2 className="text-2xl font-semibold tracking-[-0.04em] text-foreground sm:text-3xl">
               {invitation.heading}
             </h2>
-            <p className="mt-spacing-3 text-sm leading-6 text-[#5f5f5d] dark:text-surface-warm-white/68">
+            <p className="mt-spacing-3 text-sm leading-6 text-muted-foreground">
               {invitation.body}
             </p>
-          </div>
+          </CardContent>
           <Button
             asChild
             variant="outline"
-            className="border-black/15 bg-black/[0.04] text-[#1c1c1c] hover:bg-black/[0.08] dark:border-surface-warm-white/18 dark:bg-transparent dark:text-surface-warm-white dark:hover:bg-surface-warm-white/[0.07]"
+            className="shrink-0 rounded-radius-lg border-border bg-card text-foreground hover:bg-muted"
           >
             <Link
               href={WHATSAPP_UMKM_GROUP_URL}
@@ -70,7 +74,7 @@ export function WhatsAppCommunityInvite({
               Join WhatsApp
             </Link>
           </Button>
-        </div>
+        </Card>
       </ScrollReveal>
     </div>
   );
@@ -78,7 +82,7 @@ export function WhatsAppCommunityInvite({
   return (
     <section
       aria-label="Grup diskusi UMKM"
-      className="bg-[#eceae4] px-4 py-spacing-12 dark:bg-[#151515] sm:px-spacing-9 sm:py-spacing-13 lg:px-spacing-10 lg:py-spacing-14"
+      className="bg-background px-4 py-spacing-12 text-foreground sm:px-spacing-9 sm:py-spacing-13 lg:px-spacing-10 lg:py-spacing-14"
     >
       {invitationContent}
     </section>

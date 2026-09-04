@@ -264,7 +264,7 @@ function HomePage() {
             cta: (
               <span>
                 Isi formulir antrean & dapatkan{" "}
-                <strong className="font-semibold text-white dark:text-[#1c1c1c]">
+                <strong className="font-semibold text-white dark:text-foreground">
                   {waitlistEnergyText} Energi Gratis
                 </strong>
               </span>
@@ -285,7 +285,7 @@ function HomePage() {
   }
 
   return (
-    <div className="cursor-default bg-[#eceae4] text-[#1c1c1c] dark:bg-[#151515] dark:text-surface-warm-white">
+    <div className="cursor-default bg-background text-foreground">
       <ResetCursorOnMount />
       <section
         id="buat"
@@ -297,7 +297,7 @@ function HomePage() {
           <HeroMotionItem className={siblingClass}>
             <h1
               id="hero-heading"
-              className={`${hasUser || waitlisted ? "hero-block-in " : ""}max-w-4xl text-balance text-[clamp(3rem,6vw,5.4rem)] font-semibold leading-[0.96] tracking-[-0.055em] text-[#1c1c1c] dark:text-surface-warm-white`}
+              className={`${hasUser || waitlisted ? "hero-block-in " : ""}max-w-4xl text-balance text-[clamp(3rem,6vw,5.4rem)] font-semibold leading-[0.96] tracking-[-0.055em] text-foreground`}
             >
               {waitlisted ? (
                 greetingName ? (
@@ -316,12 +316,12 @@ function HomePage() {
               )}
             </h1>
             {waitlisted ? (
-              <p className="mx-auto mt-spacing-4 max-w-2xl text-center text-base leading-7 text-[#5f5f5d] dark:text-surface-warm-white/62">
+              <p className="mx-auto mt-spacing-4 max-w-2xl text-center text-base leading-7 text-muted-foreground">
                 Setelah disetujui, kamu bisa buat website di sini.
               </p>
             ) : null}
             {!waitlisted && !hasUser ? (
-              <p className="mx-auto mt-spacing-7 max-w-2xl text-balance text-base leading-7 text-[#5f5f5d] dark:text-surface-warm-white/62 sm:text-lg">
+              <p className="mx-auto mt-spacing-7 max-w-2xl text-balance text-base leading-7 text-muted-foreground sm:text-lg">
                 <HeroSubline />
               </p>
             ) : null}
@@ -345,7 +345,7 @@ function HomePage() {
                   </Button>
                 ) : (
                   <div className="flex flex-col items-center gap-spacing-2">
-                    <span className="text-xs text-[#5f5f5d] dark:text-surface-warm-white/60">
+                    <span className="text-xs text-muted-foreground">
                       {waitlistBanner.label}
                     </span>
                     <Button
@@ -382,14 +382,14 @@ function HomePage() {
       ) : null}
 
       {hasUser && !waitlisted ? (
-        <section className="bg-[#eceae4] px-4 pb-spacing-15 pt-spacing-12 text-[#1c1c1c] dark:bg-[#151515] dark:text-surface-warm-white sm:px-spacing-9 lg:px-spacing-10">
+        <section className="bg-background px-4 pb-spacing-15 pt-spacing-12 text-foreground sm:px-spacing-9 lg:px-spacing-10">
           <ScrollReveal>
             <div className="mx-auto max-w-6xl text-center sm:text-left">
               <div className="mx-auto max-w-2xl sm:mx-0">
                 <h2 className="text-3xl font-semibold tracking-[-0.05em] sm:text-4xl">
                   Website kamu
                 </h2>
-                <p className="mt-spacing-4 text-sm leading-6 text-[#5f5f5d] dark:text-surface-warm-white/62 sm:text-base">
+                <p className="mt-spacing-4 text-sm leading-6 text-muted-foreground sm:text-base">
                   Lanjutkan website terakhir atau buka arsip pekerjaanmu.
                 </p>
               </div>

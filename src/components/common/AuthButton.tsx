@@ -95,11 +95,11 @@ export function AuthButton() {
           disabled
           aria-busy="true"
           aria-label="Memuat akses masuk"
-          className="min-w-[4.75rem] rounded-md border border-black/15 bg-transparent px-spacing-7 text-[#1c1c1c] opacity-50 cursor-not-allowed hover:bg-transparent focus-visible:ring-1 focus-visible:ring-black/50 dark:border-white/14 dark:text-surface-warm-white dark:focus-visible:ring-white/50"
+          className="min-w-[4.75rem] rounded-md border border-border bg-transparent px-spacing-7 text-foreground opacity-50 cursor-not-allowed hover:bg-transparent focus-visible:ring-1 focus-visible:ring-primary"
         >
           <span
             aria-hidden="true"
-            className="h-3.5 w-10 animate-pulse rounded bg-black/20 dark:bg-surface-warm-white/35"
+            className="h-3.5 w-10 animate-pulse rounded bg-muted"
           />
         </Button>
         <LoginConsentDialog open={loginOpen} onOpenChange={setLoginOpen} />
@@ -115,7 +115,7 @@ export function AuthButton() {
           variant="outline"
           size="sm"
           onClick={() => setLoginOpen(true)}
-          className="rounded-md border border-black/15 bg-black/[0.04] px-spacing-7 text-[#1c1c1c] font-semibold hover:bg-black/[0.08] focus-visible:ring-1 focus-visible:ring-black/50 dark:border-white/14 dark:bg-transparent dark:text-surface-warm-white dark:hover:bg-white/[0.06] dark:focus-visible:ring-white/50"
+          className="rounded-md border border-border bg-muted/40 px-spacing-7 font-semibold text-foreground hover:bg-muted focus-visible:ring-1 focus-visible:ring-primary"
         >
           Masuk
         </Button>
@@ -135,7 +135,7 @@ export function AuthButton() {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex max-w-[12rem] items-center gap-2 rounded-lg border border-border/90 bg-card px-2.5 py-1 text-xs font-semibold text-foreground shadow-2xs transition-all hover:border-foreground/30 hover:bg-muted cursor-pointer active:scale-95 focus-visible:outline-none dark:border-white/15 dark:bg-[#252522] dark:hover:bg-[#2e2e2a] sm:max-w-[15rem]"
+        className="flex max-w-[12rem] items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-semibold text-foreground shadow-2xs transition-all hover:border-foreground/30 hover:bg-muted cursor-pointer active:scale-95 focus-visible:outline-none sm:max-w-[15rem]"
         aria-expanded={open}
         aria-controls={menuId}
         aria-label={open ? "Tutup menu akun" : "Buka menu akun"}
@@ -143,18 +143,18 @@ export function AuthButton() {
         <div className="relative inline-flex size-6 shrink-0 items-center justify-center">
           <AvatarFrame
             seed={displayName}
-            className="size-6 bg-black/10 text-[10px] font-semibold text-[#1c1c1c] dark:bg-surface-warm-white dark:text-foreground-primary"
+            className="size-6 bg-muted text-[10px] font-semibold text-foreground"
           />
           {unreadCount > 0 && !open ? (
             <span
               aria-hidden="true"
-              className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-accent-orange ring-2 ring-[#eceae4] dark:ring-[#151515]"
+              className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-accent-orange ring-2 ring-background"
             />
           ) : null}
         </div>
         <span className="hidden min-w-0 truncate sm:block">{displayName}</span>
         <ChevronDown
-          className={`size-4 shrink-0 text-[#5f5f5d] transition dark:text-surface-warm-white/58 ${open ? "rotate-180" : ""}`}
+          className={`size-4 shrink-0 text-muted-foreground transition ${open ? "rotate-180" : ""}`}
           aria-hidden="true"
         />
       </button>
@@ -166,23 +166,23 @@ export function AuthButton() {
             <div
               id={menuId}
               data-testid="desktop-auth-menu"
-              className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-48 overflow-hidden rounded-lg border border-black/10 bg-[#fcfbf8] p-1 text-[#1c1c1c] shadow-xl transition-colors duration-200 dark:border-white/10 dark:bg-[#191918] dark:text-surface-warm-white"
+              className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-48 overflow-hidden rounded-lg border border-border bg-card p-1 text-foreground shadow-xl transition-colors duration-200"
             >
               <Link
                 href="/profile"
                 onClick={() => setOpen(false)}
-                className="flex items-center gap-spacing-3 rounded-md px-3 py-2.5 text-sm outline-none transition hover:bg-black/5 focus-visible:bg-black/5 dark:hover:bg-white/[0.06] dark:focus-visible:bg-white/[0.06]"
+                className="flex items-center gap-spacing-3 rounded-md px-3 py-2.5 text-sm outline-none transition hover:bg-muted focus-visible:bg-muted"
               >
-                <UserRound className="size-4 text-[#5f5f5d] dark:text-surface-warm-white/62" />
+                <UserRound className="size-4 text-muted-foreground" />
                 Profil
               </Link>
               {session.user.admin === true ? (
                 <Link
                   href="/admin"
                   onClick={() => setOpen(false)}
-                  className="flex items-center gap-spacing-3 rounded-md px-3 py-2.5 text-sm outline-none transition hover:bg-black/5 focus-visible:bg-black/5 dark:hover:bg-white/[0.06] dark:focus-visible:bg-white/[0.06]"
+                  className="flex items-center gap-spacing-3 rounded-md px-3 py-2.5 text-sm outline-none transition hover:bg-muted focus-visible:bg-muted"
                 >
-                  <Shield className="size-4 text-[#1c1c1c] dark:text-surface-warm-white" />
+                  <Shield className="size-4 text-foreground" />
                   Admin
                 </Link>
               ) : null}
@@ -193,7 +193,7 @@ export function AuthButton() {
                     setOpen(false);
                     setBoosterOpen(true);
                   }}
-                  className="flex w-full items-center gap-spacing-3 rounded-md px-3 py-2.5 text-left text-sm outline-none transition hover:bg-black/5 focus-visible:bg-black/5 dark:hover:bg-white/[0.06] dark:focus-visible:bg-white/[0.06] text-accent-orange"
+                  className="flex w-full items-center gap-spacing-3 rounded-md px-3 py-2.5 text-left text-sm text-accent-orange outline-none transition hover:bg-muted focus-visible:bg-muted"
                 >
                   <Zap className="size-4 fill-accent-orange/10 text-accent-orange" />
                   <span>Tambah Energi</span>
@@ -203,10 +203,10 @@ export function AuthButton() {
                 <Link
                   href="/support"
                   onClick={() => setOpen(false)}
-                  className="flex items-center justify-between rounded-md px-3 py-2.5 text-sm outline-none transition hover:bg-black/5 focus-visible:bg-black/5 dark:hover:bg-white/[0.06] dark:focus-visible:bg-white/[0.06]"
+                  className="flex items-center justify-between rounded-md px-3 py-2.5 text-sm outline-none transition hover:bg-muted focus-visible:bg-muted"
                 >
                   <div className="flex items-center gap-spacing-3">
-                    <LifeBuoy className="size-4 text-[#5f5f5d] dark:text-surface-warm-white/62" />
+                    <LifeBuoy className="size-4 text-muted-foreground" />
                     <span>Dukungan</span>
                   </div>
                   {unreadCount > 0 ? (
@@ -222,36 +222,36 @@ export function AuthButton() {
                   setOpen(false);
                   void signOut({ callbackUrl: "/" });
                 }}
-                className="flex w-full items-center gap-spacing-3 rounded-md px-3 py-2.5 text-left text-sm text-[#5f5f5d] outline-none transition hover:bg-black/5 hover:text-destructive focus-visible:bg-black/5 dark:text-surface-warm-white/62 dark:hover:bg-white/[0.06] dark:hover:text-destructive dark:focus-visible:bg-white/[0.06]"
+                className="flex w-full items-center gap-spacing-3 rounded-md px-3 py-2.5 text-left text-sm text-muted-foreground outline-none transition hover:bg-muted hover:text-destructive focus-visible:bg-muted"
               >
-                <LogOut className="size-4 text-[#5f5f5d] dark:text-surface-warm-white/62" />
+                <LogOut className="size-4 text-muted-foreground" />
                 Keluar
               </button>
             </div>
           ) : (
             <MobileSheet open={open} onOpenChange={setOpen}>
-              <div className="flex flex-col gap-4 text-[#1c1c1c] dark:text-surface-warm-white">
-                <div className="flex items-center justify-between rounded-xl border border-black/10 bg-black/5 p-3 dark:border-surface-warm-white/10 dark:bg-surface-warm-white/5">
+              <div className="flex flex-col gap-4 text-foreground">
+                <div className="flex items-center justify-between rounded-xl border border-border bg-muted/50 p-3">
                   <EnergyDisplay />
                   <ThemeToggle />
                 </div>
 
-                <div className="flex flex-col gap-1 divide-y divide-black/5 dark:divide-surface-warm-white/5">
+                <div className="flex flex-col gap-1 divide-y divide-border/40">
                   <Link
                     href="/profile"
                     onClick={() => setOpen(false)}
-                    className="flex items-center gap-3 px-3 py-3 text-sm font-medium hover:bg-black/5 active:bg-black/10 dark:hover:bg-white/5 dark:active:bg-white/10 rounded-lg transition"
+                    className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition hover:bg-muted active:bg-muted/80"
                   >
-                    <UserRound className="size-4 text-[#5f5f5d] dark:text-surface-warm-white/62" />
+                    <UserRound className="size-4 text-muted-foreground" />
                     Profil
                   </Link>
                   {session.user.admin === true ? (
                     <Link
                       href="/admin"
                       onClick={() => setOpen(false)}
-                      className="flex items-center gap-3 px-3 py-3 text-sm font-medium hover:bg-black/5 active:bg-black/10 dark:hover:bg-white/5 dark:active:bg-white/10 rounded-lg transition"
+                      className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition hover:bg-muted active:bg-muted/80"
                     >
-                      <Shield className="size-4 text-[#1c1c1c] dark:text-surface-warm-white" />
+                      <Shield className="size-4 text-foreground" />
                       Admin
                     </Link>
                   ) : null}
@@ -272,10 +272,10 @@ export function AuthButton() {
                     <Link
                       href="/support"
                       onClick={() => setOpen(false)}
-                      className="flex items-center justify-between px-3 py-3 text-sm font-medium hover:bg-black/5 active:bg-black/10 dark:hover:bg-white/5 dark:active:bg-white/10 rounded-lg transition"
+                      className="flex items-center justify-between rounded-lg px-3 py-3 text-sm font-medium transition hover:bg-muted active:bg-muted/80"
                     >
                       <div className="flex items-center gap-3">
-                        <LifeBuoy className="size-4 text-[#5f5f5d] dark:text-surface-warm-white/62" />
+                        <LifeBuoy className="size-4 text-muted-foreground" />
                         <span>Dukungan</span>
                       </div>
                       {unreadCount > 0 ? (

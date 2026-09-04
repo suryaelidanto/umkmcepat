@@ -14,21 +14,13 @@ import {
 } from "@/lib/projects/deployment-resolution";
 import { projectHasPersistedSource } from "@/lib/projects/load-persisted-project-source";
 import { deriveActiveProjectJob } from "@/lib/projects/project-job";
+import {
+  readRuntimeStateCache,
+  writeRuntimeStateCache,
+} from "@/lib/projects/runtime-state-cache";
 import { getRuntimeSupervisor } from "@/lib/projects/runtime-supervisor";
 import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
 import { isAdminEmail } from "@/lib/waitlist/waitlist";
-
-const runtimeStateCache = new Map<
-  string,
-  {
-    body: unknown;
-    expiresAt: number;
-    projectId: string;
-    userId: string;
-  }
->();
-const RUNTIME_STATE_CACHE_TTL_MS = 15_000;
-const RUNTIME_STATE_CACHE_MAX_ENTRIES = 200;
 
 export const Route = createFileRoute("/api/projects/$id/runtime")({
   server: {
@@ -322,80 +314,6 @@ async function getRuntimeState({
   writeRuntimeStateCache(userId, id, body);
 
   return Response.json(body);
-}
-
-function readRuntimeStateCache(userId: string, projectId: string) {
-  evictExpiredRuntimeStateCache();
-  const cached = runtimeStateCache.get(runtimeStateCacheKey(userId, projectId));
-
-  if (
-    !cached ||
-    cached.userId !== userId ||
-    cached.projectId !== projectId ||
-    cached.expiresAt <= Date.now()
-  ) {
-    return null;
-  }
-
-  return cached;
-}
-
-export function invalidateProjectRuntimeStateCache(projectId: string) {
-  for (const [key, entry] of runtimeStateCache) {
-    if (entry.projectId === projectId) {
-      runtimeStateCache.delete(key);
-    }
-  }
-}
-
-function writeRuntimeStateCache(
-  userId: string,
-  projectId: string,
-  body: unknown,
-) {
-  evictExpiredRuntimeStateCache();
-  const key = runtimeStateCacheKey(userId, projectId);
-
-  runtimeStateCache.delete(key);
-
-  while (runtimeStateCache.size >= RUNTIME_STATE_CACHE_MAX_ENTRIES) {
-    const oldestKey = runtimeStateCache.keys().next().value;
-
-    if (typeof oldestKey !== "string") {
-      break;
-    }
-
-    runtimeStateCache.delete(oldestKey);
-  }
-
-  runtimeStateCache.set(key, {
-    body: createCacheSafeRuntimeBody(body),
-    expiresAt: Date.now() + RUNTIME_STATE_CACHE_TTL_MS,
-    projectId,
-    userId,
-  });
-}
-
-function evictExpiredRuntimeStateCache() {
-  const now = Date.now();
-
-  for (const [key, entry] of runtimeStateCache) {
-    if (entry.expiresAt <= now) {
-      runtimeStateCache.delete(key);
-    }
-  }
-}
-
-function runtimeStateCacheKey(userId: string, projectId: string) {
-  return `${userId.length}:${userId}${projectId}`;
-}
-
-function createCacheSafeRuntimeBody(body: unknown) {
-  return JSON.parse(
-    JSON.stringify(body, (key, value) =>
-      key === "logText" ? undefined : value,
-    ),
-  ) as unknown;
 }
 
 type RuntimeOperation = {

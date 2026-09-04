@@ -18,6 +18,8 @@ kanban-plugin: board
 
 ## Ready for Review
 
+- [ ] 🛡️ **[#60] Full-Stack Bulletproofing Architecture Suite & High-Leverage Domain Decoupling**: Introduce comprehensive Bulletproof React architecture suite (`.agents/skills/bulletproofing/`), eliminate domain-to-route inversions, decouple visual edit and runtime caching from HTTP routes, thin massive delivery shells (`_main.waitlist.tsx`, `api.projects.ts`, `_main.support.tsx`, `api.projects.$id.visual-edit.ts`), and establish Triple-Threat data contracts with colocated unit tests (+8 test files, +18 passing tests, zero breaks) #architecture #bulletproofing #dx #refactor
+
 - [ ] 🛍️ **[#59] Landing Page Value Proposition, WhatsApp Closing Focus, and Complete Navigation**: Replace feature-centric speed pitch with customer-outcome storefront messaging ("Bikin Website Katalog, Chat WhatsApp Langsung Siap Beli"), add real WhatsApp before-and-after comparison with animated rough-notation highlighters, reframe tech stack to buyer mobile performance, address real merchant hesitations in FAQ (menu changes, WhatsApp order routing, zero-laptop requirement, transparent trial energy model), expand footer into 4-column layout, and expose static routes in sitemap #ui #ux #copy #home
 
 - [ ] 🧭 **[#54] Checkpoint Success Boundary After Canceled Builds**: Derive post-build/update mode from the latest successful checkpoint or build rather than mutable `Project.status`, ensure update recommendations carry `postBuildUpdate`, route them to the surgical edit path, and never advance checkpoints for triggered, failed, or canceled operations #engine #data #workspace

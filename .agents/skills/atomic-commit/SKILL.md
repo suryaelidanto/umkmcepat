@@ -1,6 +1,6 @@
 ---
 name: atomic-commit
-description: Stage isolated task changes locally and craft precise, high-standard Conventional Commits. Never push to remote. Never touch or discard other agents' uncommitted files.
+description: Use when staging and committing isolated changes locally using Conventional Commits.
 ---
 
 # Atomic Commit & Conventional Commits Guide

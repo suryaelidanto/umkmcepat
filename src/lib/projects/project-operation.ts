@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { prisma as defaultPrisma } from "@/lib/prisma";
-import { invalidateProjectRuntimeStateCache } from "@/routes/api.projects.$id.runtime";
+import { invalidateProjectRuntimeStateCache } from "@/lib/projects/runtime-state-cache";
 
 export type ProjectOperationKind = "build" | "edit";
 

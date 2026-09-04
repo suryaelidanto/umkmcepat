@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { handleVisualEditPost } from "@/routes/api.projects.$id.visual-edit";
+import { handleVisualEditPost } from "@/lib/projects/visual-edit-handler";
 
 export const Route = createFileRoute("/api/projects/$id/edit")({
   server: {

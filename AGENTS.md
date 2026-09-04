@@ -6,7 +6,7 @@ Boot instructions for AI agents working on UMKM Cepat.
 
 - `PRINCIPLES.md` → taste, engineering mindset, and senior developer standards
 - `DEV.md` → workflow, conventions, folder architecture, and typecheck/lint/test gates
-- `.agents/skills/codebase-steward/SKILL.md` → autonomous quality and codebase perfection audit
+- `.agents/skills/bulletproofing/SKILL.md` → architecture, domain organization, thin routes, and codebase perfection audit
 - `PRODUCT.md` → product definition and business context
 - `DESIGN.md` → design system tokens and UI standards
 - `.agents/skills/unslop/SKILL.md` → unslop writing standard (cut AI tells, active voice, plain speech)
@@ -40,6 +40,7 @@ A restrained, trustworthy site generation engine for Indonesian small business o
 - **Self-explanatory code over comments**: Code must be obvious through clear names and modular structure. Never write multi-line block comments or banner dividers (`// ---`). Authored comments delete by default; keep only strictly necessary single-line invariant explanations.
 - **Solid as hell**: Nothing ships without `typecheck + lint + affected tests` passing together. CI is the ultimate gate. Run `bun run check` locally before handoff.
 - **Small and surgical**: One concern per change. A 50-line fix beats a 500-line refactor.
+- **NEVER COMMIT OR PUSH WITHOUT EXPLICIT USER REQUEST (IRON LAW)**: Agents MUST NOT execute `git commit` or `git push` by default. All code and test changes must remain uncommitted and unstaged in the working tree so the developer can freely inspect `git diff`, pick hunks, or discard changes. Only stage or commit if the user explicitly asks for a commit (e.g. "commit ini", "buat atomic commit", or calls `/atomic-commit`). NEVER run `git push` under any circumstances unless explicitly commanded by the user.
 - **Fail loud at trust boundaries**: Validate untrusted input at server boundaries and fail closed on auth, payment, or publishing failures.
 - **Always unslop**: Follow `.agents/skills/unslop/SKILL.md` across all code, prompt strings, and docs. Cut AI filler words, puffery, and passive voice.
 

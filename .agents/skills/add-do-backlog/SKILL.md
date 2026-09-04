@@ -1,6 +1,6 @@
 ---
 name: add-do-backlog
-description: Intelligently draft an isolated backlog task with single contextual emoji, move it straight to In Progress, execute clean implementation + colocated tests, verify via bun run check, transition to Ready for Review, and commit locally.
+description: Use when creating a task from user intent and immediately executing it to completion.
 ---
 
 # Add-Do Backlog Skill
@@ -13,7 +13,6 @@ Unified, end-to-end task creator and executor. Combines `add-backlog` and `do-ba
 2. **Breathing Room Spacing**: Cards in `docs/notes/backlog.md` always maintain a blank newline between each other for clean Obsidian Kanban rendering.
 3. **Iron Law of Testing**: Tests assert deterministic mechanical invariants only (Zod schemas, data contracts, type narrowing, hard boundaries, compilation). Never test AI model prose, classNames, styling strings, or rendered HTML markup snapshots.
 4. **Strict Review Boundary**: Agents NEVER move cards to `## Done`. Completed work stops at `## Ready for Review`. Only the human developer moves approved tasks to `## Done`.
-5. **Local Commit Only**: Stage and commit task changes locally with strict Conventional Commits. Never push to remote without explicit user command.
 
 ---
 
@@ -44,8 +43,3 @@ Unified, end-to-end task creator and executor. Combines `add-backlog` and `do-ba
 ### 5. Transition to Ready for Review
 - Move the completed ticket from `## In Progress` to `## Ready for Review` in `docs/notes/backlog.md`.
 - Never move to `## Done`.
-
-### 6. Atomic Commit
-- Stage modified files explicitly.
-- Craft Conventional Commit (e.g. `feat(media): ... [#XX]` or `fix(chat): ... [#XX]`).
-- Commit locally. Do not push.

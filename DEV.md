@@ -7,12 +7,14 @@ Workflow and engineering standards for UMKM Cepat. For high-level design princip
 ## 1. Core Engineering Rules
 
 - **Domain before file type**: Organize all features by product area or domain first. Never use generic catch-all folders (`hooks`, `utils`, `helpers`, `misc`). Local hooks, schemas, types, and helpers live beside the feature.
+- **Bulletproof architecture & naming standard**: Follow `.agents/skills/bulletproofing/SKILL.md` for exhaustive architecture audits, iron naming conventions, thin delivery routes (< 100 LOC), unidirectional flow, and domain colocation.
 - **Colocated tests**: Single-module unit and component tests sit directly beside the source (`foo.ts` + `foo.test.ts`). Top-level `tests/` is strictly for cross-domain (`tests/unit`), real DB integration (`tests/integration/*.itest.ts`), browser audits (`tests/browser/*.browser.test.ts`), and test harnesses (`tests/support`).
 - **Zero `any`**: `any` disables the type-checker. Use `unknown` with explicit narrowing or Zod parsing. Never commit `@ts-ignore` or `eslint-disable`.
 - **The Unbreakable Bar (never lower the test standard)**: When a test fails, fix the production code and elevate the logic. Never soften assertions (e.g. replacing specific equality with loose `.toBeDefined()`), never delete or comment out valid boundary tests, and never write shallow pass-through tests just to get a cheap green check. If a test caught a break, fix the root cause.
 - **Never test stochastic output, classNames, or HTML markup**: Unit and component tests must assert data structures, Zod schemas, and deterministic contracts. Never assert exact className strings, Tailwind utility lists, HTML tag trees, anchor strings, model answer wording, palette hues, or AI generated snapshots. Testing markup or styling creates rigid template-ish generator behavior. Rendered aesthetic quality belongs to visual inspection.
 - **Single-line comments only**: Write self-explanatory code. Never narrate code, write block comments, or draw ASCII banners (`// ---`). Authored comments delete by default. Keep only strictly necessary single-line explanations for non-obvious invariants.
 - **Fail loud at trust boundaries**: Validate untrusted input at server boundaries, check object ownership on every mutation, and fail closed on auth, payment, or publishing failures.
+- **Never commit or push without explicit request (Iron Law)**: Leave all modified and created files uncommitted in the working tree. Never create git commits or push to remote unless the developer explicitly asks for it. This preserves full developer control over git history and allows immediate inspection of uncommitted diffs.
 - **English for developer surfaces, Indonesian for user copy**: Developer tools, errors, logs, prompts, comments, and documentation are strictly in English. Customer-facing product UI copy is in Indonesian.
 - **No secrets in tracked files**: Environment variables, API keys, tokens, and credentials belong only in `.env` (gitignored). Documentation examples use empty `""` values.
 - **Task Tracking in `docs/notes/backlog.md`**: Living project backlog is maintained as an Obsidian-compatible Kanban board (`Backlog` $\rightarrow$ `In Progress` $\rightarrow$ `Needs Revision / Check Again` $\rightarrow$ `Ready for Review` $\rightarrow$ `Done` $\rightarrow$ `Future / Icebox`).
@@ -28,7 +30,7 @@ Workflow and engineering standards for UMKM Cepat. For high-level design princip
 
 ## 2. Quality Gates & Fast Local Loop
 
-Run `bun run check` locally before committing:
+Run `bun run check` locally before handoff:
 
 ```bash
 bun run check        # Fast cached parallel check: locks + routes + format + lint + typecheck + tests + Knip + discipline + docs
