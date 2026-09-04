@@ -5,6 +5,7 @@ import { ArrowRight } from "lucide-react";
 import { useState, type CSSProperties } from "react";
 
 import { WhatsAppCommunityInvite } from "@/components/community/WhatsAppCommunityInvite";
+import { BeforeAfterSection } from "@/components/home/BeforeAfterSection";
 import { CommunitySection } from "@/components/home/CommunitySection";
 import { EcosystemSection } from "@/components/home/EcosystemSection";
 import { HeroAuroraBackground } from "@/components/home/HeroAuroraBackground";
@@ -174,12 +175,12 @@ function HeroHeadline() {
     <span className="flex flex-wrap justify-center gap-x-[0.13em] gap-y-1">
       <span>Bikin</span>
       <span>Website</span>
-      <span>UMKM</span>
-      <span>dalam</span>
-      <span>5</span>
-      <span>Menit,</span>
+      <span>Katalog,</span>
+      <span>Chat</span>
+      <span>WhatsApp</span>
+      <span>Langsung</span>
       <span className="font-signature relative inline-block text-[1.28em] font-normal leading-[0.78] tracking-normal">
-        100% Gratis.
+        Siap Beli.
         <span
           aria-hidden="true"
           className="absolute inset-x-0 -bottom-1 h-[5px] rounded-full bg-status-success"
@@ -190,7 +191,7 @@ function HeroHeadline() {
 }
 
 function HeroSubline() {
-  return "Tanpa coding, tanpa desainer, tanpa ribet.";
+  return "Calon pembeli paham menu, produk, dan harga sebelum kirim pesan. Kamu hemat waktu, fokus terima transfer.";
 }
 
 export const Route = createFileRoute("/_main/")({
@@ -285,7 +286,10 @@ function HomePage() {
   return (
     <div className="cursor-default bg-[#eceae4] text-[#1c1c1c] dark:bg-[#151515] dark:text-surface-warm-white">
       <ResetCursorOnMount />
-      <section className="relative isolate flex min-h-[calc(100dvh-3.5rem)] flex-col justify-center overflow-hidden px-4 sm:px-spacing-9 lg:px-spacing-10">
+      <section
+        id="buat"
+        className="relative isolate flex min-h-[calc(100dvh-3.5rem)] flex-col justify-center overflow-hidden px-4 sm:px-spacing-9 lg:px-spacing-10"
+      >
         <HeroAuroraBackground />
 
         <HeroContentMotion>
@@ -368,6 +372,7 @@ function HomePage() {
 
       {!hasUser ? (
         <>
+          <BeforeAfterSection />
           <HowItWorksSection />
           <EcosystemSection publishedSiteCount={publishedSiteCount} />
           <CommunitySection />

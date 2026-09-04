@@ -11,31 +11,14 @@ function render(publishedSiteCount: number) {
 }
 
 describe("EcosystemSection", () => {
-  it("renders the single sponsor chip and tech links", () => {
+  it("renders the sponsor chip and become-sponsor link", () => {
     const markup = render(0);
 
     expect(markup).toContain("Didukung oleh");
     expect(markup).toContain('href="https://zenhosta.com/"');
-    expect(markup).toContain(
-      "Dibangun &amp; dijalankan dengan teknologi terbuka",
-    );
-    for (const url of [
-      "https://react.dev/",
-      "https://tailwindcss.com/",
-      "https://ui.shadcn.com/",
-      "https://tanstack.com/",
-      "https://vite.dev/",
-      "https://www.cloudflare.com/",
-      "https://www.postgresql.org/",
-      "https://redis.io/",
-      "https://www.docker.com/",
-    ]) {
-      expect(markup).toContain(`href="${url}"`);
-    }
-
-    expect(markup).not.toContain("status.umkmcepat.com");
-    expect(markup).not.toContain("commit terbuka");
-    expect(markup).not.toContain("github.com");
+    expect(markup).toContain('href="/sponsor"');
+    expect(markup).toContain("Zenhosta");
+    expect(markup).toContain("Menjadi Sponsor");
   });
 
   it("hides the published-sites stat below the minimum threshold", () => {

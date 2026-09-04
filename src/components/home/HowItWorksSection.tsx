@@ -88,7 +88,7 @@ export function HowItWorksSection() {
 
   return (
     <section
-      className="bg-[#eceae4] px-4 pt-spacing-14 pb-spacing-12 text-[#1c1c1c] dark:bg-[#151515] dark:text-surface-warm-white sm:px-spacing-9 sm:pt-spacing-16 sm:pb-spacing-14 lg:px-spacing-10"
+      className="bg-[#eceae4] px-4 py-spacing-12 text-[#1c1c1c] dark:bg-[#151515] dark:text-surface-warm-white sm:px-spacing-9 sm:py-spacing-13 lg:px-spacing-10 lg:py-spacing-14"
       id="cara-kerja"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
