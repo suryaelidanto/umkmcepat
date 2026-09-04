@@ -23,6 +23,10 @@ import { useSession } from "@/lib/auth/auth-client";
 import { useFeatureFlag } from "@/lib/config/use-feature-flag";
 import { useRouter } from "@/lib/navigation";
 import {
+  createProjectApi,
+  type CreateProjectResponse,
+} from "@/lib/projects/client/create-project";
+import {
   addAttachments,
   hasUploadingAttachments,
   MAX_COMPOSER_IMAGES,
@@ -311,48 +315,19 @@ export function HomePromptForm({
     );
   }
 
-  const createMutation = useCacheMutation<
-    { assetIds: string[]; id: string; path: string },
-    string
-  >({
+  const createMutation = useCacheMutation<CreateProjectResponse, string>({
     mutationFn: async (value) => {
       const idempotencyKey = getProjectCreateIdempotencyKey(value);
-      const form = new FormData();
-      form.append("prompt", value);
-      form.append("mode", "discuss");
-      form.append("idempotencyKey", idempotencyKey);
-      for (const attachment of attachments) {
-        if (attachment.assetId) {
-          form.append("assetIds", attachment.assetId);
-        }
-      }
+      const assetIds = attachments
+        .map((attachment) => attachment.assetId)
+        .filter((assetId): assetId is string => Boolean(assetId));
 
-      const response = await fetch("/api/projects", {
-        body: form,
-        method: "POST",
+      return createProjectApi({
+        assetIds,
+        idempotencyKey,
+        mode: "discuss",
+        prompt: value,
       });
-
-      const contentType = response.headers.get("content-type") ?? "";
-      if (!contentType.toLowerCase().includes("application/json")) {
-        throw new Error("Gagal membuat website.");
-      }
-
-      const result = (await response.json().catch(() => null)) as {
-        assetIds?: string[];
-        id?: string;
-        message?: string;
-        path?: string;
-      } | null;
-
-      if (!response.ok || !result?.id || !result?.path) {
-        throw new Error(result?.message || "Gagal membuat website.");
-      }
-
-      return {
-        assetIds: result.assetIds ?? [],
-        id: result.id,
-        path: result.path,
-      };
     },
     invalidateKeys: [queryKeys.projects, queryKeys.energy],
     onSuccess: async (data) => {
