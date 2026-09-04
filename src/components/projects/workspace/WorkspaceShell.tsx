@@ -1,33 +1,28 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useWorkspaceAnnotations } from "./useWorkspaceAnnotations";
 import { useWorkspaceBuild } from "./useWorkspaceBuild";
 import { useWorkspaceChat } from "./useWorkspaceChat";
 import { useWorkspaceDirectEdit } from "./useWorkspaceDirectEdit";
+import { useWorkspaceLayout } from "./useWorkspaceLayout";
+import { useWorkspaceTitle } from "./useWorkspaceTitle";
 import { buildWorkspaceRuntimeControl } from "./workspace-helpers";
 import { WorkspaceChatPane } from "./WorkspaceChatPane";
 import { WorkspaceNavigation } from "./WorkspaceNavigation";
 import { WorkspacePreviewPane } from "./WorkspacePreviewPane";
+import { WorkspaceRenameModal } from "./WorkspaceRenameModal";
 
-import type { BuildTab } from "@/components/projects/workspace/WorkspacePrimitives";
 import type { ProjectBrief, WorkspaceCard } from "@/lib/projects/brief";
 import type { UIMessage } from "ai";
-import type { PanelImperativeHandle } from "react-resizable-panels";
 
 import {
   VisualFeedbackWidget,
   WorkspaceMobileMenuSheet,
+  type BuildTab,
 } from "@/components/projects/workspace/WorkspacePrimitives";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -40,9 +35,8 @@ import {
   isWorkspaceBuildComplete,
   shouldUseGeneratedPreviewFrame,
 } from "@/lib/projects/workspace-sync";
-import { queryKeys, useCacheMutation } from "@/lib/query-client";
+import { queryKeys } from "@/lib/query-client";
 import { uploadTempImageFile } from "@/lib/storage/uploads/temp-image-client";
-import { useIsDesktopViewport } from "@/lib/use-is-desktop-viewport";
 
 export {
   MAX_CHAT_BYTES,
@@ -83,33 +77,21 @@ export function WorkspaceShell({
   projectId,
   readOnly = false,
 }: WorkspaceShellProps) {
-  const isDesktop = useIsDesktopViewport();
   const queryClient = useQueryClient();
   const { status: authStatus } = useSession();
 
   const [mode, setMode] = useState<"build" | "discuss">("discuss");
   const [viewport, setViewport] = useState<"desktop" | "mobile">("desktop");
   const [activeTab, setActiveTab] = useState<BuildTab>("preview");
-
-  const hasInitialPreview = ["passed", "ready", "succeeded"].includes(
-    initialStatus,
-  );
-  const [mobileSurface, setMobileSurface] = useState<"chat" | "preview">(
-    hasInitialPreview ? "preview" : "chat",
-  );
-  const [chatCollapsed, setChatCollapsed] = useState(false);
-  const [previewCollapsed, setPreviewCollapsed] = useState(!hasInitialPreview);
-
-  const [projectTitle, setProjectTitle] = useState(initialTitle);
-  const [draftTitle, setDraftTitle] = useState(initialTitle);
-  const [isRenaming, setIsRenaming] = useState(false);
-  const [mobileRenameOpen, setMobileRenameOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
   const [latestBrief, setLatestBrief] = useState<ProjectBrief | null>(
     initialBrief ?? null,
   );
   const [sessionExpired, setSessionExpired] = useState(false);
+
+  const hasInitialPreview = ["passed", "ready", "succeeded"].includes(
+    initialStatus,
+  );
   const [postBuildChatOpen, setPostBuildChatOpen] = useState(
     () =>
       hasInitialPreview ||
@@ -122,41 +104,37 @@ export function WorkspaceShell({
     "feature.composer_uploads_enabled",
   );
 
-  const chatPanelRef = useRef<PanelImperativeHandle | null>(null);
-  const previewPanelRef = useRef<PanelImperativeHandle | null>(null);
-  const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const layout = useWorkspaceLayout({ activeTab, hasInitialPreview });
+  const title = useWorkspaceTitle({ initialTitle, projectId, readOnly });
 
   useEffect(() => {
     if (authStatus === "unauthenticated") {
       setSessionExpired(true);
     }
-  }, [authStatus]);
-
-  useEffect(() => {
     return () => {
       document.body.style.cursor = "";
       document.documentElement.style.cursor = "";
     };
-  }, []);
+  }, [authStatus]);
 
   const build = useWorkspaceBuild({
     activeTab,
     initialStatus,
     onBuildError: () => {
       setMode("discuss");
-      setMobileSurface("chat");
-      setChatCollapsed(false);
+      layout.setMobileSurface("chat");
+      layout.setChatCollapsed(false);
     },
     onBuildSuccess: () => {
       setPostBuildChatOpen(true);
       setMode("discuss");
-      setMobileSurface("chat");
+      layout.setMobileSurface("chat");
     },
     onEnergyInvalidate: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.energy });
     },
-    onSetChatCollapsed: setChatCollapsed,
-    onSetMobileSurface: setMobileSurface,
+    onSetChatCollapsed: layout.setChatCollapsed,
+    onSetMobileSurface: layout.setMobileSurface,
     onSetMode: setMode,
     onSetPostBuildChatOpen: setPostBuildChatOpen,
     projectId,
@@ -170,7 +148,6 @@ export function WorkspaceShell({
   });
 
   const isBuilding = build.buildStatus === "building";
-
   const workspaceCardRef = useRef<WorkspaceCard>(initialWorkspaceCard);
 
   const directEdit = useWorkspaceDirectEdit({
@@ -179,15 +156,13 @@ export function WorkspaceShell({
     onAnnotationTarget: (target) => annotations.handleAnnotationTarget(target),
     onAppendBuildProgressStep: build.setBuildProgress,
     onBuildStatusChange: build.setBuildStatus,
-    onCollapseChatPanel: () => chatPanelRef.current?.collapse(),
-    onCompleteBuildProgress: () => {
-      build.setBuildProgress([]);
-    },
-    onExpandChatPanel: () => chatPanelRef.current?.expand(),
+    onCollapseChatPanel: () => layout.chatPanelRef.current?.collapse(),
+    onCompleteBuildProgress: () => build.setBuildProgress([]),
+    onExpandChatPanel: () => layout.chatPanelRef.current?.expand(),
     onModeChange: setMode,
     onReloadPreview: build.reloadPreview,
     onSetBuildStartedAt: build.setBuildStartedAt,
-    onSetChatCollapsed: setChatCollapsed,
+    onSetChatCollapsed: layout.setChatCollapsed,
     onSetWorkspaceCard: (card) => {
       workspaceCardRef.current = card;
       chat.setWorkspaceCard(card);
@@ -208,9 +183,7 @@ export function WorkspaceShell({
     isProcessing: false,
     onAppendBuildProgressStep: build.setBuildProgress,
     onBuildStatusChange: build.setBuildStatus,
-    onCompleteBuildProgress: () => {
-      build.setBuildProgress([]);
-    },
+    onCompleteBuildProgress: () => build.setBuildProgress([]),
     onDirectEditModeChange: directEdit.setDirectEditMode,
     onEnergyInvalidate: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.energy });
@@ -243,75 +216,21 @@ export function WorkspaceShell({
     readOnly,
     sessionExpired,
     setBuildProgress: build.setBuildProgress,
-    setDraftTitle,
+    setDraftTitle: title.setDraftTitle,
     setLatestBrief,
     setMode,
     setPostBuildChatOpen,
-    setProjectTitle,
+    setProjectTitle: title.setProjectTitle,
     startBuild: async () => {
       build.setBuildStatus("building");
       build.setBuildStartedAt(Date.now());
       build.setBuildProgress([]);
       build.resetProgressDeduper();
       setMode("build");
-      setMobileSurface("chat");
+      layout.setMobileSurface("chat");
     },
     submitDirectEdit: directEdit.submitDirectEdit,
   });
-
-  const saveTitleMutation = useCacheMutation<
-    { title: string },
-    { title: string }
-  >({
-    invalidateKeys: [queryKeys.projects],
-    mutationFn: async ({ title }) => {
-      const response = await fetch(`/api/projects/${projectId}/title`, {
-        body: JSON.stringify({ title }),
-        headers: { "Content-Type": "application/json" },
-        method: "PATCH",
-      });
-      const result = (await response.json().catch(() => null)) as {
-        title?: string;
-      } | null;
-
-      if (!response.ok || !result?.title) {
-        throw new Error("Judul belum berhasil disimpan.");
-      }
-
-      return { title: result.title };
-    },
-    onSuccess: ({ title }) => {
-      setProjectTitle(title);
-      setDraftTitle(title);
-    },
-  });
-
-  const saveProjectTitle = useCallback(async () => {
-    if (readOnly) {
-      setIsRenaming(false);
-      setDraftTitle(projectTitle);
-      return;
-    }
-
-    const title = draftTitle.trim();
-    if (!title || title === projectTitle) {
-      setIsRenaming(false);
-      setDraftTitle(projectTitle);
-      return;
-    }
-
-    setProjectTitle(title);
-    setDraftTitle(title);
-
-    try {
-      await saveTitleMutation.mutateAsync({ title });
-    } catch {
-      setProjectTitle(projectTitle);
-      setDraftTitle(projectTitle);
-    } finally {
-      setIsRenaming(false);
-    }
-  }, [draftTitle, projectTitle, readOnly, saveTitleMutation]);
 
   const previewIssue = getWorkspacePreviewIssue({
     buildStatus: build.buildStatus,
@@ -329,66 +248,7 @@ export function WorkspaceShell({
   });
 
   const hasPreview = shouldRenderGeneratedPreview || hasLastGoodPreview;
-  const showPreviewPanel = !previewCollapsed || hasPreview || isBuilding;
-
-  const openPreviewPanel = useCallback(() => {
-    setMobileSurface("preview");
-    setPreviewCollapsed(false);
-    window.requestAnimationFrame(() => {
-      chatPanelRef.current?.resize("25%");
-      previewPanelRef.current?.resize("75%");
-    });
-  }, []);
-
-  const openChatPanel = useCallback(() => {
-    setMobileSurface("chat");
-    setChatCollapsed(false);
-    setPreviewCollapsed(false);
-    window.requestAnimationFrame(() => {
-      chatPanelRef.current?.resize("25%");
-      previewPanelRef.current?.resize("75%");
-    });
-  }, []);
-
-  const closeChatPanel = useCallback(() => {
-    setChatCollapsed(true);
-    window.requestAnimationFrame(() => {
-      chatPanelRef.current?.collapse();
-      previewPanelRef.current?.resize("100%");
-    });
-  }, []);
-
-  function handleTouchStart(event: React.TouchEvent) {
-    const touch = event.touches[0];
-    if (touch) {
-      swipeStartRef.current = { x: touch.clientX, y: touch.clientY };
-    }
-  }
-
-  function handleTouchEnd(event: React.TouchEvent) {
-    const start = swipeStartRef.current;
-    swipeStartRef.current = null;
-    if (!start) {
-      return;
-    }
-    if (mobileSurface === "preview" && activeTab === "code") {
-      return;
-    }
-    const touch = event.changedTouches[0];
-    if (!touch) {
-      return;
-    }
-    const dx = touch.clientX - start.x;
-    const dy = touch.clientY - start.y;
-    if (Math.abs(dx) < 60 || Math.abs(dy) > 40) {
-      return;
-    }
-    if (dx < 0 && mobileSurface === "chat") {
-      openPreviewPanel();
-    } else if (dx > 0 && mobileSurface === "preview") {
-      openChatPanel();
-    }
-  }
+  const showPreviewPanel = !layout.previewCollapsed || hasPreview || isBuilding;
 
   const runtimeControl = buildWorkspaceRuntimeControl({
     buildStatus: build.buildStatus,
@@ -402,153 +262,78 @@ export function WorkspaceShell({
 
   const chatPane = (
     <WorkspaceChatPane
+      {...chat}
       authStatus={authStatus}
       buildComplete={buildComplete}
       buildProgress={build.buildProgress}
-      buildRecommendationSignature={chat.buildRecommendationSignature}
-      buildRecommendationStorageKey={chat.buildRecommendationStorageKey}
       buildStartedAt={build.buildStartedAt}
-      canStartBuildNow={chat.canStartBuildNow}
-      chatScrollRef={chat.chatScrollRef}
-      closeChatPanel={closeChatPanel}
-      composerState={chat.composerState}
+      closeChatPanel={layout.closeChatPanel}
       composerUploadsEnabled={composerUploadsEnabled}
-      consumedBuildRecommendationSignatures={
-        chat.consumedBuildRecommendationSignatures
-      }
-      dismissBuildRecommendation={chat.dismissBuildRecommendation}
-      draftTitle={draftTitle}
-      draggedComposerFileCount={chat.draggedComposerFileCount}
-      error={chat.error}
-      firstTurnPending={chat.firstTurnPending}
-      handleComposerDragEnter={chat.handleComposerDragEnter}
-      handleComposerDragLeave={chat.handleComposerDragLeave}
-      handleComposerDragOver={chat.handleComposerDragOver}
-      handleComposerDrop={chat.handleComposerDrop}
-      handleMessageKeyDown={chat.handleMessageKeyDown}
-      handleMessageSubmit={chat.handleMessageSubmit}
-      handlePrimaryComposerAction={chat.handlePrimaryComposerAction}
-      handleStartBuild={chat.handleStartBuild}
-      hasActionableRecommendation={chat.hasActionableRecommendation}
-      hasActiveTurnAssistantText={chat.hasActiveTurnAssistantText}
-      hasAnsweredActiveQuestion={chat.hasAnsweredActiveQuestion}
-      hasMoreChat={chat.hasMoreChat}
+      draftTitle={title.draftTitle}
       hasPreview={hasPreview}
-      holdBuildRecommendation={chat.holdBuildRecommendation}
-      ignoreNextScrollRef={chat.ignoreNextScrollRef}
       isBuilding={isBuilding}
-      isChatNearBottom={chat.isChatNearBottom}
-      isDraggingComposerFiles={chat.isDraggingComposerFiles}
-      isLoadingOlderChat={chat.isLoadingOlderChat}
-      isPreparingNextQuestion={chat.isPreparingNextQuestion}
-      isProcessing={chat.isProcessing}
-      isRenaming={isRenaming}
-      isResponding={chat.isResponding}
-      isRetrying={chat.isRetrying}
-      isSubmittingTurn={chat.isSubmittingTurn}
-      loadOlderChat={chat.loadOlderChat}
-      message={chat.message}
-      openBuildRecommendation={chat.openBuildRecommendation}
-      openPreviewPanel={openPreviewPanel}
-      pendingAttachments={chat.pendingAttachments}
-      preflightBlockedByCard={chat.preflightBlockedByCard}
+      isRenaming={title.isRenaming}
+      openPreviewPanel={layout.openPreviewPanel}
       projectId={projectId}
-      projectTitle={projectTitle}
-      questionComposerMode={chat.questionComposerMode}
-      rateLimitError={chat.rateLimitError}
+      projectTitle={title.projectTitle}
       readOnly={readOnly}
-      resumeError={chat.resumeError}
-      retryChat={chat.retryChat}
-      retryWorkspaceCard={chat.retryWorkspaceCard}
-      saveProjectTitle={saveProjectTitle}
-      scrollChatToBottom={chat.scrollChatToBottom}
+      saveProjectTitle={title.saveProjectTitle}
       sessionExpired={sessionExpired}
       setActiveTab={setActiveTab}
-      setDraftTitle={setDraftTitle}
-      setHeldBuildRecommendationSignature={
-        chat.setHeldBuildRecommendationSignature
-      }
-      setIsRenaming={setIsRenaming}
-      setMessage={chat.setMessage}
+      setDraftTitle={title.setDraftTitle}
+      setIsRenaming={title.setIsRenaming}
       setMode={setMode}
-      setPendingAttachments={chat.setPendingAttachments}
       setPostBuildChatOpen={setPostBuildChatOpen}
-      setQuestionComposerMode={chat.setQuestionComposerMode}
-      setShowScrollToBottom={chat.setShowScrollToBottom}
-      shouldStickToBottomRef={chat.shouldStickToBottomRef}
-      showScrollToBottom={chat.showScrollToBottom}
       signOut={async () => {}}
       stopCurrentJob={chat.stop}
-      submitChatText={chat.submitChatText}
       uploadTempImageFile={uploadTempImageFile}
-      visibleMessages={chat.visibleMessages}
-      workspaceCard={chat.workspaceCard}
-      workspaceCardError={chat.workspaceCardError}
     />
   );
 
   const previewPane = (
     <WorkspacePreviewPane
+      {...directEdit}
+      {...annotations}
       activeTab={activeTab}
-      addPendingAnnotation={annotations.addPendingAnnotation}
-      annotations={annotations.annotations}
       buildStatus={build.buildStatus}
-      chatCollapsed={chatCollapsed}
-      closeChatPanel={closeChatPanel}
+      chatCollapsed={layout.chatCollapsed}
+      closeChatPanel={layout.closeChatPanel}
       directEditFlagEnabled={directEditFlagEnabled}
-      editHistory={directEdit.editHistory}
-      editIntentHistory={directEdit.editIntentHistory}
-      editLayoutSignal={directEdit.editLayoutSignal}
-      effectiveDirectEditMode={directEdit.effectiveDirectEditMode}
-      handleAnnotationTarget={annotations.handleAnnotationTarget}
-      handleDiscard={directEdit.handleDiscard}
-      handleRedo={directEdit.handleRedo}
-      handleUndo={directEdit.handleUndo}
       hasInitialPreview={hasInitialPreview}
       hasLastGoodPreview={hasLastGoodPreview}
-      initialTitle={projectTitle}
+      initialTitle={title.projectTitle}
       isBuilding={isBuilding}
       isLoadingSource={build.isLoadingSource}
       loadRuntimeState={() => void build.loadRuntimeState()}
       onRefreshPreview={build.reloadPreview}
       onRetrySource={build.reloadSource}
-      openChatPanel={openChatPanel}
-      pendingAnnotationComment={annotations.pendingAnnotationComment}
-      pendingAnnotationTarget={annotations.pendingAnnotationTarget}
-      pendingEditLayout={directEdit.pendingEditLayout}
+      openChatPanel={layout.openChatPanel}
       previewIssue={previewIssue}
       previewReloadKey={build.previewReloadKey}
       projectId={projectId}
-      queueDirectEditIntent={directEdit.queueDirectEditIntent}
       readOnly={readOnly}
       recoverPreviewRuntime={() => void build.recoverPreviewRuntime()}
       runtimeControl={runtimeControl}
-      saveDirectEdit={directEdit.saveDirectEdit}
-      sendFrameAction={directEdit.sendFrameAction}
       setActiveTab={setActiveTab}
-      setEditIntentHistory={directEdit.setEditIntentHistory}
-      setMobileSurface={setMobileSurface}
-      setPendingAnnotationComment={annotations.setPendingAnnotationComment}
-      setPendingAnnotationTarget={annotations.setPendingAnnotationTarget}
+      setMobileSurface={layout.setMobileSurface}
       setViewport={setViewport}
       shouldRenderGeneratedPreview={shouldRenderGeneratedPreview}
       sourceError={build.sourceError}
       sourceFiles={build.sourceFiles}
       sourceStatus={build.sourceStatus}
       startBuild={() => void chat.handleStartBuild()}
-      toggleDirectEdit={directEdit.toggleDirectEdit}
       viewport={viewport}
     />
   );
 
   return (
     <div
-      className="flex h-dvh flex-col overflow-hidden bg-[#eceae4] text-[#1c1c1c] transition-colors duration-200 dark:bg-[#10100f] dark:text-surface-warm-white"
-      onTouchEnd={handleTouchEnd}
-      onTouchStart={handleTouchStart}
+      className="flex h-dvh flex-col overflow-hidden bg-background text-foreground transition-colors duration-200"
+      onTouchEnd={layout.handleTouchEnd}
+      onTouchStart={layout.handleTouchStart}
     >
       {readOnly ? (
-        <div className="shrink-0 border-b border-black/10 bg-black/[0.04] px-spacing-4 py-spacing-3 text-sm text-[#5f5f5d] dark:border-surface-warm-white/10 dark:bg-surface-warm-white/8 dark:text-surface-warm-white/82">
+        <div className="shrink-0 border-b border-border/40 bg-muted/30 px-spacing-4 py-spacing-3 text-sm text-muted-foreground">
           Mode admin baca-saja. Kamu melihat proyek seperti pengguna, tanpa izin
           mengubah atau mengirim aksi.
         </div>
@@ -556,35 +341,35 @@ export function WorkspaceShell({
 
       <WorkspaceNavigation
         hasPreview={hasPreview}
-        mobileSurface={mobileSurface}
-        onOpenChat={openChatPanel}
+        mobileSurface={layout.mobileSurface}
+        onOpenChat={layout.openChatPanel}
         onOpenMenu={() => setMobileMenuOpen(true)}
-        onOpenPreview={openPreviewPanel}
+        onOpenPreview={layout.openPreviewPanel}
         onOpenRename={() => {
-          setDraftTitle(projectTitle);
-          setMobileRenameOpen(true);
+          title.setDraftTitle(title.projectTitle);
+          title.setMobileRenameOpen(true);
         }}
-        projectTitle={projectTitle}
+        projectTitle={title.projectTitle}
         readOnly={readOnly}
       />
 
-      {/* Mobile/tablet: single full-screen surface toggled by bottom nav */}
-      {!isDesktop ? (
+      {!layout.isDesktop ? (
         <div className="min-h-0 flex-1 overflow-hidden lg:hidden">
-          {mobileSurface === "chat" && chatPane}
-          {mobileSurface === "preview" && showPreviewPanel ? previewPane : null}
+          {layout.mobileSurface === "chat" && chatPane}
+          {layout.mobileSurface === "preview" && showPreviewPanel
+            ? previewPane
+            : null}
         </div>
       ) : null}
 
-      {/* Desktop: side-by-side resizable panels */}
-      {isDesktop ? (
+      {layout.isDesktop ? (
         <ResizablePanelGroup
           orientation="horizontal"
           className="min-h-0 flex-1 overflow-hidden"
         >
           <ResizablePanel
             id="chat"
-            panelRef={chatPanelRef}
+            panelRef={layout.chatPanelRef}
             defaultSize="28%"
             minSize="20%"
             maxSize="45%"
@@ -597,11 +382,11 @@ export function WorkspaceShell({
             <>
               <ResizableHandle
                 withHandle
-                className="bg-surface-warm-white/8 transition-colors hover:bg-surface-warm-white/16"
+                className="bg-border/20 transition-colors hover:bg-border/40"
               />
               <ResizablePanel
                 id="preview"
-                panelRef={previewPanelRef}
+                panelRef={layout.previewPanelRef}
                 defaultSize="75%"
                 minSize="8%"
                 collapsible
@@ -626,52 +411,13 @@ export function WorkspaceShell({
         />
       ) : null}
 
-      {/* Mobile Rename Modal */}
-      <Dialog open={mobileRenameOpen} onOpenChange={setMobileRenameOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Ubah nama website</DialogTitle>
-            <DialogDescription>
-              Beri nama yang mudah dikenali untuk website usahamu.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-3 py-2">
-            <input
-              type="text"
-              value={draftTitle}
-              onChange={(e) => setDraftTitle(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  void saveProjectTitle();
-                  setMobileRenameOpen(false);
-                }
-              }}
-              className="h-11 w-full rounded-xl border border-black/15 bg-black/[0.02] px-3.5 text-sm font-semibold text-[#1c1c1c] outline-none focus:border-black/40 dark:border-surface-warm-white/15 dark:bg-surface-warm-white/5 dark:text-surface-warm-white"
-              placeholder="Nama website..."
-              autoFocus
-            />
-            <div className="flex justify-end gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => setMobileRenameOpen(false)}
-                className="h-9 rounded-lg px-3.5 text-xs font-semibold text-[#5f5f5d] transition-colors hover:bg-black/5 dark:text-surface-warm-white/70 dark:hover:bg-surface-warm-white/8 cursor-pointer"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  void saveProjectTitle();
-                  setMobileRenameOpen(false);
-                }}
-                className="h-9 rounded-lg bg-[#1c1c1c] px-4 text-xs font-semibold text-white transition-colors hover:bg-black dark:bg-surface-warm-white dark:text-[#10100f] dark:hover:bg-white cursor-pointer"
-              >
-                Simpan
-              </button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <WorkspaceRenameModal
+        draftTitle={title.draftTitle}
+        onOpenChange={title.setMobileRenameOpen}
+        onSave={() => void title.saveProjectTitle()}
+        open={title.mobileRenameOpen}
+        setDraftTitle={title.setDraftTitle}
+      />
 
       <WorkspaceMobileMenuSheet
         activeTab={activeTab}
@@ -682,8 +428,8 @@ export function WorkspaceShell({
         onOpenChange={setMobileMenuOpen}
         onPickTab={(tab) => {
           setActiveTab(tab);
-          setMobileSurface("preview");
-          openPreviewPanel();
+          layout.setMobileSurface("preview");
+          layout.openPreviewPanel();
         }}
         onToggleDirectEdit={directEdit.toggleDirectEdit}
         open={mobileMenuOpen}
