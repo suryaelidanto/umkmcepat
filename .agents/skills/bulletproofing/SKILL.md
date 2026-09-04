@@ -33,6 +33,9 @@ For deep implementation specifications, refer to the companion modules in `refer
 - [**04 — Resilience, Error Boundaries & Security**](./references/04-resilience-and-security.md): Localized error boundaries, error classification, PBAC ownership checks, and XSS sanitization.
 - [**05 — Performance Patterns & Re-render Defense**](./references/05-performance-patterns.md): `children` prop re-render barrier, state initializer functions, context velocity rules, and route-level lazy loading.
 - [**06 — The Audit Toolkit & Command Suite**](./references/06-audit-toolkit.md): Exact shell commands for fat files, loose typing, inline fetch calls, dead code, and the audit scorecard template.
+- [**07 — State Management & The 5 State Tiers**](./references/07-state-management.md): URL-as-state, server cache vs client store segregation, form state locality, and context velocity laws.
+- [**08 — Component Design & Styling Tokens**](./references/08-component-patterns-and-styling.md): The 3 component tiers (UI primitives, feature components, layout shells), nested render function anti-pattern, discriminated union props, and CVA token discipline.
+- [**09 — Testing & Mocking Boundaries**](./references/09-testing-and-mocking-boundaries.md): The full-stack testing trophy, edge-only boundary mocking, deterministic mechanical contracts over stochastic UI tests, and lightweight test harness recipes.
 
 ---
 
