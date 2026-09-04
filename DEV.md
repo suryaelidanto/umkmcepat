@@ -7,6 +7,7 @@ Workflow and engineering standards for UMKM Cepat. For high-level design princip
 ## 1. Core Engineering Rules
 
 - **Domain before file type**: Organize all features by product area or domain first. Never use generic catch-all folders (`hooks`, `utils`, `helpers`, `misc`). Local hooks, schemas, types, and helpers live beside the feature.
+- **Bulletproof architecture & naming standard**: Follow `.agents/skills/bulletproofing/SKILL.md` for exhaustive architecture audits, iron naming conventions, thin delivery routes (< 100 LOC), unidirectional flow, and domain colocation.
 - **Colocated tests**: Single-module unit and component tests sit directly beside the source (`foo.ts` + `foo.test.ts`). Top-level `tests/` is strictly for cross-domain (`tests/unit`), real DB integration (`tests/integration/*.itest.ts`), browser audits (`tests/browser/*.browser.test.ts`), and test harnesses (`tests/support`).
 - **Zero `any`**: `any` disables the type-checker. Use `unknown` with explicit narrowing or Zod parsing. Never commit `@ts-ignore` or `eslint-disable`.
 - **The Unbreakable Bar (never lower the test standard)**: When a test fails, fix the production code and elevate the logic. Never soften assertions (e.g. replacing specific equality with loose `.toBeDefined()`), never delete or comment out valid boundary tests, and never write shallow pass-through tests just to get a cheap green check. If a test caught a break, fix the root cause.

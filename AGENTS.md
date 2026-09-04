@@ -6,7 +6,7 @@ Boot instructions for AI agents working on UMKM Cepat.
 
 - `PRINCIPLES.md` → taste, engineering mindset, and senior developer standards
 - `DEV.md` → workflow, conventions, folder architecture, and typecheck/lint/test gates
-- `.agents/skills/codebase-steward/SKILL.md` → autonomous quality and codebase perfection audit
+- `.agents/skills/bulletproofing/SKILL.md` → architecture, domain organization, thin routes, and codebase perfection audit
 - `PRODUCT.md` → product definition and business context
 - `DESIGN.md` → design system tokens and UI standards
 - `.agents/skills/unslop/SKILL.md` → unslop writing standard (cut AI tells, active voice, plain speech)
