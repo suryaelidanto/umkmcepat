@@ -1,6 +1,6 @@
 ---
 name: bulletproofing
-description: Use when auditing, organizing, refactoring, or elevating codebase architecture, domain boundaries, naming conventions, thin routes, and type safety to production-grade standards.
+description: Use when auditing, refactoring, or organizing codebase architecture, domain boundaries, and thin routes.
 ---
 
 # Bulletproofing
@@ -121,10 +121,3 @@ Before claiming any work is done, run the complete verification suite:
 bun run check        # Full gate: locks + routes + format + lint + typecheck + tests + knip + discipline + docs
 ```
 If any check fails, fix the root cause immediately.
-
-### Step 2.4: Atomic Commit
-Commit locally on the working branch with precise conventional commits:
-```bash
-git commit -m "refactor(<domain>): <concise active-voice description>"
-```
-**Never push to remote unless explicitly commanded by the user.**

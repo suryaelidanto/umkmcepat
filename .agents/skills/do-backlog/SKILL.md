@@ -1,6 +1,6 @@
 ---
 name: do-backlog
-description: Use when the user asks to work on, execute, or process tasks from docs/notes/backlog.md. Evaluates revisions, priorities, and domain clusters, proposes a clear batch execution plan, and waits for user confirmation before coding.
+description: Use when picking, planning, or executing tasks from the project backlog.
 disable-model-invocation: true
 ---
 
@@ -34,7 +34,7 @@ Kanban orchestrator. Evaluates backlog priorities, checks revisions, and cluster
    - Write minimal, surgical code + colocated tests.
    - Follow the **Iron Law**: Assert only deterministic JSON schemas, data contracts, and error boundaries. Never assert AI prose, classNames, CSS styles, or DOM markup.
 
-4. **Verify & Stage**:
+4. **Verify**:
    - Run `bun run check`.
    - Move completed ticket(s) from `## In Progress` to `## Ready for Review`.
    - **IRON RULE**: NEVER move cards to `## Done`. Only the human developer moves approved tasks to `## Done`.

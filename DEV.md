@@ -14,6 +14,7 @@ Workflow and engineering standards for UMKM Cepat. For high-level design princip
 - **Never test stochastic output, classNames, or HTML markup**: Unit and component tests must assert data structures, Zod schemas, and deterministic contracts. Never assert exact className strings, Tailwind utility lists, HTML tag trees, anchor strings, model answer wording, palette hues, or AI generated snapshots. Testing markup or styling creates rigid template-ish generator behavior. Rendered aesthetic quality belongs to visual inspection.
 - **Single-line comments only**: Write self-explanatory code. Never narrate code, write block comments, or draw ASCII banners (`// ---`). Authored comments delete by default. Keep only strictly necessary single-line explanations for non-obvious invariants.
 - **Fail loud at trust boundaries**: Validate untrusted input at server boundaries, check object ownership on every mutation, and fail closed on auth, payment, or publishing failures.
+- **Never commit or push without explicit request (Iron Law)**: Leave all modified and created files uncommitted in the working tree. Never create git commits or push to remote unless the developer explicitly asks for it. This preserves full developer control over git history and allows immediate inspection of uncommitted diffs.
 - **English for developer surfaces, Indonesian for user copy**: Developer tools, errors, logs, prompts, comments, and documentation are strictly in English. Customer-facing product UI copy is in Indonesian.
 - **No secrets in tracked files**: Environment variables, API keys, tokens, and credentials belong only in `.env` (gitignored). Documentation examples use empty `""` values.
 - **Task Tracking in `docs/notes/backlog.md`**: Living project backlog is maintained as an Obsidian-compatible Kanban board (`Backlog` $\rightarrow$ `In Progress` $\rightarrow$ `Needs Revision / Check Again` $\rightarrow$ `Ready for Review` $\rightarrow$ `Done` $\rightarrow$ `Future / Icebox`).
@@ -29,7 +30,7 @@ Workflow and engineering standards for UMKM Cepat. For high-level design princip
 
 ## 2. Quality Gates & Fast Local Loop
 
-Run `bun run check` locally before committing:
+Run `bun run check` locally before handoff:
 
 ```bash
 bun run check        # Fast cached parallel check: locks + routes + format + lint + typecheck + tests + Knip + discipline + docs

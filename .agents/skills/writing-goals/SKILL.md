@@ -1,6 +1,6 @@
 ---
 name: writing-goals
-description: Use when drafting, reviewing, or structuring agent goals, work programs, or long-running execution objectives. Triggers include preparing an AFK or hand-off execution run, scoping multi-phase engineering work, and turning broad user intent into verifiable deliverables.
+description: Use when defining, structuring, or reviewing long-running engineering goals and milestones.
 ---
 
 # Writing Goals

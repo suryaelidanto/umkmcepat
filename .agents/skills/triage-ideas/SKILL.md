@@ -1,6 +1,6 @@
 ---
 name: triage-ideas
-description: Triage raw thoughts and inspect all attached images from docs/notes/ideas.md into structured Kanban tasks with [#XX] codes, contextual icon, and clean spacing in docs/notes/backlog.md, backup to docs/notes/ideas-old/<timestamp>.md, and clear ideas.md.
+description: Use when triaging raw thoughts or product ideas into structured backlog tasks.
 disable-model-invocation: true
 ---
 

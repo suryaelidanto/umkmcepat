@@ -1,6 +1,6 @@
 ---
 name: push-branch
-description: Use when changes on the current active feature/topic branch must be committed, pushed, and validated by CI.
+description: Use when pushing branch commits to remote and monitoring CI check results.
 disable-model-invocation: true
 ---
 

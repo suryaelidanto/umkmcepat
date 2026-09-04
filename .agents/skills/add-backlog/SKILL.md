@@ -1,6 +1,6 @@
 ---
 name: add-backlog
-description: Use when adding explicit, isolated tasks, bugs, or feature tickets with [#XX] codes, single contextual emoji icon, clean spacing, and domain tags directly into docs/notes/backlog.md.
+description: Use when adding a new task, bug, or feature ticket to the project backlog.
 disable-model-invocation: true
 ---
 
