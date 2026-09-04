@@ -752,7 +752,6 @@ function findLastMessageIndex(
   }
   return -1;
 }
-export { buildChatSystemPrompt } from "@/lib/projects/prompts/chat-system-prompt";
 
 function hasBriefPatchValue(patch: object) {
   return Object.values(patch).some((value) =>

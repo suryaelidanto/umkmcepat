@@ -317,7 +317,7 @@ describe("project runtime route", () => {
 
   it("allows cache invalidation for a specific project", async () => {
     const { invalidateProjectRuntimeStateCache } =
-      await import("@/routes/api.projects.$id.runtime");
+      await import("@/lib/projects/runtime-state-cache");
     expect(typeof invalidateProjectRuntimeStateCache).toBe("function");
     invalidateProjectRuntimeStateCache("project_1");
   });

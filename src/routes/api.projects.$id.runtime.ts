@@ -21,7 +21,6 @@ import {
 import { getRuntimeSupervisor } from "@/lib/projects/runtime-supervisor";
 import { markStaleProjectBuilds } from "@/lib/projects/stale-builds";
 import { isAdminEmail } from "@/lib/waitlist/waitlist";
-export { invalidateProjectRuntimeStateCache } from "@/lib/projects/runtime-state-cache";
 
 export const Route = createFileRoute("/api/projects/$id/runtime")({
   server: {
