@@ -8,7 +8,7 @@ import { Link } from "@/components/ui/link";
 export function Footer() {
   return (
     <footer className="border-t border-black/10 bg-[#eceae4] text-[#1c1c1c] dark:border-white/[0.07] dark:bg-[#151515] dark:text-surface-warm-white">
-      <div className="mx-auto max-w-7xl px-4 py-spacing-10 sm:px-6 sm:py-spacing-12 lg:px-spacing-10 lg:py-spacing-13">
+      <div className="mx-auto max-w-7xl px-4 py-spacing-12 sm:px-6 sm:py-spacing-13 lg:px-spacing-10 lg:py-spacing-14">
         <div className="grid grid-cols-1 gap-spacing-8 sm:grid-cols-2 md:grid-cols-5 lg:gap-spacing-10">
           <div className="flex flex-col items-start md:col-span-2">
             <Link

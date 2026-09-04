@@ -61,7 +61,7 @@ export function BeforeAfterSection() {
   return (
     <section
       aria-labelledby="perbandingan-heading"
-      className="bg-[#eceae4] px-4 py-spacing-10 text-[#1c1c1c] dark:bg-[#151515] dark:text-surface-warm-white sm:px-spacing-9 sm:py-spacing-12 lg:px-spacing-10 lg:py-spacing-13"
+      className="bg-[#eceae4] px-4 py-spacing-12 text-[#1c1c1c] dark:bg-[#151515] dark:text-surface-warm-white sm:px-spacing-9 sm:py-spacing-13 lg:px-spacing-10 lg:py-spacing-14"
       id="perbandingan"
     >
       <div className="mx-auto max-w-5xl">
@@ -229,7 +229,7 @@ export function BeforeAfterSection() {
         </div>
 
         {/* BAGIAN 2: 5 PILAR NILAI BISNIS DENGAN HIGHLIGHTER */}
-        <div className="mt-spacing-10 sm:mt-spacing-12 lg:mt-spacing-13">
+        <div className="mt-spacing-14 sm:mt-spacing-15 lg:mt-spacing-16">
           <ScrollReveal>
             <div className="mb-spacing-8">
               <p className="font-mono text-xs uppercase tracking-widest text-[#5f5f5d] dark:text-surface-warm-white/50">

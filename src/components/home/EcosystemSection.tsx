@@ -40,7 +40,7 @@ export function EcosystemSection({
   publishedSiteCount: number;
 }) {
   return (
-    <section className="bg-[#eceae4] px-4 py-spacing-10 text-[#1c1c1c] dark:bg-[#151515] dark:text-surface-warm-white sm:px-spacing-9 sm:py-spacing-12 lg:px-spacing-10 lg:py-spacing-13">
+    <section className="bg-[#eceae4] px-4 py-spacing-12 text-[#1c1c1c] dark:bg-[#151515] dark:text-surface-warm-white sm:px-spacing-9 sm:py-spacing-13 lg:px-spacing-10 lg:py-spacing-14">
       <div className="mx-auto max-w-6xl space-y-spacing-8 sm:space-y-spacing-10">
         <ScrollReveal>
           <div className="text-center">
