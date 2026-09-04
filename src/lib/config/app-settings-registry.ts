@@ -95,7 +95,7 @@ export const APP_SETTINGS: ConfigEntry[] = [
     tier: "basic",
     type: "string",
     label: "Tema Bawaan Situs (Default Theme)",
-    fallback: "dark",
+    fallback: "system",
     enumOptions: ["dark", "light", "system"],
   },
 

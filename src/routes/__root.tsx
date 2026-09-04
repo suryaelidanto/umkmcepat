@@ -22,7 +22,7 @@ import "@/styles/globals.css";
 const loadRootConfig = createServerFn({ method: "GET" }).handler(async () => {
   const [defaultTheme, maintenanceMode, maintenanceMessage] = await Promise.all(
     [
-      getSetting("feature.default_theme", "dark").catch(() => "dark"),
+      getSetting("feature.default_theme", "system").catch(() => "system"),
       getSetting("feature.maintenance_mode", false).catch(() => false),
       getSetting(
         "feature.maintenance_message",
@@ -217,7 +217,7 @@ function RootComponent() {
   const router = useRouter();
   const nonce = resolveNonce(router.options.ssr?.nonce);
   const loaderData = Route.useLoaderData();
-  const defaultTheme = loaderData?.defaultTheme || "dark";
+  const defaultTheme = loaderData?.defaultTheme || "system";
   const maintenanceMode = loaderData?.maintenanceMode || false;
   const maintenanceMessage = loaderData?.maintenanceMessage || "";
   const turnstileSiteKey = loaderData?.turnstileSiteKey || "";
@@ -257,7 +257,7 @@ function RootDocument({
           nonce={nonce}
           suppressHydrationWarning
           dangerouslySetInnerHTML={{
-            __html: `!function(){try{var d=document.documentElement,c=d.classList;c.remove('dark','light');var e=localStorage.getItem('theme');var t=e||${JSON.stringify(defaultTheme)};if(t==='system'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}c.add(t);d.style.colorScheme=t;window.__PUBLIC_CONFIG__={NEXT_PUBLIC_TURNSTILE_SITE_KEY:${JSON.stringify(turnstileSiteKey)},turnstileSiteKey:${JSON.stringify(turnstileSiteKey)}};}catch(e){}}();`,
+            __html: `!function(){try{var d=document.documentElement,c=d.classList;c.remove('dark','light');var e=localStorage.getItem('theme');var t=e||${JSON.stringify(defaultTheme)};if(t==='system'||!t){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}c.add(t);d.style.colorScheme=t;window.__PUBLIC_CONFIG__={NEXT_PUBLIC_TURNSTILE_SITE_KEY:${JSON.stringify(turnstileSiteKey)},turnstileSiteKey:${JSON.stringify(turnstileSiteKey)}};}catch(e){}}();`,
           }}
         />
         <HeadContent />

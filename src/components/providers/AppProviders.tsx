@@ -39,7 +39,7 @@ function ThemedApp({
     <ThemeProvider
       attribute="class"
       defaultTheme={theme}
-      enableSystem={theme === "system"}
+      enableSystem
       forcedTheme={undefined}
       nonce={nonce}
     >

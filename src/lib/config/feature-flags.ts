@@ -12,12 +12,12 @@ export async function getPublicFlags(): Promise<
     PUBLIC_APP_SETTINGS.map(async (key) => {
       try {
         if (key === "feature.default_theme") {
-          return [key, await getSetting(key, "dark")] as const;
+          return [key, await getSetting(key, "system")] as const;
         }
         return [key, await getSetting(key, false)] as const;
       } catch {
         if (key === "feature.default_theme") {
-          return [key, "dark"] as const;
+          return [key, "system"] as const;
         }
         return [key, false] as const;
       }
