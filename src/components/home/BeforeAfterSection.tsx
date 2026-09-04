@@ -2,6 +2,7 @@ import { Check, X } from "lucide-react";
 
 import { ScrollReveal } from "@/components/home/ScrollReveal";
 import { AvatarFrame } from "@/components/ui/avatar-frame";
+import { Card, CardContent } from "@/components/ui/card";
 import { Highlighter } from "@/components/ui/highlighter";
 
 const VALUE_POINTS = [
@@ -84,7 +85,7 @@ export function BeforeAfterSection() {
         <div className="mt-spacing-8 grid gap-spacing-5 sm:gap-spacing-6 lg:grid-cols-2">
           {/* KIRI: TANPA WEBSITE */}
           <ScrollReveal delay={0.08}>
-            <div className="flex h-full flex-col justify-between rounded-2xl border border-destructive/20 bg-card p-4.5 shadow-2xs transition-colors sm:p-6">
+            <Card className="flex h-full flex-col justify-between border-destructive/25 p-4.5 sm:p-6">
               <div>
                 <div className="flex items-center justify-between pb-3 border-b border-border">
                   <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-destructive">
@@ -97,84 +98,90 @@ export function BeforeAfterSection() {
                 </div>
 
                 {/* Simulasi Chat Masuk: Tanya-Tanya Doang */}
-                <div className="mt-4 rounded-xl border border-border bg-muted/50 p-3.5">
-                  <div className="flex items-center gap-2.5 border-b border-border pb-2.5">
-                    <AvatarFrame
-                      seed="Calon Pembeli"
-                      className="size-8 rounded-full border border-border"
-                    />
-                    <div>
-                      <p className="text-xs font-semibold text-foreground">
-                        Calon Pembeli (Baru)
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">
-                        online
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 space-y-2.5">
-                    <div className="max-w-[85%] rounded-lg rounded-tl-none bg-background p-2.5 shadow-2xs">
-                      <p className="text-xs text-foreground">
-                        Halo kak, mau tanya menunya apa aja ya?
-                      </p>
-                      <span className="mt-1 block text-right text-[9px] text-muted-foreground">
-                        09.12
-                      </span>
+                <Card variant="muted" size="sm" className="mt-4">
+                  <CardContent className="p-3.5">
+                    <div className="flex items-center gap-2.5 border-b border-border pb-2.5">
+                      <AvatarFrame
+                        seed="Calon Pembeli"
+                        className="size-8 rounded-full border border-border"
+                      />
+                      <div>
+                        <p className="text-xs font-semibold text-foreground">
+                          Calon Pembeli (Baru)
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">
+                          online
+                        </p>
+                      </div>
                     </div>
 
-                    <div className="ml-auto max-w-[85%] rounded-lg rounded-tr-none bg-emerald-100 p-2.5 shadow-2xs dark:bg-emerald-950/60">
-                      <p className="text-xs text-foreground">
-                        Halo, ada ayam geprek, lele terbang, bebek rempah kak.
-                      </p>
-                      <span className="mt-1 block text-right text-[9px] text-muted-foreground">
-                        09.15
-                      </span>
-                    </div>
+                    <div className="mt-3 space-y-2.5">
+                      <div className="max-w-[85%] rounded-lg rounded-tl-none bg-background p-2.5 shadow-2xs">
+                        <p className="text-xs text-foreground">
+                          Halo kak, mau tanya menunya apa aja ya?
+                        </p>
+                        <span className="mt-1 block text-right text-[9px] text-muted-foreground">
+                          09.12
+                        </span>
+                      </div>
 
-                    <div className="max-w-[85%] rounded-lg rounded-tl-none bg-background p-2.5 shadow-2xs">
-                      <p className="text-xs text-foreground">
-                        Harganya berapaan ya? Sambelnya pedes banget nggak? Ada
-                        level berapa aja?
-                      </p>
-                      <span className="mt-1 block text-right text-[9px] text-muted-foreground">
-                        09.18
-                      </span>
-                    </div>
+                      <div className="ml-auto max-w-[85%] rounded-lg rounded-tr-none bg-emerald-100 p-2.5 shadow-2xs dark:bg-emerald-950/60">
+                        <p className="text-xs text-foreground">
+                          Halo, ada ayam geprek, lele terbang, bebek rempah kak.
+                        </p>
+                        <span className="mt-1 block text-right text-[9px] text-muted-foreground">
+                          09.15
+                        </span>
+                      </div>
 
-                    <div className="ml-auto max-w-[85%] rounded-lg rounded-tr-none bg-emerald-100 p-2.5 shadow-2xs dark:bg-emerald-950/60">
-                      <p className="text-xs text-foreground">
-                        Ayam 18rb, lele 15rb, bebek 28rb kak. Level 1-5 ada kak.
-                      </p>
-                      <span className="mt-1 block text-right text-[9px] text-muted-foreground">
-                        09.22
-                      </span>
-                    </div>
+                      <div className="max-w-[85%] rounded-lg rounded-tl-none bg-background p-2.5 shadow-2xs">
+                        <p className="text-xs text-foreground">
+                          Harganya berapaan ya? Sambelnya pedes banget nggak?
+                          Ada level berapa aja?
+                        </p>
+                        <span className="mt-1 block text-right text-[9px] text-muted-foreground">
+                          09.18
+                        </span>
+                      </div>
 
-                    <div className="max-w-[85%] rounded-lg rounded-tl-none bg-background p-2.5 shadow-2xs">
-                      <p className="text-xs text-foreground">
-                        Oke makasih infonya ya kak, saya pikir-pikir dulu 🙏
-                      </p>
-                      <span className="mt-1 block text-right text-[9px] text-muted-foreground">
-                        09.26
-                      </span>
+                      <div className="ml-auto max-w-[85%] rounded-lg rounded-tr-none bg-emerald-100 p-2.5 shadow-2xs dark:bg-emerald-950/60">
+                        <p className="text-xs text-foreground">
+                          Ayam 18rb, lele 15rb, bebek 28rb kak. Level 1-5 ada
+                          kak.
+                        </p>
+                        <span className="mt-1 block text-right text-[9px] text-muted-foreground">
+                          09.22
+                        </span>
+                      </div>
+
+                      <div className="max-w-[85%] rounded-lg rounded-tl-none bg-background p-2.5 shadow-2xs">
+                        <p className="text-xs text-foreground">
+                          Oke makasih infonya ya kak, saya pikir-pikir dulu 🙏
+                        </p>
+                        <span className="mt-1 block text-right text-[9px] text-muted-foreground">
+                          09.26
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                </div>
+                  </CardContent>
+                </Card>
               </div>
 
-              <div className="mt-4 rounded-xl border border-red-500/15 bg-red-500/5 p-3 text-xs text-red-700 dark:text-red-300">
-                <p className="font-medium">
+              <Card
+                size="sm"
+                className="mt-4 border-destructive/20 bg-destructive/10 text-xs text-destructive"
+              >
+                <CardContent className="p-3 font-medium">
                   Habis waktu 15 menit cuma buat kirim foto menu &amp; list
                   harga. Akhirnya pembeli malah hilang.
-                </p>
-              </div>
-            </div>
+                </CardContent>
+              </Card>
+            </Card>
           </ScrollReveal>
 
           {/* KANAN: PAKAI UMKM CEPAT */}
           <ScrollReveal delay={0.2}>
-            <div className="flex h-full flex-col justify-between rounded-2xl border border-emerald-500/30 bg-card p-4.5 shadow-2xs transition-colors sm:p-6">
+            <Card className="flex h-full flex-col justify-between border-emerald-500/40 p-4.5 sm:p-6">
               <div>
                 <div className="flex items-center justify-between pb-3 border-b border-border">
                   <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
@@ -187,67 +194,72 @@ export function BeforeAfterSection() {
                 </div>
 
                 {/* Simulasi Chat Masuk: Format Order Lengkap */}
-                <div className="mt-4 rounded-xl border border-border bg-muted/50 p-3.5">
-                  <div className="flex items-center gap-2.5 border-b border-border pb-2.5">
-                    <AvatarFrame
-                      seed="Dina Lestari"
-                      className="size-8 rounded-full border border-emerald-500/40 ring-1 ring-emerald-500/30"
-                    />
-                    <div>
-                      <p className="text-xs font-semibold text-foreground">
-                        Dina Lestari (Pelanggan)
-                      </p>
-                      <p className="text-[10px] text-emerald-600 dark:text-emerald-400">
-                        pesanan dari website
-                      </p>
+                <Card variant="muted" size="sm" className="mt-4">
+                  <CardContent className="p-3.5">
+                    <div className="flex items-center gap-2.5 border-b border-border pb-2.5">
+                      <AvatarFrame
+                        seed="Dina Lestari"
+                        className="size-8 rounded-full border border-emerald-500/40 ring-1 ring-emerald-500/30"
+                      />
+                      <div>
+                        <p className="text-xs font-semibold text-foreground">
+                          Dina Lestari (Pelanggan)
+                        </p>
+                        <p className="text-[10px] text-emerald-600 dark:text-emerald-400">
+                          pesanan dari website
+                        </p>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="mt-3 space-y-2.5">
-                    <div className="max-w-[92%] rounded-lg rounded-tl-none bg-background p-3 shadow-2xs">
-                      <p className="text-xs font-medium text-foreground">
-                        Halo kak! Saya sudah pilih pesanan dari website:
-                      </p>
-                      <div className="mt-2 rounded border border-border bg-muted/30 p-2 font-mono text-[11px] leading-relaxed text-foreground">
-                        • 2x Ayam Geprek Sambal Korek (Lv 3)
-                        <br />
-                        • 1x Bebek Rempah Sambal Ijo
-                        <br />
-                        • 3x Es Teh Manis
-                        <br />
-                        <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                          Total: Rp 76.000
+                    <div className="mt-3 space-y-2.5">
+                      <div className="max-w-[92%] rounded-lg rounded-tl-none bg-background p-3 shadow-2xs">
+                        <p className="text-xs font-medium text-foreground">
+                          Halo kak! Saya sudah pilih pesanan dari website:
+                        </p>
+                        <div className="mt-2 rounded border border-border bg-muted/30 p-2 font-mono text-[11px] leading-relaxed text-foreground">
+                          • 2x Ayam Geprek Sambal Korek (Lv 3)
+                          <br />
+                          • 1x Bebek Rempah Sambal Ijo
+                          <br />
+                          • 3x Es Teh Manis
+                          <br />
+                          <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                            Total: Rp 76.000
+                          </span>
+                        </div>
+                        <p className="mt-2 text-xs text-foreground">
+                          Bisa minta nomor rekening untuk transfer ya kak? Mau
+                          dikirim jam 12.00 ke Jl. Melati No. 14 🙏
+                        </p>
+                        <span className="mt-1 block text-right text-[9px] text-muted-foreground">
+                          11.02
                         </span>
                       </div>
-                      <p className="mt-2 text-xs text-foreground">
-                        Bisa minta nomor rekening untuk transfer ya kak? Mau
-                        dikirim jam 12.00 ke Jl. Melati No. 14 🙏
-                      </p>
-                      <span className="mt-1 block text-right text-[9px] text-muted-foreground">
-                        11.02
-                      </span>
-                    </div>
 
-                    <div className="ml-auto max-w-[85%] rounded-lg rounded-tr-none bg-emerald-100 p-2.5 shadow-2xs dark:bg-emerald-950/60">
-                      <p className="text-xs text-foreground">
-                        Siap kak Dina! Total Rp 76.000 via BCA 123456789 a/n
-                        Warung Berkah. Langsung kami siapkan ya! 🚀
-                      </p>
-                      <span className="mt-1 block text-right text-[9px] text-muted-foreground">
-                        11.04
-                      </span>
+                      <div className="ml-auto max-w-[85%] rounded-lg rounded-tr-none bg-emerald-100 p-2.5 shadow-2xs dark:bg-emerald-950/60">
+                        <p className="text-xs text-foreground">
+                          Siap kak Dina! Total Rp 76.000 via BCA 123456789 a/n
+                          Warung Berkah. Langsung kami siapkan ya! 🚀
+                        </p>
+                        <span className="mt-1 block text-right text-[9px] text-muted-foreground">
+                          11.04
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                </div>
+                  </CardContent>
+                </Card>
               </div>
 
-              <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-xs text-emerald-800 dark:text-emerald-300">
-                <p className="font-medium">
+              <Card
+                size="sm"
+                className="mt-4 border-emerald-500/20 bg-emerald-500/10 text-xs text-emerald-800 dark:text-emerald-300"
+              >
+                <CardContent className="p-3 font-medium">
                   Pembeli sudah paham menu, harga, dan total belanja sebelum
                   chat. Kamu tinggal kirim nomor rekening.
-                </p>
-              </div>
-            </div>
+                </CardContent>
+              </Card>
+            </Card>
           </ScrollReveal>
         </div>
 

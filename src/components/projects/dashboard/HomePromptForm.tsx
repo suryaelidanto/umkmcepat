@@ -18,6 +18,7 @@ import {
   ComposerAttachButton,
 } from "@/components/projects/chat/ComposerAttachments";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { useSession } from "@/lib/auth/auth-client";
 import { useFeatureFlag } from "@/lib/config/use-feature-flag";
 import { useRouter } from "@/lib/navigation";
@@ -457,12 +458,17 @@ export function HomePromptForm({
 
   if (overLimit) {
     return (
-      <div className="mx-auto mt-6 sm:mt-10 w-full max-w-2xl rounded-2xl border border-black/10 bg-black/[0.03] px-6 py-4 text-center text-[#1c1c1c] dark:border-white/10 dark:bg-white/[0.04] dark:text-surface-warm-white">
-        <p className="text-sm font-medium leading-relaxed">
-          Kamu sudah mencapai batas website. Hapus yang tidak terpakai untuk
-          membuat yang baru.
-        </p>
-      </div>
+      <Card
+        variant="muted"
+        className="mx-auto mt-6 w-full max-w-2xl px-6 py-4 text-center sm:mt-10"
+      >
+        <CardContent className="p-0">
+          <p className="text-sm font-medium leading-relaxed text-foreground">
+            Kamu sudah mencapai batas website. Hapus yang tidak terpakai untuk
+            membuat yang baru.
+          </p>
+        </CardContent>
+      </Card>
     );
   }
 
@@ -480,20 +486,20 @@ export function HomePromptForm({
             onFocusChange?.(false);
           }
         }}
-        className={`relative mx-auto mt-6 sm:mt-10 w-full max-w-3xl overflow-visible rounded-2xl border bg-white text-left shadow-[0_20px_48px_rgba(0,0,0,0.08)] ring-1 transition-all duration-300 ease-out dark:bg-[#1c1c1a] dark:shadow-[0_24px_48px_rgba(0,0,0,0.45)] ${
+        className={`relative mx-auto mt-6 sm:mt-10 w-full max-w-3xl overflow-visible rounded-2xl border bg-card text-left shadow-[0_20px_48px_rgba(0,0,0,0.08)] ring-1 transition-all duration-300 ease-out dark:shadow-[0_24px_48px_rgba(0,0,0,0.45)] ${
           isDraggingFiles
             ? "border-action-primary ring-2 ring-action-primary/30 dark:border-surface-warm-white dark:ring-surface-warm-white/30 scale-[1.01]"
-            : "border-black/10 ring-black/[0.04] focus-within:scale-[1.02] focus-within:border-accent-orange focus-within:ring-accent-orange/30 dark:border-white/10 dark:ring-white/[0.05] dark:focus-within:border-[#2f8cff]/55 dark:focus-within:ring-[#2f8cff]/35"
+            : "border-border ring-border/30 focus-within:scale-[1.02] focus-within:border-accent-orange focus-within:ring-accent-orange/30"
         }`}
       >
         {isDraggingFiles ? (
-          <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center rounded-2xl bg-white/90 backdrop-blur-xs dark:bg-[#1c1c1a]/90">
-            <p className="text-sm font-semibold text-foreground dark:text-surface-warm-white">
+          <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center rounded-2xl bg-card/90 backdrop-blur-xs">
+            <p className="text-sm font-semibold text-foreground">
               {draggedFileCount > 1
                 ? `Lepaskan ${draggedFileCount} gambar di sini`
                 : "Lepaskan 1 gambar di sini"}
             </p>
-            <p className="mt-1 text-xs text-muted-foreground dark:text-surface-warm-white/60">
+            <p className="mt-1 text-xs text-muted-foreground">
               Format JPG, JPEG, PNG, atau WebP (maks. 5 MB)
             </p>
           </div>
@@ -510,7 +516,7 @@ export function HomePromptForm({
           placeholder={placeholder ?? ""}
           maxLength={PROJECT_REQUEST_MAX_LENGTH}
           disabled={isLoading}
-          className="h-28 w-full resize-none break-words bg-transparent px-4 pb-3 pt-4 text-sm leading-6 text-[#1c1c1c] outline-none [overflow-wrap:anywhere] [scrollbar-width:none] placeholder:text-[#1c1c1c]/45 disabled:opacity-70 dark:text-surface-warm-white dark:placeholder:text-surface-warm-white/52 [-ms-overflow-style:none] sm:h-36 sm:px-spacing-9 sm:pb-spacing-7 sm:pt-spacing-9 sm:text-lg sm:leading-7 [&::-webkit-scrollbar]:hidden"
+          className="h-28 w-full resize-none break-words bg-transparent px-4 pb-3 pt-4 text-sm leading-6 text-foreground outline-none [overflow-wrap:anywhere] [scrollbar-width:none] placeholder:text-muted-foreground disabled:opacity-70 sm:h-36 sm:px-spacing-9 sm:pb-spacing-7 sm:pt-spacing-9 sm:text-lg sm:leading-7 [&::-webkit-scrollbar]:hidden"
         />
         {attachments.length > 0 ? (
           <div className="px-4 pb-3 sm:px-spacing-6 sm:pb-spacing-4">
@@ -523,12 +529,12 @@ export function HomePromptForm({
           </div>
         ) : null}
         <div className="flex items-center justify-between gap-3 px-4 pb-4 pt-1 sm:gap-spacing-7 sm:px-spacing-9 sm:pb-spacing-7 sm:pt-0">
-          <span className="text-xs sm:text-sm tabular-nums text-[#5f5f5d] dark:text-surface-warm-white/58">
+          <span className="text-xs sm:text-sm tabular-nums text-muted-foreground">
             {prompt.length.toLocaleString("id-ID")} / 1.200 karakter
           </span>
           <div className="flex items-center gap-3 sm:gap-spacing-5">
             {isUploading || isLoading ? (
-              <span className="hidden text-sm text-[#5f5f5d] sm:inline dark:text-surface-warm-white/58">
+              <span className="hidden text-sm text-muted-foreground sm:inline">
                 {isUploading ? "Mengunggah gambar..." : "Menyiapkan..."}
               </span>
             ) : null}

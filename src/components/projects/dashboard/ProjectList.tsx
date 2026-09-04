@@ -7,6 +7,13 @@ import { createProjectMark } from "./project-mark";
 
 import { Button } from "@/components/ui/button";
 import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardTitle,
+} from "@/components/ui/card";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -152,19 +159,26 @@ export function ProjectList({
 
   if (projects.length === 0) {
     return (
-      <div className="mt-spacing-8 rounded-radius-2xl border border-black/10 bg-black/[0.02] p-spacing-9 text-center text-[#5f5f5d] transition-colors duration-200 dark:border-surface-warm-white/10 dark:bg-surface-warm-white/[0.04] dark:text-surface-warm-white/60 sm:p-spacing-11">
-        <p className="text-base">Belum ada website yang dibuat.</p>
-        <p className="mt-spacing-2 text-sm text-[#5f5f5d] dark:text-surface-warm-white/44">
-          Tulis cerita usahamu di atas untuk mulai membuat website pertama.
-        </p>
-      </div>
+      <Card
+        variant="muted"
+        className="mt-spacing-8 p-spacing-9 text-center sm:p-spacing-11"
+      >
+        <CardContent className="p-0">
+          <p className="text-base text-muted-foreground">
+            Belum ada website yang dibuat.
+          </p>
+          <p className="mt-spacing-2 text-sm text-muted-foreground/70">
+            Tulis cerita usahamu di atas untuk mulai membuat website pertama.
+          </p>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
     <>
       <div className="mt-spacing-8 flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wider text-[#5f5f5d] dark:text-surface-warm-white/50">
+        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Total: {count}/{limit} Website
         </span>
         {overLimit ? (
@@ -191,7 +205,7 @@ export function ProjectList({
             variant="outline"
             onClick={() => void projectsQuery.fetchNextPage()}
             disabled={projectsQuery.isFetchingNextPage}
-            className="rounded-radius-lg border-black/15 bg-black/[0.04] text-[#1c1c1c] hover:bg-black/[0.08] dark:border-surface-warm-white/15 dark:bg-surface-warm-white/5 dark:text-surface-warm-white dark:hover:bg-surface-warm-white/10"
+            className="rounded-radius-lg border-border bg-card text-foreground hover:bg-muted"
           >
             {projectsQuery.isFetchingNextPage
               ? "Memuat..."
@@ -247,10 +261,14 @@ function ProjectCard({
   onDelete: (project: Project) => void;
 }) {
   return (
-    <article className="group relative flex flex-col overflow-hidden rounded-2xl border border-black/10 bg-[#fcfbf8] shadow-sm transition-all duration-300 hover:border-black/25 hover:shadow-md dark:border-surface-warm-white/10 dark:bg-surface-warm-white/[0.045] dark:shadow-none dark:hover:border-surface-warm-white/25 dark:hover:bg-surface-warm-white/[0.06]">
+    <Card
+      as="article"
+      interactive
+      className="group relative flex flex-col overflow-hidden p-0"
+    >
       <Link
         href={`/projects/${project.id}`}
-        className="block overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-black/50 dark:focus-visible:ring-surface-warm-white"
+        className="block overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-primary"
         aria-label={`Buka website ${project.title}`}
       >
         <ProjectPreviewThumb
@@ -258,19 +276,19 @@ function ProjectCard({
           className="h-36 transition-transform duration-300 group-hover:scale-[1.02] sm:h-44"
         />
       </Link>
-      <div className="flex flex-1 flex-col p-4 sm:p-5">
-        <h3 className="line-clamp-1 text-base font-semibold tracking-tight text-[#1c1c1c] dark:text-surface-warm-white">
+      <CardContent className="flex flex-1 flex-col p-4 sm:p-5">
+        <CardTitle className="line-clamp-1 text-base font-semibold tracking-tight">
           <Link
             href={`/projects/${project.id}`}
-            className="rounded-radius-sm outline-none hover:underline focus-visible:ring-2 focus-visible:ring-black/50 dark:focus-visible:ring-surface-warm-white"
+            className="rounded-radius-sm outline-none hover:underline focus-visible:ring-2 focus-visible:ring-primary"
           >
             {project.title}
           </Link>
-        </h3>
-        <p className="mt-1 text-xs text-[#5f5f5d] dark:text-surface-warm-white/54">
+        </CardTitle>
+        <CardDescription className="mt-1 text-xs">
           Diubah {formatDate(project.updatedAt)}
-        </p>
-        <div className="mt-4 grid grid-cols-2 gap-2 pt-3 border-t border-black/5 dark:border-surface-warm-white/5">
+        </CardDescription>
+        <CardFooter className="mt-4 grid grid-cols-2 gap-2 border-t border-border/50 p-0 pt-3">
           <Button
             asChild
             size="sm"
@@ -287,9 +305,9 @@ function ProjectCard({
           >
             Hapus
           </Button>
-        </div>
-      </div>
-    </article>
+        </CardFooter>
+      </CardContent>
+    </Card>
   );
 }
 
