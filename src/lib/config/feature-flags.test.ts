@@ -48,7 +48,7 @@ describe("getPublicFlags", () => {
     expect(flags).toEqual({
       "feature.composer_uploads_enabled": false,
       "feature.visual_edit_enabled": false,
-      "feature.default_theme": "dark",
+      "feature.default_theme": "system",
     });
   });
 
@@ -68,7 +68,7 @@ describe("getPublicFlags", () => {
     );
     expect(getSettingMock).toHaveBeenCalledWith(
       "feature.default_theme",
-      "dark",
+      "system",
     );
   });
 });

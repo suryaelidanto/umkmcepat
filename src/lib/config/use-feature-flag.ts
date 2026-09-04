@@ -36,5 +36,5 @@ export function useDefaultThemeSetting(initialTheme?: string): string {
   if (typeof val === "string") {
     return val;
   }
-  return initialTheme || "dark";
+  return initialTheme || "system";
 }

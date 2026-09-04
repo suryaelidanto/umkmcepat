@@ -49,6 +49,21 @@ function bypassViteTransformForProjectApis(): Plugin {
   };
 }
 
+// Cache local font files in development to prevent FOUT re-fetching on refresh
+function cacheStaticFonts(): Plugin {
+  return {
+    name: "cache-static-fonts",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (req.url?.startsWith("/fonts/")) {
+          res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        }
+        next();
+      });
+    },
+  };
+}
+
 export default defineConfig({
   envPrefix: ["VITE_", "NEXT_PUBLIC_"],
   css: {
@@ -68,6 +83,7 @@ export default defineConfig({
   plugins: [
     rejectUnsafeRequestPaths(),
     bypassViteTransformForProjectApis(),
+    cacheStaticFonts(),
     tailwindcss(),
     tanstackStart(),
     nitro({
