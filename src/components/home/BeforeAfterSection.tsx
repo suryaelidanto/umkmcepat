@@ -1,6 +1,7 @@
 import { Check, X } from "lucide-react";
 
 import { ScrollReveal } from "@/components/home/ScrollReveal";
+import { AvatarFrame } from "@/components/ui/avatar-frame";
 import { Highlighter } from "@/components/ui/highlighter";
 
 const VALUE_POINTS = [
@@ -60,7 +61,7 @@ export function BeforeAfterSection() {
   return (
     <section
       aria-labelledby="perbandingan-heading"
-      className="bg-[#eceae4] px-4 py-spacing-14 text-[#1c1c1c] dark:bg-[#151515] dark:text-surface-warm-white sm:px-spacing-9 sm:py-spacing-17 lg:px-spacing-10"
+      className="bg-[#eceae4] px-4 py-spacing-10 text-[#1c1c1c] dark:bg-[#151515] dark:text-surface-warm-white sm:px-spacing-9 sm:py-spacing-12 lg:px-spacing-10 lg:py-spacing-13"
       id="perbandingan"
     >
       <div className="mx-auto max-w-5xl">
@@ -97,10 +98,11 @@ export function BeforeAfterSection() {
 
                 {/* Simulasi Chat Masuk: Tanya-Tanya Doang */}
                 <div className="mt-4 rounded-xl border border-black/5 bg-[#ece8de] p-3.5 dark:border-white/5 dark:bg-[#141413]">
-                  <div className="flex items-center gap-2 border-b border-black/5 pb-2.5 dark:border-white/5">
-                    <div className="grid size-7 place-items-center rounded-full bg-black/10 text-xs font-bold text-[#5f5f5d] dark:bg-white/10 dark:text-surface-warm-white/70">
-                      ?
-                    </div>
+                  <div className="flex items-center gap-2.5 border-b border-black/5 pb-2.5 dark:border-white/5">
+                    <AvatarFrame
+                      seed="Calon Pembeli"
+                      className="size-8 rounded-full border border-black/10 dark:border-white/15"
+                    />
                     <div>
                       <p className="text-xs font-semibold text-[#1c1c1c] dark:text-surface-warm-white">
                         Calon Pembeli (Baru)
@@ -165,10 +167,11 @@ export function BeforeAfterSection() {
 
                 {/* Simulasi Chat Masuk: Sudah Jadi Order Siap Bayar */}
                 <div className="mt-4 rounded-xl border border-emerald-500/20 bg-[#ece8de] p-3.5 dark:border-white/5 dark:bg-[#141413]">
-                  <div className="flex items-center gap-2 border-b border-black/5 pb-2.5 dark:border-white/5">
-                    <div className="grid size-7 place-items-center rounded-full bg-emerald-500/20 text-xs font-bold text-emerald-700 dark:text-emerald-400">
-                      ✓
-                    </div>
+                  <div className="flex items-center gap-2.5 border-b border-black/5 pb-2.5 dark:border-white/5">
+                    <AvatarFrame
+                      seed="Dina Lestari"
+                      className="size-8 rounded-full border border-emerald-500/30 ring-1 ring-emerald-500/20"
+                    />
                     <div>
                       <p className="text-xs font-semibold text-[#1c1c1c] dark:text-surface-warm-white">
                         Pembeli dari Website
@@ -226,7 +229,7 @@ export function BeforeAfterSection() {
         </div>
 
         {/* BAGIAN 2: 5 PILAR NILAI BISNIS DENGAN HIGHLIGHTER */}
-        <div className="mt-spacing-14 sm:mt-spacing-17">
+        <div className="mt-spacing-10 sm:mt-spacing-12 lg:mt-spacing-13">
           <ScrollReveal>
             <div className="mb-spacing-8">
               <p className="font-mono text-xs uppercase tracking-widest text-[#5f5f5d] dark:text-surface-warm-white/50">
